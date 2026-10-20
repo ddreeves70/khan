@@ -1,0 +1,24 @@
+# Build output
+/build/
+/out/
+/install/
+
+# vcpkg
+/vcpkg_installed/
+
+# IDEs and editors
+.vs/
+.vscode/
+.idea/
+*.user
+CMakeUserPresets.json
+compile_commands.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Exports from local testing
+*.stl
+*.step
+*.stp

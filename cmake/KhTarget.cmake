@@ -1,0 +1,35 @@
+# Helpers that give every Khan target the same settings.
+
+# Compiler warnings applied to our own code only (never to dependencies).
+function(kh_set_warnings target)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8)
+    if(KH_WARNINGS_AS_ERRORS)
+      target_compile_options(${target} PRIVATE /WX)
+    endif()
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wno-sign-conversion)
+    if(KH_WARNINGS_AS_ERRORS)
+      target_compile_options(${target} PRIVATE -Werror)
+    endif()
+  endif()
+endfunction()
+
+# kh_add_library(<name> SOURCES ... [DEPS ...] [PRIVATE_DEPS ...])
+# Creates a library with an include/ folder as its public interface and
+# an alias kh::<short name> (for example kh_core -> kh::core).
+function(kh_add_library name)
+  cmake_parse_arguments(ARG "" "" "SOURCES;DEPS;PRIVATE_DEPS" ${ARGN})
+  if(ARG_SOURCES)
+    add_library(${name} ${ARG_SOURCES})
+    target_include_directories(${name} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_link_libraries(${name} PUBLIC ${ARG_DEPS} PRIVATE ${ARG_PRIVATE_DEPS})
+    kh_set_warnings(${name})
+  else()
+    add_library(${name} INTERFACE)
+    target_include_directories(${name} INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_link_libraries(${name} INTERFACE ${ARG_DEPS})
+  endif()
+  string(REGEX REPLACE "^kh_" "" short "${name}")
+  add_library(kh::${short} ALIAS ${name})
+endfunction()
