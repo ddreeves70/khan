@@ -11,6 +11,9 @@
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
+#include <Message.hxx>
+#include <Message_Messenger.hxx>
+#include <Message_PrinterOStream.hxx>
 #include <Poly_Triangulation.hxx>
 #include <STEPControl_Writer.hxx>
 #include <Standard_Failure.hxx>
@@ -23,6 +26,7 @@
 #include <gp_Ax2.hxx>
 #include <gp_Pnt.hxx>
 
+#include <mutex>
 #include <string>
 #include <utility>
 
@@ -65,8 +69,20 @@ std::string utf8(const std::filesystem::path& p) {
     return std::string(s.begin(), s.end());
 }
 
+// OCCT prints progress and statistics (for example from the STEP writer) to the
+// console by default. Khan reports problems through Diagnostics instead, so the
+// default console printers are removed once per process.
+void silenceOcctConsole() {
+    static std::once_flag once;
+    std::call_once(once, [] {
+        Message::DefaultMessenger()->RemovePrinters(STANDARD_TYPE(Message_PrinterOStream));
+    });
+}
+
 class OcctKernel final : public IKernel {
 public:
+    OcctKernel() { silenceOcctConsole(); }
+
     OpResult makeBox(const Point3& c, double dx, double dy, double dz) override {
         if (dx <= 0 || dy <= 0 || dz <= 0) {
             return failed("kernel.box.size", "A box needs a width, depth and height greater than 0 mm.");

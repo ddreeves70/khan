@@ -23,9 +23,17 @@ ctest --preset system
 ./build/dev/apps/kh_cli/kh_cli demo out.step
 ```
 
-The main developer works on Windows: run commands from a "Developer PowerShell for
-VS 2022" with `VCPKG_ROOT` and `QT_DIR` set (see README). Use forward-compatible,
-cross-platform code; CI also builds on macOS and Linux.
+The main developer works on Windows with the `win` preset from a personal
+`CMakeUserPresets.json`, after running the `vsdev` PowerShell function (see
+docs/windows-setup.md):
+
+```powershell
+cmake --preset win
+cmake --build --preset win
+ctest --preset win
+```
+
+Write cross-platform code; CI also builds on macOS and Linux.
 
 Run the tests after every change. A change is not done until the build has no
 warnings and every test passes.

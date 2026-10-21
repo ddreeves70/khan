@@ -19,45 +19,26 @@ Ninja, Qt 6.4+ and either vcpkg or system packages.
 
 ### Windows (main development platform)
 
-One-time setup:
+Follow **[docs/windows-setup.md](docs/windows-setup.md)** step by step. In short:
 
-1. Install **Visual Studio 2022** (Community is fine) with the **Desktop development with C++**
-   workload. It includes the compiler, CMake and Ninja.
-2. Install **Git for Windows**.
-3. Install **vcpkg** in a short path and point `VCPKG_ROOT` at it (PowerShell):
-
-   ```powershell
-   git clone https://github.com/microsoft/vcpkg C:\dev\vcpkg
-   C:\dev\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-   setx VCPKG_ROOT C:\dev\vcpkg
-   ```
-
-4. Install **Qt 6** with the Qt online installer, choosing the *MSVC 2022 64-bit* component,
-   and point `QT_DIR` at it:
-
-   ```powershell
-   setx QT_DIR C:\Qt\6.8.3\msvc2022_64
-   ```
-
-5. Open a new **Developer PowerShell for VS 2022** (so the new variables and the compiler are found).
-
-Build and test:
+1. Install an up-to-date **Visual Studio 2022** (C++ workload with CMake tools), **Git**,
+   and **Qt 6 (MSVC 2022 64-bit)**, not the MinGW build.
+2. Put vcpkg and the repository in `C:\dev`, not under Documents.
+3. Add the `vsdev` function to your PowerShell profile and run it in each new window.
+4. Copy `CMakeUserPresets.example.json` to `CMakeUserPresets.json` and check its paths.
+5. Build:
 
 ```powershell
-git clone <your repo url> C:\dev\khan
+vsdev
 cd C:\dev\khan
-cmake --preset dev
-cmake --build --preset dev
-ctest --preset dev
-.\build\dev\apps\kh_cli\kh_cli.exe demo tag.step
+cmake --preset win
+cmake --build --preset win
+ctest --preset win
+.\build\win\apps\kh_app\kh_app.exe
 ```
 
-The first configure builds OCCT through vcpkg and can take 30-60 minutes; later builds
-reuse it. To run the desktop app, add `%QT_DIR%\bin` to `PATH` (or run `windeployqt`
-on `build\dev\apps\kh_app\kh_app.exe`).
-
-You can also open the folder directly in Visual Studio 2022 (**File > Open > Folder**);
-it reads `CMakePresets.json` and lets you pick the `dev` preset.
+The first configure builds OCCT through vcpkg and takes 30-60 minutes; later builds
+reuse it. Qt's runtime files are copied next to `kh_app.exe` automatically.
 
 ### macOS and Linux with vcpkg
 
@@ -89,6 +70,7 @@ src/kernel_occt    IKernel on Open CASCADE
 src/model          document, commands, feature graph (growing in Phase 0-2)
 tests/             Catch2 unit tests
 cmake/             build helpers
+docs/              setup guides
 ```
 
 ## Contributing
