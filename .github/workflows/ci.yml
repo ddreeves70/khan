@@ -15,7 +15,9 @@ jobs:
         os: [ubuntu-24.04, windows-2022, macos-14]
 
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      # Our own vcpkg checkout. VCPKG_ROOT is set from this in the "Get vcpkg" step,
+      # after the MSVC step (which points VCPKG_ROOT at Visual Studio's bundled copy).
+      KH_VCPKG_DIR: ${{ github.workspace }}/vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
       # Keep in sync with "builtin-baseline" in vcpkg.json
       VCPKG_COMMIT: 4334d8b4c8916018600212ab4dd4bbdc343065d1
@@ -60,19 +62,38 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
-          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
+          git clone https://github.com/microsoft/vcpkg.git "$KH_VCPKG_DIR"
+          git -C "$KH_VCPKG_DIR" checkout "$VCPKG_COMMIT"
           if [ "$RUNNER_OS" = "Windows" ]; then
-            "$VCPKG_ROOT/bootstrap-vcpkg.bat" -disableMetrics
+            cmd //c "$(cygpath -w "$KH_VCPKG_DIR")\\bootstrap-vcpkg.bat" -disableMetrics
           else
-            "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+            "$KH_VCPKG_DIR/bootstrap-vcpkg.sh" -disableMetrics
           fi
+          echo "VCPKG_ROOT=$KH_VCPKG_DIR" >> "$GITHUB_ENV"
 
       - name: Configure
-        run: cmake --preset ci -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+        shell: bash
+        run: |
+          set -o pipefail
+          cmake --preset ci -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" 2>&1 | tee configure.log
 
       - name: Build
-        run: cmake --build --preset ci
+        shell: bash
+        run: |
+          set -o pipefail
+          cmake --build --preset ci 2>&1 | tee build.log
+
+      # Turn configure, compiler and linker errors into annotations, which can be read
+      # without downloading the full log.
+      - name: Report build errors
+        if: failure()
+        shell: bash
+        run: |
+          cat configure.log build.log 2>/dev/null \
+            | grep -E "error|Error|undefined reference|unresolved external|FAILED:" \
+            | grep -v "^\[" | head -40 | while IFS= read -r line; do
+              echo "::error::${line:0:900}"
+            done
 
       - name: Test
         run: ctest --preset ci
