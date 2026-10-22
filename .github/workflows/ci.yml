@@ -90,8 +90,8 @@ jobs:
         shell: bash
         run: |
           cat configure.log build.log 2>/dev/null \
-            | grep -E "error|Error|undefined reference|unresolved external|FAILED:" \
-            | grep -v "^\[" | head -40 | while IFS= read -r line; do
+            | grep -E "error|Error|undefined|unresolved external|FAILED:|ld:|cannot find|ld returned" \
+            | grep -v "^\[" | awk '!seen[$0]++' | head -45 | while IFS= read -r line; do
               echo "::error::${line:0:900}"
             done
 
