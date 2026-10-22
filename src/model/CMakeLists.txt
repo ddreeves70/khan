@@ -1,8 +1,11 @@
-# kh_model: document, parameters, feature graph, commands and naming.
-# Phase 0 week 3 adds Document, Command, CommandStack and CommandRegistry here.
+# kh_model: document, features, commands and undo. Parameters, the feature graph
+# and naming follow in Phases 1-2.
 kh_add_library(kh_model
   SOURCES
+    Feature.cpp
     Document.cpp
+    Commands.cpp
+    CommandRegistry.cpp
   DEPS
     kh::core
     kh::kernel
