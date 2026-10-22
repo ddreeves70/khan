@@ -30,8 +30,13 @@ public:
     virtual OpResult boolean(BoolOp op, const ShapeHandle& a, const ShapeHandle& b) = 0;
 
     // Queries
-    virtual Box3 bounds(const ShapeHandle& shape) const = 0;
+    virtual Box3 bounds(const ShapeHandle& shape) const = 0;  // tight, not padded
     virtual MassProps massProps(const ShapeHandle& shape) const = 0;
+    virtual Topology topology(const ShapeHandle& shape) const = 0;
+
+    // Checks that the shape is valid and that every solid is closed (watertight).
+    // Returns no diagnostics for a valid closed solid.
+    virtual Diagnostics validate(const ShapeHandle& shape) const = 0;
 
     // Meshing and export
     virtual Mesh tessellate(const ShapeHandle& shape, const MeshQuality& quality) const = 0;

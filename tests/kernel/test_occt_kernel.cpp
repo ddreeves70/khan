@@ -39,6 +39,34 @@ TEST_CASE("Cutting a through-hole removes its volume", "[kernel][occt]") {
     REQUIRE(k->massProps(cut.shape).volume == Approx(expected).epsilon(1e-6));
 }
 
+TEST_CASE("Box topology and validity", "[kernel][occt]") {
+    auto k = makeOcctKernel();
+    auto box = k->makeBox({0, 0, 0}, 10, 20, 30);
+    const auto t = k->topology(box.shape);
+    REQUIRE(t.solids == 1);
+    REQUIRE(t.shells == 1);
+    REQUIRE(t.faces == 6);
+    REQUIRE(t.edges == 12);
+    REQUIRE(t.vertices == 8);
+    REQUIRE(k->validate(box.shape).empty());
+}
+
+TEST_CASE("Cylinder bounds are tight", "[kernel][occt]") {
+    auto k = makeOcctKernel();
+    auto cyl = k->makeCylinder({0, 0, 0}, {0, 0, 1}, 5, 10);
+    const auto b = k->bounds(cyl.shape);
+    REQUIRE(b.min.x == Approx(-5.0).margin(1e-6));
+    REQUIRE(b.max.x == Approx(5.0).margin(1e-6));
+    REQUIRE(b.max.z == Approx(10.0).margin(1e-6));
+}
+
+TEST_CASE("Validating a missing shape reports a problem", "[kernel][occt]") {
+    auto k = makeOcctKernel();
+    const auto issues = k->validate(ShapeHandle{});
+    REQUIRE(issues.size() == 1);
+    REQUIRE(issues[0].code == "shape.missing");
+}
+
 TEST_CASE("Tessellation and STL export produce output", "[kernel][occt]") {
     auto k = makeOcctKernel();
     auto box = k->makeBox({0, 0, 0}, 10, 10, 10);

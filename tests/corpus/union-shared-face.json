@@ -1,0 +1,56 @@
+{
+  "name": "union-shared-face",
+  "description": "Two cubes touching exactly face to face. A classic edge case for Booleans.",
+  "steps": [
+    {
+      "id": "a",
+      "op": "box",
+      "size": [
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "b",
+      "op": "box",
+      "corner": [
+        10,
+        0,
+        0
+      ],
+      "size": [
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "u",
+      "op": "union",
+      "a": "a",
+      "b": "b"
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 2000.0,
+    "area": 1000.0,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        20.0,
+        10.0,
+        10.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 10,
+    "edges": 20,
+    "vertices": 12
+  }
+}

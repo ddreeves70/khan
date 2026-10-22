@@ -1,0 +1,50 @@
+{
+  "name": "union-tangent-cylinders",
+  "description": "Two cylinders touching along a single line. Tangent contact is hard for kernels.",
+  "steps": [
+    {
+      "id": "a",
+      "op": "cylinder",
+      "radius": 5,
+      "height": 10
+    },
+    {
+      "id": "b",
+      "op": "cylinder",
+      "base": [
+        10,
+        0,
+        0
+      ],
+      "radius": 5,
+      "height": 10
+    },
+    {
+      "id": "u",
+      "op": "union",
+      "a": "a",
+      "b": "b"
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 1570.796327,
+    "area": 942.477796,
+    "bounds": [
+      [
+        -5.0,
+        -5.0,
+        0.0
+      ],
+      [
+        15.0,
+        5.0,
+        10.0
+      ]
+    ],
+    "solids": 2,
+    "faces": 7,
+    "edges": 8,
+    "vertices": 4
+  }
+}

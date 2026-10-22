@@ -1,0 +1,56 @@
+{
+  "name": "union-overlap",
+  "description": "Two boxes that overlap partly. Volume should be 2000 + 2000 - 500 mm^3.",
+  "steps": [
+    {
+      "id": "a",
+      "op": "box",
+      "size": [
+        20,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "b",
+      "op": "box",
+      "corner": [
+        10,
+        5,
+        0
+      ],
+      "size": [
+        20,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "u",
+      "op": "union",
+      "a": "a",
+      "b": "b"
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 3500.0,
+    "area": 1600.0,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        30.0,
+        15.0,
+        10.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 14,
+    "edges": 32,
+    "vertices": 20
+  }
+}

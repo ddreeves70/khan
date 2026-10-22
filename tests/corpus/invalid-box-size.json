@@ -1,0 +1,18 @@
+{
+  "name": "invalid-box-size",
+  "description": "A box with zero width must fail with a clear error, not crash.",
+  "steps": [
+    {
+      "id": "box",
+      "op": "box",
+      "size": [
+        0,
+        10,
+        10
+      ]
+    }
+  ],
+  "expect": {
+    "error": "kernel.box.size"
+  }
+}

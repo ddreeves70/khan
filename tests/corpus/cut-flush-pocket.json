@@ -1,0 +1,53 @@
+{
+  "name": "cut-flush-pocket",
+  "description": "A blind round pocket whose top is exactly flush with the top face (coplanar faces).",
+  "steps": [
+    {
+      "id": "box",
+      "op": "box",
+      "size": [
+        20,
+        20,
+        10
+      ]
+    },
+    {
+      "id": "tool",
+      "op": "cylinder",
+      "base": [
+        10,
+        10,
+        5
+      ],
+      "radius": 4,
+      "height": 5
+    },
+    {
+      "id": "c",
+      "op": "cut",
+      "a": "box",
+      "b": "tool"
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 3748.672588,
+    "area": 1725.663706,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        20.0,
+        20.0,
+        10.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 8,
+    "edges": 15,
+    "vertices": 10
+  }
+}

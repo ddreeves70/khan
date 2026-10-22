@@ -81,7 +81,11 @@ below it.
 - Catch2 v3, in `tests/<lib>/test_*.cpp`.
 - Every bug fix adds a test. Every geometry routine gets a property test
   (volumes, bounds, validity), not just a "does not crash" test.
-- From Phase 0 week 2, the geometry regression corpus runs through `kh_cli`.
+- The geometry regression corpus lives in `tests/corpus/` and runs through
+  `kh_cli regress` as part of `ctest` (see `tests/corpus/README.md`). Every new kernel
+  operation or geometry bug fix adds a corpus case.
+- Never update expected corpus values just to make a test pass. Use `--update` only for
+  intended behavior changes, check the new values by hand, and explain them in the commit.
 
 ## Review rules
 

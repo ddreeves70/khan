@@ -1,0 +1,56 @@
+{
+  "name": "thin-slot",
+  "description": "A 0.01 mm wide slot, far thinner than any real feature but well above kernel tolerance.",
+  "steps": [
+    {
+      "id": "box",
+      "op": "box",
+      "size": [
+        20,
+        20,
+        10
+      ]
+    },
+    {
+      "id": "slot",
+      "op": "box",
+      "corner": [
+        9.995,
+        -1,
+        5
+      ],
+      "size": [
+        0.01,
+        22,
+        6
+      ]
+    },
+    {
+      "id": "c",
+      "op": "cut",
+      "a": "box",
+      "b": "slot"
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 3999.0,
+    "area": 1799.9,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        20.0,
+        20.0,
+        10.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 10,
+    "edges": 24,
+    "vertices": 16
+  }
+}

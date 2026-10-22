@@ -68,6 +68,16 @@ struct Mesh {
     std::vector<std::array<std::uint32_t, 3>> triangles;
 };
 
+// Number of distinct topological entities in a shape. Used by tests and the
+// regression corpus to catch changes in how the kernel builds a shape.
+struct Topology {
+    int solids = 0;
+    int shells = 0;
+    int faces = 0;
+    int edges = 0;
+    int vertices = 0;
+};
+
 struct MassProps {
     double volume = 0;  // mm^3
     double area = 0;    // mm^2
