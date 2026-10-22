@@ -1,11 +1,14 @@
 add_executable(kh_tests
   core/test_id.cpp
   model/test_document.cpp
+  model/test_commands.cpp
+  model/test_rebuild.cpp
+  model/test_registry.cpp
 )
 target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model)
 
 if(KH_WITH_OCCT)
-  target_sources(kh_tests PRIVATE kernel/test_occt_kernel.cpp)
+  target_sources(kh_tests PRIVATE kernel/test_occt_kernel.cpp model/test_rebuild_occt.cpp)
   target_link_libraries(kh_tests PRIVATE kh::kernel_occt)
 endif()
 
