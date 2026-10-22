@@ -1,0 +1,56 @@
+{
+  "name": "union-shared-edge",
+  "description": "Two cubes touching only along one edge. The result is two solids sharing an edge.",
+  "steps": [
+    {
+      "id": "a",
+      "op": "box",
+      "size": [
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "b",
+      "op": "box",
+      "corner": [
+        10,
+        10,
+        0
+      ],
+      "size": [
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "u",
+      "op": "union",
+      "a": "a",
+      "b": "b"
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 2000.0,
+    "area": 1200.0,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        20.0,
+        20.0,
+        10.0
+      ]
+    ],
+    "solids": 2,
+    "faces": 12,
+    "edges": 23,
+    "vertices": 14
+  }
+}

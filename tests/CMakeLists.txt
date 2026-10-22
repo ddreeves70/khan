@@ -10,6 +10,16 @@ if(KH_WITH_OCCT)
 endif()
 
 kh_set_warnings(kh_tests)
+# Geometry regression corpus: every tests/corpus/*.json file runs as its own test
+# through kh_cli. Re-run CMake configure after adding a case.
+if(TARGET kh_cli)
+  file(GLOB KH_CORPUS_CASES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/corpus/*.json")
+  foreach(case_file IN LISTS KH_CORPUS_CASES)
+    get_filename_component(case_name "${case_file}" NAME_WE)
+    add_test(NAME "corpus.${case_name}" COMMAND kh_cli regress "${case_file}")
+  endforeach()
+endif()
+
 # PRE_TEST discovery waits until ctest runs, after vcpkg has copied DLLs next to
 # the test executable (needed on Windows).
 catch_discover_tests(kh_tests DISCOVERY_MODE PRE_TEST)

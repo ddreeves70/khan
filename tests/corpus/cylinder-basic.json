@@ -1,0 +1,33 @@
+{
+  "name": "cylinder-basic",
+  "description": "A cylinder, radius 5 mm, height 10 mm. Checks curved faces and tight bounds.",
+  "steps": [
+    {
+      "id": "cyl",
+      "op": "cylinder",
+      "radius": 5,
+      "height": 10
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 785.398163,
+    "area": 471.238898,
+    "bounds": [
+      [
+        -5.0,
+        -5.0,
+        0.0
+      ],
+      [
+        5.0,
+        5.0,
+        10.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 3,
+    "edges": 3,
+    "vertices": 2
+  }
+}

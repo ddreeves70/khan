@@ -1,21 +1,26 @@
-// kh_cli: headless tool for scripting, smoke tests and (from Phase 0 week 2)
-// the geometry regression corpus.
+// kh_cli: headless tool for scripting, smoke tests and the geometry regression corpus.
 //
 //   kh_cli --version
-//   kh_cli demo <out.stl|out.step>   box with a hole, as a toolchain smoke test
+//   kh_cli demo <out.stl|out.step>          box with a hole, as a toolchain smoke test
+//   kh_cli regress [--update] <case|dir>... run regression cases (see tests/corpus/README.md)
 
 #include <cstdio>
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <vector>
 
+#include "Regression.h"
 #include "kh/core/Version.h"
 #include "kh/kernel_occt/OcctKernel.h"
 
 namespace {
 
 int usage() {
-    std::puts("usage: kh_cli --version\n       kh_cli demo <out.stl|out.step>");
+    std::puts(
+        "usage: kh_cli --version\n"
+        "       kh_cli demo <out.stl|out.step>\n"
+        "       kh_cli regress [--update] <case.json|folder>...");
     return 2;
 }
 
@@ -56,6 +61,22 @@ int demo(const std::filesystem::path& out) {
     return 0;
 }
 
+int regress(int argc, char** argv) {
+    kh::cli::RegressionOptions options;
+    std::vector<std::filesystem::path> paths;
+    for (int i = 2; i < argc; ++i) {
+        const std::string_view arg = argv[i];
+        if (arg == "--update") {
+            options.update = true;
+        } else {
+            paths.emplace_back(argv[i]);
+        }
+    }
+    if (paths.empty()) return usage();
+    auto kernel = kh::kernel::makeOcctKernel();
+    return kh::cli::runRegression(*kernel, paths, options);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -66,5 +87,6 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (cmd == "demo" && argc == 3) return demo(argv[2]);
+    if (cmd == "regress") return regress(argc, argv);
     return usage();
 }

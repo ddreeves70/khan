@@ -8,8 +8,11 @@ Works offline, owns no part of your data, and stays free forever.
 ## What works today
 
 - `kh_kernel`: the kernel interface (`IKernel`) that keeps OCCT behind one boundary.
-- `kh_kernel_occt`: boxes, cylinders, Booleans, mass properties, meshing, STEP and STL export.
+- `kh_kernel_occt`: boxes, cylinders, Booleans, mass properties, topology counts,
+  validity checks, meshing, STEP and STL export.
 - `kh_cli demo out.step`: builds a test part (a tag with a hole) and exports it.
+- `kh_cli regress tests/corpus`: runs the geometry regression corpus
+  (see [tests/corpus/README.md](tests/corpus/README.md)).
 - `kh_app`: an empty main window with the planned layout.
 
 ## Building

@@ -1,0 +1,53 @@
+{
+  "name": "cut-misses",
+  "description": "Cutting with a tool that does not touch the body. The body must come back unchanged.",
+  "steps": [
+    {
+      "id": "box",
+      "op": "box",
+      "size": [
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "tool",
+      "op": "cylinder",
+      "base": [
+        50,
+        50,
+        0
+      ],
+      "radius": 2,
+      "height": 10
+    },
+    {
+      "id": "c",
+      "op": "cut",
+      "a": "box",
+      "b": "tool"
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 1000.0,
+    "area": 600.0,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        10.0,
+        10.0,
+        10.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 6,
+    "edges": 12,
+    "vertices": 8
+  }
+}

@@ -83,20 +83,11 @@ jobs:
           set -o pipefail
           cmake --build --preset ci 2>&1 | tee build.log
 
-      # Turn configure, compiler and linker errors into annotations, which can be read
-      # without downloading the full log.
-      - name: Report build errors
-        if: failure()
+      - name: Test
         shell: bash
         run: |
-          cat configure.log build.log 2>/dev/null \
-            | grep -E "error|Error|undefined|unresolved external|FAILED:|ld:|cannot find|ld returned" \
-            | grep -v "^\[" | awk '!seen[$0]++' | head -45 | while IFS= read -r line; do
-              echo "::error::${line:0:900}"
-            done
-
-      - name: Test
-        run: ctest --preset ci
+          set -o pipefail
+          ctest --preset ci 2>&1 | tee test.log
 
       - name: CLI smoke test
         shell: bash
@@ -105,3 +96,15 @@ jobs:
           "$exe" --version
           "$exe" demo smoke.step
           test -s smoke.step
+
+      # Turn configure, compiler, linker and test errors into annotations, which can be read
+      # without downloading the full log.
+      - name: Report build errors
+        if: failure()
+        shell: bash
+        run: |
+          cat configure.log build.log test.log 2>/dev/null \
+            | grep -E "error|Error|undefined|unresolved external|FAILED:|ld:|cannot find|ld returned|^FAIL |Failed  " \
+            | grep -v "^\[" | awk '!seen[$0]++' | head -45 | while IFS= read -r line; do
+              echo "::error::${line:0:900}"
+            done

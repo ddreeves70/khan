@@ -1,0 +1,48 @@
+{
+  "name": "intersect-box-cylinder",
+  "description": "The common part of a cube and a cylinder: a quarter cylinder, volume 250 pi mm^3.",
+  "steps": [
+    {
+      "id": "box",
+      "op": "box",
+      "size": [
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "cyl",
+      "op": "cylinder",
+      "radius": 10,
+      "height": 10
+    },
+    {
+      "id": "i",
+      "op": "intersect",
+      "a": "box",
+      "b": "cyl"
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 785.398163,
+    "area": 514.159265,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        10.0,
+        10.0,
+        10.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 5,
+    "edges": 9,
+    "vertices": 6
+  }
+}

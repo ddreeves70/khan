@@ -1,0 +1,36 @@
+{
+  "name": "box-basic",
+  "description": "A plain 10 x 20 x 30 mm box.",
+  "steps": [
+    {
+      "id": "box",
+      "op": "box",
+      "size": [
+        10,
+        20,
+        30
+      ]
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 6000.0,
+    "area": 2200.0,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        10.0,
+        20.0,
+        30.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 6,
+    "edges": 12,
+    "vertices": 8
+  }
+}

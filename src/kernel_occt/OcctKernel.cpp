@@ -4,6 +4,7 @@
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
@@ -18,8 +19,10 @@
 #include <STEPControl_Writer.hxx>
 #include <Standard_Failure.hxx>
 #include <StlAPI_Writer.hxx>
+#include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
@@ -153,7 +156,8 @@ public:
         const TopoDS_Shape* s = unwrap(h);
         if (!s) return out;
         Bnd_Box box;
-        BRepBndLib::Add(*s, box);
+        // Tight bounds from the exact geometry, without tolerance padding.
+        BRepBndLib::AddOptimal(*s, box, Standard_False, Standard_False);
         if (box.IsVoid()) return out;
         double x0, y0, z0, x1, y1, z1;
         box.Get(x0, y0, z0, x1, y1, z1);
@@ -174,6 +178,50 @@ public:
         out.volume = vol.Mass();
         out.area = surf.Mass();
         out.centerOfMass = {c.X(), c.Y(), c.Z()};
+        return out;
+    }
+
+    Topology topology(const ShapeHandle& h) const override {
+        Topology out;
+        const TopoDS_Shape* s = unwrap(h);
+        if (!s) return out;
+        auto count = [s](TopAbs_ShapeEnum type) {
+            TopTools_IndexedMapOfShape map;
+            TopExp::MapShapes(*s, type, map);
+            return map.Extent();
+        };
+        out.solids = count(TopAbs_SOLID);
+        out.shells = count(TopAbs_SHELL);
+        out.faces = count(TopAbs_FACE);
+        out.edges = count(TopAbs_EDGE);
+        out.vertices = count(TopAbs_VERTEX);
+        return out;
+    }
+
+    Diagnostics validate(const ShapeHandle& h) const override {
+        const TopoDS_Shape* s = unwrap(h);
+        if (!s) return {error("shape.missing", "There is no body to check.")};
+        Diagnostics out;
+        try {
+            BRepCheck_Analyzer analyzer(*s);
+            if (!analyzer.IsValid()) {
+                out.push_back(error("shape.invalid",
+                                    "This body has a geometry problem. Try undoing the last step or "
+                                    "changing its sizes slightly."));
+            }
+            if (topology(h).solids == 0) {
+                out.push_back(error("shape.not_solid", "This is not a solid body, so it has no inside."));
+            }
+            for (TopExp_Explorer ex(*s, TopAbs_SHELL); ex.More(); ex.Next()) {
+                if (!BRep_Tool::IsClosed(ex.Current())) {
+                    out.push_back(error("shape.open",
+                                        "This body has a gap in its surface, so it is not watertight."));
+                    break;
+                }
+            }
+        } catch (const Standard_Failure& e) {
+            out.push_back(error("shape.check_failed", "The body could not be checked.", describe(e)));
+        }
         return out;
     }
 
