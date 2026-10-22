@@ -76,6 +76,26 @@ below it.
 - Prefer value types and `std::unique_ptr` ownership; no raw `new`/`delete`.
 - Lengths are millimeters, angles radians, inside the code.
 
+## API documentation
+
+Everything public gets a Doxygen doc comment (the C++ equivalent of Javadoc), so
+it appears in the generated API reference. That means every class, struct, enum
+and enum value, function, public data member, type alias and constant in a public
+header (`src/<lib>/include/kh/<lib>/`), including public and protected members.
+
+- Use `///` comments directly above the item (or `///<` after a data member or enum
+  value). The first sentence is the summary.
+- Functions: `@param` for every parameter, `@return` for anything not `void`, with
+  units (mm, mm^3, radians) where they apply. Templates: `@tparam`.
+- Each header starts with `/// @file` and a one-line summary.
+- Overrides inherit the base class's docs; add a comment only if the behavior differs.
+- Add a short `@code` example for the main entry points of a library.
+- Private members and `.cpp` internals use ordinary `//` comments.
+
+Build the reference with `cmake --build --preset dev --target docs` (output in
+`build/<preset>/docs/html/index.html`). The `docs.api` test and the `api-docs` CI job
+fail on any undocumented public item.
+
 ## Tests
 
 - Catch2 v3, in `tests/<lib>/test_*.cpp`.
