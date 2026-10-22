@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome as [GitHub issues](https://github.com/ddreeves70/khan/issues).
+> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 Khan is built in phases, each ending with a build you can try and a written exit check. The first release, v0.1, is for classrooms: sketching, part modeling and export for 3D printing. Phases are listed in order without dates, because the pace depends on volunteer time. Full Fusion-class capability is a multi-year, multi-contributor effort, so the plan is built to welcome help after v0.1.
 

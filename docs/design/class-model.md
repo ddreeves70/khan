@@ -1,6 +1,6 @@
 # Class model
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome as [GitHub issues](https://github.com/ddreeves70/khan/issues).
+> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 The class model has about 45 core classes in four groups, one UML diagram each. It expands the domain model in [Design model](design-model.md) with attributes, operations, and multiplicities, and matches the interfaces sketched there.
 

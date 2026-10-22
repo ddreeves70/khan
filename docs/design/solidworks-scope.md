@@ -1,6 +1,6 @@
 # SolidWorks-class scope
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome as [GitHub issues](https://github.com/ddreeves70/khan/issues).
+> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 Yes, the architecture can stretch to SolidWorks-class, but the project changes character on the way. It grows from a solo build into a much larger team effort. The education-first plan stays as the on-ramp. What changes now is a handful of cheap data-model and architecture decisions in Phases 0-2, so professional features can land later without a rewrite.
 

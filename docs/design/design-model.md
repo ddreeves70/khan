@@ -1,6 +1,6 @@
 # Design model
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome as [GitHub issues](https://github.com/ddreeves70/khan/issues).
+> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 The core is 14 C++ libraries in strict layers. The model never calls OCCT or Qt directly, so it runs headless in tests and the kernel can be replaced later.
 

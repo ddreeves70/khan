@@ -1,6 +1,6 @@
 # AI assistant
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome as [GitHub issues](https://github.com/ddreeves70/khan/issues).
+> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 The assistant is an optional panel that reviews the model as you edit, plans multi-part changes for you to approve, and answers how-to questions about the app. It never edits silently: everything it does becomes ordinary commands that you preview, approve, and can undo in one step.
 

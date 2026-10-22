@@ -1,6 +1,6 @@
 # UI screens
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome as [GitHub issues](https://github.com/ddreeves70/khan/issues).
+> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 Four mockups show the shell, the plugins and the docking from [UI and plugin architecture](architecture.md#ui-and-plugin-architecture). Each numbered marker matches a row in the table under its screen. The part is the 40 × 30 × 10 mm block with a 5 mm radius hole from PR #3's test, so the numbers shown are real.
 

@@ -1,6 +1,6 @@
 # Khan design
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome as [GitHub issues](https://github.com/ddreeves70/khan/issues).
+> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 Khan is a free, open-source parametric CAD application for Windows, macOS and Linux. It starts with high school engineering classes, then grows to makers, CNC users and small shops. The long-term goal is a tool as capable as SolidWorks that stays free forever.
 
