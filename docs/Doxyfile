@@ -1,6 +1,6 @@
 # Doxygen settings for Khan's public API documentation.
 # Build with:  cmake --build --preset dev --target docs
-# or directly: doxygen docs/Doxyfile   (from the repository root)
+# or directly: mkdir -p build/docs && doxygen docs/Doxyfile   (from the repository root)
 # Output goes to build/docs/html/index.html.
 
 PROJECT_NAME           = Khan
