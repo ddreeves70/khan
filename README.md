@@ -15,6 +15,10 @@ Works offline, owns no part of your data, and stays free forever.
   (see [tests/corpus/README.md](tests/corpus/README.md)).
 - `kh_app`: an empty main window with the planned layout.
 
+## Design
+
+The full design, including architecture, UI mockups, class diagrams and the phased roadmap, is in **[docs/design](docs/design/README.md)**. It is a draft and changes as Khan is built.
+
 ## Building
 
 You need a C++20 compiler (Visual Studio 2022, Clang 16+ or GCC 12+), CMake 3.28+,
@@ -73,7 +77,7 @@ src/kernel_occt    IKernel on Open CASCADE
 src/model          document, commands, feature graph (growing in Phase 0-2)
 tests/             Catch2 unit tests
 cmake/             build helpers
-docs/              setup guides
+docs/              setup guides and the design (docs/design)
 ```
 
 ## Contributing
