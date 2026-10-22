@@ -30,7 +30,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libgl1-mesa-dev libglu1-mesa-dev \
-            libx11-dev libxi-dev libxext-dev libxmu-dev libxrandr-dev \
+            libx11-dev libxi-dev libxext-dev libxmu-dev libxrandr-dev libfontconfig1-dev \
             autoconf autoconf-archive automake libtool pkg-config
 
       - name: Install macOS build packages
