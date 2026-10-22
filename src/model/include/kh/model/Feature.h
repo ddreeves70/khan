@@ -1,5 +1,8 @@
 #pragma once
 
+/// @file
+/// Features: the steps in a design's history.
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -7,50 +10,94 @@
 #include "kh/core/Id.h"
 #include "kh/kernel/IKernel.h"
 
+/// Documents, features, commands and undo.
 namespace kh::model {
 
-enum class FeatureType { Box, Cylinder, Boolean };
+/// The kind of a Feature. Saved in files, so values are never reordered.
+enum class FeatureType {
+    Box,       ///< A BoxFeature.
+    Cylinder,  ///< A CylinderFeature.
+    Boolean,   ///< A BooleanFeature.
+};
 
-// Gives a feature access to the results of features before it during a rebuild.
+/// Gives a feature access to the results of features before it during a rebuild.
 class ResultLookup {
 public:
+    /// Allows deleting through this interface.
     virtual ~ResultLookup() = default;
-    // The shape a feature produced, or nullptr if it has none (failed, blocked, suppressed).
+
+    /// Finds the shape a feature produced.
+    /// @param id The feature to look up.
+    /// @return The shape, or nullptr if it has none (failed, blocked, suppressed or unknown).
     virtual const kernel::ShapeHandle* shapeOf(const FeatureId& id) const = 0;
 };
 
-// One step in a design's history. Phase 0 has primitive solids and Booleans;
-// sketches, extrude, fillet and the rest arrive in Phases 1-2.
-//
-// Features are owned by a Document. Outside code only ever gets const access;
-// changes go through Commands (see Command.h).
+/// One step in a design's history.
+///
+/// Phase 0 has primitive solids and Booleans; sketches, extrude, fillet and the
+/// rest arrive in Phases 1-2.
+///
+/// Features are owned by a Document. Outside code only ever gets const access;
+/// changes go through Commands (see Command.h).
 class Feature {
 public:
+    /// Destroys the feature.
     virtual ~Feature() = default;
 
+    /// Gives the feature's id, which never changes, even through edits, undo and redo.
+    /// @return The id.
     const FeatureId& id() const { return id_; }
+
+    /// Gives the name shown in the feature tree, e.g. "Box1".
+    /// @return The name. Unique within its document.
     const std::string& name() const { return name_; }
+
+    /// Checks whether the user has turned this step off.
+    /// @return True if the step is skipped during a rebuild.
     bool suppressed() const { return suppressed_; }
 
+    /// Changes the name. Use on a copy made with clone(), or from a Command.
+    /// @param name The new name.
     void setName(std::string name) { name_ = std::move(name); }
+
+    /// Turns the step off or on. Use on a copy made with clone(), or from a Command.
+    /// @param s True to skip this step during a rebuild.
     void setSuppressed(bool s) { suppressed_ = s; }
 
+    /// Gives the kind of feature.
+    /// @return The feature type.
     virtual FeatureType type() const = 0;
 
-    // Deep copy that keeps the same id. Used to edit a feature through a command:
-    // clone it, change the copy, then replace the original with it.
+    /// Makes a deep copy that keeps the same id.
+    ///
+    /// Used to edit a feature through a command: clone it, change the copy,
+    /// then replace the original with it (see EditFeatureCommand).
+    /// @return The copy.
     virtual std::unique_ptr<Feature> clone() const = 0;
 
-    // Features whose results this one uses. They must come earlier in the document.
+    /// Lists the features whose results this one uses. They must come earlier in the document.
+    /// @return The input features; empty for features that use no others.
     virtual std::vector<FeatureId> dependencies() const { return {}; }
 
-    // Builds this feature's shape. Must be deterministic and must not throw.
+    /// Builds this feature's shape. Must be deterministic and must not throw.
+    /// @param kernel The geometry kernel to build with.
+    /// @param earlier The results of the features before this one.
+    /// @return The shape, or diagnostics saying why it could not be built.
     virtual kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const = 0;
 
 protected:
+    /// Makes a feature with a new id.
+    /// @param name The name shown in the feature tree.
     explicit Feature(std::string name) : id_(FeatureId::generate()), name_(std::move(name)) {}
-    Feature(const Feature&) = default;  // copies keep the id (for clone)
-    Feature& operator=(const Feature&) = default;
+
+    /// Copies a feature, keeping its id (for clone()).
+    /// @param other The feature to copy.
+    Feature(const Feature& other) = default;
+
+    /// Copies a feature, keeping its id.
+    /// @param other The feature to copy.
+    /// @return This feature.
+    Feature& operator=(const Feature& other) = default;
 
 private:
     FeatureId id_;
@@ -58,14 +105,29 @@ private:
     bool suppressed_ = false;
 };
 
-// A rectangular block from a corner point and a size along x, y and z (mm).
+/// A rectangular block from a corner point and a size along x, y and z (mm).
 class BoxFeature final : public Feature {
 public:
+    /// Makes a box feature with a new id.
+    /// @param name The name shown in the feature tree.
+    /// @param corner The corner with the smallest x, y and z (mm).
+    /// @param size Width, depth and height along x, y and z (mm).
     BoxFeature(std::string name, kernel::Vec3 corner, kernel::Vec3 size);
 
+    /// Gives the corner with the smallest x, y and z.
+    /// @return The corner (mm).
     const kernel::Vec3& corner() const { return corner_; }
+
+    /// Gives the size along x, y and z.
+    /// @return The size (mm).
     const kernel::Vec3& size() const { return size_; }
+
+    /// Moves the box.
+    /// @param c The new corner (mm).
     void setCorner(const kernel::Vec3& c) { corner_ = c; }
+
+    /// Resizes the box.
+    /// @param s The new size along x, y and z (mm).
     void setSize(const kernel::Vec3& s) { size_ = s; }
 
     FeatureType type() const override { return FeatureType::Box; }
@@ -77,18 +139,47 @@ private:
     kernel::Vec3 size_;
 };
 
-// A cylinder from the center of its base, an axis direction, a radius and a height (mm).
+/// A cylinder from the center of its base, an axis direction, a radius and a height (mm).
 class CylinderFeature final : public Feature {
 public:
+    /// Makes a cylinder feature with a new id.
+    /// @param name The name shown in the feature tree.
+    /// @param base Center of the bottom face (mm).
+    /// @param axis Direction from the bottom face to the top face.
+    /// @param radius Radius (mm).
+    /// @param height Height along @p axis (mm).
     CylinderFeature(std::string name, kernel::Vec3 base, kernel::Vec3 axis, double radius, double height);
 
+    /// Gives the center of the bottom face.
+    /// @return The base center (mm).
     const kernel::Vec3& base() const { return base_; }
+
+    /// Gives the direction from the bottom face to the top face.
+    /// @return The axis direction.
     const kernel::Vec3& axis() const { return axis_; }
+
+    /// Gives the radius.
+    /// @return The radius (mm).
     double radius() const { return radius_; }
+
+    /// Gives the height.
+    /// @return The height (mm).
     double height() const { return height_; }
+
+    /// Moves the cylinder.
+    /// @param b The new base center (mm).
     void setBase(const kernel::Vec3& b) { base_ = b; }
+
+    /// Points the cylinder another way.
+    /// @param a The new axis direction.
     void setAxis(const kernel::Vec3& a) { axis_ = a; }
+
+    /// Changes the radius.
+    /// @param r The new radius (mm).
     void setRadius(double r) { radius_ = r; }
+
+    /// Changes the height.
+    /// @param h The new height (mm).
     void setHeight(double h) { height_ = h; }
 
     FeatureType type() const override { return FeatureType::Cylinder; }
@@ -102,14 +193,30 @@ private:
     double height_;
 };
 
-// Combines the results of two earlier features: union, cut (a minus b) or intersect.
+/// Combines the results of two earlier features: union, cut (a minus b) or intersect.
 class BooleanFeature final : public Feature {
 public:
+    /// Makes a Boolean feature with a new id.
+    /// @param name The name shown in the feature tree.
+    /// @param op Union, cut or intersect.
+    /// @param a The first input; for a cut, the one that keeps its material.
+    /// @param b The second input; for a cut, the tool that is removed.
     BooleanFeature(std::string name, kernel::BoolOp op, FeatureId a, FeatureId b);
 
+    /// Gives the operation.
+    /// @return Union, cut or intersect.
     kernel::BoolOp op() const { return op_; }
+
+    /// Gives the first input.
+    /// @return The id of the first input feature.
     const FeatureId& a() const { return a_; }
+
+    /// Gives the second input.
+    /// @return The id of the second input feature.
     const FeatureId& b() const { return b_; }
+
+    /// Changes the operation.
+    /// @param op Union, cut or intersect.
     void setOp(kernel::BoolOp op) { op_ = op; }
 
     FeatureType type() const override { return FeatureType::Boolean; }

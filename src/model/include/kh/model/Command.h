@@ -1,5 +1,8 @@
 #pragma once
 
+/// @file
+/// The Command interface and the editor that commands use to change a Document.
+
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -12,17 +15,36 @@ namespace kh::model {
 
 class Document;
 
-// The only way to change a Document's contents. Commands receive a DocumentEditor
-// from Document::execute/undo/redo; nothing else can create one. This enforces the
-// rule that every change goes through the command stack, so undo always works.
+/// Write access to a Document, given only to Commands.
+///
+/// Commands receive a DocumentEditor from Document::execute(), Document::undo()
+/// and Document::redo(); nothing else can create one. This enforces the rule
+/// that every change goes through the command stack, so undo always works.
 class DocumentEditor {
 public:
+    /// Gives read access to the document being changed.
+    /// @return The document.
     const Document& document() const { return doc_; }
 
+    /// Finds a feature to change in place.
+    /// @param id The feature to find.
+    /// @return The feature, or nullptr if it is not in the document.
     Feature* find(const FeatureId& id);
+
+    /// Inserts a feature.
+    /// @param index Position in the feature list; past the end means append.
+    /// @param feature The feature to insert. The document takes ownership.
     void insert(std::size_t index, std::unique_ptr<Feature> feature);
-    std::unique_ptr<Feature> remove(const FeatureId& id);          // nullptr if not found
-    std::unique_ptr<Feature> replace(std::unique_ptr<Feature> f);  // same id; returns the old one
+
+    /// Removes a feature.
+    /// @param id The feature to remove.
+    /// @return The removed feature (the caller now owns it), or nullptr if not found.
+    std::unique_ptr<Feature> remove(const FeatureId& id);
+
+    /// Swaps a feature for another with the same id, at the same position.
+    /// @param f The new version. Its id must already be in the document.
+    /// @return The old version, or nullptr if no feature has that id.
+    std::unique_ptr<Feature> replace(std::unique_ptr<Feature> f);
 
 private:
     friend class Document;
@@ -30,24 +52,36 @@ private:
     Document& doc_;
 };
 
-// One undoable change. Contract:
-//  - apply() either makes the whole change and returns no errors, or returns
-//    errors and leaves the document exactly as it was.
-//  - revert() undoes a successful apply(); redo calls apply() again.
-//  - Ids stay the same across undo and redo.
+/// One undoable change to a Document.
+///
+/// Contract:
+///  - apply() either makes the whole change and returns no errors, or returns
+///    errors and leaves the document exactly as it was.
+///  - revert() undoes a successful apply(); redo calls apply() again.
+///  - Ids stay the same across undo and redo.
 class Command {
 public:
+    /// Destroys the command.
     virtual ~Command() = default;
 
-    // Shown in Edit > Undo, for example "Add Box1".
+    /// Gives the text shown in Edit > Undo.
+    /// @return A short label, for example "Add Box1".
     virtual std::string label() const = 0;
 
+    /// Makes the change.
+    /// @param editor Write access to the document.
+    /// @return No diagnostics on success. On failure, the errors, and the document is unchanged.
     virtual Diagnostics apply(DocumentEditor& editor) = 0;
+
+    /// Undoes a successful apply().
+    /// @param editor Write access to the document.
     virtual void revert(DocumentEditor& editor) = 0;
 
-    // Lets a burst of small changes (dragging a value) become one undo step.
-    // Called on the newest command in history after `next` has been applied;
-    // return true to absorb `next` into this command.
+    /// Lets a burst of small changes (dragging a value) become one undo step.
+    ///
+    /// Called on the newest command in history after @p next has been applied.
+    /// @param next The command that was just applied.
+    /// @return True to absorb @p next into this command; false to keep them separate (the default).
     virtual bool mergeWith(const Command& next) {
         (void)next;
         return false;
