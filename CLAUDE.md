@@ -96,6 +96,19 @@ Build the reference with `cmake --build --preset dev --target docs` (output in
 `build/<preset>/docs/html/index.html`). The `docs.api` test and the `api-docs` CI job
 fail on any undocumented public item.
 
+## Plugin developer guide
+
+Khan's own features are plugins built on the public plugin API (see the design
+document, "UI and plugin architecture"). The guide for plugin authors lives in
+`docs/plugin-guide/` and starts with the plugin shell (Phase 0, weeks 4 to 5).
+
+- Any pull request that adds or changes a plugin extension point, the manifest
+  format, the event types or the Python bindings updates the guide in the same PR.
+- Every extension point in the guide has a short working example, and the guide's
+  Hello plugin is built and loaded by a test, so the tutorial can't go stale.
+- Write it for a student who knows a little C++ or Python: plain words, one idea
+  per step, units on every number.
+
 ## Tests
 
 - Catch2 v3, in `tests/<lib>/test_*.cpp`.
