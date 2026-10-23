@@ -10,7 +10,11 @@ the public headers of the core libraries, from the bottom layer up:
 | `kh_kernel_occt` | `kh::kernel` | The Open CASCADE implementation of `IKernel` |
 | `kh_model` | `kh::model` | Documents, features, commands, undo and the command registry |
 | `kh_io` | `kh::io` | Saving and opening `.khan` files (`kh::io::saveFile`, `kh::io::openFile`) |
+| `kh_plugin` | `kh::plugin` | The plugin host, manifests, the event bus and the open designs (`kh::plugin::PluginHost`, `kh::plugin::PluginContext`) |
+| `kh_plugin_modeling` | `kh::plugins` | The built-in `kh.modeling` plugin |
 
-A good place to start is `kh::model::Document`, then `kh::model::Command`.
+A good place to start is `kh::model::Document`, then `kh::model::Command`. Plugin
+authors start with the plugin developer guide (`docs/plugin-guide/`), then
+`kh::plugin::PluginContext`.
 
 Units inside the code: lengths are millimeters and angles are radians.

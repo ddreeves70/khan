@@ -14,7 +14,10 @@ INPUT                  = docs/api-mainpage.md \
                          src/kernel/include \
                          src/kernel_occt/include \
                          src/model/include \
-                         src/io/include
+                         src/io/include \
+                         src/plugin/include \
+                         plugins/modeling/include \
+                         docs/plugin-guide
 FILE_PATTERNS          = *.h *.md
 RECURSIVE              = YES
 USE_MDFILE_AS_MAINPAGE = docs/api-mainpage.md

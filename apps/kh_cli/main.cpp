@@ -4,6 +4,8 @@
 //   kh_cli demo <out.stl|out.step|out.khan> box with a hole, as a toolchain smoke test
 //   kh_cli open <file.khan> [--export out]  open a design, rebuild it, report each step
 //   kh_cli regress [--update] <case|dir>... run regression cases (see tests/corpus/README.md)
+//   kh_cli plugins [--plugins <folder>]...  list plugins, their commands and problems
+//   kh_cli run [--plugins <folder>]... [--open in.khan] [--save out.khan] <command> [name=value]...
 
 #include <cstdio>
 #include <filesystem>
@@ -12,6 +14,7 @@
 #include <string_view>
 #include <vector>
 
+#include "Plugins.h"
 #include "Regression.h"
 #include "kh/core/Version.h"
 #include "kh/io/KhanFile.h"
@@ -26,7 +29,10 @@ int usage() {
         "usage: kh_cli --version\n"
         "       kh_cli demo <out.stl|out.step|out.khan>\n"
         "       kh_cli open <file.khan> [--export <out.stl|out.step>]\n"
-        "       kh_cli regress [--update] <case.json|folder>...");
+        "       kh_cli regress [--update] <case.json|folder>...\n"
+        "       kh_cli plugins [--plugins <folder>]...\n"
+        "       kh_cli run [--plugins <folder>]... [--open <in.khan>] [--save <out.khan>] <command> "
+        "[name=value]...");
     return 2;
 }
 
@@ -95,7 +101,8 @@ int openDesign(int argc, char** argv) {
     auto kernel = kh::kernel::makeOcctKernel();
     const auto report = doc.regenerate(*kernel);
 
-    std::printf("%s: %zu steps\n", doc.name().c_str(), doc.featureCount());
+    std::printf("%s: %zu %s\n", doc.name().c_str(), doc.featureCount(),
+                doc.featureCount() == 1 ? "step" : "steps");
     for (std::size_t i = 0; i < doc.featureCount(); ++i) {
         const auto& f = doc.featureAt(i);
         const auto* r = report.result(f.id());
@@ -183,5 +190,7 @@ int main(int argc, char** argv) {
     if (cmd == "demo" && argc == 3) return demo(argv[2]);
     if (cmd == "open") return openDesign(argc, argv);
     if (cmd == "regress") return regress(argc, argv);
+    if (cmd == "plugins") return kh::cli::listPlugins(argc, argv);
+    if (cmd == "run") return kh::cli::runCommand(argc, argv);
     return usage();
 }

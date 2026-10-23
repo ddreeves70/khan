@@ -46,7 +46,9 @@ below it.
 | Library | Purpose | May depend on |
 | --- | --- | --- |
 | `kh_app`, `kh_cli` | Applications | anything below |
+| Built-in plugins (`plugins/`) | `kh.modeling`, later `kh.viewer` and others | `kh_plugin`, anything below it |
 | `kh_view` (Phase 0 wk 4) | Qt + OCCT viewer | `kh_model`, `kh_kernel`, Qt |
+| `kh_plugin` | Plugin host, manifests, event bus, open documents | `kh_model`, `kh_kernel`, `kh_core` |
 | `kh_io` | `.khan` files: save and open (zip + JSON) | `kh_model`, `kh_core`, libzip, nlohmann_json |
 | `kh_model` | Document, parameters, feature graph, commands, naming | `kh_kernel`, `kh_core` |
 | `kh_kernel_occt` | `IKernel` on OCCT | `kh_kernel`, OCCT |
@@ -109,6 +111,10 @@ document, "UI and plugin architecture"). The guide for plugin authors lives in
   Hello plugin is built and loaded by a test, so the tutorial can't go stale.
 - Write it for a student who knows a little C++ or Python: plain words, one idea
   per step, units on every number.
+- Code shown in the guide is marked `<!-- guide-file: path -->` and must match that
+  file exactly; the `docs.plugin_guide_code` test checks it.
+- Built-in plugins live in `plugins/<name>/` and use only `PluginContext`, like an
+  outside plugin. An outside plugin's commands must start with its plugin id.
 
 ## Tests
 

@@ -237,13 +237,16 @@ Three rules hold for every plugin. It changes a document only by running command
 
 | Event | Sent by | Carries | Typical listeners |
 | --- | --- | --- | --- |
-| `DocumentChanged` | The command stack, after execute, undo or redo | Document id, changed feature ids | Feature tree, properties, rebuild scheduler |
-| `RebuildFinished` | The rebuild scheduler | Document id, the rebuild report | Every viewer, feature tree status icons |
+| `DocumentChanged` | The document list, after execute, undo or redo | Document id, executed/undone/redone, the step's label (changed feature ids come with incremental rebuilds in Phase 2) | Feature tree, properties |
+| `RebuildFinished` | The document list (rebuilds after each change) | Document id, whether every step built; the report is read from the list | Every viewer, feature tree status icons |
 | `SelectionChanged` | The shared selection | Document id, selected references | All viewers (highlight), feature tree, properties |
 | `HoverChanged` | The viewer under the mouse | The reference under the cursor | Other viewers (pre-highlight), status bar |
-| `ActiveDocumentChanged` | The shell | Document id | Menus, panels |
+| `DocumentOpened`, `DocumentClosed` | The document list | Document id | Window menu, panels |
+| `ActiveDocumentChanged` | The document list | Document id (nil when none is open) | Menus, panels |
 | `CameraChanged` | A viewer | View id, camera | Viewers linked to it |
 | `ToolChanged` | The tool manager | Tool id | Status bar, properties |
+
+Built so far (Phase 0): the plugin host, manifests, the event bus and the document list in `kh_plugin`, the `kh.modeling` built-in plugin, and plugin guide v0 with the Hello plugin. Selection, hover, camera and tool events arrive with the desktop shell and the viewer.
 
 Events carry ids, never pointers. They are delivered in order on the UI thread. A listener that wants to change the design runs a command; events only report. Event types are part of the versioned plugin API.
 
