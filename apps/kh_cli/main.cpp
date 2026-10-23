@@ -1,25 +1,31 @@
 // kh_cli: headless tool for scripting, smoke tests and the geometry regression corpus.
 //
 //   kh_cli --version
-//   kh_cli demo <out.stl|out.step>          box with a hole, as a toolchain smoke test
+//   kh_cli demo <out.stl|out.step|out.khan> box with a hole, as a toolchain smoke test
+//   kh_cli open <file.khan> [--export out]  open a design, rebuild it, report each step
 //   kh_cli regress [--update] <case|dir>... run regression cases (see tests/corpus/README.md)
 
 #include <cstdio>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "Regression.h"
 #include "kh/core/Version.h"
+#include "kh/io/KhanFile.h"
 #include "kh/kernel_occt/OcctKernel.h"
+#include "kh/model/Commands.h"
+#include "kh/model/Document.h"
 
 namespace {
 
 int usage() {
     std::puts(
         "usage: kh_cli --version\n"
-        "       kh_cli demo <out.stl|out.step>\n"
+        "       kh_cli demo <out.stl|out.step|out.khan>\n"
+        "       kh_cli open <file.khan> [--export <out.stl|out.step>]\n"
         "       kh_cli regress [--update] <case.json|folder>...");
     return 2;
 }
@@ -30,8 +36,98 @@ void printIssues(const kh::Diagnostics& issues) {
     }
 }
 
+kh::kernel::ExportFormat formatFor(const std::filesystem::path& out) {
+    const auto ext = out.extension().string();
+    return (ext == ".step" || ext == ".stp") ? kh::kernel::ExportFormat::Step : kh::kernel::ExportFormat::Stl;
+}
+
+// The demo part as a design: Plate, Hole, then Tag = Plate cut Hole.
+int demoKhan(const std::filesystem::path& out) {
+    using namespace kh;
+    model::Document doc(model::DocKind::Part, "Demo tag");
+    auto plate = std::make_unique<model::BoxFeature>("Plate", kernel::Vec3{0, 0, 0}, kernel::Vec3{60, 30, 4});
+    auto hole = std::make_unique<model::CylinderFeature>("Hole", kernel::Vec3{9, 15, -1},
+                                                         kernel::Vec3{0, 0, 1}, 2.5, 6);
+    auto tag = std::make_unique<model::BooleanFeature>("Tag", kernel::BoolOp::Cut, plate->id(), hole->id());
+    std::vector<std::unique_ptr<model::Feature>> steps;
+    steps.push_back(std::move(plate));
+    steps.push_back(std::move(hole));
+    steps.push_back(std::move(tag));
+    for (auto& f : steps) {
+        if (auto issues = doc.execute(std::make_unique<model::AddFeatureCommand>(std::move(f)));
+            !issues.empty()) {
+            printIssues(issues);
+            return 1;
+        }
+    }
+    if (auto issues = io::saveFile(doc, out); !issues.empty()) {
+        printIssues(issues);
+        return 1;
+    }
+    std::printf("wrote %s\n", out.string().c_str());
+    return 0;
+}
+
+const char* statusName(kh::model::FeatureStatus s) {
+    switch (s) {
+        case kh::model::FeatureStatus::Ok:
+            return "ok";
+        case kh::model::FeatureStatus::Failed:
+            return "failed";
+        case kh::model::FeatureStatus::Blocked:
+            return "blocked";
+        case kh::model::FeatureStatus::Suppressed:
+            return "off";
+    }
+    return "?";
+}
+
+// Opens a design, rebuilds it and prints one line per step. Returns 1 if the
+// file can't be opened or any active step fails.
+int openDesign(int argc, char** argv) {
+    if (argc != 3 && !(argc == 5 && std::string_view(argv[3]) == "--export")) return usage();
+    auto opened = kh::io::openFile(argv[2]);
+    if (!opened.ok()) {
+        printIssues(opened.issues);
+        return 1;
+    }
+    const auto& doc = *opened.document;
+    auto kernel = kh::kernel::makeOcctKernel();
+    const auto report = doc.regenerate(*kernel);
+
+    std::printf("%s: %zu steps\n", doc.name().c_str(), doc.featureCount());
+    for (std::size_t i = 0; i < doc.featureCount(); ++i) {
+        const auto& f = doc.featureAt(i);
+        const auto* r = report.result(f.id());
+        std::printf("  %-12s %s", f.name().c_str(), statusName(r->status));
+        if (r->status == kh::model::FeatureStatus::Ok) {
+            std::printf("  volume %.2f mm^3", kernel->massProps(r->shape).volume);
+        }
+        std::printf("\n");
+        printIssues(r->issues);
+    }
+    if (!report.ok()) return 1;
+
+    if (argc == 5) {
+        const std::filesystem::path out = argv[4];
+        if (report.bodies().size() != 1) {
+            std::fprintf(stderr, "error: export needs exactly one finished body; this design has %zu\n",
+                         report.bodies().size());
+            return 1;
+        }
+        auto issues = kernel->exportFile(*report.shapeOf(report.bodies().front()), formatFor(out), out);
+        if (!issues.empty()) {
+            printIssues(issues);
+            return 1;
+        }
+        std::printf("wrote %s\n", out.string().c_str());
+    }
+    return 0;
+}
+
 int demo(const std::filesystem::path& out) {
     using namespace kh::kernel;
+    if (out.extension() == ".khan") return demoKhan(out);
     auto kernel = makeOcctKernel();
 
     auto box = kernel->makeBox({0, 0, 0}, 60, 30, 4);
@@ -50,9 +146,7 @@ int demo(const std::filesystem::path& out) {
     const auto mp = kernel->massProps(tag.shape);
     std::printf("volume: %.2f mm^3\n", mp.volume);
 
-    const auto ext = out.extension().string();
-    const auto format = (ext == ".step" || ext == ".stp") ? ExportFormat::Step : ExportFormat::Stl;
-    auto issues = kernel->exportFile(tag.shape, format, out);
+    auto issues = kernel->exportFile(tag.shape, formatFor(out), out);
     if (!issues.empty()) {
         printIssues(issues);
         return 1;
@@ -87,6 +181,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (cmd == "demo" && argc == 3) return demo(argv[2]);
+    if (cmd == "open") return openDesign(argc, argv);
     if (cmd == "regress") return regress(argc, argv);
     return usage();
 }

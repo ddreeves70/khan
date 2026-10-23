@@ -86,6 +86,12 @@ public:
     /// @param name The document's name, shown in the title bar.
     explicit Document(DocKind kind = DocKind::Part, std::string name = "Untitled");
 
+    /// Makes an empty document with a given id, for loading a saved design.
+    /// @param id The id it was saved with.
+    /// @param kind Part or assembly.
+    /// @param name The document's name, shown in the title bar.
+    Document(DocId id, DocKind kind, std::string name);
+
     /// Destroys the document and its history.
     ~Document();
 
@@ -166,6 +172,10 @@ public:
     /// Sets how many steps undo keeps. The oldest steps are dropped beyond this.
     /// @param limit The number of steps (at least 1; the default is 200).
     void setUndoLimit(std::size_t limit);
+
+    /// Forgets all undo and redo steps; the features stay as they are. Used after
+    /// opening a file, so "undo" can't take apart a design that was just loaded.
+    void clearHistory();
 
     /// Records that the document was just saved. Call after a successful save.
     void markSaved();
