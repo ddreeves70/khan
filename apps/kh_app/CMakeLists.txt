@@ -1,11 +1,11 @@
 # kh_app: the Qt desktop application.
-# Phase 0 week 4 embeds the OCCT 3D viewer (kh_view) in MainWindow.
+# Panels and viewers dock through the Qt Advanced Docking System (cmake/KhAds.cmake).
 qt_add_executable(kh_app
   main.cpp
   MainWindow.cpp
   MainWindow.h
 )
-target_link_libraries(kh_app PRIVATE Qt6::Widgets kh::core kh::model)
+target_link_libraries(kh_app PRIVATE Qt6::Widgets ads::qtadvanceddocking-qt6 kh::core kh::model)
 kh_set_warnings(kh_app)
 set_target_properties(kh_app PROPERTIES
   WIN32_EXECUTABLE ON
@@ -25,4 +25,19 @@ if(WIN32)
   else()
     message(WARNING "windeployqt not found; run it on kh_app.exe by hand to launch the app")
   endif()
+endif()
+
+# Windows finds DLLs next to the .exe: copy the ones kh_app links (ADS, and Qt
+# when it comes from a CMake package) there after each build.
+if(WIN32)
+  add_custom_command(TARGET kh_app POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:kh_app> $<TARGET_FILE_DIR:kh_app>
+    COMMAND_EXPAND_LISTS
+    COMMENT "Copying DLLs next to kh_app.exe")
+endif()
+
+# Builds the main window without a screen and checks its panels and layouts.
+if(KH_BUILD_TESTS)
+  add_test(NAME app.smoke COMMAND kh_app --smoke-test)
+  set_tests_properties(app.smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
