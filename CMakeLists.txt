@@ -31,9 +31,9 @@ if(KH_WITH_OCCT)
   message(STATUS "OpenCASCADE ${OpenCASCADE_VERSION} found")
 endif()
 
-if(KH_BUILD_CLI AND KH_WITH_OCCT)
-  find_package(nlohmann_json 3 CONFIG REQUIRED)
-endif()
+# kh_io (the .khan file format) is always built: it needs a JSON and a zip library.
+find_package(nlohmann_json 3 CONFIG REQUIRED)
+find_package(libzip CONFIG REQUIRED)
 
 if(KH_BUILD_APP)
   find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets)
@@ -55,6 +55,7 @@ if(KH_WITH_OCCT)
   add_subdirectory(src/kernel_occt) # kh_kernel_occt: IKernel on OCCT
 endif()
 add_subdirectory(src/model)       # kh_model: document, commands (Phase 0, week 3)
+add_subdirectory(src/io)          # kh_io: .khan files (zip + JSON)
 
 # ---------------------------------------------------------------------------
 # Applications

@@ -90,6 +90,11 @@ protected:
     /// @param name The name shown in the feature tree.
     explicit Feature(std::string name) : id_(FeatureId::generate()), name_(std::move(name)) {}
 
+    /// Makes a feature with a given id, for loading a saved design.
+    /// @param id The id it was saved with.
+    /// @param name The name shown in the feature tree.
+    Feature(FeatureId id, std::string name) : id_(id), name_(std::move(name)) {}
+
     /// Copies a feature, keeping its id (for clone()).
     /// @param other The feature to copy.
     Feature(const Feature& other) = default;
@@ -113,6 +118,13 @@ public:
     /// @param corner The corner with the smallest x, y and z (mm).
     /// @param size Width, depth and height along x, y and z (mm).
     BoxFeature(std::string name, kernel::Vec3 corner, kernel::Vec3 size);
+
+    /// Makes a box feature with a given id, for loading a saved design.
+    /// @param id The id it was saved with.
+    /// @param name The name shown in the feature tree.
+    /// @param corner The corner with the smallest x, y and z (mm).
+    /// @param size Width, depth and height along x, y and z (mm).
+    BoxFeature(FeatureId id, std::string name, kernel::Vec3 corner, kernel::Vec3 size);
 
     /// Gives the corner with the smallest x, y and z.
     /// @return The corner (mm).
@@ -149,6 +161,16 @@ public:
     /// @param radius Radius (mm).
     /// @param height Height along @p axis (mm).
     CylinderFeature(std::string name, kernel::Vec3 base, kernel::Vec3 axis, double radius, double height);
+
+    /// Makes a cylinder feature with a given id, for loading a saved design.
+    /// @param id The id it was saved with.
+    /// @param name The name shown in the feature tree.
+    /// @param base Center of the bottom face (mm).
+    /// @param axis Direction from the bottom face to the top face.
+    /// @param radius Radius (mm).
+    /// @param height Height along @p axis (mm).
+    CylinderFeature(FeatureId id, std::string name, kernel::Vec3 base, kernel::Vec3 axis, double radius,
+                    double height);
 
     /// Gives the center of the bottom face.
     /// @return The base center (mm).
@@ -202,6 +224,14 @@ public:
     /// @param a The first input; for a cut, the one that keeps its material.
     /// @param b The second input; for a cut, the tool that is removed.
     BooleanFeature(std::string name, kernel::BoolOp op, FeatureId a, FeatureId b);
+
+    /// Makes a Boolean feature with a given id, for loading a saved design.
+    /// @param id The id it was saved with.
+    /// @param name The name shown in the feature tree.
+    /// @param op Union, cut or intersect.
+    /// @param a The first input; for a cut, the one that keeps its material.
+    /// @param b The second input; for a cut, the tool that is removed.
+    BooleanFeature(FeatureId id, std::string name, kernel::BoolOp op, FeatureId a, FeatureId b);
 
     /// Gives the operation.
     /// @return Union, cut or intersect.

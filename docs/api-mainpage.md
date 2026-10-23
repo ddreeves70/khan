@@ -9,6 +9,7 @@ the public headers of the core libraries, from the bottom layer up:
 | `kh_kernel` | `kh::kernel` | The geometry kernel interface (`kh::kernel::IKernel`) and value types |
 | `kh_kernel_occt` | `kh::kernel` | The Open CASCADE implementation of `IKernel` |
 | `kh_model` | `kh::model` | Documents, features, commands, undo and the command registry |
+| `kh_io` | `kh::io` | Saving and opening `.khan` files (`kh::io::saveFile`, `kh::io::openFile`) |
 
 A good place to start is `kh::model::Document`, then `kh::model::Command`.
 

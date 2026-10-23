@@ -57,7 +57,8 @@ Same steps with your platform's compiler and Ninja: set `VCPKG_ROOT` and `QT_DIR
 ```bash
 sudo apt install cmake ninja-build g++ catch2 qt6-base-dev libtbb-dev \
   libocct-foundation-dev libocct-modeling-data-dev libocct-modeling-algorithms-dev \
-  libocct-data-exchange-dev
+  libocct-data-exchange-dev nlohmann-json3-dev libzip-dev \
+  zipcmp zipmerge ziptool   # libzip's CMake files expect these tools
 cmake --preset system
 cmake --build --preset system
 ctest --preset system

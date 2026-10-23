@@ -14,7 +14,7 @@ cmake --preset dev
 cmake --build --preset dev
 ctest --preset dev
 
-# Linux with system packages (OCCT, Catch2, TBB and Qt 6 from apt)
+# Linux with system packages (OCCT, Catch2, TBB, Qt 6, nlohmann-json and libzip from apt)
 cmake --preset system
 cmake --build --preset system
 ctest --preset system
@@ -47,6 +47,7 @@ below it.
 | --- | --- | --- |
 | `kh_app`, `kh_cli` | Applications | anything below |
 | `kh_view` (Phase 0 wk 4) | Qt + OCCT viewer | `kh_model`, `kh_kernel`, Qt |
+| `kh_io` | `.khan` files: save and open (zip + JSON) | `kh_model`, `kh_core`, libzip, nlohmann_json |
 | `kh_model` | Document, parameters, feature graph, commands, naming | `kh_kernel`, `kh_core` |
 | `kh_kernel_occt` | `IKernel` on OCCT | `kh_kernel`, OCCT |
 | `kh_kernel` | `IKernel` interface and value types | `kh_core` |

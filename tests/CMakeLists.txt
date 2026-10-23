@@ -4,8 +4,11 @@ add_executable(kh_tests
   model/test_commands.cpp
   model/test_rebuild.cpp
   model/test_registry.cpp
+  io/test_khan_file.cpp
 )
-target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model)
+target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model kh::io libzip::zip)
+# Checked-in .khan files that every future version must still open.
+target_compile_definitions(kh_tests PRIVATE KH_TEST_FILES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/files")
 
 if(KH_WITH_OCCT)
   target_sources(kh_tests PRIVATE kernel/test_occt_kernel.cpp model/test_rebuild_occt.cpp)
@@ -21,6 +24,9 @@ if(TARGET kh_cli)
     get_filename_component(case_name "${case_file}" NAME_WE)
     add_test(NAME "corpus.${case_name}" COMMAND kh_cli regress "${case_file}")
   endforeach()
+  # Open the checked-in .khan file and rebuild it with the real kernel.
+  add_test(NAME cli.open_schema1 COMMAND kh_cli open "${CMAKE_CURRENT_SOURCE_DIR}/files/schema1-keychain-tag.khan")
+  set_tests_properties(cli.open_schema1 PROPERTIES PASS_REGULAR_EXPRESSION "Tag +ok +volume 7121.46 mm\\^3")
 endif()
 
 # PRE_TEST discovery waits until ctest runs, after vcpkg has copied DLLs next to

@@ -1,6 +1,7 @@
 #include "kh/model/Document.h"
 
 #include <algorithm>
+#include <limits>
 #include <set>
 #include <utility>
 
@@ -65,8 +66,9 @@ bool RebuildReport::ok() const {
 // Document
 // ---------------------------------------------------------------------------
 
-Document::Document(DocKind kind, std::string name)
-    : id_(DocId::generate()), kind_(kind), name_(std::move(name)) {}
+Document::Document(DocKind kind, std::string name) : Document(DocId::generate(), kind, std::move(name)) {}
+
+Document::Document(DocId id, DocKind kind, std::string name) : id_(id), kind_(kind), name_(std::move(name)) {}
 
 Document::~Document() = default;
 
@@ -145,6 +147,15 @@ std::string Document::undoLabel() const {
 
 std::string Document::redoLabel() const {
     return undone_.empty() ? "" : undone_.back().command->label();
+}
+
+void Document::clearHistory() {
+    // The current state becomes the base state: serial 0. A document that was
+    // saved in this state stays unmodified.
+    const bool wasSaved = !isModified();
+    done_.clear();
+    undone_.clear();
+    savedSerial_ = wasSaved ? 0 : std::numeric_limits<std::uint64_t>::max();
 }
 
 void Document::setUndoLimit(std::size_t limit) {

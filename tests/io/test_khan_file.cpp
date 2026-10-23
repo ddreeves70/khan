@@ -1,0 +1,328 @@
+// Tests for saving and opening .khan files (kh_io).
+
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
+
+#include <zip.h>
+
+#include <filesystem>
+#include <fstream>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "../model/FakeKernel.h"
+#include "kh/core/Version.h"
+#include "kh/io/KhanFile.h"
+#include "kh/model/Commands.h"
+#include "kh/model/Document.h"
+
+using namespace kh;
+using Catch::Matchers::WithinAbs;
+
+namespace {
+
+// Builds the demo tag: Plate, Hole, Tag = Plate cut Hole, plus a suppressed Spare box.
+std::unique_ptr<model::Document> makeDesign() {
+    auto doc = std::make_unique<model::Document>(model::DocKind::Part, "Keychain tag");
+    auto plate = std::make_unique<model::BoxFeature>("Plate", kernel::Vec3{0, 0, 0}, kernel::Vec3{60, 30, 4});
+    auto hole = std::make_unique<model::CylinderFeature>("Hole", kernel::Vec3{9, 15, -1},
+                                                         kernel::Vec3{0, 0, 1}, 2.5, 6);
+    auto tag = std::make_unique<model::BooleanFeature>("Tag", kernel::BoolOp::Cut, plate->id(), hole->id());
+    auto spare = std::make_unique<model::BoxFeature>("Spare", kernel::Vec3{100, 0, 0}, kernel::Vec3{1, 2, 3});
+    spare->setSuppressed(true);
+    std::vector<std::unique_ptr<model::Feature>> steps;
+    steps.push_back(std::move(plate));
+    steps.push_back(std::move(hole));
+    steps.push_back(std::move(tag));
+    steps.push_back(std::move(spare));
+    for (auto& f : steps) {
+        REQUIRE(doc->execute(std::make_unique<model::AddFeatureCommand>(std::move(f))).empty());
+    }
+    return doc;
+}
+
+// Writes a zip from name -> text, for hand-made (often broken) files.
+io::Bytes makeZip(const std::map<std::string, std::string>& entries) {
+    zip_error_t err;
+    zip_error_init(&err);
+    zip_source_t* src = zip_source_buffer_create(nullptr, 0, 0, &err);
+    zip_t* za = zip_open_from_source(src, ZIP_TRUNCATE, &err);
+    zip_source_keep(src);
+    for (const auto& [name, text] : entries) {
+        zip_file_add(za, name.c_str(), zip_source_buffer(za, text.data(), text.size(), 0), ZIP_FL_OVERWRITE);
+    }
+    zip_close(za);
+    zip_source_open(src);
+    zip_source_seek(src, 0, SEEK_END);
+    const auto size = zip_source_tell(src);
+    zip_source_seek(src, 0, SEEK_SET);
+    io::Bytes out(static_cast<std::size_t>(size));
+    zip_source_read(src, out.data(), out.size());
+    zip_source_close(src);
+    zip_source_free(src);
+    return out;
+}
+
+const std::string kDocId = "6f1c1d2e-3a4b-4c5d-8e6f-7a8b9c0d1e2f";
+const std::string kBoxId = "0b6e3f5a-1c2d-4e3f-9a4b-5c6d7e8f9a0b";
+
+std::string manifest(int schema = 1) {
+    return R"({"format":"khan","schema":)" + std::to_string(schema) +
+           R"(,"app":"0.0.1","units":{"length":"mm","angle":"rad"},)"
+           R"("document":{"id":")" +
+           kDocId + R"(","kind":"part","name":"Hand made"},"files":[]})";
+}
+
+std::string timeline(const std::string& id = kBoxId) {
+    return R"({"features":[{"id":")" + id + R"(","suppressed":false}]})";
+}
+
+std::string boxFeature(const std::string& type = "Box") {
+    return R"({"id":")" + kBoxId + R"(","type":")" + type +
+           R"(","name":"Box1","params":{"corner":[0,0,0],"size":[10,20,30]}})";
+}
+
+std::string firstCode(const io::OpenResult& r) {
+    return r.issues.empty() ? "" : r.issues.front().code;
+}
+
+}  // namespace
+
+TEST_CASE("a design survives saving and opening in memory", "[io]") {
+    auto doc = makeDesign();
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+
+    auto opened = io::readBytes(bytes, "tag.khan");
+    REQUIRE(opened.ok());
+    const auto& back = *opened.document;
+
+    CHECK(back.id() == doc->id());
+    CHECK(back.name() == "Keychain tag");
+    CHECK(back.kind() == model::DocKind::Part);
+    REQUIRE(back.featureCount() == doc->featureCount());
+    for (std::size_t i = 0; i < doc->featureCount(); ++i) {
+        CHECK(back.featureAt(i).id() == doc->featureAt(i).id());
+        CHECK(back.featureAt(i).name() == doc->featureAt(i).name());
+        CHECK(back.featureAt(i).type() == doc->featureAt(i).type());
+        CHECK(back.featureAt(i).suppressed() == doc->featureAt(i).suppressed());
+    }
+
+    const auto& hole = static_cast<const model::CylinderFeature&>(back.featureAt(1));
+    CHECK(hole.base().x == 9);
+    CHECK(hole.base().z == -1);
+    CHECK(hole.radius() == 2.5);
+    CHECK(hole.height() == 6);
+    const auto& tag = static_cast<const model::BooleanFeature&>(back.featureAt(2));
+    CHECK(tag.op() == kernel::BoolOp::Cut);
+    CHECK(tag.a() == doc->featureAt(0).id());
+    CHECK(tag.b() == doc->featureAt(1).id());
+
+    // Property: the rebuilt geometry is the same.
+    test::FakeKernel kernel;
+    const auto before = doc->regenerate(kernel);
+    const auto after = back.regenerate(kernel);
+    CHECK(after.ok());
+    CHECK(after.bodies() == before.bodies());
+    CHECK_THAT(kernel.massProps(*after.shapeOf(tag.id())).volume,
+               WithinAbs(kernel.massProps(*before.shapeOf(tag.id())).volume, 1e-9));
+    CHECK(after.result(back.featureAt(3).id())->status == model::FeatureStatus::Suppressed);
+}
+
+TEST_CASE("an opened design has no undo history and no unsaved changes", "[io]") {
+    auto doc = makeDesign();
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+    auto opened = io::readBytes(bytes, "tag.khan");
+    REQUIRE(opened.ok());
+    CHECK_FALSE(opened.document->canUndo());
+    CHECK_FALSE(opened.document->canRedo());
+    CHECK_FALSE(opened.document->isModified());
+}
+
+TEST_CASE("saving the same design twice gives the same bytes", "[io]") {
+    auto doc = makeDesign();
+    io::Bytes first, second;
+    REQUIRE(io::writeBytes(*doc, first).empty());
+    REQUIRE(io::writeBytes(*doc, second).empty());
+    CHECK(first == second);
+
+    // And a design that was opened and saved again is unchanged too.
+    auto opened = io::readBytes(first, "tag.khan");
+    REQUIRE(opened.ok());
+    io::Bytes third;
+    REQUIRE(io::writeBytes(*opened.document, third).empty());
+    CHECK(third == first);
+}
+
+#ifndef _WIN32
+#include <cstdlib>
+#include <ctime>
+
+// Bug found while building this: libzip's zip_file_set_mtime goes through the local
+// time zone, so the same design gave different bytes in Chicago and in London.
+TEST_CASE("the bytes don't depend on the computer's time zone", "[io]") {
+    auto doc = makeDesign();
+    const char* old = std::getenv("TZ");
+    const std::string saved = old ? old : "";
+    io::Bytes utc, chicago;
+    setenv("TZ", "UTC", 1);
+    tzset();
+    REQUIRE(io::writeBytes(*doc, utc).empty());
+    setenv("TZ", "America/Chicago", 1);
+    tzset();
+    REQUIRE(io::writeBytes(*doc, chicago).empty());
+    if (old)
+        setenv("TZ", saved.c_str(), 1);
+    else
+        unsetenv("TZ");
+    tzset();
+    CHECK(utc == chicago);
+}
+#endif
+
+TEST_CASE("saveFile writes a file that openFile reads, and marks the design saved", "[io]") {
+    const auto dir = std::filesystem::temp_directory_path() / "kh_io_test";
+    std::filesystem::create_directories(dir);
+    const auto path = dir / "tag.khan";
+
+    auto doc = makeDesign();
+    REQUIRE(doc->isModified());
+    REQUIRE(io::saveFile(*doc, path).empty());
+    CHECK_FALSE(doc->isModified());
+    CHECK_FALSE(std::filesystem::exists(dir / "tag.khan.saving"));
+
+    // Saving over an existing file replaces it.
+    REQUIRE(io::saveFile(*doc, path).empty());
+
+    auto opened = io::openFile(path);
+    REQUIRE(opened.ok());
+    CHECK(opened.document->featureCount() == 4);
+    std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("saving into a folder that doesn't exist explains the problem", "[io]") {
+    auto doc = makeDesign();
+    const auto path = std::filesystem::temp_directory_path() / "kh_no_such_folder" / "x" / "tag.khan";
+    const auto issues = io::saveFile(*doc, path);
+    REQUIRE(issues.size() == 1);
+    CHECK(issues.front().code == "file.cant_write");
+    CHECK(issues.front().message.find("tag.khan") != std::string::npos);
+    CHECK(doc->isModified());  // not saved
+}
+
+TEST_CASE("opening a file that isn't there explains the problem", "[io]") {
+    auto r = io::openFile(std::filesystem::temp_directory_path() / "kh_missing_design.khan");
+    CHECK_FALSE(r.ok());
+    CHECK(firstCode(r) == "file.cant_read");
+}
+
+TEST_CASE("files that aren't Khan designs are refused", "[io]") {
+    SECTION("not a zip") {
+        const std::string text = "solid cube\nendsolid cube\n";
+        auto r = io::readBytes(io::Bytes(text.begin(), text.end()), "cube.stl");
+        CHECK_FALSE(r.ok());
+        CHECK(firstCode(r) == "file.not_khan");
+        CHECK(r.issues.front().message.find("cube.stl") != std::string::npos);
+    }
+    SECTION("a zip without a manifest") {
+        auto r = io::readBytes(makeZip({{"readme.txt", "hello"}}), "photos.zip");
+        CHECK(firstCode(r) == "file.not_khan");
+    }
+    SECTION("a manifest for some other format") {
+        auto r = io::readBytes(makeZip({{"manifest.json", R"({"format":"other","schema":1})"}}), "x.khan");
+        CHECK(firstCode(r) == "file.not_khan");
+    }
+}
+
+TEST_CASE("damaged files are refused with a plain message", "[io]") {
+    SECTION("manifest is not JSON") {
+        auto r = io::readBytes(makeZip({{"manifest.json", "{not json"}}), "x.khan");
+        CHECK(firstCode(r) == "file.damaged");
+    }
+    SECTION("timeline missing") {
+        auto r = io::readBytes(makeZip({{"manifest.json", manifest()}}), "x.khan");
+        CHECK(firstCode(r) == "file.damaged");
+    }
+    SECTION("feature file missing") {
+        auto r =
+            io::readBytes(makeZip({{"manifest.json", manifest()}, {"timeline.json", timeline()}}), "x.khan");
+        CHECK(firstCode(r) == "file.damaged");
+    }
+    SECTION("a number is missing") {
+        const std::string bad =
+            R"({"id":")" + kBoxId + R"(","type":"Box","name":"Box1","params":{"corner":[0,0]}})";
+        auto r = io::readBytes(makeZip({{"manifest.json", manifest()},
+                                        {"timeline.json", timeline()},
+                                        {"features/" + kBoxId + ".json", bad}}),
+                               "x.khan");
+        CHECK(firstCode(r) == "file.damaged");
+        CHECK(r.issues.front().detail.find("corner") != std::string::npos);
+    }
+    SECTION("a step uses a step that isn't in the file") {
+        const std::string missing = "11111111-2222-4333-8444-555555555555";
+        const std::string cut = R"({"id":")" + kBoxId +
+                                R"(","type":"Boolean","name":"Cut1",)"
+                                R"("inputs":{"a":")" +
+                                missing + R"(","b":")" + missing + R"("},"params":{"operation":"cut"}})";
+        auto r = io::readBytes(makeZip({{"manifest.json", manifest()},
+                                        {"timeline.json", timeline()},
+                                        {"features/" + kBoxId + ".json", cut}}),
+                               "x.khan");
+        CHECK_FALSE(r.ok());
+        CHECK(firstCode(r) == "file.damaged");
+    }
+}
+
+TEST_CASE("files from a newer Khan ask the student to update", "[io]") {
+    auto r = io::readBytes(makeZip({{"manifest.json", manifest(kFileSchemaVersion + 1)}}), "future.khan");
+    CHECK_FALSE(r.ok());
+    CHECK(firstCode(r) == "file.too_new");
+    CHECK(r.issues.front().message.find("Update Khan") != std::string::npos);
+}
+
+TEST_CASE("an unknown kind of step is named in the message", "[io]") {
+    auto r = io::readBytes(makeZip({{"manifest.json", manifest()},
+                                    {"timeline.json", timeline()},
+                                    {"features/" + kBoxId + ".json", boxFeature("Loft")}}),
+                           "x.khan");
+    CHECK_FALSE(r.ok());
+    CHECK(firstCode(r) == "file.unknown_step");
+    CHECK(r.issues.front().message.find("Box1") != std::string::npos);
+    CHECK(r.issues.front().message.find("Loft") != std::string::npos);
+}
+
+TEST_CASE("a hand-made file with only the required parts opens", "[io]") {
+    auto r = io::readBytes(makeZip({{"manifest.json", manifest()},
+                                    {"timeline.json", timeline()},
+                                    {"features/" + kBoxId + ".json", boxFeature()}}),
+                           "x.khan");
+    REQUIRE(r.ok());
+    CHECK(r.document->id().toString() == kDocId);
+    REQUIRE(r.document->featureCount() == 1);
+    const auto& box = static_cast<const model::BoxFeature&>(r.document->featureAt(0));
+    CHECK(box.id().toString() == kBoxId);
+    CHECK(box.size().y == 20);
+}
+
+// A schema-1 file checked into the repo. Every future version of Khan must still
+// open it (through a migration if the schema changes). Never regenerate it.
+TEST_CASE("the checked-in schema 1 file still opens", "[io][compat]") {
+    auto r = io::openFile(std::filesystem::path(KH_TEST_FILES_DIR) / "schema1-keychain-tag.khan");
+    REQUIRE(r.ok());
+    const auto& doc = *r.document;
+    CHECK(doc.id().toString() == "a3c4e5f6-0718-4293-a4b5-c6d7e8f90a1b");
+    CHECK(doc.name() == "Keychain tag");
+    REQUIRE(doc.featureCount() == 3);
+    CHECK(doc.featureAt(0).name() == "Plate");
+    CHECK(doc.featureAt(1).name() == "Hole");
+    CHECK(doc.featureAt(2).name() == "Tag");
+
+    test::FakeKernel kernel;
+    const auto report = doc.regenerate(kernel);
+    REQUIRE(report.ok());
+    // Fake volumes: plate 60*30*4 = 7200, hole 3*2.5^2*6 = 112.5 (FakeKernel uses 3 for pi).
+    CHECK_THAT(kernel.massProps(*report.shapeOf(doc.featureAt(2).id())).volume, WithinAbs(7087.5, 1e-9));
+}
