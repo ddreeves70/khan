@@ -22,3 +22,7 @@ Thumbs.db
 *.stl
 *.step
 *.stp
+
+# Python
+__pycache__/
+*.pyc
