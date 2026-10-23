@@ -14,14 +14,18 @@ option(KH_BUILD_CLI  "Build the headless command-line tool (kh_cli)" ON)
 option(KH_BUILD_TESTS "Build unit tests"                            ON)
 option(KH_WARNINGS_AS_ERRORS "Treat compiler warnings as errors"     OFF)
 option(KH_BUILD_DOCS "Add the 'docs' target (API reference, needs Doxygen)" ON)
+option(KH_BUILD_EXAMPLE_PLUGINS "Build the plugin guide's example plugins" ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Khan's libraries are also linked into plugins, which are shared libraries.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(KhTarget)
+include(KhPlugin)
 
 # ---------------------------------------------------------------------------
 # Dependencies
@@ -56,6 +60,20 @@ if(KH_WITH_OCCT)
 endif()
 add_subdirectory(src/model)       # kh_model: document, commands (Phase 0, week 3)
 add_subdirectory(src/io)          # kh_io: .khan files (zip + JSON)
+add_subdirectory(src/plugin)      # kh_plugin: plugin host, event bus, open documents
+
+# Built-in plugins, and the plugin guide's examples (built like outside plugins)
+add_subdirectory(plugins/modeling)  # kh.modeling
+if(KH_BUILD_EXAMPLE_PLUGINS)
+  add_subdirectory(docs/plugin-guide/hello)
+endif()
+# Your own plugins, built with Khan: -DKH_EXTRA_PLUGINS="C:/code/my-cube;C:/code/other"
+# Each folder needs a CMakeLists.txt that calls kh_add_plugin(). See docs/plugin-guide.
+set(KH_EXTRA_PLUGINS "" CACHE STRING "Folders of your own plugins to build with Khan")
+foreach(extra IN LISTS KH_EXTRA_PLUGINS)
+  get_filename_component(extra_name "${extra}" NAME)
+  add_subdirectory("${extra}" "${CMAKE_BINARY_DIR}/extra-plugins/${extra_name}")
+endforeach()
 
 # ---------------------------------------------------------------------------
 # Applications

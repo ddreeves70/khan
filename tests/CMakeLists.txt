@@ -5,8 +5,28 @@ add_executable(kh_tests
   model/test_rebuild.cpp
   model/test_registry.cpp
   io/test_khan_file.cpp
+  plugin/test_event_bus.cpp
+  plugin/test_manifest.cpp
+  plugin/test_document_list.cpp
+  plugin/test_plugin_host.cpp
 )
-target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model kh::io libzip::zip)
+target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model kh::io libzip::zip
+  kh::plugin kh::plugin_modeling)
+
+# Plugins built as shared libraries and loaded by the tests: the plugin guide's
+# Hello plugin, and broken ones the host must refuse.
+add_subdirectory(plugin/fixtures)
+add_dependencies(kh_tests kh_test_plugin_noentry kh_test_plugin_oldapi kh_test_plugin_badname)
+target_compile_definitions(kh_tests PRIVATE KH_TEST_PLUGIN_FOLDER="${KH_TEST_PLUGIN_FOLDER}")
+# The plugin guide's code blocks must match the files the tests build.
+add_test(NAME docs.plugin_guide_code
+  COMMAND ${CMAKE_COMMAND} -DGUIDE=${PROJECT_SOURCE_DIR}/docs/plugin-guide/hello-plugin.md
+          -P ${PROJECT_SOURCE_DIR}/cmake/CheckGuideFiles.cmake)
+if(TARGET kh_hello_plugin)
+  target_sources(kh_tests PRIVATE plugin/test_hello_plugin.cpp)
+  add_dependencies(kh_tests kh_hello_plugin)
+  target_compile_definitions(kh_tests PRIVATE KH_PLUGIN_FOLDER="${CMAKE_BINARY_DIR}/khan-plugins")
+endif()
 # Checked-in .khan files that every future version must still open.
 target_compile_definitions(kh_tests PRIVATE KH_TEST_FILES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/files")
 

@@ -143,6 +143,11 @@ std::vector<const CommandInfo*> CommandRegistry::commands() const {
     return out;  // std::map keeps them sorted by name
 }
 
+const CommandFactory* CommandRegistry::factory(std::string_view name) const {
+    auto it = entries_.find(name);
+    return it == entries_.end() ? nullptr : &it->second.factory;
+}
+
 CreateResult CommandRegistry::create(std::string_view name, const Args& args, const Document& doc) const {
     CreateResult result;
     auto it = entries_.find(name);

@@ -94,6 +94,12 @@ public:
     /// @return The descriptions, sorted by name.
     std::vector<const CommandInfo*> commands() const;
 
+    /// Gives the function that builds a command, so commands can be copied into
+    /// another registry (the plugin host does this when a plugin loads).
+    /// @param name The command name.
+    /// @return The factory, or nullptr if there is no such command.
+    const CommandFactory* factory(std::string_view name) const;
+
     /// Checks arguments and builds a command.
     ///
     /// Checks for an unknown command, unknown arguments, missing required
