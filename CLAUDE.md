@@ -76,6 +76,39 @@ below it.
 - Prefer value types and `std::unique_ptr` ownership; no raw `new`/`delete`.
 - Lengths are millimeters, angles radians, inside the code.
 
+## API documentation
+
+Everything public gets a Doxygen doc comment (the C++ equivalent of Javadoc), so
+it appears in the generated API reference. That means every class, struct, enum
+and enum value, function, public data member, type alias and constant in a public
+header (`src/<lib>/include/kh/<lib>/`), including public and protected members.
+
+- Use `///` comments directly above the item (or `///<` after a data member or enum
+  value). The first sentence is the summary.
+- Functions: `@param` for every parameter, `@return` for anything not `void`, with
+  units (mm, mm^3, radians) where they apply. Templates: `@tparam`.
+- Each header starts with `/// @file` and a one-line summary.
+- Overrides inherit the base class's docs; add a comment only if the behavior differs.
+- Add a short `@code` example for the main entry points of a library.
+- Private members and `.cpp` internals use ordinary `//` comments.
+
+Build the reference with `cmake --build --preset dev --target docs` (output in
+`build/<preset>/docs/html/index.html`). The `docs.api` test and the `api-docs` CI job
+fail on any undocumented public item.
+
+## Plugin developer guide
+
+Khan's own features are plugins built on the public plugin API (see the design
+document, "UI and plugin architecture"). The guide for plugin authors lives in
+`docs/plugin-guide/` and starts with the plugin shell (Phase 0, weeks 4 to 5).
+
+- Any pull request that adds or changes a plugin extension point, the manifest
+  format, the event types or the Python bindings updates the guide in the same PR.
+- Every extension point in the guide has a short working example, and the guide's
+  Hello plugin is built and loaded by a test, so the tutorial can't go stale.
+- Write it for a student who knows a little C++ or Python: plain words, one idea
+  per step, units on every number.
+
 ## Tests
 
 - Catch2 v3, in `tests/<lib>/test_*.cpp`.

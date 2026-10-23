@@ -1,5 +1,8 @@
 #pragma once
 
+/// @file
+/// The Document: a design's features, its undo history and rebuilds.
+
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -16,32 +19,44 @@
 
 namespace kh::model {
 
-enum class DocKind { Part, Assembly };
+/// What kind of design a Document holds.
+enum class DocKind {
+    Part,      ///< A single part made of features.
+    Assembly,  ///< Parts put together with mates (Phase 3).
+};
 
+/// How one feature came out of a rebuild.
 enum class FeatureStatus {
-    Ok,          // built successfully
-    Failed,      // the kernel could not build it
-    Blocked,     // an earlier step it uses has a problem
-    Suppressed,  // turned off by the user
+    Ok,          ///< Built successfully.
+    Failed,      ///< The kernel could not build it.
+    Blocked,     ///< An earlier step it uses has a problem or is turned off.
+    Suppressed,  ///< Turned off by the user.
 };
 
+/// The rebuild result of one feature.
 struct FeatureResult {
-    FeatureStatus status = FeatureStatus::Ok;
-    kernel::ShapeHandle shape;
-    Diagnostics issues;
+    FeatureStatus status = FeatureStatus::Ok;  ///< How it came out.
+    kernel::ShapeHandle shape;                 ///< The shape; empty unless status is Ok.
+    Diagnostics issues;                        ///< Why it failed or is blocked.
 };
 
-// The outcome of rebuilding a document: one result per feature, in document order.
+/// The outcome of rebuilding a document: one result per feature, in document order.
 class RebuildReport final : public ResultLookup {
 public:
+    /// Finds one feature's result.
+    /// @param id The feature to look up.
+    /// @return The result, or nullptr if the feature was not part of the rebuild.
     const FeatureResult* result(const FeatureId& id) const;
+
     const kernel::ShapeHandle* shapeOf(const FeatureId& id) const override;
 
-    // Features whose result is a finished body: built successfully and not used
-    // as an input by any later active step.
+    /// Lists the finished bodies: features that built successfully and are not
+    /// used as an input by any later active step.
+    /// @return The body features, in document order.
     const std::vector<FeatureId>& bodies() const { return bodies_; }
 
-    // True if every active feature built successfully.
+    /// Checks whether everything built.
+    /// @return True if every active (not suppressed) feature built successfully.
     bool ok() const;
 
 private:
@@ -51,48 +66,121 @@ private:
     std::vector<FeatureId> bodies_;
 };
 
-// One design file: an ordered list of features plus its undo history.
-//
-// Rule: only Commands change a Document. Read access is public; changes go
-// through execute(), undo() and redo().
+/// One design file: an ordered list of features plus its undo history.
+///
+/// Rule: only Commands change a Document. Read access is public; changes go
+/// through execute(), undo() and redo().
+///
+/// @code
+/// Document doc;
+/// doc.execute(std::make_unique<AddFeatureCommand>(
+///     std::make_unique<BoxFeature>("Box1", kernel::Vec3{}, kernel::Vec3{10, 10, 10})));
+/// doc.undo();
+/// doc.redo();
+/// RebuildReport report = doc.regenerate(kernel);
+/// @endcode
 class Document {
 public:
+    /// Makes an empty document with a new id.
+    /// @param kind Part or assembly.
+    /// @param name The document's name, shown in the title bar.
     explicit Document(DocKind kind = DocKind::Part, std::string name = "Untitled");
+
+    /// Destroys the document and its history.
     ~Document();
+
     Document(const Document&) = delete;
     Document& operator=(const Document&) = delete;
 
+    /// Gives the document's id, which never changes.
+    /// @return The id.
     const DocId& id() const { return id_; }
+
+    /// Gives the kind of design.
+    /// @return Part or assembly.
     DocKind kind() const { return kind_; }
+
+    /// Gives the document's name.
+    /// @return The name.
     const std::string& name() const { return name_; }
 
-    // ---- Features (read only) ----
+    /// Counts the features.
+    /// @return The number of features, suppressed ones included.
     std::size_t featureCount() const { return features_.size(); }
+
+    /// Gives a feature by position.
+    /// @param index Position from 0 to featureCount() - 1.
+    /// @return The feature. Throws std::out_of_range if @p index is too large
+    ///         (a programming error, not a user error).
     const Feature& featureAt(std::size_t index) const { return *features_.at(index); }
+
+    /// Finds a feature by id.
+    /// @param id The feature to find.
+    /// @return The feature, or nullptr if it is not in the document.
     const Feature* find(const FeatureId& id) const;
+
+    /// Finds a feature's position.
+    /// @param id The feature to find.
+    /// @return Its position, or std::nullopt if it is not in the document.
     std::optional<std::size_t> indexOf(const FeatureId& id) const;
-    // Features (suppressed ones too) that use `id` as an input.
+
+    /// Lists the features (suppressed ones too) that use a feature as an input.
+    /// @param id The feature that may be used.
+    /// @return The ids of the features that use it, in document order.
     std::vector<FeatureId> dependents(const FeatureId& id) const;
-    // A name not used by any feature yet: "Box1", "Box2", ...
+
+    /// Makes a name that no feature uses yet.
+    /// @param base The start of the name, e.g. "Box".
+    /// @return The first free name of "Box1", "Box2", ...
     std::string uniqueName(const std::string& base) const;
 
-    // ---- History ----
-    // Applies a command. On success it joins the undo history (and clears redo).
-    // On failure nothing changes and the errors are returned.
+    /// Applies a command. On success it joins the undo history and clears redo.
+    /// @param command The command to run. The document takes ownership.
+    /// @return No diagnostics on success. On failure, the errors, and nothing changed.
     Diagnostics execute(std::unique_ptr<Command> command);
+
+    /// Undoes the newest step.
+    /// @return False if there is nothing to undo.
     bool undo();
+
+    /// Redoes the newest undone step.
+    /// @return False if there is nothing to redo.
     bool redo();
+
+    /// Checks whether undo() would do something.
+    /// @return True if there is a step to undo.
     bool canUndo() const { return !done_.empty(); }
+
+    /// Checks whether redo() would do something.
+    /// @return True if there is a step to redo.
     bool canRedo() const { return !undone_.empty(); }
-    std::string undoLabel() const;  // empty if nothing to undo
+
+    /// Gives the label for Edit > Undo.
+    /// @return The newest step's label, e.g. "Add Box1", or empty if there is nothing to undo.
+    std::string undoLabel() const;
+
+    /// Gives the label for Edit > Redo.
+    /// @return The next redo step's label, or empty if there is nothing to redo.
     std::string redoLabel() const;
-    void setUndoLimit(std::size_t limit);  // oldest steps are dropped beyond this
 
-    // ---- Saved state ----
-    void markSaved();         // call after a successful save
-    bool isModified() const;  // changed since the last markSaved()
+    /// Sets how many steps undo keeps. The oldest steps are dropped beyond this.
+    /// @param limit The number of steps (at least 1; the default is 200).
+    void setUndoLimit(std::size_t limit);
 
-    // ---- Rebuild ----
+    /// Records that the document was just saved. Call after a successful save.
+    void markSaved();
+
+    /// Checks for unsaved changes.
+    /// @return True if the document differs from the last markSaved() (undo back
+    ///         to the saved state counts as unchanged).
+    bool isModified() const;
+
+    /// Rebuilds every feature in order.
+    ///
+    /// Suppressed features are skipped. A feature whose input has no shape is
+    /// Blocked and never reaches the kernel. The document itself is not changed.
+    /// @param kernel The geometry kernel to build with.
+    /// @return One result per feature, plus the finished bodies.
     RebuildReport regenerate(kernel::IKernel& kernel) const;
 
 private:
