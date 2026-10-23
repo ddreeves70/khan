@@ -28,6 +28,21 @@ void printIssues(const Diagnostics& issues, const char* indent = "") {
     }
 }
 
+// Same words as kh_cli open.
+const char* statusName(model::FeatureStatus s) {
+    switch (s) {
+        case model::FeatureStatus::Ok:
+            return "ok";
+        case model::FeatureStatus::Failed:
+            return "failed";
+        case model::FeatureStatus::Blocked:
+            return "blocked";
+        case model::FeatureStatus::Suppressed:
+            return "off";
+    }
+    return "?";
+}
+
 const char* stateName(plugin::PluginState s) {
     switch (s) {
         case plugin::PluginState::Loaded:
@@ -122,6 +137,82 @@ std::optional<model::ArgValue> parseArg(const model::ArgSpec& spec, const std::s
 }
 
 }  // namespace
+
+namespace {
+
+const char* typeName(model::ArgType t) {
+    switch (t) {
+        case model::ArgType::Number:
+            return "number";
+        case model::ArgType::Integer:
+            return "whole number";
+        case model::ArgType::Bool:
+            return "true or false";
+        case model::ArgType::Text:
+            return "text";
+        case model::ArgType::Vec3:
+            return "x,y,z";
+        case model::ArgType::FeatureRef:
+            return "step name";
+        case model::ArgType::Choice:
+            return "choice";
+    }
+    return "?";
+}
+
+// Which plugin added a command.
+std::string ownerOf(const plugin::PluginHost& host, const std::string& name) {
+    for (const auto& p : host.plugins()) {
+        for (const auto& c : p.commands) {
+            if (c == name) return p.manifest.id;
+        }
+    }
+    return "?";
+}
+
+}  // namespace
+
+int help(int argc, char** argv) {
+    std::vector<std::string_view> args(argv + 2, argv + argc);
+    plugin::PluginHost host;
+    loadPlugins(host, args);
+    if (args.size() > 1) {
+        std::fprintf(stderr, "usage: kh_cli help [--plugins <folder>]... [<command>]\n");
+        return 2;
+    }
+    if (args.empty()) {
+        std::printf("Commands for kh_cli run:\n");
+        for (const auto* c : host.commands().commands()) {
+            std::printf("  %-24s %s\n", c->name.c_str(), c->label.c_str());
+        }
+        std::printf("Run \"kh_cli help <command>\" to see a command's settings.\n");
+        return 0;
+    }
+    const std::string name(args[0]);
+    const auto* c = host.commands().info(name);
+    if (!c) {
+        std::fprintf(stderr, "error: there is no command called %s. Run \"kh_cli help\" to see them.\n",
+                     name.c_str());
+        return 1;
+    }
+    std::printf("%s: %s (from %s)\n", c->name.c_str(), c->label.c_str(), ownerOf(host, name).c_str());
+    std::printf("  %s\n", c->description.c_str());
+    if (c->args.empty()) {
+        std::printf("  No settings.\n");
+        return 0;
+    }
+    std::printf("Settings:\n");
+    for (const auto& a : c->args) {
+        std::string kind = typeName(a.type);
+        if (a.type == model::ArgType::Choice) {
+            kind.clear();
+            for (const auto& choice : a.choices) kind += (kind.empty() ? "" : "|") + choice;
+        }
+        std::printf("  %-10s %-20s %-9s %s\n", a.name.c_str(), kind.c_str(),
+                    a.required ? "required" : "optional", a.description.c_str());
+    }
+    return 0;
+}
 
 int listPlugins(int argc, char** argv) {
     std::vector<std::string_view> args(argv + 2, argv + argc);
@@ -230,7 +321,7 @@ int runCommand(int argc, char** argv) {
     for (std::size_t i = 0; i < design.featureCount(); ++i) {
         const auto& f = design.featureAt(i);
         const auto* r = report->result(f.id());
-        std::printf("  %-12s %s", f.name().c_str(), r->status == model::FeatureStatus::Ok ? "ok" : "problem");
+        std::printf("  %-12s %s", f.name().c_str(), statusName(r->status));
         if (r->status == model::FeatureStatus::Ok) {
             std::printf("  volume %.2f mm^3", kernel->massProps(r->shape).volume);
         }

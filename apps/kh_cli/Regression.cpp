@@ -23,13 +23,17 @@ using kernel::Vec3;
 
 // Results are rounded before they are stored or compared for determinism, so
 // expected values in case files stay readable.
-double round6(double v) { return std::round(v * 1e6) / 1e6; }
+double round6(double v) {
+    return std::round(v * 1e6) / 1e6;
+}
 
 Vec3 vec3(const json& j) {
     return {j.at(0).get<double>(), j.at(1).get<double>(), j.at(2).get<double>()};
 }
 
-json toJson(const Vec3& v) { return json::array({round6(v.x), round6(v.y), round6(v.z)}); }
+json toJson(const Vec3& v) {
+    return json::array({round6(v.x), round6(v.y), round6(v.z)});
+}
 
 // What one run of a case produced.
 struct Outcome {
@@ -56,7 +60,7 @@ Outcome build(IKernel& k, const json& c) {
                                vec3(step.value("axis", json::array({0, 0, 1}))),
                                step.at("radius").get<double>(), step.at("height").get<double>());
         } else if (op == "union" || op == "cut" || op == "intersect") {
-            const auto boolOp = op == "union"   ? kernel::BoolOp::Union
+            const auto boolOp = op == "union" ? kernel::BoolOp::Union
                                 : op == "cut" ? kernel::BoolOp::Cut
                                               : kernel::BoolOp::Intersect;
             r = k.boolean(boolOp, shapes.at(step.at("a").get<std::string>()),
@@ -94,7 +98,9 @@ Outcome build(IKernel& k, const json& c) {
     return out;
 }
 
-std::string str(const json& j) { return j.dump(); }
+std::string str(const json& j) {
+    return j.dump();
+}
 
 // Compares measured results to the case's "expect" block. Only keys present in
 // "expect" are checked, so a case can pin down as much or as little as it needs.
@@ -136,8 +142,7 @@ std::vector<std::string> compare(const json& expect, const Outcome& o) {
                 const double want = expect["bounds"][corner][axis].get<double>();
                 const double got = a["bounds"][corner][axis].get<double>();
                 if (std::abs(got - want) > lenTol) {
-                    fails.push_back("bounds expected " + str(expect["bounds"]) + ", got " +
-                                    str(a["bounds"]));
+                    fails.push_back("bounds expected " + str(expect["bounds"]) + ", got " + str(a["bounds"]));
                     corner = 2;
                     break;
                 }

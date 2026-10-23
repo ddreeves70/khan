@@ -1,0 +1,490 @@
+{
+  "scripts": {
+    "tag": [
+      "run --save tag.khan feature.add_box name=Plate size=60,30,4",
+      "run --open tag.khan --save tag.khan feature.add_cylinder name=Hole base=9,15,-1 radius=2.5 height=6",
+      "run --open tag.khan --save tag.khan feature.add_boolean name=Tag operation=cut a=Plate b=Hole"
+    ],
+    "organizer": [
+      "run --save o.khan feature.add_box name=Base size=120,60,8",
+      "run --open o.khan --save o.khan feature.add_cylinder name=Cup base=30,30,0 radius=22 height=80",
+      "run --open o.khan --save o.khan feature.add_boolean name=Body operation=union a=Base b=Cup",
+      "run --open o.khan --save o.khan feature.add_cylinder name=PenHole base=30,30,6 radius=18 height=80",
+      "run --open o.khan --save o.khan feature.add_boolean name=Hollow operation=cut a=Body b=PenHole",
+      "run --open o.khan --save o.khan feature.add_box name=Slot corner=65,24,4 size=45,12,5",
+      "run --open o.khan --save o.khan feature.add_boolean name=Organizer operation=cut a=Hollow b=Slot"
+    ],
+    "parts": [
+      "run --save p.khan feature.add_box size=30,30,10",
+      "run --open p.khan --save p.khan feature.add_cylinder base=30,15,0 radius=10 height=20"
+    ]
+  },
+  "pictures": [
+    {
+      "out": "docs/cli/images/demo-tag.png",
+      "size": "520x320",
+      "commands": [
+        "demo tag.khan"
+      ],
+      "show": [
+        {
+          "file": "tag.khan",
+          "color": "blue"
+        }
+      ]
+    },
+    {
+      "out": "docs/cli/images/run-block.png",
+      "size": "480x320",
+      "commands": [
+        "run --save b.khan feature.add_box size=40,30,10",
+        "run --open b.khan --save b.khan feature.add_cylinder base=20,15,-1 radius=6 height=12",
+        "run --open b.khan --save b.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1"
+      ],
+      "show": [
+        {
+          "file": "b.khan",
+          "color": "blue"
+        }
+      ]
+    },
+    {
+      "out": "docs/cli/images/cmd-box.png",
+      "size": "420x300",
+      "commands": [
+        "run --save b.khan feature.add_box size=40,30,20"
+      ],
+      "show": [
+        {
+          "file": "b.khan",
+          "color": "blue"
+        }
+      ]
+    },
+    {
+      "out": "docs/cli/images/cmd-cylinders.png",
+      "size": "520x320",
+      "commands": [
+        "run --save c.khan feature.add_cylinder radius=10 height=25",
+        "run --open c.khan --save c.khan feature.add_cylinder base=20,0,5 radius=5 height=40 axis=1,0,0 name=Rod"
+      ],
+      "show": [
+        {
+          "file": "c.khan",
+          "color": "green",
+          "step": "Cylinder1"
+        },
+        {
+          "file": "c.khan",
+          "color": "orange",
+          "step": "Rod"
+        }
+      ]
+    },
+    {
+      "out": "docs/cli/images/cmd-union.png",
+      "size": "300x240",
+      "script": "parts",
+      "commands": [
+        "run --open p.khan --save p.khan feature.add_boolean operation=union a=Box1 b=Cylinder1"
+      ],
+      "show": [
+        {
+          "file": "p.khan",
+          "color": "blue",
+          "step": "Union1"
+        }
+      ]
+    },
+    {
+      "out": "docs/cli/images/cmd-cut.png",
+      "size": "300x240",
+      "script": "parts",
+      "commands": [
+        "run --open p.khan --save p.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1"
+      ],
+      "show": [
+        {
+          "file": "p.khan",
+          "color": "blue",
+          "step": "Cut1"
+        },
+        {
+          "file": "p.khan",
+          "color": "orange",
+          "step": "Cylinder1",
+          "ghost": true
+        }
+      ]
+    },
+    {
+      "out": "docs/cli/images/cmd-intersect.png",
+      "size": "300x240",
+      "script": "parts",
+      "commands": [
+        "run --open p.khan --save p.khan feature.add_boolean operation=intersect a=Box1 b=Cylinder1"
+      ],
+      "show": [
+        {
+          "file": "p.khan",
+          "color": "blue",
+          "step": "Intersect1"
+        },
+        {
+          "file": "p.khan",
+          "color": "gray",
+          "step": "Box1",
+          "ghost": "outline"
+        },
+        {
+          "file": "p.khan",
+          "color": "orange",
+          "step": "Cylinder1",
+          "ghost": "outline"
+        }
+      ]
+    },
+    {
+      "out": "docs/tutorials/images/tag-plate.png",
+      "size": "560x340",
+      "script": "tag",
+      "show": [
+        {
+          "file": "tag.khan",
+          "color": "blue",
+          "step": "Plate"
+        }
+      ],
+      "labels": [
+        {
+          "at": [
+            0,
+            0,
+            0
+          ],
+          "text": "origin"
+        }
+      ]
+    },
+    {
+      "out": "docs/tutorials/images/tag-hole.png",
+      "size": "560x340",
+      "script": "tag",
+      "show": [
+        {
+          "file": "tag.khan",
+          "color": "blue",
+          "step": "Plate"
+        },
+        {
+          "file": "tag.khan",
+          "color": "orange",
+          "step": "Hole",
+          "ghost": true
+        }
+      ]
+    },
+    {
+      "out": "docs/tutorials/images/tag-done.png",
+      "size": "560x340",
+      "script": "tag",
+      "show": [
+        {
+          "file": "tag.khan",
+          "color": "blue",
+          "step": "Tag"
+        }
+      ]
+    },
+    {
+      "out": "docs/tutorials/images/organizer-two-bodies.png",
+      "size": "560x400",
+      "script": "organizer",
+      "show": [
+        {
+          "file": "o.khan",
+          "color": "blue",
+          "step": "Base"
+        },
+        {
+          "file": "o.khan",
+          "color": "green",
+          "step": "Cup"
+        }
+      ]
+    },
+    {
+      "out": "docs/tutorials/images/organizer-pen-hole.png",
+      "size": "560x400",
+      "script": "organizer",
+      "show": [
+        {
+          "file": "o.khan",
+          "color": "blue",
+          "step": "Body"
+        },
+        {
+          "file": "o.khan",
+          "color": "orange",
+          "step": "PenHole",
+          "ghost": true
+        }
+      ]
+    },
+    {
+      "out": "docs/tutorials/images/organizer-slot.png",
+      "size": "560x400",
+      "script": "organizer",
+      "show": [
+        {
+          "file": "o.khan",
+          "color": "blue",
+          "step": "Hollow"
+        },
+        {
+          "file": "o.khan",
+          "color": "orange",
+          "step": "Slot",
+          "ghost": true
+        }
+      ]
+    },
+    {
+      "out": "docs/tutorials/images/organizer-done.png",
+      "size": "560x400",
+      "script": "organizer",
+      "show": [
+        {
+          "file": "o.khan",
+          "color": "blue",
+          "step": "Organizer"
+        }
+      ]
+    },
+    {
+      "out": "docs/tutorials/images/organizer-front.png",
+      "size": "560x360",
+      "view": "front",
+      "script": "organizer",
+      "show": [
+        {
+          "file": "o.khan",
+          "color": "blue",
+          "step": "Organizer"
+        }
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/axes.png",
+      "size": "520x380",
+      "commands": [
+        "run --save a.khan feature.add_box size=40,30,20 name=Part",
+        "run --open a.khan --save a.khan feature.add_box size=55,0.6,0.6 name=X",
+        "run --open a.khan --save a.khan feature.add_box size=0.6,45,0.6 name=Y",
+        "run --open a.khan --save a.khan feature.add_box size=0.6,0.6,32 name=Z"
+      ],
+      "show": [
+        {
+          "file": "a.khan",
+          "color": "gray",
+          "step": "Part",
+          "ghost": true
+        },
+        {
+          "file": "a.khan",
+          "color": "red",
+          "step": "X"
+        },
+        {
+          "file": "a.khan",
+          "color": "green",
+          "step": "Y"
+        },
+        {
+          "file": "a.khan",
+          "color": "blue",
+          "step": "Z"
+        }
+      ],
+      "labels": [
+        {
+          "at": [
+            60,
+            0,
+            0
+          ],
+          "text": "x",
+          "color": "red"
+        },
+        {
+          "at": [
+            0,
+            50,
+            0
+          ],
+          "text": "y",
+          "color": "green"
+        },
+        {
+          "at": [
+            0,
+            0,
+            36
+          ],
+          "text": "z",
+          "color": "blue"
+        },
+        {
+          "at": [
+            -4,
+            -4,
+            -4
+          ],
+          "text": "0,0,0"
+        }
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/shape-box.png",
+      "size": "420x300",
+      "commands": [
+        "run --save b.khan feature.add_box size=40,30,20"
+      ],
+      "show": [
+        {
+          "file": "b.khan",
+          "color": "blue"
+        }
+      ],
+      "labels": [
+        {
+          "at": [
+            20,
+            -4,
+            0
+          ],
+          "text": "40 (x)"
+        },
+        {
+          "at": [
+            44,
+            15,
+            0
+          ],
+          "text": "30 (y)"
+        },
+        {
+          "at": [
+            44,
+            0,
+            10
+          ],
+          "text": "20 (z)"
+        }
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/shape-cylinder.png",
+      "size": "360x320",
+      "commands": [
+        "run --save c.khan feature.add_cylinder radius=10 height=25"
+      ],
+      "show": [
+        {
+          "file": "c.khan",
+          "color": "green"
+        }
+      ],
+      "labels": [
+        {
+          "at": [
+            0,
+            0,
+            0
+          ],
+          "text": "base"
+        },
+        {
+          "at": [
+            0,
+            0,
+            29
+          ],
+          "text": "axis 0,0,1"
+        }
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/shape-axis.png",
+      "size": "560x300",
+      "commands": [
+        "run --save c.khan feature.add_cylinder radius=5 height=40 axis=1,0,0 name=AlongX",
+        "run --open c.khan --save c.khan feature.add_cylinder base=0,30,0 radius=5 height=40 axis=0,1,0 name=AlongY",
+        "run --open c.khan --save c.khan feature.add_cylinder base=0,90,0 radius=5 height=40 name=Up"
+      ],
+      "show": [
+        {
+          "file": "c.khan",
+          "color": "red",
+          "step": "AlongX"
+        },
+        {
+          "file": "c.khan",
+          "color": "green",
+          "step": "AlongY"
+        },
+        {
+          "file": "c.khan",
+          "color": "blue",
+          "step": "Up"
+        }
+      ],
+      "labels": [
+        {
+          "at": [
+            48,
+            0,
+            0
+          ],
+          "text": "axis=1,0,0",
+          "color": "red"
+        },
+        {
+          "at": [
+            0,
+            76,
+            0
+          ],
+          "text": "axis=0,1,0",
+          "color": "green"
+        },
+        {
+          "at": [
+            0,
+            90,
+            46
+          ],
+          "text": "axis=0,0,1",
+          "color": "blue"
+        }
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/combine-before.png",
+      "size": "360x280",
+      "script": "parts",
+      "show": [
+        {
+          "file": "p.khan",
+          "color": "blue",
+          "step": "Box1"
+        },
+        {
+          "file": "p.khan",
+          "color": "orange",
+          "step": "Cylinder1"
+        }
+      ]
+    }
+  ]
+}

@@ -99,6 +99,30 @@ Build the reference with `cmake --build --preset dev --target docs` (output in
 `build/<preset>/docs/html/index.html`). The `docs.api` test and the `api-docs` CI job
 fail on any undocumented public item.
 
+## User's guide, CLI reference and tutorials
+
+Khan's guides grow with the code. Any pull request that adds or changes something a
+user can see or type updates them in the same PR:
+
+- `docs/user-guide/`: explains every feature for a student, with pictures. Each
+  page leads with what the feature does, then an example, then tips.
+- `docs/cli/`: one page per `kh_cli` command (all options, examples, errors), and
+  `commands.md` with a section and a tested example for every modeling command.
+- `docs/tutorials/`: step-by-step projects that build a printable part. Add or
+  extend a tutorial when a feature changes how parts are made.
+
+Rules:
+
+- Examples are marked `<!-- cli-example -->` (or `exit=N`) above a ```` ```console ````
+  block. The `docs.guides` test runs every one and fails if `kh_cli` prints anything
+  different; it also fails if a command has no page or a link or picture is broken.
+  Fix the docs or the code, never weaken the example.
+- Pictures are rendered from real designs: add a recipe to `docs/pictures.json`, run
+  `python3 tools/docs/make_images.py --kh-cli <path to kh_cli>`, look at the result,
+  and commit the PNG. Once the desktop app exists, add screenshots the same way.
+- Same writing rules as the app: plain words for a 14-year-old, units on every
+  number, say how to fix problems.
+
 ## Plugin developer guide
 
 Khan's own features are plugins built on the public plugin API (see the design

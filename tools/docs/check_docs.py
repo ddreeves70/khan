@@ -1,0 +1,162 @@
+"""Checks Khan's guides against the real kh_cli, so they can't go stale.
+
+Run by ctest as docs.guides. It:
+
+1. Runs every example in docs/cli, docs/tutorials and docs/user-guide that is
+   marked with <!-- cli-example --> (or <!-- cli-example exit=N --> when the last
+   command should fail) and checks it prints exactly what the page shows.
+   In the expected output, "..." matches any text: a whole line of "..." matches
+   any number of lines.
+2. Checks every kh_cli command (from its usage text) has a page in docs/cli, and
+   every command `kh_cli help` lists has a section and a tested example in
+   docs/cli/commands.md.
+3. Checks every relative link and picture in the guides points at a file that exists.
+
+Examples run in a fresh folder per page, so a page's examples can build on each
+other (a tutorial saves a file, the next step opens it). Paths in commands that
+start with build/dev/ are mapped to the real build folder, and paths starting
+with tests/ or docs/ to the repo.
+
+    python3 check_docs.py --kh-cli <path> --build-dir <dir> --repo <dir>
+"""
+
+import argparse
+import os
+import re
+import shlex
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+GUIDES = ["docs/cli", "docs/tutorials", "docs/user-guide", "docs/plugin-guide"]
+EXAMPLE = re.compile(r"<!--\s*cli-example(?:\s+exit=(\d+))?\s*-->\s*\n\s*```console\n(.*?)```", re.S)
+LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)\)")
+
+failures = []
+
+
+def fail(where, message):
+    failures.append(f"{where}: {message}")
+
+
+def matches(expected, actual):
+    """Line-by-line match; '...' inside a line matches any text, a line of '...' any lines."""
+    if not expected:
+        return not actual
+    head = expected[0]
+    if head.strip() == "...":
+        return any(matches(expected[1:], actual[i:]) for i in range(len(actual) + 1))
+    if not actual:
+        return False
+    pattern = "^" + ".*".join(re.escape(part) for part in head.split("...")) + "$"
+    return re.match(pattern, actual[0]) is not None and matches(expected[1:], actual[1:])
+
+
+def map_arg(arg, args):
+    for prefix, base in (("build/dev/", args.build_dir), ("tests/", args.repo / "tests"),
+                         ("docs/", args.repo / "docs")):
+        if arg.startswith(prefix):
+            rest = arg[len(prefix):]
+            return str(Path(base) / rest) if prefix == "build/dev/" else str(base / rest)
+    return arg
+
+
+def normalize(text, args, workdir):
+    for real, shown in ((str(args.build_dir), "build/dev"), (str(args.repo), "."), (str(workdir), ".")):
+        text = text.replace(real + os.sep, shown + "/").replace(real, shown)
+    return [line.rstrip() for line in text.replace("\r\n", "\n").split("\n")]
+
+
+def run_examples(page, args):
+    text = page.read_text(encoding="utf-8")
+    with tempfile.TemporaryDirectory(prefix="kh_docs_") as tmp:
+        workdir = Path(tmp).resolve()
+        for m in EXAMPLE.finditer(text):
+            want_exit = int(m.group(1) or 0)
+            line_no = text[: m.start()].count("\n") + 1
+            blocks = []  # (command, expected lines)
+            for line in m.group(2).rstrip("\n").split("\n"):
+                if line.startswith("$ "):
+                    blocks.append((line[2:], []))
+                elif blocks:
+                    blocks[-1][1].append(line.rstrip())
+                else:
+                    fail(f"{page}:{line_no}", "example output before any '$ ' command")
+            for i, (command, expected) in enumerate(blocks):
+                argv = shlex.split(command)
+                if not argv or argv[0] != "kh_cli":
+                    fail(f"{page}:{line_no}", f"examples may only run kh_cli: {command}")
+                    continue
+                argv = [args.kh_cli] + [map_arg(a, args) for a in argv[1:]]
+                proc = subprocess.run(argv, cwd=workdir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                actual = normalize(proc.stdout.decode("utf-8", "replace"), args, workdir)
+                while actual and actual[-1] == "":
+                    actual.pop()
+                while expected and expected[-1] == "":
+                    expected.pop()
+                code = want_exit if i == len(blocks) - 1 else 0
+                if proc.returncode != code:
+                    fail(f"{page}:{line_no}", f"'{command}' exited with {proc.returncode}, the page expects {code}")
+                if not matches(expected, actual):
+                    fail(f"{page}:{line_no}", f"'{command}' printed something else.\n--- page ---\n" +
+                         "\n".join(expected) + "\n--- kh_cli ---\n" + "\n".join(actual))
+
+
+def check_coverage(args):
+    usage = subprocess.run([args.kh_cli], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout.decode()
+    for name in re.findall(r"kh_cli (\S+)", usage):
+        page = args.repo / "docs/cli" / ("version.md" if name == "--version" else f"{name}.md")
+        if not page.exists():
+            fail("docs/cli", f"kh_cli {name} has no page ({page.name})")
+
+    listing = subprocess.run([args.kh_cli, "help"], stdout=subprocess.PIPE).stdout.decode()
+    commands = re.findall(r"^  (\S+\.\S+)\s", listing, re.M)
+    page = args.repo / "docs/cli/commands.md"
+    text = page.read_text(encoding="utf-8") if page.exists() else ""
+    examples = "\n".join(m.group(2) for m in EXAMPLE.finditer(text))
+    for name in commands:
+        if not re.search(rf"^#+ `?{re.escape(name)}`?\s*$", text, re.M):
+            fail("docs/cli/commands.md", f"no section for {name}")
+        if not re.search(rf"\$ kh_cli run .*\b{re.escape(name)}\b", examples):
+            fail("docs/cli/commands.md", f"no tested example that runs {name}")
+
+
+def check_links(page):
+    text = page.read_text(encoding="utf-8")
+    # Ignore links inside code blocks.
+    text = re.sub(r"```.*?```", "", text, flags=re.S)
+    for target in LINK.findall(text):
+        if re.match(r"^[a-z]+:", target) or target.startswith("#"):
+            continue
+        path = (page.parent / target.split("#")[0]).resolve()
+        if not path.exists():
+            fail(str(page), f"broken link or picture: {target}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--kh-cli", required=True, type=lambda p: str(Path(p).resolve()))
+    ap.add_argument("--build-dir", required=True, type=lambda p: Path(p).resolve())
+    ap.add_argument("--repo", required=True, type=lambda p: Path(p).resolve())
+    args = ap.parse_args()
+
+    pages = sorted(p for g in GUIDES for p in (args.repo / g).rglob("*.md"))
+    if not pages:
+        fail("docs", "no guide pages found")
+    for page in pages:
+        run_examples(page, args)
+        check_links(page)
+    check_coverage(args)
+
+    count = sum(len(EXAMPLE.findall(p.read_text(encoding="utf-8"))) for p in pages)
+    if failures:
+        print("\n\n".join(failures))
+        print(f"\n{len(failures)} problem(s) in the guides")
+        return 1
+    print(f"{len(pages)} pages, {count} examples: all match kh_cli")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
