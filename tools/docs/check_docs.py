@@ -5,8 +5,8 @@ Run by ctest as docs.guides. It:
 1. Runs every example in docs/cli, docs/tutorials and docs/user-guide that is
    marked with <!-- cli-example --> (or <!-- cli-example exit=N --> when the last
    command should fail) and checks it prints exactly what the page shows.
-   In the expected output, "..." matches any text: a whole line of "..." matches
-   any number of lines.
+   In the expected output, "..." matches any text (and the spaces around it): a
+   whole line of "..." matches any number of lines.
 2. Checks every kh_cli command (from its usage text) has a page in docs/cli, and
    every command `kh_cli help` lists has a section and a tested example in
    docs/cli/commands.md.
@@ -49,7 +49,12 @@ def matches(expected, actual):
         return any(matches(expected[1:], actual[i:]) for i in range(len(actual) + 1))
     if not actual:
         return False
-    pattern = "^" + ".*".join(re.escape(part) for part in head.split("...")) + "$"
+    # "..." also takes the spaces around it, so a column that shifts when a value
+    # gets wider (5.3 ms vs 24.2 ms) still matches.
+    parts = head.split("...")
+    parts = [p.rstrip(" ") if i < len(parts) - 1 else p for i, p in enumerate(parts)]
+    parts = [p.lstrip(" ") if i > 0 else p for i, p in enumerate(parts)]
+    pattern = "^" + r"\s*.*?\s*".join(re.escape(part) for part in parts) + "$"
     return re.match(pattern, actual[0]) is not None and matches(expected[1:], actual[1:])
 
 
