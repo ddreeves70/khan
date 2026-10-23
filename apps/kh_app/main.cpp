@@ -1,49 +1,68 @@
+// kh_app: the Khan desktop app.
+//
+//   kh_app [file.khan]                 open a design (or start with an empty one)
+//   kh_app --open file.khan            the same
+//   kh_app --select Step1,Step2        pick steps after opening (for screenshots)
+//   kh_app --settings file.ini         keep layouts in this file instead of the user's settings
+//   kh_app --screenshot out.png        save a picture of the window and quit
+//   kh_app --smoke-test                build the window, check it, and quit (CI)
+//
+// --screenshot and --smoke-test work without a screen: QT_QPA_PLATFORM=offscreen.
+
 #include <QApplication>
+#include <QCoreApplication>
+#include <QDir>
 #include <QPixmap>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QStringList>
 
 #include <cstdio>
+#include <memory>
 
-#include "MainWindow.h"
+#include "AppUi.h"
+#include "Shell.h"
+#include "kh/kernel_occt/OcctKernel.h"
+#include "kh/plugin/PluginHost.h"
+#include "kh/plugins/FeatureTree.h"
+#include "kh/plugins/Modeling.h"
+#include "kh/plugins/Properties.h"
 
 namespace {
 
-// `kh_app --smoke-test`: builds the main window, checks every panel is there and
-// that a saved layout restores, then quits. CI runs it with
-// QT_QPA_PLATFORM=offscreen, so it needs no screen.
-int smokeTest(kh::app::MainWindow& window) {
-    window.show();
-    QApplication::processEvents();
+QString option(const QStringList& args, const QString& name) {
+    const auto i = args.indexOf(name);
+    return i > 0 && i + 1 < args.size() ? args.at(i + 1) : QString();
+}
 
-    const QStringList expected = {QStringLiteral("kh.featuretree"), QStringLiteral("kh.properties"),
-                                  QStringLiteral("kh.timeline"), QStringLiteral("kh.viewer.main")};
-    if (window.dockIds() != expected) {
-        std::fprintf(stderr, "smoke test: panels are [%s], expected [%s]\n",
-                     qPrintable(window.dockIds().join(QStringLiteral(", "))),
-                     qPrintable(expected.join(QStringLiteral(", "))));
+int smokeTest(kh::app::Shell& shell) {
+    shell.show();
+    QApplication::processEvents();
+    auto fail = [](const char* what) {
+        std::fprintf(stderr, "smoke test: %s\n", what);
         return 1;
+    };
+    const auto ids = shell.dockIds();
+    for (const char* id : {"kh.featuretree.panel", "kh.properties.panel", "kh.viewer.main"}) {
+        if (!ids.contains(QString::fromLatin1(id))) return fail("a built-in panel is missing");
     }
-    const QByteArray layout = window.saveLayout();
-    if (layout.isEmpty() || !window.restoreLayout(layout)) {
-        std::fprintf(stderr, "smoke test: the layout didn't save and restore\n");
-        return 1;
-    }
-    if (window.restoreLayout(QByteArray("not a layout"))) {
-        std::fprintf(stderr, "smoke test: a damaged layout was accepted\n");
-        return 1;
-    }
-    std::printf("kh_app smoke test: %lld panels, layout saved and restored\n",
-                static_cast<long long>(expected.size()));
+    auto* box = shell.action("kh.modeling.box");
+    if (!box) return fail("Create > Box is missing");
+    box->trigger();
+    QApplication::processEvents();
+    if (!shell.undoAction()->isEnabled()) return fail("Create > Box didn't add a step");
+    const auto layout = shell.saveLayout();
+    if (layout.isEmpty() || !shell.restoreLayout(layout)) return fail("the layout didn't save and restore");
+    std::printf("kh_app smoke test: %lld panels, Create > Box works, layout saved and restored\n",
+                static_cast<long long>(ids.size()));
     return 0;
 }
 
-// `kh_app --screenshot <file.png>`: shows the main window and saves a picture of
-// it, for the user's guide. Works without a screen (QT_QPA_PLATFORM=offscreen).
-int screenshot(kh::app::MainWindow& window, const QString& file) {
-    window.resize(1280, 800);
-    window.show();
-    for (int i = 0; i < 5; ++i) QApplication::processEvents();
-    if (!window.grab().save(file)) {
+int screenshot(kh::app::Shell& shell, const QString& file) {
+    shell.resize(1280, 800);
+    shell.show();
+    for (int i = 0; i < 10; ++i) QApplication::processEvents();
+    if (!shell.grab().save(file)) {
         std::fprintf(stderr, "Khan couldn't save the picture %s. Check the folder exists.\n",
                      qPrintable(file));
         return 1;
@@ -58,14 +77,43 @@ int main(int argc, char** argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("Khan"));
     QApplication::setOrganizationName(QStringLiteral("Khan"));
-
-    kh::app::MainWindow window;
     const QStringList args = QApplication::arguments();
-    if (args.contains(QStringLiteral("--smoke-test"))) return smokeTest(window);
-    if (const auto i = args.indexOf(QStringLiteral("--screenshot")); i > 0 && i + 1 < args.size()) {
-        return screenshot(window, args.at(i + 1));
+
+    const QString settingsFile = option(args, QStringLiteral("--settings"));
+    auto settings = settingsFile.isEmpty() ? std::make_unique<QSettings>()
+                                           : std::make_unique<QSettings>(settingsFile, QSettings::IniFormat);
+
+    // Plugins: the built-in ones, then folders of outside plugins: "plugins" next
+    // to the program, and the user's own plugin folder.
+    auto kernel = kh::kernel::makeOcctKernel();
+    kh::app::AppUi ui;
+    kh::plugin::PluginHost host(kernel.get());
+    host.provide<kh::ui::UiRegistry>(ui);
+    host.addBuiltin(kh::plugins::modelingPlugin());
+    host.addBuiltin(kh::plugins::featureTreePlugin());
+    host.addBuiltin(kh::plugins::propertiesPlugin());
+    host.addFolder((QCoreApplication::applicationDirPath() + QStringLiteral("/plugins")).toStdWString());
+    host.addFolder(
+        (QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/plugins"))
+            .toStdWString());
+    host.loadAll();
+
+    kh::app::Shell shell(host, ui, *kernel, *settings);
+
+    QString open = option(args, QStringLiteral("--open"));
+    if (open.isEmpty() && args.size() > 1 &&
+        args.at(1).endsWith(QStringLiteral(".khan"), Qt::CaseInsensitive)) {
+        open = args.at(1);
+    }
+    if (!open.isEmpty()) shell.openDesign(QDir::current().absoluteFilePath(open).toStdWString());
+    if (const auto select = option(args, QStringLiteral("--select")); !select.isEmpty()) {
+        shell.selectSteps(select.split(QLatin1Char(',')));
     }
 
-    window.show();
+    if (args.contains(QStringLiteral("--smoke-test"))) return smokeTest(shell);
+    if (const auto file = option(args, QStringLiteral("--screenshot")); !file.isEmpty())
+        return screenshot(shell, file);
+
+    shell.show();
     return QApplication::exec();
 }

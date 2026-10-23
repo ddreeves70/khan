@@ -9,6 +9,8 @@
 #include <functional>
 #include <string>
 
+#include "kh/core/Diagnostic.h"
+
 /// The Qt side of the plugin API: what only the desktop app offers.
 namespace kh::ui {
 
@@ -23,9 +25,9 @@ enum class PanelArea {
 
 /// A dockable panel a plugin adds to the desktop app.
 struct PanelSpec {
-    std::string id{};                 ///< Stable id; must start with the plugin's id and a dot, e.g. "kh.featuretree.panel".
-    QString title{};                  ///< The panel's tab title, e.g. "Feature tree".
-    PanelArea area = PanelArea::Left; ///< Where it docks by default.
+    std::string id{};  ///< Stable id; must start with the plugin's id and a dot, e.g. "kh.featuretree.panel".
+    QString title{};   ///< The panel's tab title, e.g. "Feature tree".
+    PanelArea area = PanelArea::Left;    ///< Where it docks by default.
     std::function<QWidget*()> create{};  ///< Makes the panel's widget. Khan owns the widget.
 };
 
@@ -55,6 +57,16 @@ public:
     /// plugin fails to load.
     /// @param panel Its id, title, default place and how to make it.
     virtual void addPanel(PanelSpec panel) = 0;
+
+    /// Tells the student about problems, for example why an edit was refused.
+    /// The desktop app shows them in the status bar; errors stay until the next
+    /// change.
+    /// @param problems What went wrong, in plain words.
+    virtual void showProblems(const Diagnostics& problems) = 0;
+
+    /// Shows a short note in the status bar, e.g. "Saved bracket.khan".
+    /// @param message Plain words.
+    virtual void showMessage(const QString& message) = 0;
 };
 
 }  // namespace kh::ui

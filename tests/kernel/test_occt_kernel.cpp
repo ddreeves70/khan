@@ -28,6 +28,16 @@ TEST_CASE("Invalid sizes are reported, not thrown", "[kernel][occt]") {
     REQUIRE(box.issues[0].code == "kernel.box.size");
 }
 
+// Bug: a 0, 0, 0 axis reached OCCT and came back as "Standard_ConstructionError:
+// gp_Dir() - input vector has zero norm".
+TEST_CASE("A cylinder with no axis direction gets a plain message", "[kernel][occt]") {
+    auto kernel = kh::kernel::makeOcctKernel();
+    const auto cyl = kernel->makeCylinder({0, 0, 0}, {0, 0, 0}, 5, 20);
+    REQUIRE_FALSE(cyl.ok());
+    REQUIRE(cyl.issues[0].code == "kernel.cylinder.axis");
+    REQUIRE(cyl.issues[0].detail.empty());
+}
+
 TEST_CASE("Cutting a through-hole removes its volume", "[kernel][occt]") {
     auto k = makeOcctKernel();
     auto box = k->makeBox({0, 0, 0}, 60, 30, 4);

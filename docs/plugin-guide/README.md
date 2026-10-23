@@ -56,7 +56,7 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
 | Events: design opened, closed, changed, rebuilt, active design | Works |
 | Menu items and toolbar buttons (actions) | Works |
 | The shared selection | Works |
-| Panels | The API exists (`kh::ui::UiRegistry`); the guide's worked example comes with the desktop shell |
+| Panels in the desktop app | Works: the feature tree and Properties are plugins |
 | 3D view tools | Coming with the viewer (Phase 0) |
 | New kinds of steps (feature types), file formats | Coming later |
 | Building a plugin without the Khan source (an SDK) | Coming later |

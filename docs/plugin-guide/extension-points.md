@@ -138,6 +138,39 @@ You can read a design directly, but you change it only with `run`, `execute`,
 `undo` and `redo`. Each change sends `DocumentChanged`, rebuilds the design and
 sends `RebuildFinished`.
 
+## Add a panel (desktop app only)
+
+A panel is a dockable window, like the feature tree. Panels are Qt widgets, so
+they use `kh_ui`, the Qt side of the plugin API. Only the desktop app provides
+it: ask for the `UiRegistry` service, and add panels only when it's there. In
+`kh_cli` the same plugin still adds its commands and actions.
+
+```cpp
+#include "kh/ui/UiRegistry.h"
+
+void registerNotes(kh::plugin::PluginContext& ctx) {
+    auto* ui = ctx.service<kh::ui::UiRegistry>();
+    if (!ui) return;  // not in the desktop app
+    ui->addPanel({"sam.notes.panel",               // starts with your plugin id
+                  QObject::tr("Notes"),            // the tab's title
+                  kh::ui::PanelArea::Right,        // where it docks at first
+                  [&ctx] { return new NotesPanel(ctx); }});
+}
+```
+
+- Khan calls the function when the main window opens and owns the widget it
+  returns. The student can move the panel anywhere; Khan remembers where.
+- Keep the panel up to date by listening to events (`ctx.events().subscribe`,
+  keeping the `Subscription` as a member, so it disconnects when the panel
+  closes).
+- Change designs only through `ctx.documents()`, like everywhere else.
+- `ui->showProblems(problems)` shows what went wrong in the status bar.
+- In CMake, link `kh::ui` as well: `DEPS kh::model kh::ui`.
+
+**Worked examples:** the built-in [feature tree](../../plugins/featuretree/FeatureTreePlugin.cpp)
+and [Properties](../../plugins/properties/PropertiesPlugin.cpp) panels are plugins
+written exactly this way. Khan's app tests click through both.
+
 ## Log, or refuse to start
 
 ```cpp
@@ -156,7 +189,6 @@ These are planned and will be added to this guide as they're built:
 
 | Extension point | What you'll add | When |
 | --- | --- | --- |
-| Panels | A dockable window, like the feature tree (`kh::ui::UiRegistry`, with a worked example) | Desktop shell, next |
 | Ribbon tabs | Grouping actions into tabs | Later |
 | Viewer tools | A way to use the mouse in the 3D view, with a live preview | Viewer, Phase 0 |
 | Feature types | A new kind of step that saves, loads and rebuilds | Phase 2 |

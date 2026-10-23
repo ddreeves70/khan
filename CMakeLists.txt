@@ -68,6 +68,10 @@ endif()
 
 # Built-in plugins, and the plugin guide's examples (built like outside plugins)
 add_subdirectory(plugins/modeling)  # kh.modeling
+if(KH_BUILD_APP)
+  add_subdirectory(plugins/featuretree)  # kh.featuretree (Qt)
+  add_subdirectory(plugins/properties)   # kh.properties (Qt)
+endif()
 if(KH_BUILD_EXAMPLE_PLUGINS)
   add_subdirectory(docs/plugin-guide/hello)
 endif()
@@ -85,7 +89,7 @@ endforeach()
 if(KH_BUILD_CLI AND KH_WITH_OCCT)
   add_subdirectory(apps/kh_cli)
 endif()
-if(KH_BUILD_APP)
+if(KH_BUILD_APP AND KH_WITH_OCCT)  # the app rebuilds designs with OCCT
   add_subdirectory(apps/kh_app)
 endif()
 

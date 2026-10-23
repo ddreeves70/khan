@@ -1,0 +1,25 @@
+{
+  "name": "invalid-cylinder-axis",
+  "description": "A cylinder whose axis is 0, 0, 0 must fail with a plain message, not OCCT's internal error.",
+  "steps": [
+    {
+      "id": "peg",
+      "op": "cylinder",
+      "base": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        0,
+        0
+      ],
+      "radius": 5,
+      "height": 20
+    }
+  ],
+  "expect": {
+    "error": "kernel.cylinder.axis"
+  }
+}

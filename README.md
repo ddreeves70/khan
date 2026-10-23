@@ -3,8 +3,8 @@
 Free, open-source parametric CAD for classrooms, makers and small shops.
 Works offline, owns no part of your data, and stays free forever.
 
-> **Status:** Phase 0 (foundations). You can design simple parts from the command
-> line today; the desktop app is being built.
+> **Status:** Phase 0 (foundations). You can design simple parts in the desktop app
+> or from the command line; the 3D view is being built.
 
 ![A desk organizer designed with Khan](docs/tutorials/images/organizer-done.png)
 
@@ -15,7 +15,8 @@ Works offline, owns no part of your data, and stays free forever.
 - **Save and open designs** as `.khan` files, and **export** STL for 3D printing or
   STEP for other CAD programs.
 - **Plugins:** Khan's own modeling commands are a plugin, and you can write your own.
-- `kh_app`: an empty main window with the planned layout.
+- **The desktop app:** a feature tree, a Properties panel for changing numbers,
+  undo and redo, save and open, and dockable panels with saved layouts.
 
 ## Guides
 

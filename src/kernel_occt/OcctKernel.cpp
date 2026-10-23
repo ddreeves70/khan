@@ -77,9 +77,8 @@ std::string utf8(const std::filesystem::path& p) {
 // default console printers are removed once per process.
 void silenceOcctConsole() {
     static std::once_flag once;
-    std::call_once(once, [] {
-        Message::DefaultMessenger()->RemovePrinters(STANDARD_TYPE(Message_PrinterOStream));
-    });
+    std::call_once(
+        once, [] { Message::DefaultMessenger()->RemovePrinters(STANDARD_TYPE(Message_PrinterOStream)); });
 }
 
 class OcctKernel final : public IKernel {
@@ -98,10 +97,14 @@ public:
         }
     }
 
-    OpResult makeCylinder(const Point3& base, const Vec3& axis, double radius,
-                          double height) override {
+    OpResult makeCylinder(const Point3& base, const Vec3& axis, double radius, double height) override {
         if (radius <= 0 || height <= 0) {
             return failed("kernel.cylinder.size", "A cylinder needs a radius and height greater than 0 mm.");
+        }
+        if (axis.x * axis.x + axis.y * axis.y + axis.z * axis.z < 1e-18) {
+            return failed(
+                "kernel.cylinder.axis",
+                "A cylinder's axis can't be 0, 0, 0. Give it a direction, like 0, 0, 1 for straight up.");
         }
         try {
             gp_Ax2 ax(gp_Pnt(base.x, base.y, base.z), gp_Dir(axis.x, axis.y, axis.z));
@@ -142,8 +145,9 @@ public:
                 }
             }
             if (!done || result.IsNull()) {
-                return failed("kernel.boolean.failed",
-                              "These bodies could not be combined. Check that they overlap and are closed solids.");
+                return failed(
+                    "kernel.boolean.failed",
+                    "These bodies could not be combined. Check that they overlap and are closed solids.");
             }
             return {wrap(result), {}};
         } catch (const Standard_Failure& e) {
@@ -214,8 +218,8 @@ public:
             }
             for (TopExp_Explorer ex(*s, TopAbs_SHELL); ex.More(); ex.Next()) {
                 if (!BRep_Tool::IsClosed(ex.Current())) {
-                    out.push_back(error("shape.open",
-                                        "This body has a gap in its surface, so it is not watertight."));
+                    out.push_back(
+                        error("shape.open", "This body has a gap in its surface, so it is not watertight."));
                     break;
                 }
             }
@@ -239,8 +243,8 @@ public:
             const auto base = static_cast<std::uint32_t>(mesh.vertices.size());
             for (Standard_Integer i = 1; i <= tri->NbNodes(); ++i) {
                 gp_Pnt p = tri->Node(i).Transformed(trsf);
-                mesh.vertices.push_back({static_cast<float>(p.X()), static_cast<float>(p.Y()),
-                                         static_cast<float>(p.Z())});
+                mesh.vertices.push_back(
+                    {static_cast<float>(p.X()), static_cast<float>(p.Y()), static_cast<float>(p.Z())});
             }
             const bool reversed = face.Orientation() == TopAbs_REVERSED;
             for (Standard_Integer i = 1; i <= tri->NbTriangles(); ++i) {
@@ -289,6 +293,8 @@ public:
 
 }  // namespace
 
-std::unique_ptr<IKernel> makeOcctKernel() { return std::make_unique<OcctKernel>(); }
+std::unique_ptr<IKernel> makeOcctKernel() {
+    return std::make_unique<OcctKernel>();
+}
 
 }  // namespace kh::kernel

@@ -70,6 +70,11 @@ wrote first.stl
 
 Open `first.stl` in a slicer to print it, or in any 3D viewer to look at it.
 
+## Or use the desktop app
+
+Everything above also works in the desktop app, `kh_app`, with menus instead of
+commands: see [The desktop app](desktop-app.md).
+
 ## Next
 
 - Do [Tutorial 1: Keychain tag](../tutorials/01-keychain-tag.md).

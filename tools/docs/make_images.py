@@ -20,11 +20,18 @@ A recipe (a "script" runs that shared list of commands before its own "commands"
       "labels": [{"at": [0, 0, 0], "text": "origin", "color": "#1f2328"}]   optional
     }
 
+An "app" recipe takes a screenshot of the desktop app instead (pass --kh-app):
+
+    {"out": "docs/user-guide/images/app-main.png",
+     "commands": [...], "app": {"open": "o.khan", "select": ["Cup"]},
+     "crop": [x, y, width, height], "callouts": [{"at": [x, y], "n": 1}]}   both optional
+
 Needs Python 3 with NumPy and Matplotlib.
 """
 
 import argparse
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -36,9 +43,39 @@ sys.path.insert(0, str(HERE))
 import render  # noqa: E402
 
 
+def mark_up(png, crop, callouts):
+    """Crops a screenshot ([x, y, width, height] in pixels) and draws numbered
+    callouts ({"at": [x, y], "n": 1}, in the cropped picture's pixels)."""
+    if not crop and not callouts:
+        return
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.image as mpimg
+    import matplotlib.pyplot as plt
+
+    img = mpimg.imread(str(png))
+    if crop:
+        x, y, w, h = crop
+        img = img[y : y + h, x : x + w]
+    h, w = img.shape[:2]
+    fig = plt.figure(figsize=(w / 100, h / 100), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.imshow(img, interpolation="none")
+    ax.set_axis_off()
+    for c in callouts:
+        cx, cy = c["at"]
+        ax.add_patch(plt.Circle((cx, cy), 13, color="#d1453b", zorder=3))
+        ax.text(cx, cy, str(c["n"]), color="white", fontsize=11, fontweight="bold", ha="center", va="center",
+                zorder=4)
+    fig.savefig(str(png), dpi=100)
+    plt.close(fig)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--kh-cli", required=True)
+    ap.add_argument("--kh-app", help="kh_app, for screenshots of the desktop app (recipes with \"app\")")
     ap.add_argument("--repo", default=str(HERE.parent.parent))
     ap.add_argument("names", nargs="*", help="only pictures whose file name contains one of these")
     args = ap.parse_args()
@@ -57,8 +94,29 @@ def main():
                 argv = [kh_cli] + [str(repo / a) if a.startswith(("tests/", "docs/")) else a
                                    for a in shlex.split(command)]
                 proc = subprocess.run(argv, cwd=tmp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                if proc.returncode != 0:
+                if proc.returncode != 0 and recipe.get("check", True):  # "check": false for pictures of failures
                     sys.exit(f"{out.name}: '{command}' failed:\n{proc.stdout.decode()}")
+            if "app" in recipe:
+                # A screenshot of the desktop app with a design open.
+                if not args.kh_app:
+                    print(f"skipped {out.relative_to(repo)}: needs --kh-app")
+                    continue
+                app = recipe["app"]
+                w, h = (int(v) for v in recipe.get("size", "1280x800").split("x"))
+                argv = [str(Path(args.kh_app).resolve()), "--settings", str(Path(tmp) / "settings.ini"),
+                        "--screenshot", str(out)]
+                if "open" in app:
+                    argv += ["--open", app["open"]]
+                if "select" in app:
+                    argv += ["--select", ",".join(app["select"])]
+                env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+                out.parent.mkdir(parents=True, exist_ok=True)
+                proc = subprocess.run(argv, cwd=tmp, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                if proc.returncode != 0 or not out.exists():
+                    sys.exit(f"{out.name}: kh_app failed:\n{proc.stdout.decode()}")
+                mark_up(out, recipe.get("crop"), recipe.get("callouts", []))
+                print(f"wrote {out.relative_to(repo)}")
+                continue
             bodies = []
             for i, show in enumerate(recipe["show"]):
                 stl = Path(tmp) / f"body{i}.stl"

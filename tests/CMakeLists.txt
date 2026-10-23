@@ -65,3 +65,24 @@ endif()
 # PRE_TEST discovery waits until ctest runs, after vcpkg has copied DLLs next to
 # the test executable (needed on Windows).
 catch_discover_tests(kh_tests DISCOVERY_MODE PRE_TEST)
+
+# The desktop shell and its panels, driven without a screen.
+if(TARGET kh_app_core)
+  add_executable(kh_app_tests app/main.cpp app/test_shell.cpp)
+  target_link_libraries(kh_app_tests PRIVATE Catch2::Catch2 kh_app_core kh::kernel_occt
+    kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties)
+  kh_set_warnings(kh_app_tests)
+  if(WIN32)
+    # Qt's DLLs and plugins (including the offscreen platform) and ADS, next to the .exe.
+    add_custom_command(TARGET kh_app_tests POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:kh_app_tests> $<TARGET_FILE_DIR:kh_app_tests>
+      COMMAND_EXPAND_LISTS)
+    if(KH_WINDEPLOYQT)
+      add_custom_command(TARGET kh_app_tests POST_BUILD
+        COMMAND "${KH_WINDEPLOYQT}" --no-translations --no-compiler-runtime "$<TARGET_FILE:kh_app_tests>"
+        VERBATIM)
+    endif()
+  endif()
+  catch_discover_tests(kh_app_tests DISCOVERY_MODE PRE_TEST
+    PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()

@@ -246,7 +246,7 @@ Three rules hold for every plugin. It changes a document only by running command
 | `CameraChanged` | A viewer | View id, camera | Viewers linked to it |
 | `ToolChanged` | The tool manager | Tool id | Status bar, properties |
 
-Built so far (Phase 0): the plugin host, manifests, the event bus and the document list in `kh_plugin`, the `kh.modeling` built-in plugin, and plugin guide v0 with the Hello plugin. Selection, hover, camera and tool events arrive with the desktop shell and the viewer.
+Built so far (Phase 0): the plugin host, manifests, the event bus, the document list, the shared selection and actions in `kh_plugin` (all Qt-free; the selection moved here from the planned `kh_app` so `kh_cli` and Python share it); `UiRegistry` for panels in a small Qt library, `kh_ui`, rather than in `kh_app`, so plugins can link it; the `kh.modeling`, `kh.featuretree` and `kh.properties` built-in plugins; and the desktop shell with Qt ADS docking and named layouts. Hover, camera and tool events arrive with the viewer.
 
 Events carry ids, never pointers. They are delivered in order on the UI thread. A listener that wants to change the design runs a command; events only report. Event types are part of the versioned plugin API.
 
