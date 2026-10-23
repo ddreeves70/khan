@@ -45,7 +45,7 @@ below it.
 
 | Library | Purpose | May depend on |
 | --- | --- | --- |
-| `kh_app`, `kh_cli` | Applications | anything below |
+| `kh_app`, `kh_cli` | Applications (`kh_app` docks panels with Qt ADS, see `cmake/KhAds.cmake`) | anything below |
 | Built-in plugins (`plugins/`) | `kh.modeling`, later `kh.viewer` and others | `kh_plugin`, anything below it |
 | `kh_view` (Phase 0 wk 4) | Qt + OCCT viewer | `kh_model`, `kh_kernel`, Qt |
 | `kh_plugin` | Plugin host, manifests, event bus, open documents | `kh_model`, `kh_kernel`, `kh_core` |

@@ -69,7 +69,7 @@ Same steps with your platform's compiler and Ninja: set `VCPKG_ROOT` and `QT_DIR
 ### Linux with system packages (Ubuntu 24.04)
 
 ```bash
-sudo apt install cmake ninja-build g++ catch2 qt6-base-dev libtbb-dev \
+sudo apt install cmake ninja-build g++ catch2 qt6-base-dev qt6-base-private-dev libxcb1-dev libtbb-dev \
   libocct-foundation-dev libocct-modeling-data-dev libocct-modeling-algorithms-dev \
   libocct-data-exchange-dev nlohmann-json3-dev libzip-dev \
   zipcmp zipmerge ziptool   # libzip's CMake files expect these tools
@@ -77,6 +77,11 @@ cmake --preset system
 cmake --build --preset system
 ctest --preset system
 ```
+
+The desktop app's docking panels use the
+[Qt Advanced Docking System](https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System)
+(LGPL-2.1). CMake downloads its pinned release the first time you configure; to build
+offline, pass `-DFETCHCONTENT_SOURCE_DIR_QTADS=<path to a copy>`.
 
 Build options: `-DKH_BUILD_APP=OFF` skips the Qt app, `-DKH_WITH_OCCT=OFF` builds only
 the kernel-independent libraries.

@@ -42,6 +42,7 @@ find_package(libzip CONFIG REQUIRED)
 if(KH_BUILD_APP)
   find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets)
   set(CMAKE_AUTOMOC ON)
+  include(KhAds)
 endif()
 
 if(KH_BUILD_TESTS)
