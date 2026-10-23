@@ -52,6 +52,8 @@ if(TARGET kh_cli)
     add_test(NAME docs.guides
       COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/docs/check_docs.py
               --kh-cli $<TARGET_FILE:kh_cli> --build-dir ${CMAKE_BINARY_DIR} --repo ${PROJECT_SOURCE_DIR})
+    add_test(NAME docs.checker
+      COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/docs/test_check_docs.py)
   else()
     message(STATUS "Python 3 not found: the docs.guides test is off")
   endif()
