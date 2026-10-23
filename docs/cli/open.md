@@ -1,0 +1,96 @@
+# kh_cli open
+
+Opens a saved design, rebuilds it, and prints every step with its volume. It can
+also export the finished shape for 3D printing or another CAD program.
+
+```text
+kh_cli open <file.khan> [--export <out.stl|out.step> [--step <name>]]
+```
+
+| Option | Meaning |
+| --- | --- |
+| `<file.khan>` | The design to open |
+| `--export <out.stl>` | Write the finished shape as an STL mesh, for slicers and 3D printing |
+| `--export <out.step>` | Write the finished shape as a STEP file, for other CAD programs (`.stp` works too) |
+| `--step <name>` | Export the shape of this step instead, even if later steps use it |
+
+Each step shows one of these:
+
+| Word | Meaning |
+| --- | --- |
+| `ok` | The step built. Its volume is shown |
+| `failed` | The step couldn't be built. The line under it says why |
+| `blocked` | The step uses another step that failed or is turned off |
+| `off` | The step is turned off (suppressed) |
+
+## Examples
+
+First make a design to open (see [`kh_cli demo`](demo.md)):
+
+<!-- cli-example -->
+```console
+$ kh_cli demo tag.khan
+wrote tag.khan
+$ kh_cli open tag.khan
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3
+```
+
+Export it for 3D printing:
+
+<!-- cli-example -->
+```console
+$ kh_cli open tag.khan --export tag.stl
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3
+wrote tag.stl
+```
+
+Export just the hole's cylinder:
+
+<!-- cli-example -->
+```console
+$ kh_cli open tag.khan --export hole.step --step Hole
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3
+wrote hole.step
+```
+
+## More than one body
+
+`--export` writes one body. A design with two separate bodies needs `--step`, or
+a [`feature.add_boolean`](commands.md#featureadd_boolean) to join them:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --save two.khan feature.add_box size=10,10,10
+two: 1 step
+  Box1         ok  volume 1000.00 mm^3
+wrote two.khan
+$ kh_cli run --open two.khan --save two.khan feature.add_box corner=20,0,0 size=5,5,5
+two: 2 steps
+  Box1         ok  volume 1000.00 mm^3
+  Box2         ok  volume 125.00 mm^3
+wrote two.khan
+$ kh_cli open two.khan --export two.stl
+two: 2 steps
+  Box1         ok  volume 1000.00 mm^3
+  Box2         ok  volume 125.00 mm^3
+error: this design has 2 finished bodies, and export writes one. Combine them with feature.add_boolean, or pick one with --step <name>.
+```
+
+## Files that can't be opened
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli open missing.khan
+error [file.cant_read]: Khan couldn't open missing.khan. Check that the file is still there and that you're allowed to open it. missing.khan
+```
+
+The [file format page](../file-format.md) lists every reason a file can be refused.

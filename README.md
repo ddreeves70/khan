@@ -3,17 +3,31 @@
 Free, open-source parametric CAD for classrooms, makers and small shops.
 Works offline, owns no part of your data, and stays free forever.
 
-> **Status:** Phase 0 (foundations). Nothing usable yet.
+> **Status:** Phase 0 (foundations). You can design simple parts from the command
+> line today; the desktop app is being built.
+
+![A desk organizer designed with Khan](docs/tutorials/images/organizer-done.png)
 
 ## What works today
 
-- `kh_kernel`: the kernel interface (`IKernel`) that keeps OCCT behind one boundary.
-- `kh_kernel_occt`: boxes, cylinders, Booleans, mass properties, topology counts,
-  validity checks, meshing, STEP and STL export.
-- `kh_cli demo out.step`: builds a test part (a tag with a hole) and exports it.
-- `kh_cli regress tests/corpus`: runs the geometry regression corpus
-  (see [tests/corpus/README.md](tests/corpus/README.md)).
+- **Design parts with `kh_cli`:** boxes, cylinders, union, cut and intersect; name,
+  rename and delete steps. Each `kh_cli run` adds one step to a design.
+- **Save and open designs** as `.khan` files, and **export** STL for 3D printing or
+  STEP for other CAD programs.
+- **Plugins:** Khan's own modeling commands are a plugin, and you can write your own.
 - `kh_app`: an empty main window with the planned layout.
+
+## Guides
+
+| Guide | For |
+| --- | --- |
+| [User's guide](docs/user-guide/README.md) | How Khan works and what it can do, with pictures |
+| [Tutorials](docs/tutorials/README.md) | Step-by-step projects: a keychain tag, a desk organizer |
+| [kh_cli reference](docs/cli/README.md) | Every command and option, with examples |
+| [Plugin developer guide](docs/plugin-guide/README.md) | Writing your own plugins |
+
+Every example in these guides is run by Khan's tests, so they always match what
+Khan does.
 
 ## Design
 
@@ -71,14 +85,19 @@ the kernel-independent libraries.
 
 ```
 apps/kh_app        Qt desktop application
-apps/kh_cli        headless tool (smoke tests, regression corpus)
+apps/kh_cli        command-line tool: design, open, export, plugins, regression corpus
 src/core           ids, diagnostics, version
 src/kernel         IKernel interface, no OCCT types
 src/kernel_occt    IKernel on Open CASCADE
 src/model          document, commands, feature graph (growing in Phase 0-2)
-tests/             Catch2 unit tests
+src/io             .khan files
+src/plugin         plugin host, event bus, open documents
+plugins/           built-in plugins (kh.modeling)
+tests/             Catch2 unit tests, regression corpus, test plugins
+tools/docs         docs checker and picture renderer
 cmake/             build helpers
-docs/              setup guides and the design (docs/design)
+docs/              guides (user-guide, tutorials, cli, plugin-guide), the file
+                   format, setup guides and the design (docs/design)
 ```
 
 ## Contributing

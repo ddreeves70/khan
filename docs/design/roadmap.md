@@ -2,7 +2,7 @@
 
 > **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
-Khan is built in phases, each ending with a build you can try and a written exit check. The first release, v0.1, is for classrooms: sketching, part modeling and export for 3D printing. Phases are listed in order without dates, because the pace depends on volunteer time. Full Fusion-class capability is a multi-year, multi-contributor effort, so the plan is built to welcome help after v0.1.
+Khan is built in phases, each ending with a build you can try and a written exit check. Capability comes first: the plan takes the fastest path to a fully functional modeler, and the classroom material comes after it. The first release, v0.1, is a working modeler: sketching, parametric part modeling, import and export. Phases are listed in order without dates, because the pace depends on volunteer time. Full Fusion-class capability is a multi-year, multi-contributor effort, so the plan is built to welcome help after v0.1.
 
 ## Decisions
 
@@ -12,9 +12,11 @@ Khan is built in phases, each ending with a build you can try and a written exit
 | Core language | C++20 | OCCT, Qt 6, PlaneGCS, and Manifold all link natively; Python bindings via pybind11 |
 | Platform | Desktop first | Windows, macOS, Linux. Web viewer deferred; Chromebooks reached later via Linux apps or a web build |
 | Codebase | Clean architecture, borrow components | Own the document model, feature graph, and UI; reuse kernel, solver, and math libraries behind interfaces |
-| First users | Education, then makers/CNC, then small shops | v0.1 scope is sketch + part + export + teaching material; assemblies and drawings next; CAM after |
+| First users | Anyone who designs parts: makers, students, CNC users, small shops | v0.1 scope is sketch + parametric part + import and export; assemblies and drawings next; CAM and the Education pack after |
 | Plugins | Everything is a plugin, Khan's own features included | The app is a small shell; built-in plugins prove the API. Outside C++ plugins are built per release; most authors use Python |
 | Docking | Qt Advanced Docking System | Every panel and viewer docks, tabs, floats and moves to another monitor; named layouts are saved per user |
+| Priority | Capability first (Oct 23, 2026) | Every phase takes the shortest path to a fully functional modeler. Teacher interviews, lessons and classroom features move to an Education pack after v0.2 |
+| Guides | User's guide, CLI reference and tutorials grow with the code (Oct 23, 2026) | Every pull request that changes something a user sees updates them; their examples run as tests |
 
 **One deliberate shortcut:** use OCCT's built-in 3D viewer (AIS/V3d) for the first releases instead of writing the WebGPU renderer from the design. It saves months for a solo developer. Keep rendering behind an interface so it can be replaced later.
 
@@ -59,7 +61,7 @@ Each phase ends with a build you can try and a written exit check.
 - PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry.
 - Core constraints and driving dimensions; degrees-of-freedom coloring; conflict highlighting.
 - Auto-constraints while drawing, snapping, and closed-profile detection.
-- **Exit:** a student can draw and fully constrain a bracket profile in under 5 minutes in a hallway test.
+- **Exit:** a new user can draw and fully constrain a bracket profile in under 5 minutes in a hallway test.
 
 ### Phase 2: Parametric core
 
@@ -68,22 +70,22 @@ Each phase ends with a build you can try and a written exit check.
 - Features: extrude (new/join/cut), revolve, fillet, chamfer, hole, shell, mirror, linear and circular pattern, construction planes.
 - Topological naming v1 (history-based names plus geometric fallback); ambiguous references flagged, never guessed.
 - Geometry regression corpus started: every bug becomes a test model.
-- **Exit:** 20 reference classroom parts model cleanly, and changing an upstream sketch dimension breaks none of them.
+- **Exit:** 20 reference parts (brackets, enclosures, knobs, mounts) model cleanly, and changing an upstream sketch dimension breaks none of them.
 
-### Phase 3: v0.1 Education release
+### Phase 3: v0.1 Functional modeler release
 
 - Measure tool, materials/appearances, mass properties.
 - Export STL and 3MF for 3D printing, STEP for interop; print-ready checks (watertight, minimum wall).
 - Installers for all three OSes, auto-update check, crash reporter (opt-in).
-- 5 starter lessons with sample files; in-app getting-started tour.
-- **Gate:** one teacher runs a lesson with a class and the students finish it.
+- STEP, STL and 3MF import; sample parts; the user's guide, CLI reference and tutorials cover every feature so far.
+- **Gate:** the 20 reference parts are modeled end to end in the desktop app on all three systems, and someone outside the project models a part of their own using only the user's guide.
 
 ### Phase 4: v0.2 Assemblies and drawings
 
 - Multi-component documents, joints (rigid, revolute, slider), interference check, exploded view.
 - Drawings: base/projected/section views, dimensions, BOM, PDF and DXF export.
 - More features: sweep, loft, draft, rib, thread.
-- **Gate:** students complete a multi-part project from model to printed drawing.
+- **Gate:** a multi-part project goes from model to printed drawing.
 
 ### Phase 5: API and community (alongside Phase 4)
 
@@ -107,9 +109,20 @@ Each phase ends with a build you can try and a written exit check.
 
 Configurations, large assemblies, PDM, advanced surfacing and the rest are planned as Stages 4 and 5 in [SolidWorks-class scope](solidworks-scope.md). Its "Decide now" checklist adds a few small tasks to Phases 0-2.
 
-## Education wedge
+## Guides built as we go
 
-Schools need software that installs easily, runs on modest hardware, and comes with lessons. Those needs drive v0.1 scope more than features do.
+Four guides live in the repo beside the code. Every pull request that changes something a user sees updates them in the same change, and their examples run as tests.
+
+| Guide | Folder | For | Kept current by |
+| --- | --- | --- | --- |
+| User's guide | `docs/user-guide/` | Anyone using Khan; illustrated with pictures rendered from real designs (app screenshots once the app exists) | A script that regenerates every picture from its design |
+| CLI reference | `docs/cli/` | Scripts, CI, power users; every `kh_cli` command and modeling command with examples | Each example runs as a test (`docs.guides`) |
+| Tutorials | `docs/tutorials/` | New users; step-by-step projects that build a printable part | Each tutorial's commands run as a test |
+| Plugin developer guide | `docs/plugin-guide/` | Plugin authors | The Hello plugin is built and loaded by a test |
+
+## Education pack (after v0.2)
+
+Moved after v0.2 on Oct 23, 2026, so capability comes first. Schools still need software that installs easily, runs on modest hardware, and comes with lessons; these needs shape the Education pack, and the hardware and install items still apply to every release.
 
 - **Install and IT:** silent installer (MSI) for school-managed Windows machines, no account or internet required, per-machine install.
 - **Hardware:** usable on integrated graphics and 8 GB RAM laptops; test on a low-end machine every release.
@@ -117,4 +130,4 @@ Schools need software that installs easily, runs on modest hardware, and comes w
 - **Teaching material:** lessons mapped to common design and technology curricula, with sample and solution files, under a Creative Commons license.
 - **3D printing path:** one-click export to the school's slicer; that is the outcome most classes want.
 - **Chromebooks:** a known gap for desktop-first; plan for the web build or Linux app support later and say so on the website.
-- **Partners:** teachers review each phase and help define the 20 reference parts in Phase 2.
+- **Partners:** when the Education pack starts, find one or two teachers to review the lessons and the classroom flow.

@@ -45,6 +45,16 @@ if(TARGET kh_cli)
     add_test(NAME "corpus.${case_name}" COMMAND kh_cli regress "${case_file}")
   endforeach()
   # Open the checked-in .khan file and rebuild it with the real kernel.
+  # The user's guide, CLI reference and tutorials: every marked example must print
+  # exactly what the page shows, and every command must be documented.
+  find_package(Python3 COMPONENTS Interpreter QUIET)
+  if(Python3_FOUND)
+    add_test(NAME docs.guides
+      COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/docs/check_docs.py
+              --kh-cli $<TARGET_FILE:kh_cli> --build-dir ${CMAKE_BINARY_DIR} --repo ${PROJECT_SOURCE_DIR})
+  else()
+    message(STATUS "Python 3 not found: the docs.guides test is off")
+  endif()
   add_test(NAME cli.open_schema1 COMMAND kh_cli open "${CMAKE_CURRENT_SOURCE_DIR}/files/schema1-keychain-tag.khan")
   set_tests_properties(cli.open_schema1 PROPERTIES PASS_REGULAR_EXPRESSION "Tag +ok +volume 7121.46 mm\\^3")
 endif()

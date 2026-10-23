@@ -12,4 +12,8 @@ int listPlugins(int argc, char** argv);
 // rebuilds it with OCCT, prints each step, and saves it.
 int runCommand(int argc, char** argv);
 
+// kh_cli help [--plugins <folder>]... [<command>]
+// Lists every command that `run` can run, or describes one command and its settings.
+int help(int argc, char** argv);
+
 }  // namespace kh::cli
