@@ -9,6 +9,7 @@ add_executable(kh_tests
   plugin/test_manifest.cpp
   plugin/test_document_list.cpp
   plugin/test_plugin_host.cpp
+  plugin/test_selection.cpp
 )
 target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model kh::io libzip::zip
   kh::plugin kh::plugin_modeling)

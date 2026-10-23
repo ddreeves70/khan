@@ -39,6 +39,55 @@ when its command runs.
 
 Commands can only be added while the register function runs.
 
+## Add menu items and toolbar buttons
+
+An **action** is a menu item, and optionally a toolbar button, that runs a
+command by name. Actions are plain data with no Qt code, so a plugin that adds
+them still works in `kh_cli`.
+
+```cpp
+ctx.addAction({.id = "sam.cube.cube",           // starts with your plugin id
+               .text = "Cube",                  // the words on the item
+               .menu = "Create",                // made if it doesn't exist
+               .command = "sam.cube.add_cube",  // the command it runs
+               .args = {{"size", 30.0}},        // fixed settings for the command
+               .shortcut = "Ctrl+Shift+U",
+               .toolbar = true,
+               .tip = "Add a 30 mm cube."});
+```
+
+**Settings from the selection.** List argument names in `fromSelection`, and
+Khan fills them with the selected steps, in the order they were picked. The
+item is only enabled when exactly that many steps are selected. This is how
+`kh.modeling`'s **Combine > Cut** works:
+
+```cpp
+ctx.addAction({.id = "kh.modeling.cut", .text = "Cut", .menu = "Combine",
+               .command = "feature.add_boolean",
+               .args = {{"operation", std::string("cut")}},
+               .fromSelection = {"a", "b"},
+               .tip = "Cut the second selected body out of the first."});
+```
+
+Khan refuses a plugin whose action has a badly formed id, an id another action
+already has, or a command no loaded plugin has. Like commands, actions can only
+be added while the register function runs.
+
+## Use the selection
+
+`ctx.selection()` is what the student has picked, shared by every panel and view.
+
+```cpp
+auto& sel = ctx.selection();
+if (sel.features().size() == 1) {
+    const auto* step = ctx.documents().find(sel.doc())->find(sel.features()[0]);
+}
+sel.set(docId, {boxId});   // select the box everywhere
+```
+
+Every change sends `SelectionChanged`. The selection keeps itself valid: steps
+that are deleted or undone drop out, and closing the design clears it.
+
 ## Listen to events
 
 Events tell every part of Khan what just happened, so a change made in one place
@@ -58,7 +107,7 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `ActiveDocumentChanged` | The student switches to another design | `doc` (nil if none is open) |
 | `DocumentChanged` | A command runs, or a step is undone or redone | `doc`, `kind` (`Executed`, `Undone`, `Redone`), `label` |
 | `RebuildFinished` | A design was rebuilt after a change | `doc`, `ok` (did every step build?) |
-| `SelectionChanged` | The selection changes (sent by the desktop app, once picking works) | `doc`, `features` |
+| `SelectionChanged` | The selection changes | `doc`, `features` (in picking order) |
 
 Things to know:
 
@@ -107,8 +156,8 @@ These are planned and will be added to this guide as they're built:
 
 | Extension point | What you'll add | When |
 | --- | --- | --- |
-| Menus, toolbars, ribbon tabs | Buttons that run a command by name | Desktop shell, Phase 0 |
-| Panels | A dockable window, like the feature tree | Desktop shell, Phase 0 |
+| Panels | A dockable window, like the feature tree (`kh::ui::UiRegistry`, with a worked example) | Desktop shell, next |
+| Ribbon tabs | Grouping actions into tabs | Later |
 | Viewer tools | A way to use the mouse in the 3D view, with a live preview | Viewer, Phase 0 |
 | Feature types | A new kind of step that saves, loads and rebuilds | Phase 2 |
 | File formats | Importers and exporters | Phase 2 |

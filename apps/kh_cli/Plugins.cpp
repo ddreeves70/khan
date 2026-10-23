@@ -229,6 +229,11 @@ int listPlugins(int argc, char** argv) {
         std::printf("%-8s %s %s  %s%s\n", stateName(p.state), m.id.empty() ? "(no id)" : m.id.c_str(),
                     m.version.c_str(), m.name.c_str(), p.builtin ? " (built in)" : "");
         for (const auto& c : p.commands) std::printf("           command %s\n", c.c_str());
+        for (const auto& a : host.actions()) {
+            if (a.plugin != m.id) continue;
+            std::printf("           action  %s > %s  (%s)\n", a.menu.c_str(), a.text.c_str(),
+                        a.command.c_str());
+        }
         for (const auto& line : p.messages) std::printf("           log: %s\n", line.c_str());
         printIssues(p.issues, "           ");
         if (p.state != plugin::PluginState::Loaded) allLoaded = false;

@@ -4,6 +4,7 @@
 /// PluginHost: finds plugins, checks them, and loads them in order.
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -12,11 +13,13 @@
 #include "kh/core/Diagnostic.h"
 #include "kh/kernel/IKernel.h"
 #include "kh/model/CommandRegistry.h"
+#include "kh/plugin/Actions.h"
 #include "kh/plugin/Api.h"
 #include "kh/plugin/DocumentList.h"
 #include "kh/plugin/EventBus.h"
 #include "kh/plugin/Manifest.h"
 #include "kh/plugin/PluginContext.h"
+#include "kh/plugin/Selection.h"
 
 namespace kh::plugin {
 
@@ -45,6 +48,7 @@ struct PluginInfo {
     Diagnostics issues;                       ///< Why it didn't load, in plain words.
     std::vector<std::string> messages;        ///< What it wrote with PluginContext::log().
     std::vector<std::string> commands;        ///< The commands it added, sorted.
+    std::vector<std::string> actions;         ///< The ids of the actions it added, in the order added.
 };
 
 /// Finds plugins, checks their manifests, and loads them in dependency order.
@@ -83,6 +87,20 @@ public:
     /// @param folder The folder of plugin folders.
     void addFolder(std::filesystem::path folder);
 
+    /// Offers a service to plugins, such as the desktop app's kh::ui::UiRegistry.
+    /// Call before loadAll(). The service must outlive the host.
+    /// @param name The service's name, e.g. "kh.ui".
+    /// @param service The service.
+    void provide(std::string name, void* service);
+
+    /// Offers a service to plugins, named by its type's `kServiceName`.
+    /// @tparam T The service type.
+    /// @param service The service. Must outlive the host.
+    template <typename T>
+    void provide(T& service) {
+        provide(std::string(T::kServiceName), static_cast<void*>(&service));
+    }
+
     /// Reads every manifest, checks it, and loads the plugins in dependency
     /// order. Does nothing if called again.
     void loadAll();
@@ -99,6 +117,14 @@ public:
     /// Gives every command of every loaded plugin.
     /// @return The command registry.
     const model::CommandRegistry& commands() const { return registry_; }
+
+    /// Gives every action of every loaded plugin.
+    /// @return The actions, in the order the plugins loaded and added them.
+    const std::vector<ActionSpec>& actions() const { return actions_; }
+
+    /// Gives the shared selection.
+    /// @return The selection.
+    Selection& selection() { return selection_; }
 
     /// Gives the event bus.
     /// @return The bus.
@@ -123,6 +149,9 @@ private:
     EventBus bus_;
     model::CommandRegistry registry_;
     DocumentList documents_;
+    Selection selection_;
+    std::vector<ActionSpec> actions_;
+    std::map<std::string, void*, std::less<>> services_;
     std::vector<std::unique_ptr<PluginContext>> contexts_;
     std::vector<BuiltinPlugin> builtins_;
     std::vector<std::filesystem::path> folders_;

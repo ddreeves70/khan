@@ -34,8 +34,9 @@ bool startsWith(std::string_view s, std::string_view prefix) {
 // register function runs, and handed to the host only if it succeeds.
 class HostContext final : public PluginContext {
 public:
-    HostContext(PluginInfo& info, model::CommandRegistry& all, EventBus& bus, DocumentList& docs)
-        : info_(&info), all_(all), bus_(bus), docs_(docs) {}
+    HostContext(PluginInfo& info, model::CommandRegistry& all, EventBus& bus, DocumentList& docs,
+                Selection& selection, const std::map<std::string, void*, std::less<>>& services)
+        : info_(&info), all_(all), bus_(bus), docs_(docs), selection_(selection), services_(services) {}
 
     const PluginManifest& manifest() const override { return info_->manifest; }
 
@@ -45,6 +46,22 @@ public:
             return;
         }
         staged_.add(std::move(info), std::move(factory));
+    }
+
+    void addAction(ActionSpec action) override {
+        if (!registering_) {
+            log("Ignored action " + action.id + ": actions can only be added while the plugin starts.");
+            return;
+        }
+        action.plugin = info_->manifest.id;
+        stagedActions_.push_back(std::move(action));
+    }
+
+    Selection& selection() override { return selection_; }
+
+    void* service(std::string_view name) override {
+        auto it = services_.find(name);
+        return it == services_.end() ? nullptr : it->second;
     }
 
     const model::CommandRegistry& commands() const override { return all_; }
@@ -57,6 +74,7 @@ public:
     // Called by the host after the register function returns.
     bool registering_ = true;
     model::CommandRegistry staged_;
+    std::vector<ActionSpec> stagedActions_;
     std::vector<std::string> failures_;
     std::vector<Subscription> subscriptions_;
 
@@ -68,6 +86,8 @@ private:
     model::CommandRegistry& all_;
     EventBus& bus_;
     DocumentList& docs_;
+    Selection& selection_;
+    const std::map<std::string, void*, std::less<>>& services_;
 };
 
 }  // namespace
@@ -89,7 +109,8 @@ std::string libraryFileName(std::string_view library) {
 #endif
 }
 
-PluginHost::PluginHost(kernel::IKernel* kernel) : documents_(bus_, registry_, kernel) {
+PluginHost::PluginHost(kernel::IKernel* kernel)
+    : documents_(bus_, registry_, kernel), selection_(bus_, documents_) {
     bus_.setErrorHandler([this](const Diagnostic& d) { eventProblems_.push_back(d); });
 }
 
@@ -102,6 +123,10 @@ PluginHost::~PluginHost() {
 
 void PluginHost::addBuiltin(BuiltinPlugin plugin) {
     builtins_.push_back(std::move(plugin));
+}
+
+void PluginHost::provide(std::string name, void* service) {
+    services_[std::move(name)] = service;
 }
 
 void PluginHost::addFolder(std::filesystem::path folder) {
@@ -323,7 +348,7 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
         libraries_.push_back(std::move(lib));
     }
 
-    auto ctx = std::make_unique<HostContext>(info, registry_, bus_, documents_);
+    auto ctx = std::make_unique<HostContext>(info, registry_, bus_, documents_, selection_, services_);
     auto& hc = *ctx;
     c.context = &hc;
     try {
@@ -350,6 +375,23 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
         names.push_back(cmd->name);
     }
 
+    // Check its actions: their ids, and that their commands exist.
+    std::set<std::string> actionIds;
+    for (const auto& a : actions_) actionIds.insert(a.id);
+    for (const auto& a : hc.stagedActions_) {
+        if (!isValidId(a.id) || (!info.builtin && !startsWith(a.id, m.id + "."))) {
+            hc.failures_.push_back("Its menu item \"" + a.text + "\" has the id \"" + a.id +
+                                   "\", which must start with \"" + m.id +
+                                   ".\". Ask its author for a fixed version.");
+        } else if (!actionIds.insert(a.id).second) {
+            hc.failures_.push_back("Its menu item \"" + a.text + "\" has the same id as another one (" +
+                                   a.id + "). Ask its author for a fixed version.");
+        } else if (!registry_.info(a.command) && !hc.staged_.info(a.command)) {
+            hc.failures_.push_back("Its menu item \"" + a.text + "\" runs a command, " + a.command +
+                                   ", that no loaded plugin has. Check its \"requires\" list.");
+        }
+    }
+
     if (!hc.failures_.empty()) {
         for (auto& f : hc.failures_) {
             // f is a whole sentence: from fail() it is the plugin's own words.
@@ -364,6 +406,11 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
         registry_.add(*hc.staged_.info(name), *hc.staged_.factory(name));
     }
     info.commands = std::move(names);
+    for (auto& a : hc.stagedActions_) {
+        info.actions.push_back(a.id);
+        actions_.push_back(std::move(a));
+    }
+    hc.stagedActions_.clear();
     info.state = PluginState::Loaded;
     contexts_.push_back(std::move(ctx));
 }

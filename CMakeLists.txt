@@ -62,6 +62,9 @@ endif()
 add_subdirectory(src/model)       # kh_model: document, commands (Phase 0, week 3)
 add_subdirectory(src/io)          # kh_io: .khan files (zip + JSON)
 add_subdirectory(src/plugin)      # kh_plugin: plugin host, event bus, open documents
+if(KH_BUILD_APP)
+  add_subdirectory(src/ui)        # kh_ui: Qt side of the plugin API (panels)
+endif()
 
 # Built-in plugins, and the plugin guide's examples (built like outside plugins)
 add_subdirectory(plugins/modeling)  # kh.modeling

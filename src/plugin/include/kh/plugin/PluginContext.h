@@ -5,12 +5,15 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "kh/model/CommandRegistry.h"
+#include "kh/plugin/Actions.h"
 #include "kh/plugin/DocumentList.h"
 #include "kh/plugin/EventBus.h"
 #include "kh/plugin/Manifest.h"
+#include "kh/plugin/Selection.h"
 
 namespace kh::plugin {
 
@@ -43,6 +46,14 @@ public:
     /// @param factory Builds the command once its arguments have been checked.
     virtual void addCommand(model::CommandInfo info, model::CommandFactory factory) = 0;
 
+    /// Adds a menu item or toolbar button that runs a command by name.
+    ///
+    /// Like addCommand(), only works while the register function runs. The
+    /// command may be the plugin's own or one from a plugin it requires. An
+    /// outside plugin's action ids must start with its id and a dot.
+    /// @param action What it shows and which command it runs.
+    virtual void addAction(ActionSpec action) = 0;
+
     /// Gives every command of every loaded plugin, for looking them up.
     /// @return The shared command registry.
     virtual const model::CommandRegistry& commands() const = 0;
@@ -55,6 +66,28 @@ public:
     /// undo() and redo(), so undo and events always work.
     /// @return The shared document list.
     virtual DocumentList& documents() = 0;
+
+    /// Gives the shared selection: the steps the student has picked.
+    /// @return The selection.
+    virtual Selection& selection() = 0;
+
+    /// Finds a service the program running Khan provides, by name. The desktop
+    /// app provides kh::ui::UiRegistry for adding panels; kh_cli provides none.
+    /// Prefer the typed service<T>().
+    /// @param name The service's name, e.g. "kh.ui".
+    /// @return The service, or nullptr if this program doesn't provide it.
+    virtual void* service(std::string_view name) = 0;
+
+    /// Finds a service by its type.
+    /// @code
+    /// if (auto* ui = ctx.service<kh::ui::UiRegistry>()) ui->addPanel(...);
+    /// @endcode
+    /// @tparam T The service type; it names itself with a static `kServiceName`.
+    /// @return The service, or nullptr if this program doesn't provide it.
+    template <typename T>
+    T* service() {
+        return static_cast<T*>(service(T::kServiceName));
+    }
 
     /// Adds a line to the plugin's log, shown in the Plugin manager and by
     /// `kh_cli plugins`.

@@ -54,8 +54,10 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
 | C++ plugins built with Khan | Works: [Hello](hello-plugin.md) |
 | Commands | Works |
 | Events: design opened, closed, changed, rebuilt, active design | Works |
-| Selection events | The event type exists; the desktop app sends it once picking works |
-| Panels, menus, toolbars, 3D view tools | Coming with the desktop shell (Phase 0) |
+| Menu items and toolbar buttons (actions) | Works |
+| The shared selection | Works |
+| Panels | The API exists (`kh::ui::UiRegistry`); the guide's worked example comes with the desktop shell |
+| 3D view tools | Coming with the viewer (Phase 0) |
 | New kinds of steps (feature types), file formats | Coming later |
 | Building a plugin without the Khan source (an SDK) | Coming later |
 | Python plugins | Coming later |

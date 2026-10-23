@@ -48,6 +48,7 @@ below it.
 | `kh_app`, `kh_cli` | Applications (`kh_app` docks panels with Qt ADS, see `cmake/KhAds.cmake`) | anything below |
 | Built-in plugins (`plugins/`) | `kh.modeling`, later `kh.viewer` and others | `kh_plugin`, anything below it |
 | `kh_view` (Phase 0 wk 4) | Qt + OCCT viewer | `kh_model`, `kh_kernel`, Qt |
+| `kh_ui` | Qt side of the plugin API: panels | `kh_plugin`, Qt |
 | `kh_plugin` | Plugin host, manifests, event bus, open documents | `kh_model`, `kh_kernel`, `kh_core` |
 | `kh_io` | `.khan` files: save and open (zip + JSON) | `kh_model`, `kh_core`, libzip, nlohmann_json |
 | `kh_model` | Document, parameters, feature graph, commands, naming | `kh_kernel`, `kh_core` |
@@ -66,7 +67,9 @@ below it.
    that could change between rebuilds. References to geometry use `GeometryRef`
    (Phase 2), never raw kernel sub-shapes.
 5. **Kernel operations are deterministic.** Same inputs, same output.
-6. **Qt types stay in `kh_app` and `kh_view`.** Core libraries use the standard library.
+6. **Qt types stay in `kh_app`, `kh_view`, `kh_ui` and the plugins that add panels.** Core
+   libraries use the standard library; actions are plain data, so model plugins add them
+   without Qt.
 7. **User-facing messages are for a 14-year-old:** plain words, units on every
    number, and say how to fix the problem.
 

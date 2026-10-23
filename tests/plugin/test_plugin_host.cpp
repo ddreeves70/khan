@@ -170,6 +170,7 @@ TEST_CASE("a plugin that throws or fails leaves nothing behind", "[plugin][host]
     PluginHost host;
     host.addBuiltin({manifest("test.throws"), &throws});
     host.addBuiltin({manifest("test.fails"), &fails});
+    const auto before = host.events().listenerCount(DocumentChanged::kType);  // Khan's own (the selection)
     host.loadAll();
 
     const auto& t = get(host, "test.throws");
@@ -183,7 +184,7 @@ TEST_CASE("a plugin that throws or fails leaves nothing behind", "[plugin][host]
     CHECK(f.issues[0].message.find("3D printer") != std::string::npos);
 
     // Neither plugin's listener is still connected.
-    CHECK(host.events().listenerCount(DocumentChanged::kType) == 0);
+    CHECK(host.events().listenerCount(DocumentChanged::kType) == before);
 }
 
 TEST_CASE("two plugins can't add the same command", "[plugin][host]") {
@@ -224,10 +225,10 @@ TEST_CASE("outside plugins can't use Khan's ids or skip their library", "[plugin
         std::filesystem::create_directories(dir / folder);
         std::ofstream(dir / folder / "plugin.json") << json;
     };
-    write("fake", R"({"id": "kh.fake", "name": "Fake", "version": "1", "apiVersion": 1, "library": "fake"})");
-    write("nolib", R"({"id": "test.nolib", "name": "No library", "version": "1", "apiVersion": 1})");
+    write("fake", R"({"id": "kh.fake", "name": "Fake", "version": "1", "apiVersion": 2, "library": "fake"})");
+    write("nolib", R"({"id": "test.nolib", "name": "No library", "version": "1", "apiVersion": 2})");
     write("gone",
-          R"({"id": "test.gone", "name": "Gone", "version": "1", "apiVersion": 1, "library": "gone"})");
+          R"({"id": "test.gone", "name": "Gone", "version": "1", "apiVersion": 2, "library": "gone"})");
     write("broken", "{ not json");
     std::filesystem::create_directories(dir / "not_a_plugin");  // no plugin.json: ignored
 
@@ -252,4 +253,81 @@ TEST_CASE("library file names follow the system", "[plugin][host]") {
 #else
     CHECK(libraryFileName("hello") == "hello.so");
 #endif
+}
+
+namespace {
+
+struct FakeService {
+    static constexpr const char* kServiceName = "test.fake";
+    int value = 42;
+};
+
+int seenService = 0;
+
+void usesService(PluginContext& ctx) {
+    auto* fake = ctx.service<FakeService>();
+    seenService = fake ? fake->value : -1;
+}
+
+void goodAction(PluginContext& ctx) {
+    ctx.addAction({.id = "test.actions.box", .text = "Box", .menu = "Create", .command = "feature.add_box"});
+}
+void badActionId(PluginContext& ctx) {
+    ctx.addAction({.id = "Not An Id", .text = "Box", .menu = "Create", .command = "feature.add_box"});
+}
+void unknownCommand(PluginContext& ctx) {
+    ctx.addAction(
+        {.id = "test.unknown.go", .text = "Go", .menu = "Create", .command = "test.unknown.nothing"});
+}
+
+}  // namespace
+
+TEST_CASE("plugins find services the program provides", "[plugin][host]") {
+    FakeService fake;
+    {
+        PluginHost host;
+        host.provide(fake);
+        host.addBuiltin({manifest("test.service"), &usesService});
+        host.loadAll();
+        CHECK(seenService == 42);
+    }
+    PluginHost cli;  // like kh_cli: nothing provided
+    cli.addBuiltin({manifest("test.service"), &usesService});
+    cli.loadAll();
+    CHECK(seenService == -1);
+}
+
+TEST_CASE("kh.modeling adds menu items that run its commands", "[plugin][host]") {
+    PluginHost host;
+    host.addBuiltin(plugins::modelingPlugin());
+    host.loadAll();
+    std::vector<std::string> ids;
+    for (const auto& a : host.actions()) {
+        ids.push_back(a.id);
+        CHECK(a.plugin == "kh.modeling");
+        CHECK(host.commands().info(a.command) != nullptr);
+        CHECK_FALSE(a.tip.empty());
+    }
+    CHECK(ids == std::vector<std::string>{"kh.modeling.box", "kh.modeling.cylinder", "kh.modeling.union",
+                                          "kh.modeling.cut", "kh.modeling.intersect", "kh.modeling.delete"});
+    CHECK(get(host, "kh.modeling").actions == ids);
+}
+
+TEST_CASE("bad actions stop a plugin from loading", "[plugin][host]") {
+    PluginHost host;
+    host.addBuiltin(plugins::modelingPlugin());
+    host.addBuiltin({manifest("test.actions", R"("kh.modeling")"), &goodAction});
+    host.addBuiltin({manifest("test.again", R"("kh.modeling")"), &goodAction});  // same action id
+    host.addBuiltin({manifest("test.badid", R"("kh.modeling")"), &badActionId});
+    host.addBuiltin({manifest("test.unknown"), &unknownCommand});
+    host.loadAll();
+
+    CHECK(get(host, "test.actions").state == PluginState::Loaded);
+    CHECK(get(host, "test.again").issues.at(0).message.find("same id") != std::string::npos);
+    CHECK(get(host, "test.badid").issues.at(0).message.find("must start with") != std::string::npos);
+    CHECK(get(host, "test.unknown").issues.at(0).message.find("no loaded plugin has") != std::string::npos);
+    // Nothing from the failed plugins is left behind.
+    std::size_t fromTests = 0;
+    for (const auto& a : host.actions()) fromTests += a.plugin.rfind("test.", 0) == 0 ? 1 : 0;
+    CHECK(fromTests == 1);
 }

@@ -28,6 +28,7 @@ TEST_CASE("the guide's Hello plugin loads and adds a working command", "[plugin]
     CHECK_FALSE(hello->builtin);
     CHECK(hello->manifest.name == "Hello");
     CHECK(hello->commands == std::vector<std::string>{"example.hello.add_cube"});
+    CHECK(hello->actions == std::vector<std::string>{"example.hello.cube"});
 
     // It needs kh.modeling, so it loads after it.
     CHECK(host.plugins().at(0).manifest.id == "kh.modeling");

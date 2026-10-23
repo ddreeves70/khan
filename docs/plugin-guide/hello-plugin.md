@@ -34,7 +34,7 @@ Copy the three files from [`hello/`](hello/) to start.
   "id": "example.hello",
   "name": "Hello",
   "version": "1.0.0",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "description": "Adds a command that makes a cube, and notices every change.",
   "library": "hello",
   "requires": ["kh.modeling"]
@@ -94,7 +94,14 @@ void registerHello(plugin::PluginContext& ctx) {
          {{"size", model::ArgType::Number, "Length of each side, in mm. Default 20 mm.", false, {}}}},
         &makeAddCube);
 
-    // 2. An event listener: runs after every change to any design.
+    // 2. A menu item in the desktop app that runs the command.
+    ctx.addAction({.id = "example.hello.cube",
+                   .text = "Cube (Hello)",
+                   .menu = "Create",
+                   .command = "example.hello.add_cube",
+                   .tip = "Add a 20 mm cube from the Hello plugin."});
+
+    // 3. An event listener: runs after every change to any design.
     ctx.listen<plugin::DocumentChanged>(
         [&ctx](const plugin::DocumentChanged& e) { ctx.log("Hello saw a change: " + e.label); });
 }
@@ -123,6 +130,16 @@ code.
 
 The command's name must start with your plugin's id and a dot. Khan refuses a
 plugin that breaks this rule, so two plugins can never pick the same name.
+
+### The menu item
+
+`ctx.addAction(...)` adds a menu item to the desktop app: **Create > Cube (Hello)**.
+Clicking it runs the command `example.hello.add_cube` on the open design, with
+no settings, so the cube is 20 mm. An action is plain data: an id, the words to
+show, which menu, the command to run and a tip. It has no Qt code, so the same
+plugin still works in `kh_cli`, which lists the action instead of showing it.
+
+Like command names, action ids must start with your plugin's id and a dot.
 
 ### The listener
 
@@ -197,6 +214,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            ...
 loaded   example.hello 1.0.0  Hello
            command example.hello.add_cube
+           action  Create > Cube (Hello)  (example.hello.add_cube)
 ```
 
 Run the command, and save the result as a design:
