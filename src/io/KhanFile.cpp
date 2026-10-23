@@ -387,7 +387,7 @@ OpenResult readBytes(const Bytes& data, std::string_view displayName) {
             why = entry + " is not valid JSON";
             return std::nullopt;
         }
-        return j;
+        return std::optional<json>(std::in_place, std::move(j));  // not "return j": ambiguous with nlohmann 3.12
     };
 
     // Manifest: is this a Khan file, and can this version read it?
