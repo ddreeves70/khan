@@ -163,7 +163,7 @@ void PluginHost::loadAll() {
         found.push_back(std::move(info));
         candidates.push_back(c);
     };
-    for (auto& b : builtins_) addFound(parseManifest(b.manifestJson), true, {}, b.registerFn);
+    for (auto& b : builtins_) addFound(parseBuiltinManifest(b.manifestJson), true, {}, b.registerFn);
     for (const auto& folder : folders_) {
         std::error_code ec;
         if (!std::filesystem::is_directory(folder, ec)) continue;

@@ -27,7 +27,6 @@ constexpr const char* kManifest = R"({
   "id": "kh.properties",
   "name": "Properties",
   "version": "0.1.0",
-  "apiVersion": 2,
   "description": "The panel for changing the selected step's name and numbers.",
   "requires": ["kh.modeling"]
 })";

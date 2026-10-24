@@ -61,6 +61,16 @@ struct ManifestResult {
 /// @return The manifest, or every problem found.
 ManifestResult parseManifest(std::string_view json, const std::filesystem::path& folder = {});
 
+/// Reads the manifest of a built-in plugin (one compiled into Khan).
+///
+/// Like parseManifest(), except `apiVersion` may be left out: a built-in plugin
+/// is always built with this Khan, so it gets kPluginApiVersion and nobody has
+/// to update it by hand. If a built-in manifest does give `apiVersion`, it is
+/// kept, and PluginHost checks it like any other.
+/// @param json The manifest text.
+/// @return The manifest, or every problem found.
+ManifestResult parseBuiltinManifest(std::string_view json);
+
 /// Reads `plugin.json` from a plugin's folder.
 /// @param folder The plugin's folder.
 /// @return The manifest, or why it could not be read.

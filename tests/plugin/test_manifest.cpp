@@ -4,6 +4,7 @@
 
 #include <string>
 
+#include "kh/plugin/Api.h"
 #include "kh/plugin/Manifest.h"
 
 using namespace kh::plugin;
@@ -96,4 +97,19 @@ TEST_CASE("a folder without plugin.json says so", "[plugin][manifest]") {
     const auto r = readManifest("this/folder/does/not/exist");
     CHECK_FALSE(r.ok());
     CHECK(r.issues.at(0).code == "plugin.manifest_missing");
+}
+
+TEST_CASE("built-in manifests get this Khan's API version", "[plugin][manifest]") {
+    const auto r = parseBuiltinManifest(R"({"id": "kh.thing", "name": "Thing", "version": "1"})");
+    REQUIRE(r.ok());
+    CHECK(r.manifest->apiVersion == kPluginApiVersion);
+
+    // A version that is given is kept, so the host can still refuse a wrong one.
+    const auto old =
+        parseBuiltinManifest(R"({"id": "kh.thing", "name": "Thing", "version": "1", "apiVersion": 0})");
+    REQUIRE(old.ok());
+    CHECK(old.manifest->apiVersion == 0);
+
+    // Outside plugins must still give it.
+    CHECK_FALSE(parseManifest(R"({"id": "a.b", "name": "A", "version": "1"})").ok());
 }

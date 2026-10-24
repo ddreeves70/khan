@@ -19,7 +19,6 @@ constexpr const char* kManifest = R"({
   "id": "kh.modeling",
   "name": "Modeling",
   "version": "0.1.0",
-  "apiVersion": 2,
   "description": "Boxes, cylinders and Booleans, plus deleting and renaming steps."
 })";
 

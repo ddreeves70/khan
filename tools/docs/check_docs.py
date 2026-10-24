@@ -127,6 +127,19 @@ def check_coverage(args):
             fail("docs/cli/commands.md", f"no tested example that runs {name}")
 
 
+def check_api_version(args):
+    """The plugin guide states the plugin API version; it must match Api.h."""
+    api = (args.repo / "src/plugin/include/kh/plugin/Api.h").read_text(encoding="utf-8")
+    m = re.search(r"kPluginApiVersion = (\d+);", api)
+    if not m:
+        fail("Api.h", "can't find kPluginApiVersion")
+        return
+    for page in sorted((args.repo / "docs/plugin-guide").rglob("*.md")):
+        for said in re.findall(r"This Khan uses \*\*(\d+)\*\*", page.read_text(encoding="utf-8")):
+            if said != m.group(1):
+                fail(str(page), f"says the plugin API version is {said}, but Api.h says {m.group(1)}")
+
+
 def check_links(page):
     text = page.read_text(encoding="utf-8")
     # Ignore links inside code blocks.
@@ -153,6 +166,7 @@ def main():
         run_examples(page, args)
         check_links(page)
     check_coverage(args)
+    check_api_version(args)
 
     count = sum(len(EXAMPLE.findall(p.read_text(encoding="utf-8"))) for p in pages)
     if failures:

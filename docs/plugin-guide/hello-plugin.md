@@ -34,7 +34,6 @@ Copy the three files from [`hello/`](hello/) to start.
   "id": "example.hello",
   "name": "Hello",
   "version": "1.0.0",
-  "apiVersion": 2,
   "description": "Adds a command that makes a cube, and notices every change.",
   "library": "hello",
   "requires": ["kh.modeling"]
@@ -43,8 +42,9 @@ Copy the three files from [`hello/`](hello/) to start.
 
 - **id** is the plugin's permanent name: lower-case words joined by dots. Start it
   with your own name, like `sam.cube`. Ids starting with `kh.` are kept for Khan.
-- **apiVersion** is the version of the plugin API you wrote it for. Khan checks it
-  and refuses a plugin made for a different version, with a message saying so.
+- There's no **apiVersion** here: `kh_add_plugin` (step 4) adds it for you when it
+  builds the plugin, using the version of the Khan you build against. Khan checks
+  it and refuses a plugin made for a different version, with a message saying so.
 - **library** is the name of the program file CMake builds: `hello.dll`,
   `hello.dylib` or `hello.so`, depending on your computer.
 - **requires** lists plugins that must load first. Hello makes boxes, so it needs
