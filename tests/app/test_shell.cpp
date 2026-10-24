@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "AppUi.h"
+#include "GridView.h"
 #include "Shell.h"
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/model/Feature.h"
@@ -50,21 +51,29 @@ struct App {
     std::unique_ptr<kernel::IKernel> kernel = kernel::makeOcctKernel();
     app::AppUi ui;
     plugin::PluginHost host{kernel.get()};
+    plugin::Grid grid{host.events()};
     std::unique_ptr<app::Shell> shell;
 
     App() {
         host.provide<ui::UiRegistry>(ui);
+        host.provide(grid);
         host.addBuiltin(plugins::modelingPlugin());
         host.addBuiltin(plugins::featureTreePlugin());
         host.addBuiltin(plugins::propertiesPlugin());
         host.addBuiltin(
             {R"({"id":"test.broken","name":"Broken","version":"1","apiVersion":2})", &panelThenFail});
         host.loadAll();
-        shell = std::make_unique<app::Shell>(host, ui, *kernel, settings);
+        open();
+    }
+
+    void open() {
+        shell = std::make_unique<app::Shell>(host, ui, *kernel, grid, settings);
         shell->askUnsaved = [](const QString&) { return app::Shell::Unsaved::Discard; };
         shell->show();
         settle();
     }
+
+    QAction* menu(const char* id) { return shell->findChild<QAction*>(QString::fromLatin1(id)); }
 
     const model::Document& doc() { return *host.documents().find(shell->activeDesign()); }
     QTreeWidget* tree() {
@@ -230,4 +239,74 @@ TEST_CASE("named layouts save and open", "[app]") {
     CHECK(app.shell->saveLayout() == before);
     CHECK_FALSE(app.shell->openNamedLayout(QStringLiteral("Nope")));
     CHECK(app.shell->lastProblems()[0].code == "layout.bad");
+}
+
+TEST_CASE("the grid starts on, with dots and no snapping", "[app][grid]") {
+    App app;
+    const auto& g = app.grid.settings();
+    CHECK(g.visible);
+    CHECK(g.style == plugin::GridStyle::Dots);
+    CHECK_FALSE(g.snap);
+    CHECK(g.spacing == 10.0);
+    CHECK(app.menu("kh.shell.grid.show")->isChecked());
+    CHECK(app.menu("kh.shell.grid.dots")->isChecked());
+    CHECK_FALSE(app.menu("kh.shell.grid.snap")->isChecked());
+    CHECK(app.menu("kh.shell.grid.spacing.10")->isChecked());
+    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.gridstatus"))->text() ==
+          QStringLiteral("Grid 10 mm, dots, snap off"));
+    auto* view = app.shell->findChild<app::GridView*>(QStringLiteral("kh.shell.viewer"));
+    REQUIRE(view);
+    CHECK(view->grid() == g);
+}
+
+TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]") {
+    App app;
+    app.menu("kh.shell.grid.lines")->trigger();
+    app.menu("kh.shell.grid.snap")->trigger();
+    app.menu("kh.shell.grid.spacing.5")->trigger();
+    app.menu("kh.shell.grid.show")->trigger();  // off
+    settle();
+    const auto& g = app.grid.settings();
+    CHECK(g.style == plugin::GridStyle::Lines);
+    CHECK(g.snap);
+    CHECK(g.spacing == 5.0);
+    CHECK_FALSE(g.visible);
+    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.gridstatus"))->text() ==
+          QStringLiteral("Grid off, snap on"));
+
+    // Next time Khan starts, the grid is as it was left.
+    app.shell.reset();
+    app.grid.set(plugin::GridSettings{});
+    app.open();
+    CHECK(app.grid.settings() == g);
+    CHECK(app.menu("kh.shell.grid.lines")->isChecked());
+    CHECK(app.menu("kh.shell.grid.spacing.5")->isChecked());
+}
+
+TEST_CASE("a spacing that isn't a preset shows in the Other item", "[app][grid]") {
+    App app;
+    REQUIRE(app.grid.setSpacing(12.5).empty());
+    settle();
+    CHECK(app.menu("kh.shell.grid.spacing.other")->text() == QStringLiteral("Other (12.5 mm)..."));
+    CHECK_FALSE(app.menu("kh.shell.grid.spacing.10")->isChecked());
+}
+
+TEST_CASE("a damaged saved spacing falls back to the default", "[app][grid]") {
+    App app;
+    app.shell.reset();
+    app.settings.setValue(QStringLiteral("grid/spacing"), -3.0);
+    app.grid.set(plugin::GridSettings{});
+    app.open();
+    CHECK(app.grid.settings().spacing == 10.0);
+}
+
+TEST_CASE("a dense grid is drawn every few lines, so it doesn't turn grey", "[app][grid]") {
+    App app;
+    auto* view = app.shell->findChild<app::GridView*>(QStringLiteral("kh.shell.viewer"));
+    REQUIRE(app.grid.setSpacing(10.0).empty());
+    settle();
+    CHECK(view->pixelsPerSpace() == 40.0);  // 10 mm at 4 px per mm
+    REQUIRE(app.grid.setSpacing(0.5).empty());
+    settle();
+    CHECK(view->pixelsPerSpace() >= 8.0);  // every 5th line: 2.5 mm = 10 px
 }

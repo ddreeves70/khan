@@ -499,7 +499,7 @@
       "callouts": [
         {
           "at": [
-            305,
+            345,
             9
           ],
           "n": 1
@@ -520,8 +520,8 @@
         },
         {
           "at": [
-            600,
-            330
+            760,
+            520
           ],
           "n": 4
         },
@@ -538,6 +538,13 @@
             789
           ],
           "n": 6
+        },
+        {
+          "at": [
+            1020,
+            789
+          ],
+          "n": 7
         }
       ]
     },
@@ -598,6 +605,38 @@
         290
       ],
       "check": false
+    },
+    {
+      "out": "docs/user-guide/images/app-grid-dots.png",
+      "size": "1280x800",
+      "script": "tag",
+      "app": {
+        "open": "tag.khan"
+      },
+      "crop": [
+        264,
+        72,
+        672,
+        520
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-grid-lines.png",
+      "size": "1280x800",
+      "script": "tag",
+      "app": {
+        "open": "tag.khan",
+        "settings": {
+          "grid/style": "lines",
+          "grid/spacing": "5"
+        }
+      },
+      "crop": [
+        264,
+        72,
+        672,
+        520
+      ]
     }
   ]
 }

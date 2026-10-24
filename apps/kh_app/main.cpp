@@ -88,7 +88,9 @@ int main(int argc, char** argv) {
     auto kernel = kh::kernel::makeOcctKernel();
     kh::app::AppUi ui;
     kh::plugin::PluginHost host(kernel.get());
+    kh::plugin::Grid grid(host.events());
     host.provide<kh::ui::UiRegistry>(ui);
+    host.provide(grid);
     host.addBuiltin(kh::plugins::modelingPlugin());
     host.addBuiltin(kh::plugins::featureTreePlugin());
     host.addBuiltin(kh::plugins::propertiesPlugin());
@@ -98,7 +100,7 @@ int main(int argc, char** argv) {
             .toStdWString());
     host.loadAll();
 
-    kh::app::Shell shell(host, ui, *kernel, *settings);
+    kh::app::Shell shell(host, ui, *kernel, grid, *settings);
 
     QString open = option(args, QStringLiteral("--open"));
     if (open.isEmpty() && args.size() > 1 &&

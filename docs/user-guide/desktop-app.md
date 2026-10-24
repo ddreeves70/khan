@@ -5,19 +5,20 @@ see every step in the feature tree, and change any step's numbers in Properties.
 Everything you do can be undone.
 
 The 3D view arrives in the next version. Until then the middle of the window
-lists your finished bodies and their volumes, and you can export a part to look
-at it in another program.
+shows the grid from above, and lists your finished bodies and their volumes. You
+can export a part to look at it in another program.
 
 ![The Khan window with the desk organizer open](images/app-main.png)
 
 | # | Part | What it's for |
 | --- | --- | --- |
-| 1 | **Menus** | File (new, open, save), Edit (undo, redo, delete), Create (shapes), Combine (union, cut, intersect), Window (panels, layouts) |
+| 1 | **Menus** | File (new, open, save), Edit (undo, redo, delete), Create (shapes), Combine (union, cut, intersect), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away |
 | 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built |
-| 4 | **Viewer** | The 3D view (next version). For now: the finished bodies and their volumes |
+| 4 | **Viewer** | The 3D view (next version). For now: the grid seen from above, and the finished bodies with their volumes |
 | 5 | **Properties** | The selected step's name and numbers. Change them here |
 | 6 | **Status bar** | Messages, and what went wrong when something does |
+| 7 | **Grid status** | The grid's spacing and style, and whether snapping is on |
 
 ## Starting it
 
@@ -86,6 +87,34 @@ Properties shows the picked step's name and numbers. Lengths are in mm.
 When a step doesn't build, Properties says why in red, and how to fix it:
 
 ![A cylinder with no axis direction: failed, with the reason](images/app-failed.png)
+
+## The grid
+
+The grid is a pattern of dots or lines on the ground (the x-y plane) that helps
+you judge sizes and line things up. It starts **on**, every **10 mm**, drawn as
+**dots**, with **snapping off**. Change it in the **View** menu:
+
+| Menu item | Keys | What it does |
+| --- | --- | --- |
+| View > Show grid | Ctrl+G | Shows or hides the grid |
+| View > Snap to grid | Ctrl+Shift+G | Points you pick with the mouse jump to the nearest grid crossing |
+| View > Grid style > Dots or Lines | | Dots are light and keep your part easy to see; lines look like graph paper |
+| View > Grid spacing | | 1, 2, 5, 10, 20 or 50 mm, or **Other...** for any size from 0.01 mm to 1000 mm |
+
+| Dots, 10 mm (the start) | Lines, 5 mm |
+| --- | --- |
+| ![The grid as dots, 10 mm apart](images/app-grid-dots.png) | ![The grid as lines, 5 mm apart](images/app-grid-lines.png) |
+
+The red line is the x axis and the green line the y axis; they cross at the
+origin, 0, 0. The status bar (7 in the picture at the top) always shows the
+grid's settings, like "Grid 10 mm, dots, snap off". Khan remembers your grid
+settings for next time.
+
+- **When the grid is very fine,** Khan draws every 2nd, 5th or 10th line so it
+  doesn't turn into a grey blur. Snapping still uses the spacing you set.
+- **Snapping** matters once you place things with the mouse: in the 3D view and
+  in sketches, both coming soon. Numbers you type in Properties are never
+  snapped.
 
 ## Undo and redo
 
