@@ -30,10 +30,14 @@ bool waitFor(F done) {
     return done();
 }
 
+// Draws now, so queued mouse input is handled before the next event (a drag
+// released before any frame is drawn would be dropped). grabFramebuffer()
+// always draws; update() and repaint() skip it while the virtual screen hasn't
+// shown the window yet, which made these tests fail now and then.
 void settle(ViewWidget& v) {
     for (int i = 0; i < 4; ++i) {
-        v.update();
-        QApplication::processEvents(QEventLoop::AllEvents, 50);
+        QApplication::processEvents(QEventLoop::AllEvents, 20);
+        (void)v.grabFramebuffer();
     }
 }
 
