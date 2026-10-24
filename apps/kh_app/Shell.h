@@ -14,6 +14,7 @@
 #include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
 #include "kh/kernel/IKernel.h"
+#include "kh/plugin/Grid.h"
 #include "kh/plugin/PluginHost.h"
 
 class QAction;
@@ -30,6 +31,7 @@ class CDockWidget;
 namespace kh::app {
 
 class AppUi;
+class GridView;
 
 // The main window. It owns no features of its own: panels, menu items and
 // toolbar buttons come from plugins (through AppUi and PluginHost::actions()).
@@ -40,8 +42,11 @@ class Shell : public QMainWindow {
 public:
     // `host` must have loaded its plugins. `settings` keeps layouts and the
     // window's place between runs.
-    Shell(plugin::PluginHost& host, AppUi& ui, kernel::IKernel& kernel, QSettings& settings,
-          QWidget* parent = nullptr);
+    // `host` must have loaded its plugins, and `grid` must be the Grid it
+    // provides as a service. `settings` keeps layouts, the grid and the window's
+    // place between runs.
+    Shell(plugin::PluginHost& host, AppUi& ui, kernel::IKernel& kernel, plugin::Grid& grid,
+          QSettings& settings, QWidget* parent = nullptr);
     ~Shell() override;
 
     // What to do with unsaved changes before they would be lost.
@@ -97,16 +102,21 @@ private:
     bool confirmLoseChanges();
     void replaceActive(std::unique_ptr<model::Document> doc, std::filesystem::path path);
     void rebuildLayoutMenu();
+    void buildViewMenu();
+    void showGrid();  // menu checks, status bar and the drawing follow the grid
 
     plugin::PluginHost& host_;
     AppUi& ui_;
     kernel::IKernel& kernel_;
     QSettings& settings_;
     ads::CDockManager* docks_ = nullptr;
-    QLabel* viewer_ = nullptr;
+    GridView* viewer_ = nullptr;
+    QLabel* gridLabel_ = nullptr;
+    plugin::Grid& grid_;
     QLabel* problemLabel_ = nullptr;
     QToolBar* toolbar_ = nullptr;
     QMenu* windowMenu_ = nullptr;
+    QMenu* viewMenu_ = nullptr;
     QMenu* layoutMenu_ = nullptr;
     QAction* undo_ = nullptr;
     QAction* redo_ = nullptr;

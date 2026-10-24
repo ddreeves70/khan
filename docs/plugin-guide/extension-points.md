@@ -88,6 +88,26 @@ sel.set(docId, {boxId});   // select the box everywhere
 Every change sends `SelectionChanged`. The selection keeps itself valid: steps
 that are deleted or undone drop out, and closing the design clears it.
 
+## Use the grid (desktop app only)
+
+The desktop app shares one grid, provided as the `kh.grid` service. A tool that
+lets the student place points with the mouse snaps them through it, so it obeys
+**View > Snap to grid** like everything else:
+
+```cpp
+#include "kh/plugin/Grid.h"
+
+if (auto* grid = ctx.service<kh::plugin::Grid>()) {
+    kernel::Vec3 p = grid->snap(pointUnderMouse);  // unchanged when snapping is off
+    const auto& g = grid->settings();               // visible, spacing (mm), snap, style
+}
+```
+
+`kh_cli` has no grid, so the service is `nullptr` there. Change the grid with
+`setVisible`, `setSpacing` (0.01 mm to 1000 mm; outside that it returns a
+problem and changes nothing), `setSnap` and `setStyle`. Each change sends
+`GridChanged`.
+
 ## Listen to events
 
 Events tell every part of Khan what just happened, so a change made in one place
@@ -108,6 +128,7 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `DocumentChanged` | A command runs, or a step is undone or redone | `doc`, `kind` (`Executed`, `Undone`, `Redone`), `label` |
 | `RebuildFinished` | A design was rebuilt after a change | `doc`, `ok` (did every step build?) |
 | `SelectionChanged` | The selection changes | `doc`, `features` (in picking order) |
+| `GridChanged` | The grid settings change (desktop app) | `grid`: visible, spacing in mm, snap, style |
 
 Things to know:
 

@@ -4,6 +4,8 @@
 qt_add_library(kh_app_core STATIC
   AppUi.cpp
   AppUi.h
+  GridView.cpp
+  GridView.h
   Shell.cpp
   Shell.h
 )

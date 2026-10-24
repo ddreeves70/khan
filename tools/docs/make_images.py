@@ -23,7 +23,7 @@ A recipe (a "script" runs that shared list of commands before its own "commands"
 An "app" recipe takes a screenshot of the desktop app instead (pass --kh-app):
 
     {"out": "docs/user-guide/images/app-main.png",
-     "commands": [...], "app": {"open": "o.khan", "select": ["Cup"]},
+     "commands": [...], "app": {"open": "o.khan", "select": ["Cup"], "settings": {"grid/style": "lines"}},
      "crop": [x, y, width, height], "callouts": [{"at": [x, y], "n": 1}]}   both optional
 
 Needs Python 3 with NumPy and Matplotlib.
@@ -103,6 +103,14 @@ def main():
                     continue
                 app = recipe["app"]
                 w, h = (int(v) for v in recipe.get("size", "1280x800").split("x"))
+                if "settings" in app:
+                    # Start the app with these settings, e.g. {"grid/style": "lines"}.
+                    sections = {}
+                    for key, value in app["settings"].items():
+                        group, name = key.split("/", 1)
+                        sections.setdefault(group, []).append(f"{name}={value}")
+                    ini = "".join(f"[{g}]\n" + "\n".join(lines) + "\n" for g, lines in sections.items())
+                    (Path(tmp) / "settings.ini").write_text(ini)
                 argv = [str(Path(args.kh_app).resolve()), "--settings", str(Path(tmp) / "settings.ini"),
                         "--screenshot", str(out)]
                 if "open" in app:
