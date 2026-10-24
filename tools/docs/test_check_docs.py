@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from check_docs import matches  # noqa: E402
+from check_docs import matches, updated_block  # noqa: E402
 
 PAGE = ["PASS box-basic                         ... ms", "PASS keychain-tag                      ... ms", "",
         "2 passed, 0 failed"]
@@ -31,4 +31,10 @@ for expected, actual, want, why in CASES:
         print(f"FAIL: {why}")
         failed += 1
 print(f"{len(CASES) - failed} of {len(CASES)} matcher cases pass")
+
+# --update rebuilds a block from its commands and their new output.
+block = updated_block([("kh_cli a", ["old"]), ("kh_cli b", [])], [["new 1", "new 2"], ["done"]])
+if block != "$ kh_cli a\nnew 1\nnew 2\n$ kh_cli b\ndone\n":
+    print("FAIL: updated_block")
+    failed += 1
 sys.exit(1 if failed else 0)

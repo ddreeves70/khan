@@ -159,6 +159,21 @@ You can read a design directly, but you change it only with `run`, `execute`,
 `undo` and `redo`. Each change sends `DocumentChanged`, rebuilds the design and
 sends `RebuildFinished`.
 
+To ask about a body's size and mass, use the kernel the designs are built with
+and the body's material:
+
+```cpp
+#include "kh/model/Material.h"
+
+const auto* report = docs.lastRebuild(id);
+const auto* shape = report ? report->shapeOf(stepId) : nullptr;
+if (shape && docs.kernel()) {
+    const auto& material = doc->materialOf(stepId);  // PLA unless one was picked
+    const auto mass = model::bodyMass(*docs.kernel(), *shape, material);
+    ctx.log("It weighs " + std::to_string(mass.grams) + " g");  // also volume, newtons, cost, center
+}
+```
+
 ## Add a panel (desktop app only)
 
 A panel is a dockable window, like the feature tree. Panels are Qt widgets, so

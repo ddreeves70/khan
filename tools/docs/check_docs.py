@@ -17,7 +17,12 @@ other (a tutorial saves a file, the next step opens it). Paths in commands that
 start with build/dev/ are mapped to the real build folder, and paths starting
 with tests/ or docs/ to the repo.
 
-    python3 check_docs.py --kh-cli <path> --build-dir <dir> --repo <dir>
+    python3 check_docs.py --kh-cli <path> --build-dir <dir> --repo <dir> [--update]
+
+--update writes what kh_cli printed into examples that don't match, when the
+example has no "..." in it. Use it after an intended change to kh_cli's output,
+then read every change in `git diff` before committing: the guides are only as
+right as the outputs you approve.
 """
 
 import argparse
@@ -73,8 +78,18 @@ def normalize(text, args, workdir):
     return [line.rstrip() for line in text.replace("\r\n", "\n").split("\n")]
 
 
+def updated_block(blocks, outputs):
+    """The text of an example block with each command's output replaced."""
+    lines = []
+    for (command, _), output in zip(blocks, outputs):
+        lines.append("$ " + command)
+        lines.extend(output)
+    return "\n".join(lines) + "\n"
+
+
 def run_examples(page, args):
     text = page.read_text(encoding="utf-8")
+    replacements = []  # (start, end, new text) for --update
     with tempfile.TemporaryDirectory(prefix="kh_docs_") as tmp:
         workdir = Path(tmp).resolve()
         for m in EXAMPLE.finditer(text):
@@ -88,6 +103,8 @@ def run_examples(page, args):
                     blocks[-1][1].append(line.rstrip())
                 else:
                     fail(f"{page}:{line_no}", "example output before any '$ ' command")
+            outputs = []
+            stale = False
             for i, (command, expected) in enumerate(blocks):
                 argv = shlex.split(command)
                 if not argv or argv[0] != "kh_cli":
@@ -100,12 +117,23 @@ def run_examples(page, args):
                     actual.pop()
                 while expected and expected[-1] == "":
                     expected.pop()
+                outputs.append(actual)
                 code = want_exit if i == len(blocks) - 1 else 0
                 if proc.returncode != code:
                     fail(f"{page}:{line_no}", f"'{command}' exited with {proc.returncode}, the page expects {code}")
                 if not matches(expected, actual):
+                    if args.update and not any("..." in e for e in expected):
+                        stale = True
+                        continue
                     fail(f"{page}:{line_no}", f"'{command}' printed something else.\n--- page ---\n" +
                          "\n".join(expected) + "\n--- kh_cli ---\n" + "\n".join(actual))
+            if stale:
+                replacements.append((m.start(2), m.end(2), updated_block(blocks, outputs)))
+    if replacements:
+        for start, end, new in reversed(replacements):
+            text = text[:start] + new + text[end:]
+        page.write_text(text, encoding="utf-8")
+        print(f"updated {len(replacements)} example(s) in {page}")
 
 
 def check_coverage(args):
@@ -157,6 +185,7 @@ def main():
     ap.add_argument("--kh-cli", required=True, type=lambda p: str(Path(p).resolve()))
     ap.add_argument("--build-dir", required=True, type=lambda p: Path(p).resolve())
     ap.add_argument("--repo", required=True, type=lambda p: Path(p).resolve())
+    ap.add_argument("--update", action="store_true", help="write kh_cli's output into stale examples")
     args = ap.parse_args()
 
     pages = sorted(p for g in GUIDES for p in (args.repo / g).rglob("*.md"))

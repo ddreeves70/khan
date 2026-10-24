@@ -528,7 +528,7 @@
         {
           "at": [
             1110,
-            330
+            520
           ],
           "n": 5
         },
@@ -562,7 +562,7 @@
         936,
         50,
         344,
-        230
+        360
       ]
     },
     {
@@ -668,6 +668,52 @@
         50,
         676,
         500
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/materials-cubes.png",
+      "size": "1280x800",
+      "commands": [
+        "run --save cubes.khan feature.add_box name=PLA size=20,20,20",
+        "run --open cubes.khan --save cubes.khan feature.add_box name=Aluminum corner=30,0,0 size=20,20,20",
+        "run --open cubes.khan --save cubes.khan feature.add_box name=Brass corner=60,0,0 size=20,20,20",
+        "run --open cubes.khan --save cubes.khan feature.add_box name=Oak corner=90,0,0 size=20,20,20",
+        "run --open cubes.khan --save cubes.khan feature.set_material feature=Aluminum material=aluminum_6061",
+        "run --open cubes.khan --save cubes.khan feature.set_material feature=Brass material=brass_360",
+        "run --open cubes.khan --save cubes.khan feature.set_material feature=Oak material=oak"
+      ],
+      "app": {
+        "open": "cubes.khan",
+        "trigger": [
+          "kh.viewer.view.front",
+          "kh.viewer.view.iso"
+        ]
+      },
+      "crop": [
+        268,
+        86,
+        664,
+        600
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-material.png",
+      "size": "1280x800",
+      "script": "tag",
+      "commands": [
+        "run --open tag.khan --save tag.khan feature.set_material feature=Plate material=aluminum_6061"
+      ],
+      "app": {
+        "open": "tag.khan",
+        "select": [
+          "Tag"
+        ]
+      },
+      "crop": [
+        936,
+        50,
+        344,
+        330
       ]
     }
   ]

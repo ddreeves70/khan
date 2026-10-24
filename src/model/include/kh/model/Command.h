@@ -10,6 +10,7 @@
 #include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
 #include "kh/model/Feature.h"
+#include "kh/model/Material.h"
 
 namespace kh::model {
 
@@ -45,6 +46,10 @@ public:
     /// @param f The new version. Its id must already be in the document.
     /// @return The old version, or nullptr if no feature has that id.
     std::unique_ptr<Feature> replace(std::unique_ptr<Feature> f);
+
+    /// Gives the design's own materials to change in place.
+    /// @return The list (see Document::customMaterials()).
+    std::vector<Material>& materials();
 
 private:
     friend class Document;

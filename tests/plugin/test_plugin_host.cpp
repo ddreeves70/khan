@@ -89,7 +89,8 @@ TEST_CASE("kh.modeling loads and its commands work", "[plugin][host]") {
     CHECK(modeling.builtin);
     CHECK(modeling.commands == std::vector<std::string>{"feature.add_boolean", "feature.add_box",
                                                         "feature.add_cylinder", "feature.delete",
-                                                        "feature.rename"});
+                                                        "feature.rename", "feature.set_material",
+                                                        "material.define", "material.delete"});
 
     const DocId doc = host.documents().add(std::make_unique<model::Document>());
     REQUIRE(host.documents().run(doc, "feature.add_box", {{"size", kernel::Vec3{2, 3, 4}}}).empty());

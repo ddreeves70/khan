@@ -6,6 +6,7 @@ kh_add_library(kh_model
     Document.cpp
     Commands.cpp
     CommandRegistry.cpp
+    Material.cpp
   DEPS
     kh::core
     kh::kernel

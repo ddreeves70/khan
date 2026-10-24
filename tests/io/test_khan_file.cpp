@@ -84,6 +84,30 @@ std::string boxFeature(const std::string& type = "Box") {
            R"(","name":"Box1","params":{"corner":[0,0,0],"size":[10,20,30]}})";
 }
 
+// Reads every entry of a zip: name -> text.
+std::map<std::string, std::string> readZip(const io::Bytes& bytes) {
+    std::map<std::string, std::string> out;
+    zip_error_t err;
+    zip_error_init(&err);
+    zip_source_t* src = zip_source_buffer_create(bytes.data(), bytes.size(), 0, &err);
+    zip_t* za = zip_open_from_source(src, ZIP_RDONLY, &err);
+    if (!za) {
+        zip_source_free(src);
+        return out;
+    }
+    for (zip_int64_t i = 0; i < zip_get_num_entries(za, 0); ++i) {
+        zip_stat_t st;
+        zip_stat_index(za, static_cast<zip_uint64_t>(i), 0, &st);
+        std::string text(static_cast<std::size_t>(st.size), '\0');
+        zip_file_t* f = zip_fopen_index(za, static_cast<zip_uint64_t>(i), 0);
+        zip_fread(f, text.data(), st.size);
+        zip_fclose(f);
+        out[st.name] = text;
+    }
+    zip_close(za);
+    return out;
+}
+
 std::string firstCode(const io::OpenResult& r) {
     return r.issues.empty() ? "" : r.issues.front().code;
 }
@@ -129,6 +153,71 @@ TEST_CASE("a design survives saving and opening in memory", "[io]") {
     CHECK_THAT(kernel.massProps(*after.shapeOf(tag.id())).volume,
                WithinAbs(kernel.massProps(*before.shapeOf(tag.id())).volume, 1e-9));
     CHECK(after.result(back.featureAt(3).id())->status == model::FeatureStatus::Suppressed);
+}
+
+TEST_CASE("materials survive saving and opening", "[io][material]") {
+    auto doc = makeDesign();
+    const auto plate = doc->featureAt(0).id();
+    const auto hole = doc->featureAt(1).id();
+    model::Material blue{"", "Blue PETG", 1.27, {0x33, 0x66, 0xcc}, 2.1, 0.38, 50, 25, false};
+    REQUIRE(doc->execute(std::make_unique<model::DefineMaterialCommand>(blue)).empty());
+    REQUIRE(doc->execute(std::make_unique<model::SetMaterialCommand>(plate, "Blue PETG")).empty());
+    REQUIRE(doc->execute(std::make_unique<model::SetMaterialCommand>(hole, "Steel (mild, 1018)")).empty());
+
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+    auto opened = io::readBytes(bytes, "tag.khan");
+    REQUIRE(opened.ok());
+    const auto& back = *opened.document;
+    REQUIRE(back.customMaterials().size() == 1);
+    CHECK(back.customMaterials()[0] == doc->customMaterials()[0]);  // same id, numbers and color
+    CHECK(back.find(plate)->material() == doc->customMaterials()[0].key);
+    CHECK(back.find(hole)->material() == "steel_1018");
+    CHECK(back.materialOf(back.featureAt(2).id()).name == "Blue PETG");
+    CHECK_FALSE(back.canUndo());  // loading materials isn't an undoable step
+
+    // Saving it again gives the same bytes.
+    io::Bytes again;
+    REQUIRE(io::writeBytes(back, again).empty());
+    CHECK(again == bytes);
+}
+
+TEST_CASE("a design without materials saves exactly as before", "[io][material]") {
+    auto doc = makeDesign();
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+    const auto entries = readZip(bytes);
+    REQUIRE(entries.size() == 2 + doc->featureCount());  // manifest, timeline, one per step
+    CHECK_FALSE(entries.count("materials.json"));
+    for (const auto& [name, text] : entries) CHECK(text.find("material") == std::string::npos);
+}
+
+TEST_CASE("a material key Khan doesn't know opens as the default material", "[io][material]") {
+    const std::string box =
+        R"({"id":")" + kBoxId +
+        R"(","type":"Box","name":"Box1","material":"vibranium","params":{"corner":[0,0,0],"size":[10,20,30]}})";
+    auto opened = io::readBytes(makeZip({{"manifest.json", manifest()},
+                                         {"timeline.json", timeline()},
+                                         {"features/" + kBoxId + ".json", box}}),
+                                "odd.khan");
+    REQUIRE(opened.ok());
+    const auto& f = opened.document->featureAt(0);
+    CHECK(f.material() == "vibranium");  // kept, so saving doesn't lose it
+    CHECK(&opened.document->materialOf(f.id()) == &model::defaultMaterial());
+}
+
+TEST_CASE("a damaged materials file is refused with a plain message", "[io][material]") {
+    const std::string withMaterials =
+        R"({"format":"khan","schema":1,"app":"0.0.1","units":{"length":"mm","angle":"rad"},)"
+        R"("document":{"id":")" +
+        kDocId + R"(","kind":"part","name":"Hand made"},"files":["materials.json"]})";
+    auto opened = io::readBytes(makeZip({{"manifest.json", withMaterials},
+                                         {"timeline.json", timeline()},
+                                         {"features/" + kBoxId + ".json", boxFeature()},
+                                         {"materials.json", R"({"materials":[{"name":"No id"}]})"}}),
+                                "bad.khan");
+    CHECK_FALSE(opened.ok());
+    CHECK(firstCode(opened) == "file.damaged");
 }
 
 TEST_CASE("an opened design has no undo history and no unsaved changes", "[io]") {

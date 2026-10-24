@@ -1,12 +1,17 @@
 #include "kh/plugins/Properties.h"
 
+#include <QColorDialog>
 #include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
 #include <QFormLayout>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPushButton>
 #include <QVBoxLayout>
 
 #include <functional>
@@ -16,6 +21,7 @@
 
 #include "kh/model/Commands.h"
 #include "kh/model/Document.h"
+#include "kh/model/Material.h"
 #include "kh/plugin/Events.h"
 #include "kh/ui/UiRegistry.h"
 
@@ -31,7 +37,80 @@ constexpr const char* kManifest = R"({
   "requires": ["kh.modeling"]
 })";
 
-constexpr qint64 kMergeMs = 800;  // edits to one number this close together are one undo step
+constexpr qint64 kMergeMs = 800;                 // edits to one number this close together are one undo step
+constexpr const char* kNewMaterial = "\x01new";  // the combo item that opens the New material dialog
+
+QString qs(const std::string& s) {
+    return QString::fromStdString(s);
+}
+
+// "0.18", "12.50", "1,234.00": money with two decimals.
+QString money(double v) {
+    return QStringLiteral("$") + QString::number(v, 'f', 2);
+}
+
+// Grams below 1 kg, kilograms above.
+QString massText(double grams) {
+    return grams < 1000 ? QObject::tr("%1 g").arg(grams, 0, 'f', 2)
+                        : QObject::tr("%1 kg").arg(grams / 1000, 0, 'f', 3);
+}
+
+// Asks for a new material's numbers. Returns false if cancelled.
+bool askNewMaterial(QWidget* parent, model::Material& m) {
+    QDialog dialog(parent);
+    dialog.setWindowTitle(QObject::tr("New material"));
+    auto* form = new QFormLayout(&dialog);
+    auto* name = new QLineEdit(&dialog);
+    name->setPlaceholderText(QObject::tr("For example: Blue PETG"));
+    auto number = [&dialog](double max, int decimals, const QString& suffix) {
+        auto* s = new QDoubleSpinBox(&dialog);
+        s->setRange(0, max);
+        s->setDecimals(decimals);
+        s->setSuffix(suffix);
+        s->setSpecialValueText(QObject::tr("unknown"));  // shown for 0
+        return s;
+    };
+    auto* density = number(25, 3, QObject::tr(" g/cm³"));
+    density->setValue(1.24);
+    auto* youngs = number(1000, 2, QObject::tr(" GPa"));
+    auto* poisson = number(0.5, 3, QString());
+    auto* yield = number(5000, 0, QObject::tr(" MPa"));
+    auto* cost = number(100000, 2, QObject::tr(" per kg"));
+    cost->setPrefix(QStringLiteral("$"));
+    QColor color(120, 170, 220);
+    auto* colorButton = new QPushButton(&dialog);
+    auto showColor = [colorButton, &color] {
+        colorButton->setText(color.name());
+        colorButton->setStyleSheet(QStringLiteral("background: %1").arg(color.name()));
+    };
+    showColor();
+    QObject::connect(colorButton, &QPushButton::clicked, &dialog, [&] {
+        const QColor picked = QColorDialog::getColor(color, &dialog, QObject::tr("Material color"));
+        if (picked.isValid()) color = picked;
+        showColor();
+    });
+    form->addRow(QObject::tr("Name"), name);
+    form->addRow(QObject::tr("Density"), density);
+    form->addRow(QObject::tr("Color"), colorButton);
+    form->addRow(QObject::tr("Stiffness (Young's modulus)"), youngs);
+    form->addRow(QObject::tr("Poisson's ratio"), poisson);
+    form->addRow(QObject::tr("Yield strength"), yield);
+    form->addRow(QObject::tr("Price"), cost);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    form->addRow(buttons);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    if (dialog.exec() != QDialog::Accepted) return false;
+    m.name = name->text().trimmed().toStdString();
+    m.density = density->value();
+    m.color = {static_cast<std::uint8_t>(color.red()), static_cast<std::uint8_t>(color.green()),
+               static_cast<std::uint8_t>(color.blue())};
+    m.youngsModulus = youngs->value();
+    m.poissonsRatio = poisson->value();
+    m.yieldStrength = yield->value();
+    m.costPerKg = cost->value();
+    return true;
+}
 
 // A copy of the step, changed, ready for EditFeatureCommand.
 using Change = std::function<void(model::Feature&)>;
@@ -211,6 +290,126 @@ private:
                 break;
             }
         }
+        addMaterial(form);
+    }
+
+    const model::Document* design() const { return ctx_.documents().find(ctx_.selection().doc()); }
+
+    // The material, and what it makes of the body: mass, weight and cost.
+    void addMaterial(QFormLayout* form) {
+        auto* line = new QFrame(form_);
+        line->setFrameShape(QFrame::HLine);
+        line->setFrameShadow(QFrame::Sunken);
+        form->addRow(line);
+
+        auto* material = new QComboBox(form_);
+        material->setObjectName(QStringLiteral("material"));
+        material->setToolTip(
+            tr("What this step's body is made of. It sets the mass, weight, cost and color."));
+        form->addRow(tr("Material"), material);
+        auto* info = new QLabel(form_);
+        info->setObjectName(QStringLiteral("materialinfo"));
+        info->setWordWrap(true);
+        info->setStyleSheet(QStringLiteral("color: #57606a"));
+        form->addRow(QString(), info);
+        auto* volume = new QLabel(form_);
+        volume->setObjectName(QStringLiteral("volume"));
+        form->addRow(tr("Volume"), volume);
+        auto* mass = new QLabel(form_);
+        mass->setObjectName(QStringLiteral("mass"));
+        form->addRow(tr("Mass"), mass);
+        auto* cost = new QLabel(form_);
+        cost->setObjectName(QStringLiteral("cost"));
+        form->addRow(tr("Material cost"), cost);
+
+        connect(material, &QComboBox::activated, this, [this, material](int index) {
+            const auto key = material->itemData(index).toString().toStdString();
+            if (key == kNewMaterial) {
+                newMaterial();
+            } else {
+                setMaterial(key);
+            }
+        });
+
+        updaters_.push_back([this, material, info, volume, mass, cost](const model::Feature& g) {
+            const auto* doc = design();
+            if (!doc) return;
+            // The first item: what the body gets when nothing is picked for it.
+            QString inherited = tr("Default: %1").arg(qs(model::defaultMaterial().name));
+            if (g.type() == model::FeatureType::Boolean) {
+                const auto& a = static_cast<const model::BooleanFeature&>(g).a();
+                if (const auto* first = doc->find(a)) {
+                    inherited = tr("Same as %1: %2").arg(qs(first->name()), qs(doc->materialOf(a).name));
+                }
+            }
+            const QSignalBlocker block(material);
+            material->clear();
+            material->addItem(inherited, QString());
+            material->insertSeparator(material->count());
+            for (const auto& m : model::builtinMaterials()) material->addItem(qs(m.name), qs(m.key));
+            if (!doc->customMaterials().empty()) {
+                material->insertSeparator(material->count());
+                for (const auto& m : doc->customMaterials()) material->addItem(qs(m.name), qs(m.key));
+            }
+            material->insertSeparator(material->count());
+            material->addItem(tr("New material..."), QString::fromLatin1(kNewMaterial));
+            const int at = material->findData(
+                doc->findMaterial(g.material()) ? qs(doc->findMaterial(g.material())->key) : QString());
+            material->setCurrentIndex(at < 0 ? 0 : at);
+
+            const auto& m = doc->materialOf(g.id());
+            auto known = [](double v, const QString& text) { return v > 0 ? text : tr("unknown"); };
+            info->setText(
+                tr("%1: density %2 g/cm³, stiffness %3, Poisson's ratio %4, yield strength %5, price %6")
+                    .arg(qs(m.name), QString::number(m.density, 'g', 4),
+                         known(m.youngsModulus, tr("%1 GPa").arg(m.youngsModulus)),
+                         known(m.poissonsRatio, QString::number(m.poissonsRatio)),
+                         known(m.yieldStrength, tr("%1 MPa").arg(m.yieldStrength)),
+                         known(m.costPerKg, tr("%1 per kg").arg(money(m.costPerKg)))));
+
+            const auto* report = ctx_.documents().lastRebuild(ctx_.selection().doc());
+            const auto* shape = report ? report->shapeOf(g.id()) : nullptr;
+            const auto* kernel = ctx_.documents().kernel();
+            if (!shape || !kernel) {
+                const QString none = tr("none: this step didn't build");
+                volume->setText(none);
+                mass->setText(none);
+                cost->setText(none);
+                return;
+            }
+            const auto b = model::bodyMass(*kernel, *shape, m);
+            volume->setText(tr("%1 mm³").arg(b.volume, 0, 'f', 2));
+            mass->setText(tr("%1 (weighs %2 N)").arg(massText(b.grams)).arg(b.newtons, 0, 'f', 3));
+            cost->setText(m.costPerKg <= 0 ? tr("unknown: the material has no price")
+                          : b.cost < 0.005 ? tr("less than $0.01")
+                                           : tr("about %1").arg(money(b.cost)));
+        });
+    }
+
+    void setMaterial(const std::string& key) {
+        if (filling_) return;
+        const auto* f = selected();
+        if (!f || key == f->material()) return;
+        auto problems = ctx_.documents().run(ctx_.selection().doc(), "feature.set_material",
+                                             {{"feature", f->id()}, {"material", key}});
+        if (!problems.empty()) ui_.showProblems(problems);
+        schedule();
+    }
+
+    void newMaterial() {
+        model::Material m;
+        if (!askNewMaterial(this, m)) {
+            schedule();  // put the combo back
+            return;
+        }
+        auto problems = ctx_.documents().execute(ctx_.selection().doc(),
+                                                 std::make_unique<model::DefineMaterialCommand>(m));
+        if (!problems.empty()) {
+            ui_.showProblems(problems);
+            schedule();
+            return;
+        }
+        setMaterial(m.name);
     }
 
     QDoubleSpinBox* spin(const QString& name, bool positive, const QString& suffix) {

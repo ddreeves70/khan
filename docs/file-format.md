@@ -14,6 +14,7 @@ when you change a number.
 tag.khan
 ├── manifest.json                    what this file is and which Khan wrote it
 ├── timeline.json                    the steps, in order
+├── materials.json                   the design's own materials (only if it has any)
 └── features/
     ├── 926bde46-....json            one file per step
     ├── f153a811-....json
@@ -91,6 +92,44 @@ Every step has `id`, `type` and `name`. Steps that use other steps list them und
 
 A step's inputs must come before it in the timeline.
 
+A step can also have `"material"`: the key of the material picked for its body,
+either a built-in material's key (like `"pla"` or `"aluminum_6061"`, listed in
+`src/model/Material.cpp`) or the `id` of one of the design's own materials. A step
+with no material picked has no `"material"` key. A key Khan doesn't know is kept
+as it is, and the body counts as PLA.
+
+### materials.json
+
+Only a design that added materials of its own has this file:
+
+```json
+{
+  "materials": [
+    {
+      "color": "#3366cc",
+      "cost_per_kg": 25.0,
+      "density": 1.27,
+      "id": "5b0f3c1e-8d2a-4f6b-9c3d-2e1a0b9c8d7f",
+      "name": "Blue PETG",
+      "poissons_ratio": 0.0,
+      "youngs_modulus": 0.0,
+      "yield_strength": 0.0
+    }
+  ]
+}
+```
+
+| Key | Meaning |
+| --- | --- |
+| `id` | The material's UUID. Steps refer to it by this, so renaming it later won't break them. |
+| `name` | Its name. No two of the design's materials share a name, and none uses a built-in material's name. |
+| `density` | g/cm³, from 0.01 to 25. |
+| `color` | `#rrggbb`. |
+| `youngs_modulus`, `poissons_ratio`, `yield_strength`, `cost_per_kg` | GPa, a ratio, MPa, and price per kg. 0 means unknown. |
+
+Materials are added before the steps, through the same command a student uses
+(`material.define`), so the same checks run.
+
 ## Same design, same bytes
 
 Saving a design that hasn't changed gives exactly the same file, so Git shows no
@@ -104,7 +143,8 @@ work:
 
 ## Opening a file
 
-Khan reads `manifest.json`, then `timeline.json`, then each step. Each step is
+Khan reads `manifest.json`, then `materials.json` if it's there, then
+`timeline.json`, then each step. Each step is
 added through the normal add-step command, so the same checks run as when a student
 builds the design. The opened design has no undo history and no unsaved changes.
 
@@ -116,7 +156,7 @@ If something is wrong, Khan opens nothing and explains why:
 | `file.not_khan` | Not a zip, no `manifest.json`, or `format` isn't `"khan"`. |
 | `file.too_new` | `schema` is higher than this Khan reads. The message says to update Khan. |
 | `file.unknown_step` | A step's `type` is one this Khan doesn't know (maybe from a plugin). |
-| `file.damaged` | Anything else: bad JSON, a missing step file, a missing number, an input that doesn't exist. |
+| `file.damaged` | Anything else: bad JSON, a missing step file, a missing number, an input that doesn't exist, a material without its id, name, density or color. |
 | `file.cant_write` | (Saving) The folder is missing, read-only or full. |
 
 Saving writes `<name>.saving` first and then renames it over the old file, so a
@@ -125,6 +165,9 @@ failed save never damages the last good copy.
 ## Changing the format
 
 - Adding a step type, or an optional key that older Khan can ignore, keeps schema 1.
+  Materials were added this way (Oct 2026): an older Khan opens a design with
+  materials, shows every body as plain geometry, and drops the materials if it
+  saves the file again.
 - Anything an older Khan would read wrongly bumps `schema` (in
   `src/core/include/kh/core/Version.h`) and adds a migration from the old schema.
 - `tests/files/` holds files saved with each schema. They are checked in and never

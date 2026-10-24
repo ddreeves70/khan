@@ -48,7 +48,6 @@ Quantity_Color rgb(int r, int g, int b) {
 }
 
 // Colours, matching the flat view and the docs pictures.
-const Quantity_Color kBody = rgb(158, 178, 204);
 const Quantity_Color kEdges = rgb(44, 52, 64);
 const Quantity_Color kSelected = rgb(255, 140, 26);
 const Quantity_Color kHover = rgb(90, 170, 255);
@@ -143,6 +142,7 @@ struct ViewWidget::Impl {
     struct Shown {
         std::uint64_t shapeId = 0;  // the ShapeHandle it was made from
         bool ghost = false;
+        Rgb color;
         Handle(AIS_Shape) object;
     };
 
@@ -297,14 +297,14 @@ void ViewWidget::setContent(const SceneContent& content) {
             if (!shape || shape->IsNull()) continue;
             auto it = d.shown.find(body.feature);
             if (it != d.shown.end() && it->second.shapeId == body.shape.id() &&
-                it->second.ghost == body.ghost) {
+                it->second.ghost == body.ghost && it->second.color == body.color) {
                 next.insert(d.shown.extract(it));
                 continue;
             }
             // Draw a copy: the view meshes what it draws, and the design's own shape
             // must not change (exports mesh it too, and must not depend on the view).
             Handle(AIS_Shape) obj = new AIS_Shape(BRepBuilderAPI_Copy(*shape, false, false).Shape());
-            obj->SetColor(kBody);
+            obj->SetColor(rgb(body.color.r, body.color.g, body.color.b));
             obj->Attributes()->SetDeviationAngle(0.1);  // radians: smooth round edges
             if (body.ghost) {
                 obj->SetTransparency(0.7);
@@ -317,7 +317,7 @@ void ViewWidget::setContent(const SceneContent& content) {
                 obj->Attributes()->SetFaceBoundaryAspect(new Prs3d_LineAspect(kEdges, Aspect_TOL_SOLID, 1.0));
             }
             d.context->Display(obj, AIS_Shaded, 0, false);
-            next[body.feature] = {body.shape.id(), body.ghost, obj};
+            next[body.feature] = {body.shape.id(), body.ghost, body.color, obj};
         }
         for (auto& [id, s] : d.shown) d.context->Remove(s.object, false);
         d.shown = std::move(next);

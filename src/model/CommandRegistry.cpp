@@ -122,6 +122,56 @@ CommandRegistry makeBuiltin() {
               return std::make_unique<RenameFeatureCommand>(argFeature(a, "feature"), argText(a, "name"));
           });
 
+    r.add({"feature.set_material",
+           "Set material",
+           "Picks what a step's body is made of, for its mass, weight, cost and color.",
+           {{"feature", ArgType::FeatureRef, "The step.", true, {}},
+            {"material",
+             ArgType::Text,
+             "A material's name, like PLA or \"Aluminum 6061\" (see kh_cli materials). Leave it empty to "
+             "use the material of the step it was made from (or PLA).",
+             true,
+             {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<SetMaterialCommand>(argFeature(a, "feature"), argText(a, "material"));
+          });
+
+    r.add({"material.define",
+           "Define material",
+           "Adds a material of your own to the design, or changes one you added.",
+           {{"name", ArgType::Text, "The material's name, like \"Blue PETG\".", true, {}},
+            {"density", ArgType::Number, "Density in g/cm³ (water is 1).", true, {}},
+            {"color", ArgType::Text, "Color in the viewer, as #rrggbb. Default #9eb2cc.", false, {}},
+            {"youngs_modulus",
+             ArgType::Number,
+             "Stiffness (Young's modulus) in GPa. Default 0 (unknown).",
+             false,
+             {}},
+            {"poissons_ratio", ArgType::Number, "Poisson's ratio, 0 to 0.5. Default 0 (unknown).", false, {}},
+            {"yield_strength", ArgType::Number, "Yield strength in MPa. Default 0 (unknown).", false, {}},
+            {"cost_per_kg", ArgType::Number, "Price per kilogram. Default 0 (unknown).", false, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              Material m;
+              m.name = argText(a, "name");
+              m.density = argNumber(a, "density");
+              const auto color = argText(a, "color", "#9eb2cc");
+              m.color = parseColor(color).value_or(Color{});
+              m.youngsModulus = argNumber(a, "youngs_modulus");
+              m.poissonsRatio = argNumber(a, "poissons_ratio");
+              m.yieldStrength = argNumber(a, "yield_strength");
+              m.costPerKg = argNumber(a, "cost_per_kg");
+              return std::make_unique<DefineMaterialCommand>(std::move(m),
+                                                             parseColor(color) ? std::string() : color);
+          });
+
+    r.add({"material.delete",
+           "Delete material",
+           "Removes a material you added to the design. No step may be using it.",
+           {{"name", ArgType::Text, "The material's name.", true, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<DeleteMaterialCommand>(argText(a, "name"));
+          });
+
     return r;
 }
 

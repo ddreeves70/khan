@@ -133,6 +133,8 @@ Properties shows the picked step's name and numbers. Lengths are in mm.
 - **Base** and **Corner** are positions: x goes right, y goes back, z goes up
   (see [Shapes](shapes.md)).
 - **Axis** is the direction a cylinder points: 0, 0, 1 is straight up.
+- **Material** picks what the step's body is made of. Under it, Properties shows
+  the body's volume, mass, weight and material cost. See [Materials](materials.md).
 
 When a step doesn't build, Properties says why in red, and how to fix it:
 
