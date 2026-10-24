@@ -155,6 +155,15 @@ document, "UI and plugin architecture"). The guide for plugin authors lives in
 - Never update expected corpus values just to make a test pass. Use `--update` only for
   intended behavior changes, check the new values by hand, and explain them in the commit.
 
+## Dependencies
+
+`docs/dependencies.md` lists every library, tool and service Khan uses or plans to
+use, with its license, status and long-term plan. Any pull request that adds,
+removes, upgrades or changes how Khan uses a dependency updates it in the same PR;
+`docs.guides` fails if a `vcpkg.json` package or a `FetchContent` download isn't
+listed. Check the license rules on that page before adding anything: LGPL only as
+a shared library, GPL never linked into Khan.
+
 ## Review rules
 
 - Changes to `kh_model`, `kh_kernel`, naming or the file format need a line-by-line

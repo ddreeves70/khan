@@ -17,6 +17,7 @@ Khan is built in phases, each ending with a build you can try and a written exit
 | Docking | Qt Advanced Docking System | Every panel and viewer docks, tabs, floats and moves to another monitor; named layouts are saved per user |
 | Priority | Capability first (Oct 23, 2026) | Every phase takes the shortest path to a fully functional modeler. Teacher interviews, lessons and classroom features move to an Education pack after v0.2 |
 | Guides | User's guide, CLI reference and tutorials grow with the code (Oct 23, 2026) | Every pull request that changes something a user sees updates them; their examples run as tests |
+| Strength simulation | CalculiX runs as a separate program, never built in (Oct 24, 2026) | Khan stays Apache-2.0; Khan writes CalculiX's input file and reads its results. See [dependencies](../dependencies.md) |
 
 **One deliberate shortcut:** use OCCT's built-in 3D viewer (AIS/V3d) for the first releases instead of writing the WebGPU renderer from the design. It saves months for a solo developer. Keep rendering behind an interface so it can be replaced later.
 
@@ -40,7 +41,7 @@ Build only what makes this product different: the document model, feature graph,
 | Tests | Catch2 + geometry regression corpus | BSL-1.0 | Corpus is ours |
 | Document model, feature graph, naming, timeline, commands/undo | n/a | Apache-2.0 (project license) | Yes, the core of the product |
 
-License check: LGPL components must stay dynamically linked and replaceable, which fits an Apache-2.0 core.
+License check: LGPL components must stay dynamically linked and replaceable, which fits an Apache-2.0 core. The running list of every dependency, with versions, status and plans, is [docs/dependencies.md](../dependencies.md).
 
 ## Phases
 

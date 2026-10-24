@@ -30,6 +30,11 @@ Works offline, owns no part of your data, and stays free forever.
 Every example in these guides is run by Khan's tests, so they always match what
 Khan does.
 
+## Dependencies
+
+Khan is built on Open CASCADE, Qt and a few other open-source libraries. The full
+list, with licenses and plans, is in [docs/dependencies.md](docs/dependencies.md).
+
 ## Design
 
 The full design, including architecture, UI mockups, class diagrams and the phased roadmap, is in **[docs/design](docs/design/README.md)**. It is a draft and changes as Khan is built.
