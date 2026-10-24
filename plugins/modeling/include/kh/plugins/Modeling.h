@@ -17,6 +17,7 @@ namespace kh::plugins {
 /// host.loadAll();
 /// @endcode
 /// @return Its manifest and register function, for PluginHost::addBuiltin().
+///         The manifest leaves out `apiVersion`; built-ins always get this Khan's.
 plugin::BuiltinPlugin modelingPlugin();
 
 }  // namespace kh::plugins

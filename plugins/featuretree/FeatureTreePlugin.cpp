@@ -21,7 +21,6 @@ constexpr const char* kManifest = R"({
   "id": "kh.featuretree",
   "name": "Feature tree",
   "version": "0.1.0",
-  "apiVersion": 2,
   "description": "The panel that lists a design's steps.",
   "requires": ["kh.modeling"]
 })";

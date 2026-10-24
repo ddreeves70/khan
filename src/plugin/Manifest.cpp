@@ -5,6 +5,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "kh/plugin/Api.h"
+
 namespace kh::plugin {
 
 namespace {
@@ -118,6 +120,15 @@ ManifestResult parseManifest(std::string_view text, const std::filesystem::path&
 
     if (result.issues.empty()) result.manifest = std::move(m);
     return result;
+}
+
+ManifestResult parseBuiltinManifest(std::string_view text) {
+    json j = json::parse(text, nullptr, false);
+    if (j.is_object() && !j.contains("apiVersion")) {
+        j["apiVersion"] = kPluginApiVersion;
+        return parseManifest(j.dump());
+    }
+    return parseManifest(text);
 }
 
 ManifestResult readManifest(const std::filesystem::path& folder) {

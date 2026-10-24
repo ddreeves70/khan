@@ -29,8 +29,9 @@ class Library;
 
 /// A plugin compiled into Khan itself, such as kh.modeling.
 struct BuiltinPlugin {
-    std::string manifestJson;  ///< The text of its plugin.json.
-    RegisterFn registerFn;     ///< Its register function.
+    std::string
+        manifestJson;  ///< Its manifest text. Leave out `apiVersion`: built-ins always get kPluginApiVersion.
+    RegisterFn registerFn;  ///< Its register function.
 };
 
 /// Whether a plugin loaded.

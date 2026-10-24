@@ -1,11 +1,21 @@
 # kh_add_plugin(<target> MANIFEST <plugin.json> SOURCES ... [DEPS ...] [FOLDER <dir>])
 #
-# Builds an outside-style C++ plugin: a shared library plus its plugin.json,
+# Builds an outside-style C++ plugin: a shared library plus its plugin.json
+# (with "apiVersion" filled in from Api.h),
 # both placed in <FOLDER>/<plugin id>/ (default <build>/khan-plugins), ready for
 # PluginHost::addFolder(<FOLDER>).
 # The library's file name comes from "library" in plugin.json: hello.dll on
 # Windows, hello.dylib on macOS, hello.so on Linux (see libraryFileName()).
 # See docs/plugin-guide/hello-plugin.md.
+# The plugin API version, read from Api.h so it lives in one place.
+file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../src/plugin/include/kh/plugin/Api.h" kh_api_line
+  REGEX "inline constexpr int kPluginApiVersion = [0-9]+;")
+string(REGEX MATCH "= ([0-9]+)" kh_api_match "${kh_api_line}")
+set(KH_PLUGIN_API_VERSION "${CMAKE_MATCH_1}")
+if(NOT KH_PLUGIN_API_VERSION MATCHES "^[0-9]+$")
+  message(FATAL_ERROR "KhPlugin.cmake: couldn't read kPluginApiVersion from Api.h")
+endif()
+
 function(kh_add_plugin target)
   cmake_parse_arguments(ARG "" "MANIFEST;FOLDER" "SOURCES;DEPS" ${ARGN})
   if(NOT ARG_FOLDER)
@@ -40,6 +50,11 @@ function(kh_add_plugin target)
     # $<1:...> stops multi-config generators (Visual Studio) adding a Debug/ folder.
     LIBRARY_OUTPUT_DIRECTORY "$<1:${dir}>"
     RUNTIME_OUTPUT_DIRECTORY "$<1:${dir}>")
-  configure_file("${manifest}" "${dir}/plugin.json" COPYONLY)
+  # The plugin.json next to the library gets this Khan's apiVersion: the library
+  # is compiled against this Khan's headers, so the two always match, and nobody
+  # edits the number by hand. A source plugin.json may leave it out.
+  string(JSON manifest_text SET "${manifest_text}" apiVersion "${KH_PLUGIN_API_VERSION}")
+  file(CONFIGURE OUTPUT "${dir}/plugin.json" CONTENT "${manifest_text}\n" @ONLY)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${manifest}")
   set_property(TARGET ${target} PROPERTY KH_PLUGIN_DIR "${dir}")
 endfunction()
