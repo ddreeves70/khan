@@ -246,42 +246,42 @@ TEST_CASE("named layouts save and open", "[app]") {
     CHECK(app.shell->lastProblems()[0].code == "layout.bad");
 }
 
-TEST_CASE("the grid starts on, with dots and no snapping", "[app][grid]") {
+TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {
     App app;
     const auto& g = app.grid.settings();
     CHECK(g.visible);
-    CHECK(g.style == plugin::GridStyle::Dots);
+    CHECK(g.style == plugin::GridStyle::Lines);
     CHECK_FALSE(g.snap);
     CHECK(g.spacing == 10.0);
     CHECK(app.menu("kh.shell.grid.show")->isChecked());
-    CHECK(app.menu("kh.shell.grid.dots")->isChecked());
+    CHECK(app.menu("kh.shell.grid.lines")->isChecked());
     CHECK_FALSE(app.menu("kh.shell.grid.snap")->isChecked());
     CHECK(app.menu("kh.shell.grid.spacing.10")->isChecked());
     CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.gridstatus"))->text() ==
-          QStringLiteral("Grid 10 mm, dots, snap off"));
+          QStringLiteral("Grid 10 mm, lines, snap off"));
     auto* view = app.flat();  // no screen in the tests, so the viewer draws flat
     REQUIRE(view);
     CHECK(view->grid().visible);
     CHECK(view->grid().spacing == 10.0);
-    CHECK_FALSE(view->grid().lines);
+    CHECK(view->grid().lines);
 }
 
 TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]") {
     App app;
-    app.menu("kh.shell.grid.lines")->trigger();
+    app.menu("kh.shell.grid.dots")->trigger();
     app.menu("kh.shell.grid.snap")->trigger();
     app.menu("kh.shell.grid.spacing.5")->trigger();
     app.menu("kh.shell.grid.show")->trigger();  // off
     settle();
     const auto& g = app.grid.settings();
-    CHECK(g.style == plugin::GridStyle::Lines);
+    CHECK(g.style == plugin::GridStyle::Dots);
     CHECK(g.snap);
     CHECK(g.spacing == 5.0);
     CHECK_FALSE(g.visible);
     CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.gridstatus"))->text() ==
           QStringLiteral("Grid off, snap on"));
     CHECK_FALSE(app.flat()->grid().visible);  // the viewer follows the grid
-    CHECK(app.flat()->grid().lines);
+    CHECK_FALSE(app.flat()->grid().lines);
     CHECK(app.flat()->grid().spacing == 5.0);
 
     // Next time Khan starts, the grid is as it was left.
@@ -289,7 +289,7 @@ TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]"
     app.grid.set(plugin::GridSettings{});
     app.open();
     CHECK(app.grid.settings() == g);
-    CHECK(app.menu("kh.shell.grid.lines")->isChecked());
+    CHECK(app.menu("kh.shell.grid.dots")->isChecked());
     CHECK(app.menu("kh.shell.grid.spacing.5")->isChecked());
 }
 

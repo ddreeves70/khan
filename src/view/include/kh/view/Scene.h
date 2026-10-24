@@ -27,7 +27,7 @@ struct SceneContent {
 struct ViewGrid {
     bool visible = true;  ///< Draw it at all.
     double spacing = 10;  ///< Distance between grid lines, in mm.
-    bool lines = false;   ///< Lines instead of dots.
+    bool lines = true;    ///< Lines, or dots when false.
 };
 
 /// How much of the grid to draw.

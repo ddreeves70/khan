@@ -9,13 +9,13 @@
 using namespace kh;
 using namespace kh::plugin;
 
-TEST_CASE("the grid starts shown, 10 mm, no snapping, dots", "[plugin][grid]") {
+TEST_CASE("the grid starts shown, 10 mm, no snapping, lines", "[plugin][grid]") {
     EventBus bus;
     Grid grid(bus);
     CHECK(grid.settings().visible);
     CHECK(grid.settings().spacing == 10.0);
     CHECK_FALSE(grid.settings().snap);
-    CHECK(grid.settings().style == GridStyle::Dots);
+    CHECK(grid.settings().style == GridStyle::Lines);
 }
 
 TEST_CASE("each change tells listeners once", "[plugin][grid]") {
@@ -24,14 +24,14 @@ TEST_CASE("each change tells listeners once", "[plugin][grid]") {
     std::vector<GridSettings> heard;
     auto sub = bus.subscribe<GridChanged>([&](const GridChanged& e) { heard.push_back(e.grid); });
 
-    grid.setStyle(GridStyle::Lines);
-    grid.setStyle(GridStyle::Lines);  // no change, no event
+    grid.setStyle(GridStyle::Dots);
+    grid.setStyle(GridStyle::Dots);  // no change, no event
     grid.setSnap(true);
     grid.setVisible(false);
     REQUIRE(grid.setSpacing(2.5).empty());
     REQUIRE(heard.size() == 4);
     CHECK(heard.back().spacing == 2.5);
-    CHECK(heard.back().style == GridStyle::Lines);
+    CHECK(heard.back().style == GridStyle::Dots);
     CHECK(heard.back().snap);
     CHECK_FALSE(heard.back().visible);
 }

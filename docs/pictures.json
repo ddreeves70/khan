@@ -611,7 +611,11 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan"
+        "open": "tag.khan",
+        "settings": {
+          "grid/style": "dots",
+          "grid/spacing": "5"
+        }
       },
       "crop": [
         264,
@@ -625,11 +629,7 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan",
-        "settings": {
-          "grid/style": "lines",
-          "grid/spacing": "5"
-        }
+        "open": "tag.khan"
       },
       "crop": [
         264,

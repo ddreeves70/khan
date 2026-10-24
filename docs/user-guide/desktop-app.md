@@ -142,22 +142,22 @@ When a step doesn't build, Properties says why in red, and how to fix it:
 
 The grid is a pattern of dots or lines on the ground (the x-y plane) that helps
 you judge sizes and line things up. It starts **on**, every **10 mm**, drawn as
-**dots**, with **snapping off**. Change it in the **View** menu:
+**lines**, with **snapping off**. Change it in the **View** menu:
 
 | Menu item | Keys | What it does |
 | --- | --- | --- |
 | View > Show grid | Ctrl+G | Shows or hides the grid |
 | View > Snap to grid | Ctrl+Shift+G | Points you pick with the mouse jump to the nearest grid crossing |
-| View > Grid style > Dots or Lines | | Dots are light and keep your part easy to see; lines look like graph paper |
+| View > Grid style > Lines or Dots | | Lines look like graph paper; dots are lighter and keep your part easy to see |
 | View > Grid spacing | | 1, 2, 5, 10, 20 or 50 mm, or **Other...** for any size from 0.01 mm to 1000 mm |
 
-| Dots, 10 mm (the start) | Lines, 5 mm |
+| Lines, 10 mm (the start) | Dots, 5 mm |
 | --- | --- |
-| ![The grid as dots, 10 mm apart](images/app-grid-dots.png) | ![The grid as lines, 5 mm apart](images/app-grid-lines.png) |
+| ![The grid as lines, 10 mm apart](images/app-grid-lines.png) | ![The grid as dots, 5 mm apart](images/app-grid-dots.png) |
 
 The short coloured lines at the origin (0, 0, 0) are the axes: red is x, green
 is y and blue is z. The status bar (7 in the picture at the top) always shows the
-grid's settings, like "Grid 10 mm, dots, snap off". Khan remembers your grid
+grid's settings, like "Grid 10 mm, lines, snap off". Khan remembers your grid
 settings for next time.
 
 - **How far the grid reaches:** 50 lines each way from the origin (500 mm with

@@ -103,15 +103,15 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, plugin::Grid& grid, QSettings&
     gridLabel_->setObjectName(QStringLiteral("kh.shell.gridstatus"));
     statusBar()->addPermanentWidget(gridLabel_);
 
-    // The grid as the student left it last time (defaults: shown, 10 mm, no snapping, dots).
+    // The grid as the student left it last time (defaults: shown, 10 mm, no snapping, lines).
     {
         plugin::GridSettings g = grid_.settings();
         g.visible = settings_.value(QStringLiteral("grid/visible"), g.visible).toBool();
         g.spacing = settings_.value(QStringLiteral("grid/spacing"), g.spacing).toDouble();
         g.snap = settings_.value(QStringLiteral("grid/snap"), g.snap).toBool();
-        g.style = settings_.value(QStringLiteral("grid/style")).toString() == QStringLiteral("lines")
-                      ? plugin::GridStyle::Lines
-                      : plugin::GridStyle::Dots;
+        g.style = settings_.value(QStringLiteral("grid/style")).toString() == QStringLiteral("dots")
+                      ? plugin::GridStyle::Dots
+                      : plugin::GridStyle::Lines;
         grid_.set(g);  // a damaged spacing is refused and the default kept
     }
     const auto v = kh::version();
@@ -346,9 +346,9 @@ void Shell::buildViewMenu() {
 
     auto* style = viewMenu_->addMenu(tr("Grid style"));
     auto* styles = new QActionGroup(style);
-    auto* dots = named(style->addAction(tr("Dots")), "kh.shell.grid.dots");
     auto* lines = named(style->addAction(tr("Lines")), "kh.shell.grid.lines");
-    for (auto* a : {dots, lines}) {
+    auto* dots = named(style->addAction(tr("Dots")), "kh.shell.grid.dots");
+    for (auto* a : {lines, dots}) {
         a->setCheckable(true);
         styles->addAction(a);
     }
