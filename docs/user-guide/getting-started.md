@@ -27,7 +27,7 @@ and 10 mm tall:
 ```console
 $ kh_cli run --save first.khan feature.add_box size=40,30,10
 first: 1 step
-  Box1         ok  volume 12000.00 mm^3
+  Box1         ok  volume 12000.00 mm^3  mass 14.88 g (PLA)
 wrote first.khan
 ```
 
@@ -43,14 +43,14 @@ then cut it out of the box:
 ```console
 $ kh_cli run --open first.khan --save first.khan feature.add_cylinder base=20,15,-1 radius=6 height=12
 first: 2 steps
-  Box1         ok  volume 12000.00 mm^3
-  Cylinder1    ok  volume 1357.17 mm^3
+  Box1         ok  volume 12000.00 mm^3  mass 14.88 g (PLA)
+  Cylinder1    ok  volume 1357.17 mm^3  mass 1.68 g (PLA)
 wrote first.khan
 $ kh_cli run --open first.khan --save first.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1
 first: 3 steps
   Box1         ok  volume 12000.00 mm^3
   Cylinder1    ok  volume 1357.17 mm^3
-  Cut1         ok  volume 10869.03 mm^3
+  Cut1         ok  volume 10869.03 mm^3  mass 13.48 g (PLA)
 wrote first.khan
 ```
 
@@ -64,7 +64,7 @@ $ kh_cli open first.khan --export first.stl
 first: 3 steps
   Box1         ok  volume 12000.00 mm^3
   Cylinder1    ok  volume 1357.17 mm^3
-  Cut1         ok  volume 10869.03 mm^3
+  Cut1         ok  volume 10869.03 mm^3  mass 13.48 g (PLA)
 wrote first.stl
 ```
 

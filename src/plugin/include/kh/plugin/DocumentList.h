@@ -109,6 +109,11 @@ public:
     /// @return The report, or nullptr if the design is not open or there is no kernel.
     const model::RebuildReport* lastRebuild(const DocId& id) const;
 
+    /// Gives the kernel designs are rebuilt with, for questions about shapes
+    /// such as their volume (see model::bodyMass()).
+    /// @return The kernel, or nullptr if there is none (designs aren't rebuilt).
+    const kernel::IKernel* kernel() const { return kernel_; }
+
 private:
     struct Entry {
         std::unique_ptr<model::Document> doc;

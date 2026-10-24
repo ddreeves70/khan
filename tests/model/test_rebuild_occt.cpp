@@ -47,3 +47,23 @@ TEST_CASE("A box with a hole cut through it has the right volume", "[model][rebu
     REQUIRE(before.bodies() == std::vector<FeatureId>{block, pin});
     REQUIRE(k.massProps(*before.shapeOf(block)).volume == Approx(12000.0));
 }
+
+TEST_CASE("a body's mass is its volume times its material's density", "[model][material][occt]") {
+    auto kernel = kernel::makeOcctKernel();
+    // A 10 mm cube: 1 cm^3.
+    const auto cube = kernel->makeBox({0, 0, 0}, 10, 10, 10).shape;
+    const auto pla = bodyMass(*kernel, cube, defaultMaterial());
+    CHECK(pla.volume == Approx(1000));
+    CHECK(pla.area == Approx(600));
+    CHECK(pla.grams == Approx(1.24));
+    CHECK(pla.newtons == Approx(1.24 / 1000 * 9.81));
+    CHECK(pla.cost == Approx(1.24 / 1000 * 20));
+    CHECK(pla.center.x == Approx(5));
+    CHECK(pla.center.z == Approx(5));
+    // Property: mass scales with density, and nothing else changes.
+    const auto steel = bodyMass(*kernel, cube, *findBuiltinMaterial("steel_1018"));
+    CHECK(steel.grams == Approx(7.87));
+    CHECK(steel.volume == Approx(pla.volume));
+    // An empty shape weighs nothing.
+    CHECK(bodyMass(*kernel, kernel::ShapeHandle{}, defaultMaterial()).grams == 0);
+}

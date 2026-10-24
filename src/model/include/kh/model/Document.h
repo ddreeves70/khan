@@ -16,6 +16,7 @@
 #include "kh/kernel/IKernel.h"
 #include "kh/model/Command.h"
 #include "kh/model/Feature.h"
+#include "kh/model/Material.h"
 
 namespace kh::model {
 
@@ -135,6 +136,30 @@ public:
     /// @return The ids of the features that use it, in document order.
     std::vector<FeatureId> dependents(const FeatureId& id) const;
 
+    /// Gives the materials this design added to Khan's built-in ones.
+    /// @return The design's own materials, in the order they were added.
+    const std::vector<Material>& customMaterials() const { return materials_; }
+
+    /// Finds a material by key or name (ignoring upper and lower case): the
+    /// design's own materials first, then Khan's built-in ones.
+    /// @param keyOrName For example "pla", "Aluminum 6061", or a custom material's name.
+    /// @return The material, or nullptr if there is none by that key or name.
+    const Material* findMaterial(std::string_view keyOrName) const;
+
+    /// Works out what a step's body is made of: the material picked for it; if
+    /// none, the material of the body it was made from (the first body, A, of a
+    /// union, cut or intersect), and so on back; and if none was picked anywhere,
+    /// defaultMaterial() (PLA). A key that names no material counts as none.
+    /// @param id The step.
+    /// @return The material. For a step not in the design, defaultMaterial().
+    const Material& materialOf(const FeatureId& id) const;
+
+    /// Finds the step whose picked material materialOf() uses.
+    /// @param id The step.
+    /// @return That step (@p id itself, or one it was made from), or a nil id if
+    ///         the body has the default material.
+    FeatureId materialSource(const FeatureId& id) const;
+
     /// Makes a name that no feature uses yet.
     /// @param base The start of the name, e.g. "Box".
     /// @return The first free name of "Box1", "Box2", ...
@@ -207,6 +232,7 @@ private:
     DocKind kind_;
     std::string name_;
     std::vector<std::unique_ptr<Feature>> features_;
+    std::vector<Material> materials_;  // the design's own materials
 
     std::vector<Entry> done_;
     std::vector<Entry> undone_;

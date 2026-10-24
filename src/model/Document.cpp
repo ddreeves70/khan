@@ -1,6 +1,7 @@
 #include "kh/model/Document.h"
 
 #include <algorithm>
+#include <cctype>
 #include <limits>
 #include <set>
 #include <utility>
@@ -40,6 +41,10 @@ std::unique_ptr<Feature> DocumentEditor::replace(std::unique_ptr<Feature> f) {
         }
     }
     return nullptr;
+}
+
+std::vector<Material>& DocumentEditor::materials() {
+    return doc_.materials_;
 }
 
 // ---------------------------------------------------------------------------
@@ -214,6 +219,41 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel) const {
         if (report.shapeOf(id) && !usedAsInput.count(id)) report.bodies_.push_back(id);
     }
     return report;
+}
+
+// ---------------------------------------------------------------------------
+// Materials
+// ---------------------------------------------------------------------------
+
+const Material* Document::findMaterial(std::string_view keyOrName) const {
+    auto same = [](std::string_view a, std::string_view b) {
+        return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
+                   return std::tolower(static_cast<unsigned char>(x)) ==
+                          std::tolower(static_cast<unsigned char>(y));
+               });
+    };
+    for (const auto& m : materials_) {
+        if (m.key == keyOrName || same(m.name, keyOrName)) return &m;
+    }
+    return findBuiltinMaterial(keyOrName);
+}
+
+FeatureId Document::materialSource(const FeatureId& id) const {
+    // Follow first inputs back. Inputs always come earlier, so this ends; the
+    // step limit is a guard against a damaged design.
+    const Feature* f = find(id);
+    for (std::size_t steps = 0; f && steps <= features_.size(); ++steps) {
+        if (!f->material().empty() && findMaterial(f->material())) return f->id();
+        if (f->type() != FeatureType::Boolean) break;
+        f = find(static_cast<const BooleanFeature&>(*f).a());
+    }
+    return {};
+}
+
+const Material& Document::materialOf(const FeatureId& id) const {
+    const FeatureId source = materialSource(id);
+    if (source.isNil()) return defaultMaterial();
+    return *findMaterial(find(source)->material());
 }
 
 }  // namespace kh::model
