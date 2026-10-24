@@ -493,7 +493,7 @@
       "app": {
         "open": "o.khan",
         "select": [
-          "Cup"
+          "PenHole"
         ]
       },
       "callouts": [
@@ -611,7 +611,11 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan"
+        "open": "tag.khan",
+        "settings": {
+          "grid/style": "dots",
+          "grid/spacing": "5"
+        }
       },
       "crop": [
         264,
@@ -625,17 +629,45 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan",
-        "settings": {
-          "grid/style": "lines",
-          "grid/spacing": "5"
-        }
+        "open": "tag.khan"
       },
       "crop": [
         264,
         72,
         672,
         520
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-viewer-panes.png",
+      "size": "1280x800",
+      "script": "tag",
+      "app": {
+        "open": "tag.khan",
+        "trigger": [
+          "kh.viewer.layout.fourpanes"
+        ]
+      },
+      "crop": [
+        262,
+        50,
+        676,
+        728
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-viewer-flat.png",
+      "size": "1280x800",
+      "script": "tag",
+      "app": {
+        "open": "tag.khan",
+        "flat": true
+      },
+      "crop": [
+        262,
+        50,
+        676,
+        500
       ]
     }
   ]

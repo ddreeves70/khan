@@ -4,8 +4,6 @@
 qt_add_library(kh_app_core STATIC
   AppUi.cpp
   AppUi.h
-  GridView.cpp
-  GridView.h
   Shell.cpp
   Shell.h
 )
@@ -17,8 +15,8 @@ kh_set_warnings(kh_app_core)
 
 qt_add_executable(kh_app main.cpp)
 target_link_libraries(kh_app PRIVATE
-  kh_app_core kh::kernel_occt
-  kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties)
+  kh_app_core kh::kernel_occt kh::view
+  kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewer)
 kh_set_warnings(kh_app)
 
 set_target_properties(kh_app PROPERTIES

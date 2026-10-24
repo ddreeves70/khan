@@ -12,12 +12,12 @@
 #include <QLineEdit>
 #include <QSettings>
 #include <QTemporaryDir>
+#include <QToolBar>
 #include <QTreeWidget>
 
 #include <memory>
 
 #include "AppUi.h"
-#include "GridView.h"
 #include "Shell.h"
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/model/Feature.h"
@@ -25,7 +25,9 @@
 #include "kh/plugins/FeatureTree.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/Properties.h"
+#include "kh/plugins/Viewer.h"
 #include "kh/ui/UiRegistry.h"
+#include "kh/view/FlatView.h"
 
 using namespace kh;
 using Catch::Approx;
@@ -60,20 +62,23 @@ struct App {
         host.addBuiltin(plugins::modelingPlugin());
         host.addBuiltin(plugins::featureTreePlugin());
         host.addBuiltin(plugins::propertiesPlugin());
-        host.addBuiltin(
-            {R"({"id":"test.broken","name":"Broken","version":"1","apiVersion":2})", &panelThenFail});
+        host.addBuiltin(plugins::viewerPlugin());
+        host.addBuiltin({R"({"id":"test.broken","name":"Broken","version":"1","apiVersion":)" +
+                             std::to_string(plugin::kPluginApiVersion) + "}",
+                         &panelThenFail});
         host.loadAll();
         open();
     }
 
     void open() {
-        shell = std::make_unique<app::Shell>(host, ui, *kernel, grid, settings);
+        shell = std::make_unique<app::Shell>(host, ui, grid, settings);
         shell->askUnsaved = [](const QString&) { return app::Shell::Unsaved::Discard; };
         shell->show();
         settle();
     }
 
     QAction* menu(const char* id) { return shell->findChild<QAction*>(QString::fromLatin1(id)); }
+    view::FlatView* flat() { return shell->findChild<view::FlatView*>(QStringLiteral("kh.view.flat")); }
 
     const model::Document& doc() { return *host.documents().find(shell->activeDesign()); }
     QTreeWidget* tree() {
@@ -241,45 +246,50 @@ TEST_CASE("named layouts save and open", "[app]") {
     CHECK(app.shell->lastProblems()[0].code == "layout.bad");
 }
 
-TEST_CASE("the grid starts on, with dots and no snapping", "[app][grid]") {
+TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {
     App app;
     const auto& g = app.grid.settings();
     CHECK(g.visible);
-    CHECK(g.style == plugin::GridStyle::Dots);
+    CHECK(g.style == plugin::GridStyle::Lines);
     CHECK_FALSE(g.snap);
     CHECK(g.spacing == 10.0);
     CHECK(app.menu("kh.shell.grid.show")->isChecked());
-    CHECK(app.menu("kh.shell.grid.dots")->isChecked());
+    CHECK(app.menu("kh.shell.grid.lines")->isChecked());
     CHECK_FALSE(app.menu("kh.shell.grid.snap")->isChecked());
     CHECK(app.menu("kh.shell.grid.spacing.10")->isChecked());
     CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.gridstatus"))->text() ==
-          QStringLiteral("Grid 10 mm, dots, snap off"));
-    auto* view = app.shell->findChild<app::GridView*>(QStringLiteral("kh.shell.viewer"));
+          QStringLiteral("Grid 10 mm, lines, snap off"));
+    auto* view = app.flat();  // no screen in the tests, so the viewer draws flat
     REQUIRE(view);
-    CHECK(view->grid() == g);
+    CHECK(view->grid().visible);
+    CHECK(view->grid().spacing == 10.0);
+    CHECK(view->grid().lines);
 }
 
 TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]") {
     App app;
-    app.menu("kh.shell.grid.lines")->trigger();
+    app.menu("kh.shell.grid.dots")->trigger();
     app.menu("kh.shell.grid.snap")->trigger();
     app.menu("kh.shell.grid.spacing.5")->trigger();
     app.menu("kh.shell.grid.show")->trigger();  // off
     settle();
     const auto& g = app.grid.settings();
-    CHECK(g.style == plugin::GridStyle::Lines);
+    CHECK(g.style == plugin::GridStyle::Dots);
     CHECK(g.snap);
     CHECK(g.spacing == 5.0);
     CHECK_FALSE(g.visible);
     CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.gridstatus"))->text() ==
           QStringLiteral("Grid off, snap on"));
+    CHECK_FALSE(app.flat()->grid().visible);  // the viewer follows the grid
+    CHECK_FALSE(app.flat()->grid().lines);
+    CHECK(app.flat()->grid().spacing == 5.0);
 
     // Next time Khan starts, the grid is as it was left.
     app.shell.reset();
     app.grid.set(plugin::GridSettings{});
     app.open();
     CHECK(app.grid.settings() == g);
-    CHECK(app.menu("kh.shell.grid.lines")->isChecked());
+    CHECK(app.menu("kh.shell.grid.dots")->isChecked());
     CHECK(app.menu("kh.shell.grid.spacing.5")->isChecked());
 }
 
@@ -302,11 +312,73 @@ TEST_CASE("a damaged saved spacing falls back to the default", "[app][grid]") {
 
 TEST_CASE("a dense grid is drawn every few lines, so it doesn't turn grey", "[app][grid]") {
     App app;
-    auto* view = app.shell->findChild<app::GridView*>(QStringLiteral("kh.shell.viewer"));
+    auto* view = app.flat();
+    REQUIRE(view);
     REQUIRE(app.grid.setSpacing(10.0).empty());
     settle();
     CHECK(view->pixelsPerSpace() == 40.0);  // 10 mm at 4 px per mm
     REQUIRE(app.grid.setSpacing(0.5).empty());
     settle();
     CHECK(view->pixelsPerSpace() >= 8.0);  // every 5th line: 2.5 mm = 10 px
+}
+
+TEST_CASE("the viewer fills the middle; without 3D graphics it draws flat and says why", "[app][viewer]") {
+    App app;
+    auto* panel = app.shell->panelWidget(QStringLiteral("kh.viewer.main"));
+    REQUIRE(panel);
+    CHECK(panel->objectName() == QStringLiteral("kh.viewer.panel"));
+    REQUIRE(app.flat());
+    CHECK(app.flat()->text().contains(QStringLiteral("running without a screen")));
+    CHECK(app.flat()->text().contains(QStringLiteral("Create > Box")));
+    // The panes' toolbar is hidden: there are no panes to turn.
+    CHECK_FALSE(panel->findChild<QToolBar*>(QStringLiteral("kh.viewer.toolbar"))->isVisible());
+
+    app.shell->action("kh.modeling.box")->trigger();
+    settle();
+    CHECK(app.flat()->text().contains(QStringLiteral("Finished bodies: Box1")));
+}
+
+TEST_CASE("Window > New viewer opens more viewers", "[app][viewer]") {
+    App app;
+    auto* more = app.menu("kh.shell.new.kh.viewer.main");
+    REQUIRE(more);
+    CHECK(more->text() == QStringLiteral("New viewer"));
+    more->trigger();
+    settle();
+    CHECK(app.shell->dockIds().contains(QStringLiteral("kh.viewer.main.2")));
+    CHECK(app.shell->openAnotherPanel(QStringLiteral("kh.viewer.main")) ==
+          QStringLiteral("kh.viewer.main.3"));
+    auto* second = app.shell->panelWidget(QStringLiteral("kh.viewer.main.2"));
+    REQUIRE(second);
+    CHECK(second->objectName() == QStringLiteral("kh.viewer.panel"));
+    // The feature tree is one of a kind.
+    CHECK(app.shell->openAnotherPanel(QStringLiteral("kh.featuretree.panel")).isEmpty());
+    CHECK_FALSE(app.menu("kh.shell.new.kh.featuretree.panel"));
+}
+
+TEST_CASE("the viewer shows finished bodies, and picked used-up steps see-through", "[app][viewer]") {
+    App app;
+    auto& docs = app.host.documents();
+    const DocId doc = app.shell->activeDesign();
+    REQUIRE(docs.run(doc, "feature.add_box", {{"size", kernel::Vec3{20, 20, 20}}}).empty());
+    REQUIRE(docs.run(doc, "feature.add_cylinder", {{"radius", 4.0}, {"height", 30.0}}).empty());
+    const auto box = app.doc().featureAt(0).id();
+    const auto cyl = app.doc().featureAt(1).id();
+    REQUIRE(docs.run(doc, "feature.add_boolean", {{"operation", std::string("cut")}, {"a", box}, {"b", cyl}})
+                .empty());
+    const auto cut = app.doc().featureAt(2).id();
+
+    app.host.selection().clear();
+    auto scene = plugins::viewerScene(docs, app.host.selection());
+    REQUIRE(scene.bodies.size() == 1);
+    CHECK(scene.bodies[0].feature == cut);
+    CHECK_FALSE(scene.bodies[0].ghost);
+    CHECK(scene.selected.empty());
+
+    app.host.selection().set(doc, {cyl, cut});
+    scene = plugins::viewerScene(docs, app.host.selection());
+    REQUIRE(scene.bodies.size() == 2);
+    CHECK(scene.bodies[1].feature == cyl);
+    CHECK(scene.bodies[1].ghost);
+    CHECK(scene.selected == std::vector{cyl, cut});
 }

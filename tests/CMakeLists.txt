@@ -67,11 +67,37 @@ endif()
 # the test executable (needed on Windows).
 catch_discover_tests(kh_tests DISCOVERY_MODE PRE_TEST)
 
+# The 3D view: its plain logic everywhere, and its drawing where there is
+# OpenGL. CI's Linux machine draws on a virtual screen (xvfb-run) with Mesa.
+if(TARGET kh_view)
+  add_executable(kh_view_tests view/test_layout.cpp)
+  target_link_libraries(kh_view_tests PRIVATE Catch2::Catch2WithMain kh::view)
+  kh_set_warnings(kh_view_tests)
+  if(WIN32)
+    # Qt's and OCCT's DLLs next to the .exe, so it starts.
+    add_custom_command(TARGET kh_view_tests POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:kh_view_tests> $<TARGET_FILE_DIR:kh_view_tests>
+      COMMAND_EXPAND_LISTS)
+  endif()
+  catch_discover_tests(kh_view_tests DISCOVERY_MODE PRE_TEST)
+
+  find_program(KH_XVFB_RUN xvfb-run)
+  if(KH_XVFB_RUN)
+    add_executable(kh_view_gl_tests view/main_gl.cpp view/test_view_gl.cpp)
+    target_link_libraries(kh_view_gl_tests PRIVATE Catch2::Catch2 kh::view kh::kernel_occt)
+    kh_set_warnings(kh_view_gl_tests)
+    add_test(NAME view.gl COMMAND ${KH_XVFB_RUN} -a -s "-screen 0 1280x1024x24" $<TARGET_FILE:kh_view_gl_tests>)
+    set_tests_properties(view.gl PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=xcb;LIBGL_ALWAYS_SOFTWARE=1")
+  else()
+    message(STATUS "xvfb-run not found: the view.gl test (3D drawing) is off")
+  endif()
+endif()
+
 # The desktop shell and its panels, driven without a screen.
 if(TARGET kh_app_core)
   add_executable(kh_app_tests app/main.cpp app/test_shell.cpp)
-  target_link_libraries(kh_app_tests PRIVATE Catch2::Catch2 kh_app_core kh::kernel_occt
-    kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties)
+  target_link_libraries(kh_app_tests PRIVATE Catch2::Catch2 kh_app_core kh::kernel_occt kh::view
+    kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewer)
   kh_set_warnings(kh_app_tests)
   if(WIN32)
     # Qt's DLLs and plugins (including the offscreen platform) and ADS, next to the .exe.

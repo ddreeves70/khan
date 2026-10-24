@@ -3,15 +3,21 @@
 //   kh_app [file.khan]                 open a design (or start with an empty one)
 //   kh_app --open file.khan            the same
 //   kh_app --select Step1,Step2        pick steps after opening (for screenshots)
+//   kh_app --trigger id1,id2           click menu items and buttons by object name, e.g.
+//                                      kh.viewer.layout.fourpanes (for screenshots)
 //   kh_app --settings file.ini         keep layouts in this file instead of the user's settings
 //   kh_app --screenshot out.png        save a picture of the window and quit
 //   kh_app --smoke-test                build the window, check it, and quit (CI)
 //
-// --screenshot and --smoke-test work without a screen: QT_QPA_PLATFORM=offscreen.
+// --screenshot and --smoke-test work without a screen: QT_QPA_PLATFORM=offscreen
+// (the viewer then shows its flat view). For a screenshot of the 3D view on Linux
+// without a screen, run it under xvfb-run with QT_QPA_PLATFORM=xcb.
 
+#include <QAction>
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QPixmap>
 #include <QSettings>
 #include <QStandardPaths>
@@ -27,6 +33,8 @@
 #include "kh/plugins/FeatureTree.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/Properties.h"
+#include "kh/plugins/Viewer.h"
+#include "kh/view/Graphics.h"
 
 namespace {
 
@@ -61,7 +69,10 @@ int smokeTest(kh::app::Shell& shell) {
 int screenshot(kh::app::Shell& shell, const QString& file) {
     shell.resize(1280, 800);
     shell.show();
-    for (int i = 0; i < 10; ++i) QApplication::processEvents();
+    // Give the 3D views time to start and draw (and the view cube to settle).
+    QElapsedTimer waited;
+    waited.start();
+    while (waited.elapsed() < 1500) QApplication::processEvents(QEventLoop::AllEvents, 50);
     if (!shell.grab().save(file)) {
         std::fprintf(stderr, "Khan couldn't save the picture %s. Check the folder exists.\n",
                      qPrintable(file));
@@ -74,6 +85,7 @@ int screenshot(kh::app::Shell& shell, const QString& file) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    kh::view::prepareGraphics();  // before the QApplication: 3D views share OpenGL
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("Khan"));
     QApplication::setOrganizationName(QStringLiteral("Khan"));
@@ -94,13 +106,14 @@ int main(int argc, char** argv) {
     host.addBuiltin(kh::plugins::modelingPlugin());
     host.addBuiltin(kh::plugins::featureTreePlugin());
     host.addBuiltin(kh::plugins::propertiesPlugin());
+    host.addBuiltin(kh::plugins::viewerPlugin());
     host.addFolder((QCoreApplication::applicationDirPath() + QStringLiteral("/plugins")).toStdWString());
     host.addFolder(
         (QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/plugins"))
             .toStdWString());
     host.loadAll();
 
-    kh::app::Shell shell(host, ui, *kernel, grid, *settings);
+    kh::app::Shell shell(host, ui, grid, *settings);
 
     QString open = option(args, QStringLiteral("--open"));
     if (open.isEmpty() && args.size() > 1 &&
@@ -110,6 +123,18 @@ int main(int argc, char** argv) {
     if (!open.isEmpty()) shell.openDesign(QDir::current().absoluteFilePath(open).toStdWString());
     if (const auto select = option(args, QStringLiteral("--select")); !select.isEmpty()) {
         shell.selectSteps(select.split(QLatin1Char(',')));
+    }
+
+    if (const auto trigger = option(args, QStringLiteral("--trigger")); !trigger.isEmpty()) {
+        for (const auto& name : trigger.split(QLatin1Char(','))) {
+            auto* action = shell.findChild<QAction*>(name);
+            if (!action) {
+                std::fprintf(stderr, "There is no menu item or button called %s.\n", qPrintable(name));
+                return 1;
+            }
+            action->trigger();
+            QApplication::processEvents();
+        }
     }
 
     if (args.contains(QStringLiteral("--smoke-test"))) return smokeTest(shell);
