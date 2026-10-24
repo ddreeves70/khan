@@ -11,6 +11,8 @@ Run by ctest as docs.guides. It:
    every command `kh_cli help` lists has a section and a tested example in
    docs/cli/commands.md.
 3. Checks every relative link and picture in the guides points at a file that exists.
+4. Checks docs/dependencies.md lists every package in vcpkg.json and every
+   FetchContent download in the CMake files.
 
 Examples run in a fresh folder per page, so a page's examples can build on each
 other (a tutorial saves a file, the next step opens it). Paths in commands that
@@ -168,6 +170,27 @@ def check_api_version(args):
                 fail(str(page), f"says the plugin API version is {said}, but Api.h says {m.group(1)}")
 
 
+def check_dependencies(args):
+    """docs/dependencies.md must name every vcpkg package and FetchContent download."""
+    import json
+    page = args.repo / "docs/dependencies.md"
+    if not page.exists():
+        fail("docs", "docs/dependencies.md is missing")
+        return
+    listed = page.read_text(encoding="utf-8")
+    names = []
+    manifest = args.repo / "vcpkg.json"
+    if manifest.exists():
+        for dep in json.loads(manifest.read_text(encoding="utf-8")).get("dependencies", []):
+            names.append(dep if isinstance(dep, str) else dep["name"])
+    for cmake in [args.repo / "CMakeLists.txt", *sorted(args.repo.glob("cmake/*.cmake")),
+                  *sorted(args.repo.glob("src/*/CMakeLists.txt")), *sorted(args.repo.glob("apps/*/CMakeLists.txt"))]:
+        names += re.findall(r"FetchContent_Declare\(\s*(\S+)", cmake.read_text(encoding="utf-8"))
+    for name in names:
+        if f"`{name}`" not in listed:
+            fail("docs/dependencies.md", f"doesn't list `{name}` (from vcpkg.json or FetchContent). Add a row for it.")
+
+
 def check_links(page):
     text = page.read_text(encoding="utf-8")
     # Ignore links inside code blocks.
@@ -196,6 +219,7 @@ def main():
         check_links(page)
     check_coverage(args)
     check_api_version(args)
+    check_dependencies(args)
 
     count = sum(len(EXAMPLE.findall(p.read_text(encoding="utf-8"))) for p in pages)
     if failures:

@@ -40,7 +40,7 @@ Build only what makes this product different: the document model, feature graph,
 | Tests | Catch2 + geometry regression corpus | BSL-1.0 | Corpus is ours |
 | Document model, feature graph, naming, timeline, commands/undo | n/a | Apache-2.0 (project license) | Yes, the core of the product |
 
-License check: LGPL components must stay dynamically linked and replaceable, which fits an Apache-2.0 core.
+License check: LGPL components must stay dynamically linked and replaceable, which fits an Apache-2.0 core. The running list of every dependency, with versions, status and plans, is [docs/dependencies.md](../dependencies.md).
 
 ## Phases
 
