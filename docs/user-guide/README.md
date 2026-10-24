@@ -8,15 +8,16 @@ pictures. It grows with Khan: every new feature is added here when it's built.
 
 ## Where Khan is today
 
-Khan is early. Today you design parts with `kh_cli`, Khan's command-line tool,
-one command at a time. The desktop app, with a 3D view and buttons, is being
-built now; this guide will show it as soon as it exists. The ideas stay the
-same, because the app's buttons run the same commands.
+Khan is early. You can design parts in the [desktop app](desktop-app.md), with
+menus, a feature tree and a Properties panel, or with `kh_cli`, Khan's
+command-line tool. The 3D view is being built now. Both run the same commands,
+so everything in this guide works in either.
 
 | You can do now | Coming next |
 | --- | --- |
-| Boxes, cylinders, union, cut, intersect | The desktop app with a 3D view |
-| Name, rename and delete steps | Undo and redo in the app |
+| Boxes, cylinders, union, cut, intersect | The 3D view, with 1, 2 or 4 panes |
+| Name, rename and delete steps; undo and redo | Export from the app's File menu |
+| The desktop app: feature tree, Properties, layouts | |
 | Save and open `.khan` designs | Sketches, extrude, revolve |
 | Export STL (3D printing) and STEP (other CAD programs) | Fillets, chamfers, holes, patterns |
 | Add plugins | Import STEP, STL and 3MF |
@@ -24,12 +25,13 @@ same, because the app's buttons run the same commands.
 ## Contents
 
 1. [Getting started](getting-started.md): get Khan and make your first part.
-2. [Designs and steps](designs-and-steps.md): how a Khan design works.
-3. [Shapes](shapes.md): boxes and cylinders, and where they go.
-4. [Combining bodies](combining.md): union, cut and intersect.
-5. [Files](files.md): saving, opening, and exporting for 3D printing.
-6. [Plugins](plugins.md): adding features to Khan.
-7. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
+2. [The desktop app](desktop-app.md): the window, the feature tree, Properties, layouts.
+3. [Designs and steps](designs-and-steps.md): how a Khan design works.
+4. [Shapes](shapes.md): boxes and cylinders, and where they go.
+5. [Combining bodies](combining.md): union, cut and intersect.
+6. [Files](files.md): saving, opening, and exporting for 3D printing.
+7. [Plugins](plugins.md): adding features to Khan.
+8. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
 
 ## Other guides
 

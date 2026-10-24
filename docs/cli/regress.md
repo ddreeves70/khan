@@ -35,7 +35,7 @@ All cases:
 ```console
 $ kh_cli regress tests/corpus
 ...
-12 passed, 0 failed
+... passed, 0 failed
 ```
 
 The case format is described in

@@ -485,6 +485,119 @@
           "step": "Cylinder1"
         }
       ]
+    },
+    {
+      "out": "docs/user-guide/images/app-main.png",
+      "size": "1280x800",
+      "script": "organizer",
+      "app": {
+        "open": "o.khan",
+        "select": [
+          "Cup"
+        ]
+      },
+      "callouts": [
+        {
+          "at": [
+            305,
+            9
+          ],
+          "n": 1
+        },
+        {
+          "at": [
+            500,
+            34
+          ],
+          "n": 2
+        },
+        {
+          "at": [
+            130,
+            300
+          ],
+          "n": 3
+        },
+        {
+          "at": [
+            600,
+            330
+          ],
+          "n": 4
+        },
+        {
+          "at": [
+            1110,
+            330
+          ],
+          "n": 5
+        },
+        {
+          "at": [
+            150,
+            789
+          ],
+          "n": 6
+        }
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-properties.png",
+      "size": "1280x800",
+      "script": "tag",
+      "app": {
+        "open": "tag.khan",
+        "select": [
+          "Hole"
+        ]
+      },
+      "crop": [
+        936,
+        50,
+        344,
+        230
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-combine.png",
+      "size": "1280x800",
+      "commands": [
+        "run --save t.khan feature.add_box name=Plate size=60,30,4",
+        "run --open t.khan --save t.khan feature.add_cylinder name=Hole base=9,15,-1 radius=2.5 height=6"
+      ],
+      "app": {
+        "open": "t.khan",
+        "select": [
+          "Plate",
+          "Hole"
+        ]
+      },
+      "crop": [
+        0,
+        0,
+        620,
+        220
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-failed.png",
+      "size": "1280x800",
+      "commands": [
+        "run --save f.khan feature.add_cylinder name=Peg radius=5 height=20 axis=0,0,0"
+      ],
+      "app": {
+        "open": "f.khan",
+        "select": [
+          "Peg"
+        ]
+      },
+      "crop": [
+        0,
+        50,
+        1280,
+        290
+      ],
+      "check": false
     }
   ]
 }

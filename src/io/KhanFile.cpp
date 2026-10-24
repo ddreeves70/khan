@@ -319,6 +319,12 @@ Diagnostics writeBytes(const Document& doc, Bytes& out) {
 }
 
 Diagnostics saveFile(Document& doc, const std::filesystem::path& path) {
+    auto issues = writeFile(doc, path);
+    if (issues.empty()) doc.markSaved();
+    return issues;
+}
+
+Diagnostics writeFile(const Document& doc, const std::filesystem::path& path) {
     const std::string name = path.filename().string();
     auto cantWrite = [&](std::string detail) {
         return Diagnostics{problem("file.cant_write",
@@ -353,7 +359,6 @@ Diagnostics saveFile(Document& doc, const std::filesystem::path& path) {
         std::filesystem::remove(tmp, ignore);
         return cantWrite("cannot replace " + path.string() + ": " + ec.message());
     }
-    doc.markSaved();
     return {};
 }
 
@@ -387,7 +392,8 @@ OpenResult readBytes(const Bytes& data, std::string_view displayName) {
             why = entry + " is not valid JSON";
             return std::nullopt;
         }
-        return std::optional<json>(std::in_place, std::move(j));  // not "return j": ambiguous with nlohmann 3.12
+        return std::optional<json>(std::in_place,
+                                   std::move(j));  // not "return j": ambiguous with nlohmann 3.12
     };
 
     // Manifest: is this a Khan file, and can this version read it?

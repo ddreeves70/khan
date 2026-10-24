@@ -43,6 +43,14 @@ struct OpenResult {
 /// @return No diagnostics on success; otherwise why the file could not be saved.
 Diagnostics saveFile(model::Document& doc, const std::filesystem::path& path);
 
+/// Saves a design as a .khan file without marking it saved, for callers that
+/// only have read access to the document (the desktop app saves through the
+/// DocumentList, then calls its markSaved()). Same safe write as saveFile().
+/// @param doc The design to save.
+/// @param path Where to save. An existing file is replaced.
+/// @return No diagnostics on success; otherwise why the file could not be saved.
+Diagnostics writeFile(const model::Document& doc, const std::filesystem::path& path);
+
 /// Opens a .khan file.
 ///
 /// The opened design has no undo history and is not marked as modified.

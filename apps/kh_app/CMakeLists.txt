@@ -1,12 +1,24 @@
-# kh_app: the Qt desktop application.
-# Panels and viewers dock through the Qt Advanced Docking System (cmake/KhAds.cmake).
-qt_add_executable(kh_app
-  main.cpp
-  MainWindow.cpp
-  MainWindow.h
+# kh_app: the Qt desktop application. The shell (menus, panels, layouts, files)
+# is a library so the app tests drive the same code; panels and menu items come
+# from plugins. Panels dock through Qt ADS (cmake/KhAds.cmake).
+qt_add_library(kh_app_core STATIC
+  AppUi.cpp
+  AppUi.h
+  Shell.cpp
+  Shell.h
 )
-target_link_libraries(kh_app PRIVATE Qt6::Widgets ads::qtadvanceddocking-qt6 kh::core kh::model)
+target_include_directories(kh_app_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(kh_app_core PUBLIC
+  Qt6::Widgets ads::qtadvanceddocking-qt6
+  kh::core kh::kernel kh::model kh::io kh::plugin kh::ui)
+kh_set_warnings(kh_app_core)
+
+qt_add_executable(kh_app main.cpp)
+target_link_libraries(kh_app PRIVATE
+  kh_app_core kh::kernel_occt
+  kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties)
 kh_set_warnings(kh_app)
+
 set_target_properties(kh_app PROPERTIES
   WIN32_EXECUTABLE ON
   MACOSX_BUNDLE ON
@@ -38,6 +50,6 @@ endif()
 
 # Builds the main window without a screen and checks its panels and layouts.
 if(KH_BUILD_TESTS)
-  add_test(NAME app.smoke COMMAND kh_app --smoke-test)
+  add_test(NAME app.smoke COMMAND kh_app --smoke-test --settings ${CMAKE_CURRENT_BINARY_DIR}/smoke-settings.ini)
   set_tests_properties(app.smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
