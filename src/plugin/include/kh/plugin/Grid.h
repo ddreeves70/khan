@@ -13,8 +13,8 @@ namespace kh::plugin {
 
 /// How the grid is drawn.
 enum class GridStyle {
-    Dots,   ///< A dot at every crossing (the default): light, and the model stays easy to see.
-    Lines,  ///< Full lines, like graph paper.
+    Dots,   ///< A dot at every crossing: light, and the model stays easy to see.
+    Lines,  ///< Full lines, like graph paper (the default).
 };
 
 /// Everything about the grid the student can change.
@@ -22,7 +22,7 @@ struct GridSettings {
     bool visible = true;                ///< Drawn in the views.
     double spacing = 10.0;              ///< Distance between grid lines, in mm.
     bool snap = false;                  ///< Points picked with the mouse jump to the nearest grid crossing.
-    GridStyle style = GridStyle::Dots;  ///< Dots or lines.
+    GridStyle style = GridStyle::Lines;  ///< Lines or dots.
 
     /// Compares two settings.
     /// @param other The settings to compare with.
@@ -57,7 +57,7 @@ public:
     /// The largest spacing allowed, in mm.
     static constexpr double kMaxSpacing = 1000.0;
 
-    /// Makes a grid with the default settings: shown, 10 mm, no snapping, dots.
+    /// Makes a grid with the default settings: shown, 10 mm, no snapping, lines.
     /// @param bus Where GridChanged is sent. Must outlive the grid.
     explicit Grid(EventBus& bus) : bus_(bus) {}
 

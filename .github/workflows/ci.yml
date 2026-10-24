@@ -50,13 +50,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # xvfb and Mesa: the view.gl test draws the 3D view on a virtual screen.
       - name: Install Linux build packages
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libgl1-mesa-dev libglu1-mesa-dev \
             libx11-dev libxi-dev libxext-dev libxmu-dev libxrandr-dev libfontconfig1-dev \
-            autoconf autoconf-archive automake libtool pkg-config libxcb1-dev
+            autoconf autoconf-archive automake libtool pkg-config libxcb1-dev \
+            xvfb xauth libgl1-mesa-dri libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1
 
       - name: Install macOS build packages
         if: runner.os == 'macOS'

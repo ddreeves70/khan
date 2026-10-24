@@ -46,8 +46,8 @@ below it.
 | Library | Purpose | May depend on |
 | --- | --- | --- |
 | `kh_app`, `kh_cli` | Applications (`kh_app` docks panels with Qt ADS, see `cmake/KhAds.cmake`) | anything below |
-| Built-in plugins (`plugins/`) | `kh.modeling`, later `kh.viewer` and others | `kh_plugin`, anything below it |
-| `kh_view` (Phase 0 wk 4) | Qt + OCCT viewer | `kh_model`, `kh_kernel`, Qt |
+| Built-in plugins (`plugins/`) | `kh.modeling`, `kh.featuretree`, `kh.properties`, `kh.viewer` | `kh_plugin`, anything below it |
+| `kh_view` | Qt + OCCT 3D view, and its flat fallback | `kh_kernel_occt`, `kh_kernel`, `kh_core`, Qt, OCCT |
 | `kh_ui` | Qt side of the plugin API: panels | `kh_plugin`, Qt |
 | `kh_plugin` | Plugin host, manifests, event bus, open documents | `kh_model`, `kh_kernel`, `kh_core` |
 | `kh_io` | `.khan` files: save and open (zip + JSON) | `kh_model`, `kh_core`, libzip, nlohmann_json |
@@ -56,7 +56,8 @@ below it.
 | `kh_kernel` | `IKernel` interface and value types | `kh_core` |
 | `kh_core` | Ids, units, diagnostics, version | standard library only |
 
-1. **Only `kh_kernel_occt` (and later `kh_view`) may include OCCT headers.** Nothing
+1. **Only `kh_kernel_occt` and `kh_view` may include OCCT headers**, and never in
+   a public header (`kh/kernel_occt/OcctShape.h` only forward-declares `TopoDS_Shape`). Nothing
    in `kh_kernel` or `kh_model` may mention an OCCT type. Shapes cross the boundary
    as `ShapeHandle`.
 2. **Only Commands change a Document.** UI, Python scripts, lessons and the AI

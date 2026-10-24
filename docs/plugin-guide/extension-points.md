@@ -186,11 +186,26 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
   closes).
 - Change designs only through `ctx.documents()`, like everywhere else.
 - `ui->showProblems(problems)` shows what went wrong in the status bar.
+- **More than one?** Set `allowMultiple` and the **Window** menu gets
+  **New** *your panel's title*. Each one is made by its own call to your function,
+  so keep its state in the widget, not in the plugin. Copies aren't reopened when
+  Khan restarts.
+
+  ```cpp
+  kh::ui::PanelSpec spec{"sam.notes.panel", QObject::tr("Notes"), kh::ui::PanelArea::Right,
+                         [&ctx] { return new NotesPanel(ctx); }};
+  spec.allowMultiple = true;  // Window > New notes
+  ui->addPanel(std::move(spec));
+  ```
+
+- `PanelArea::Center` puts the panel in the middle of the window. The first
+  Center panel (Khan's viewer) fills it; later ones become tabs next to it.
 - In CMake, link `kh::ui` as well: `DEPS kh::model kh::ui`.
 
-**Worked examples:** the built-in [feature tree](../../plugins/featuretree/FeatureTreePlugin.cpp)
-and [Properties](../../plugins/properties/PropertiesPlugin.cpp) panels are plugins
-written exactly this way. Khan's app tests click through both.
+**Worked examples:** the built-in [feature tree](../../plugins/featuretree/FeatureTreePlugin.cpp),
+[Properties](../../plugins/properties/PropertiesPlugin.cpp) and
+[viewer](../../plugins/viewer/ViewerPlugin.cpp) panels are plugins written exactly
+this way. Khan's app tests click through them.
 
 ## Log, or refuse to start
 
@@ -211,7 +226,7 @@ These are planned and will be added to this guide as they're built:
 | Extension point | What you'll add | When |
 | --- | --- | --- |
 | Ribbon tabs | Grouping actions into tabs | Later |
-| Viewer tools | A way to use the mouse in the 3D view, with a live preview | Viewer, Phase 0 |
+| Viewer tools | A way to use the mouse in the 3D view, with a live preview | With the sketcher, Phase 1 |
 | Feature types | A new kind of step that saves, loads and rebuilds | Phase 2 |
 | File formats | Importers and exporters | Phase 2 |
 | Assistant tools, lesson checks | Things the AI assistant and lessons can use | Phase 3 |

@@ -29,6 +29,9 @@ struct PanelSpec {
     QString title{};   ///< The panel's tab title, e.g. "Feature tree".
     PanelArea area = PanelArea::Left;    ///< Where it docks by default.
     std::function<QWidget*()> create{};  ///< Makes the panel's widget. Khan owns the widget.
+    /// The student can open more than one of this panel (Window > New ...), like
+    /// a second viewer. Each one is made by its own call to create().
+    bool allowMultiple = false;
 };
 
 /// Lets a plugin add panels to the desktop app.
