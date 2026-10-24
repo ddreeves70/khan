@@ -3,11 +3,13 @@
 //   kh_cli --version
 //   kh_cli demo <out.stl|out.step|out.khan> box with a hole, as a toolchain smoke test
 //   kh_cli open <file.khan> [--export out [--step name]]  open a design, rebuild it, report each step
+//   kh_cli materials [<file.khan>]      list materials (Khan's own, and a design's)
 //   kh_cli regress [--update] <case|dir>... run regression cases (see tests/corpus/README.md)
 //   kh_cli plugins [--plugins <folder>]...  list plugins, their commands and problems
 //   kh_cli help [--plugins <folder>]... [<command>]  list commands, or describe one
 //   kh_cli run [--plugins <folder>]... [--open in.khan] [--save out.khan] <command> [name=value]...
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <memory>
@@ -30,6 +32,7 @@ int usage() {
         "usage: kh_cli --version\n"
         "       kh_cli demo <out.stl|out.step|out.khan>\n"
         "       kh_cli open <file.khan> [--export <out.stl|out.step> [--step <name>]]\n"
+        "       kh_cli materials [<file.khan>]\n"
         "       kh_cli regress [--update] <case.json|folder>...\n"
         "       kh_cli plugins [--plugins <folder>]...\n"
         "       kh_cli help [--plugins <folder>]... [<command>]\n"
@@ -112,7 +115,14 @@ int openDesign(int argc, char** argv) {
         const auto* r = report.result(f.id());
         std::printf("  %-12s %s", f.name().c_str(), statusName(r->status));
         if (r->status == kh::model::FeatureStatus::Ok) {
-            std::printf("  volume %.2f mm^3", kernel->massProps(r->shape).volume);
+            const auto& material = doc.materialOf(f.id());
+            const auto mass = kh::model::bodyMass(*kernel, r->shape, material);
+            std::printf("  volume %.2f mm^3", mass.volume);
+            // Finished bodies also get their mass and material.
+            const auto& bodies = report.bodies();
+            if (std::find(bodies.begin(), bodies.end(), f.id()) != bodies.end()) {
+                std::printf("  mass %.2f g (%s)", mass.grams, material.name.c_str());
+            }
         }
         std::printf("\n");
         printIssues(r->issues);
@@ -147,6 +157,40 @@ int openDesign(int argc, char** argv) {
             return 1;
         }
         std::printf("wrote %s\n", out.string().c_str());
+    }
+    return 0;
+}
+
+// Lists Khan's materials, and a design's own ones after them.
+int materials(int argc, char** argv) {
+    if (argc > 3) return usage();
+    std::vector<kh::model::Material> list = kh::model::builtinMaterials();
+    const std::size_t builtinCount = list.size();
+    std::unique_ptr<kh::model::Document> doc;
+    if (argc == 3) {
+        auto opened = kh::io::openFile(argv[2]);
+        if (!opened.ok()) {
+            printIssues(opened.issues);
+            return 1;
+        }
+        doc = std::move(opened.document);
+        list.insert(list.end(), doc->customMaterials().begin(), doc->customMaterials().end());
+    }
+    auto num = [](double v, const char* format) {
+        if (v == 0) return std::string("-");
+        char buf[32];
+        std::snprintf(buf, sizeof buf, format, v);
+        return std::string(buf);
+    };
+    std::printf("%-22s %8s %9s %8s %8s %7s\n", "material", "density", "stiffness", "poisson", "yield",
+                "price");
+    std::printf("%-22s %8s %9s %8s %8s %7s\n", "", "g/cm^3", "GPa", "", "MPa", "per kg");
+    for (std::size_t i = 0; i < list.size(); ++i) {
+        if (i == builtinCount) std::printf("%s's own:\n", doc->name().c_str());
+        const auto& m = list[i];
+        std::printf("%-22s %8s %9s %8s %8s %7s\n", m.name.c_str(), num(m.density, "%.2f").c_str(),
+                    num(m.youngsModulus, "%.2f").c_str(), num(m.poissonsRatio, "%.2f").c_str(),
+                    num(m.yieldStrength, "%.0f").c_str(), num(m.costPerKg, "%.2f").c_str());
     }
     return 0;
 }
@@ -211,6 +255,7 @@ int main(int argc, char** argv) {
     }
     if (cmd == "demo" && argc == 3) return demo(argv[2]);
     if (cmd == "open") return openDesign(argc, argv);
+    if (cmd == "materials") return materials(argc, argv);
     if (cmd == "regress") return regress(argc, argv);
     if (cmd == "plugins") return kh::cli::listPlugins(argc, argv);
     if (cmd == "help") return kh::cli::help(argc, argv);

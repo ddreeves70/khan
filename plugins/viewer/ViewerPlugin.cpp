@@ -331,11 +331,18 @@ view::SceneContent viewerScene(const plugin::DocumentList& docs, const plugin::S
     view::SceneContent out;
     const DocId id = docs.active();
     const auto* report = docs.lastRebuild(id);
-    if (!report) return out;
+    const auto* design = docs.find(id);
+    if (!report || !design) return out;
     if (selection.doc() == id) out.selected = selection.features();
+    // Each body is drawn in its material's color.
+    auto colorOf = [design](const FeatureId& f) {
+        const auto c = design->materialOf(f).color;
+        return view::Rgb{c.r, c.g, c.b};
+    };
     const auto& bodies = report->bodies();
     for (const auto& body : bodies) {
-        if (const auto* shape = report->shapeOf(body)) out.bodies.push_back({body, *shape, false});
+        if (const auto* shape = report->shapeOf(body))
+            out.bodies.push_back({body, *shape, false, colorOf(body)});
     }
     // A selected step that a later step used up (the tool of a cut, say) is
     // drawn see-through, so the student can see what they picked.
@@ -343,7 +350,7 @@ view::SceneContent viewerScene(const plugin::DocumentList& docs, const plugin::S
         if (std::find(bodies.begin(), bodies.end(), picked) != bodies.end()) continue;
         const auto* r = report->result(picked);
         if (r && r->status == model::FeatureStatus::Ok && r->shape.valid())
-            out.bodies.push_back({picked, r->shape, true});
+            out.bodies.push_back({picked, r->shape, true, colorOf(picked)});
     }
     return out;
 }

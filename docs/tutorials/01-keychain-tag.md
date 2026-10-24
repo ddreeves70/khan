@@ -29,7 +29,7 @@ Run this in an empty folder:
 ```console
 $ kh_cli run --save tag.khan feature.add_box name=Plate size=60,30,4
 tag: 1 step
-  Plate        ok  volume 7200.00 mm^3
+  Plate        ok  volume 7200.00 mm^3  mass 8.93 g (PLA)
 wrote tag.khan
 ```
 
@@ -60,8 +60,8 @@ The hole goes near the left end: 9 mm from the left edge and in the middle of th
 ```console
 $ kh_cli run --open tag.khan --save tag.khan feature.add_cylinder name=Hole base=9,15,-1 radius=2.5 height=6
 tag: 2 steps
-  Plate        ok  volume 7200.00 mm^3
-  Hole         ok  volume 117.81 mm^3
+  Plate        ok  volume 7200.00 mm^3  mass 8.93 g (PLA)
+  Hole         ok  volume 117.81 mm^3  mass 0.15 g (PLA)
 wrote tag.khan
 ```
 
@@ -85,7 +85,7 @@ $ kh_cli run --open tag.khan --save tag.khan feature.add_boolean name=Tag operat
 tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
-  Tag          ok  volume 7121.46 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
 wrote tag.khan
 ```
 
@@ -104,18 +104,38 @@ $ kh_cli open tag.khan --export tag.stl
 tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
-  Tag          ok  volume 7121.46 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
 wrote tag.stl
 ```
 
 Open `tag.stl` in your slicer (Cura, PrusaSlicer, Bambu Studio, ...) and print it.
 A 4 mm tag prints in about 15 minutes.
 
+## Step 5: Choose what it's made of
+
+The last line says the tag weighs 8.83 g, in PLA: every body is PLA until you
+pick a [material](../user-guide/materials.md). Printing in PETG instead? Pick
+PETG for the plate. The tag is cut from the plate, so it's PETG too:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open tag.khan --save tag.khan feature.set_material feature=Plate material=PETG
+tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 9.04 g (PETG)
+wrote tag.khan
+```
+
+PETG is a little heavier than PLA, so the same tag weighs 9.04 g. (A real print
+with some infill weighs less: your slicer gives the exact filament weight.)
+
 ## Try this
 
 - Make the tag 50 mm long instead: start again with `size=50,30,4`.
 - Make the hole bigger. A key ring needs about 4 mm, so try `radius=3`.
 - Export a STEP file, for another CAD program: `kh_cli open tag.khan --export tag.step`.
+- How heavy would it be in brass? Try `material="Brass (C360)"`. [`kh_cli materials`](../cli/materials.md) lists them all.
 
 ## What you learned
 
@@ -125,5 +145,6 @@ A 4 mm tag prints in about 15 minutes.
 - `feature.add_boolean` with `operation=cut` cuts one body out of another. Make
   the cutting tool stick out past the faces.
 - `kh_cli open --export` writes a file for 3D printing.
+- `feature.set_material` picks what a body is made of, which sets its mass.
 
 **Next:** [Tutorial 2: Desk organizer](02-desk-organizer.md).

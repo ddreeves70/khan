@@ -74,7 +74,7 @@ Each phase ends with a build you can try and a written exit check.
 
 ### Phase 3: v0.1 Functional modeler release
 
-- Measure tool, materials/appearances, mass properties.
+- Measure tool, materials/appearances, mass properties. (Materials with density, color, strength numbers and price, per body, and mass, weight and cost: built Oct 24, 2026.)
 - Export STL and 3MF for 3D printing, STEP for interop; print-ready checks (watertight, minimum wall).
 - Installers for all three OSes, auto-update check, crash reporter (opt-in).
 - STEP, STL and 3MF import; sample parts; the user's guide, CLI reference and tutorials cover every feature so far.

@@ -25,18 +25,18 @@ Each `run` adds one step. Save to the same file each time to build up a design:
 ```console
 $ kh_cli run --save block.khan feature.add_box size=40,30,10
 block: 1 step
-  Box1         ok  volume 12000.00 mm^3
+  Box1         ok  volume 12000.00 mm^3  mass 14.88 g (PLA)
 wrote block.khan
 $ kh_cli run --open block.khan --save block.khan feature.add_cylinder base=20,15,-1 radius=6 height=12
 block: 2 steps
-  Box1         ok  volume 12000.00 mm^3
-  Cylinder1    ok  volume 1357.17 mm^3
+  Box1         ok  volume 12000.00 mm^3  mass 14.88 g (PLA)
+  Cylinder1    ok  volume 1357.17 mm^3  mass 1.68 g (PLA)
 wrote block.khan
 $ kh_cli run --open block.khan --save block.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1
 block: 3 steps
   Box1         ok  volume 12000.00 mm^3
   Cylinder1    ok  volume 1357.17 mm^3
-  Cut1         ok  volume 10869.03 mm^3
+  Cut1         ok  volume 10869.03 mm^3  mass 13.48 g (PLA)
 wrote block.khan
 ```
 
@@ -51,7 +51,7 @@ those names, like `a=Box1`.
 ```console
 $ kh_cli run feature.add_box size=10,10,10
 Untitled: 1 step
-  Box1         ok  volume 1000.00 mm^3
+  Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
 ```
 
 ## Run a plugin's command
@@ -60,7 +60,7 @@ Untitled: 1 step
 ```console
 $ kh_cli run --plugins build/dev/khan-plugins example.hello.add_cube size=25
 Untitled: 1 step
-  Cube1        ok  volume 15625.00 mm^3
+  Cube1        ok  volume 15625.00 mm^3  mass 19.37 g (PLA)
 [example.hello] Hello saw a change: Add Cube1
 ```
 

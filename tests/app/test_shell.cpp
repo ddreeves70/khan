@@ -382,3 +382,56 @@ TEST_CASE("the viewer shows finished bodies, and picked used-up steps see-throug
     CHECK(scene.bodies[1].ghost);
     CHECK(scene.selected == std::vector{cyl, cut});
 }
+
+TEST_CASE("Properties shows a body's material, mass and cost, and picks a material", "[app][material]") {
+    App app;
+    app.click("kh.modeling.box");  // a 20 mm cube: 8 cm^3
+    auto* material = app.field<QComboBox>("material");
+    REQUIRE(material);
+    CHECK(material->currentText() == QStringLiteral("Default: PLA"));
+    CHECK(app.field<QLabel>("volume")->text() == QStringLiteral("8000.00 mm³"));
+    CHECK(app.field<QLabel>("mass")->text() == QStringLiteral("9.92 g (weighs 0.097 N)"));
+    CHECK(app.field<QLabel>("cost")->text() == QStringLiteral("about $0.20"));
+    CHECK(app.field<QLabel>("materialinfo")->text().startsWith(QStringLiteral("PLA: density 1.24 g/cm³")));
+
+    // Pick aluminum, as a student would from the list.
+    const int at = material->findText(QStringLiteral("Aluminum 6061"));
+    REQUIRE(at > 0);
+    material->setCurrentIndex(at);
+    emit material->activated(at);
+    settle();
+    const auto id = app.doc().featureAt(0).id();
+    CHECK(app.doc().materialOf(id).key == "aluminum_6061");
+    CHECK(app.field<QComboBox>("material")->currentText() == QStringLiteral("Aluminum 6061"));
+    CHECK(app.field<QLabel>("mass")->text() == QStringLiteral("21.60 g (weighs 0.212 N)"));
+    CHECK(app.shell->undoAction()->text() == QStringLiteral("Undo Make Box1 Aluminum 6061"));
+
+    // The viewer draws it in aluminum's color.
+    const auto scene = plugins::viewerScene(app.host.documents(), app.host.selection());
+    REQUIRE(scene.bodies.size() == 1);
+    CHECK(scene.bodies[0].color == view::Rgb{196, 200, 206});
+
+    app.shell->undoAction()->trigger();
+    settle();
+    CHECK(app.field<QComboBox>("material")->currentText() == QStringLiteral("Default: PLA"));
+}
+
+TEST_CASE("a cut shows which body its material comes from", "[app][material]") {
+    App app;
+    auto& docs = app.host.documents();
+    const DocId doc = app.shell->activeDesign();
+    REQUIRE(
+        docs.run(doc, "feature.add_box", {{"size", kernel::Vec3{20, 20, 20}}, {"name", std::string("Plate")}})
+            .empty());
+    REQUIRE(docs.run(doc, "feature.add_cylinder", {{"radius", 4.0}, {"height", 30.0}}).empty());
+    const auto plate = app.doc().featureAt(0).id();
+    const auto cyl = app.doc().featureAt(1).id();
+    REQUIRE(docs.run(doc, "feature.set_material", {{"feature", plate}, {"material", std::string("oak")}})
+                .empty());
+    REQUIRE(
+        docs.run(doc, "feature.add_boolean", {{"operation", std::string("cut")}, {"a", plate}, {"b", cyl}})
+            .empty());
+    app.host.selection().set(doc, {app.doc().featureAt(2).id()});
+    settle();
+    CHECK(app.field<QComboBox>("material")->currentText() == QStringLiteral("Same as Plate: Oak (red)"));
+}

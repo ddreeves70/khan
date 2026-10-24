@@ -2,6 +2,7 @@
 
 #include <zip.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <deque>
@@ -160,6 +161,7 @@ std::optional<kernel::BoolOp> readOp(const json& j) {
 
 json featureToJson(const Feature& f) {
     json j{{"id", f.id().toString()}, {"name", f.name()}};
+    if (!f.material().empty()) j["material"] = f.material();  // left out when not picked
     switch (f.type()) {
         case FeatureType::Box: {
             const auto& b = static_cast<const model::BoxFeature&>(f);
@@ -241,6 +243,35 @@ std::unique_ptr<Feature> featureFromJson(const json& j, const FeatureId& id, std
     return nullptr;
 }
 
+json materialToJson(const model::Material& m) {
+    return {{"id", m.key},
+            {"name", m.name},
+            {"density", m.density},
+            {"color", model::colorText(m.color)},
+            {"youngs_modulus", m.youngsModulus},
+            {"poissons_ratio", m.poissonsRatio},
+            {"yield_strength", m.yieldStrength},
+            {"cost_per_kg", m.costPerKg}};
+}
+
+std::optional<model::Material> materialFromJson(const json& j) {
+    if (!j.is_object()) return std::nullopt;
+    model::Material m;
+    const auto key = MaterialId::parse(j.value("id", ""));
+    const auto color = model::parseColor(j.value("color", ""));
+    const auto density = readNumber(j.value("density", json()));
+    if (!key || !color || !density || !j.contains("name") || !j["name"].is_string()) return std::nullopt;
+    m.key = key->toString();
+    m.name = j["name"].get<std::string>();
+    m.density = *density;
+    m.color = *color;
+    m.youngsModulus = readNumber(j.value("youngs_modulus", json(0))).value_or(0);
+    m.poissonsRatio = readNumber(j.value("poissons_ratio", json(0))).value_or(0);
+    m.yieldStrength = readNumber(j.value("yield_strength", json(0))).value_or(0);
+    m.costPerKg = readNumber(j.value("cost_per_kg", json(0))).value_or(0);
+    return m;
+}
+
 std::string featurePath(const FeatureId& id) {
     return "features/" + id.toString() + ".json";
 }
@@ -260,6 +291,14 @@ Diagnostics writeBytes(const Document& doc, Bytes& out) {
     std::deque<std::pair<std::string, std::string>> entries;  // deque: stable addresses for libzip
     json timeline = json::array();
     json files = json::array({"timeline.json"});
+    if (!doc.customMaterials().empty()) {
+        // Only designs with materials of their own get this file, so other designs
+        // save exactly as before.
+        json materials = json::array();
+        for (const auto& m : doc.customMaterials()) materials.push_back(materialToJson(m));
+        entries.emplace_back("materials.json", dump(json{{"materials", materials}}));
+        files.push_back("materials.json");
+    }
     for (std::size_t i = 0; i < doc.featureCount(); ++i) {
         const Feature& f = doc.featureAt(i);
         timeline.push_back({{"id", f.id().toString()}, {"suppressed", f.suppressed()}});
@@ -421,6 +460,27 @@ OpenResult readBytes(const Bytes& data, std::string_view displayName) {
         docInfo.value("kind", "part") == "assembly" ? model::DocKind::Assembly : model::DocKind::Part;
     auto doc = std::make_unique<Document>(*docId, kind, docInfo.value("name", std::string(displayName)));
 
+    // The design's own materials, before the steps that use them.
+    // (A design without materials of its own has no materials.json.)
+    if (const auto materials = readJson("materials.json"); materials) {
+        const json list = materials->value("materials", json());
+        if (!list.is_array()) return fail(damaged(displayName, "materials.json has no material list"));
+        for (const auto& mj : list) {
+            auto m = materialFromJson(mj);
+            if (!m)
+                return fail(damaged(displayName,
+                                    "a material in materials.json is missing its id, name, "
+                                    "density or color"));
+            const auto name = m->name;
+            if (auto issues = doc->execute(std::make_unique<model::DefineMaterialCommand>(std::move(*m)));
+                !issues.empty()) {
+                return fail(damaged(displayName, "material " + name + ": " + issues.front().code));
+            }
+        }
+    } else if (why.rfind("missing", 0) != 0) {
+        return fail(damaged(displayName, why));  // there, but not readable
+    }
+
     // Timeline: the features in order.
     const auto timeline = readJson("timeline.json");
     if (!timeline) return fail(damaged(displayName, why));
@@ -446,6 +506,11 @@ OpenResult readBytes(const Bytes& data, std::string_view displayName) {
             return fail(damaged(displayName, why));
         }
         feature->setSuppressed(entry.value("suppressed", false));
+        if (fj->contains("material") && (*fj)["material"].is_string()) {
+            // A key this Khan doesn't know (a material from a newer Khan) is kept,
+            // and the body counts as the default material until it's changed.
+            feature->setMaterial((*fj)["material"].get<std::string>());
+        }
 
         // Add through the normal command, so the same checks run as when a
         // student builds the design (unique names, inputs come first).

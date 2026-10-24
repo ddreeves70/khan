@@ -9,6 +9,7 @@
 #include <string>
 
 #include "kh/model/Command.h"
+#include "kh/model/Material.h"
 
 namespace kh::model {
 
@@ -100,6 +101,69 @@ private:
     FeatureId id_;
     std::string newName_;
     std::string oldName_;
+};
+
+/// Picks the material for a step's body, or clears it so the body gets its
+/// material from the step it was made from (see Document::materialOf()).
+class SetMaterialCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param id The step.
+    /// @param keyOrName A material's key or name (see Document::findMaterial()),
+    ///        or empty to clear the step's material.
+    SetMaterialCommand(FeatureId id, std::string keyOrName);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    FeatureId id_;
+    std::string wanted_;
+    std::string name_;      // the step's name, for the label
+    std::string material_;  // the material's name, for the label
+    std::string oldKey_;
+};
+
+/// Adds a material to the design, or changes one the design added earlier
+/// (matched by name, ignoring upper and lower case). Khan's built-in materials
+/// can't be changed: give a new material another name.
+class DefineMaterialCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param material The material. Its builtin flag is ignored. A changed
+    ///        material keeps its id; a new one keeps the key it has (used when
+    ///        opening a file) or, if that's empty, gets a new id.
+    /// @param badColor Color text that couldn't be read (see parseColor()), so
+    ///        apply() refuses with a message; empty if the color is fine.
+    explicit DefineMaterialCommand(Material material, std::string badColor = {});
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    Material material_;
+    std::string badColor_;
+    std::optional<Material> old_;  // the version it replaced, if it changed one
+    std::size_t index_ = 0;
+};
+
+/// Removes a material the design added. Refused while any step uses it.
+class DeleteMaterialCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param keyOrName The custom material's key or name.
+    explicit DeleteMaterialCommand(std::string keyOrName);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    std::string wanted_;
+    std::optional<Material> removed_;
+    std::size_t index_ = 0;
 };
 
 }  // namespace kh::model

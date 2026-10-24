@@ -9,15 +9,16 @@ pictures. It grows with Khan: every new feature is added here when it's built.
 ## Where Khan is today
 
 Khan is early. You can design parts in the [desktop app](desktop-app.md), with
-menus, a feature tree and a Properties panel, or with `kh_cli`, Khan's
-command-line tool. The 3D view is being built now. Both run the same commands,
-so everything in this guide works in either.
+menus, a 3D viewer, a feature tree and a Properties panel, or with `kh_cli`,
+Khan's command-line tool. Both run the same commands, so everything in this guide
+works in either.
 
 | You can do now | Coming next |
 | --- | --- |
-| Boxes, cylinders, union, cut, intersect | The 3D view, with 1, 2 or 4 panes |
-| Name, rename and delete steps; undo and redo | Export from the app's File menu |
-| The desktop app: feature tree, Properties, layouts | |
+| Boxes, cylinders, union, cut, intersect | Export from the app's File menu |
+| Name, rename and delete steps; undo and redo | |
+| The desktop app: 3D viewer with 1, 2 or 4 panes, feature tree, Properties, layouts | |
+| Materials: mass, weight, material cost and color | |
 | Save and open `.khan` designs | Sketches, extrude, revolve |
 | Export STL (3D printing) and STEP (other CAD programs) | Fillets, chamfers, holes, patterns |
 | Add plugins | Import STEP, STL and 3MF |
@@ -29,9 +30,10 @@ so everything in this guide works in either.
 3. [Designs and steps](designs-and-steps.md): how a Khan design works.
 4. [Shapes](shapes.md): boxes and cylinders, and where they go.
 5. [Combining bodies](combining.md): union, cut and intersect.
-6. [Files](files.md): saving, opening, and exporting for 3D printing.
-7. [Plugins](plugins.md): adding features to Khan.
-8. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
+6. [Materials](materials.md): what a body is made of, its mass, weight and cost.
+7. [Files](files.md): saving, opening, and exporting for 3D printing.
+8. [Plugins](plugins.md): adding features to Khan.
+9. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
 
 ## Other guides
 

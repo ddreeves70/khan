@@ -29,6 +29,9 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_cylinder
            command feature.delete
            command feature.rename
+           command feature.set_material
+           command material.define
+           command material.delete
            action  Create > Box  (feature.add_box)
            action  Create > Cylinder  (feature.add_cylinder)
            action  Combine > Union  (feature.add_boolean)
@@ -48,6 +51,9 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_cylinder
            command feature.delete
            command feature.rename
+           command feature.set_material
+           command material.define
+           command material.delete
            action  Create > Box  (feature.add_box)
            action  Create > Cylinder  (feature.add_cylinder)
            action  Combine > Union  (feature.add_boolean)
