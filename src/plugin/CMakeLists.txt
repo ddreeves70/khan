@@ -8,6 +8,7 @@ kh_add_library(kh_plugin
     Library.h
     Manifest.cpp
     PluginHost.cpp
+    Selection.cpp
   DEPS
     kh::core
     kh::kernel

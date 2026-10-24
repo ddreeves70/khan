@@ -30,7 +30,14 @@ void registerHello(plugin::PluginContext& ctx) {
          {{"size", model::ArgType::Number, "Length of each side, in mm. Default 20 mm.", false, {}}}},
         &makeAddCube);
 
-    // 2. An event listener: runs after every change to any design.
+    // 2. A menu item in the desktop app that runs the command.
+    ctx.addAction({.id = "example.hello.cube",
+                   .text = "Cube (Hello)",
+                   .menu = "Create",
+                   .command = "example.hello.add_cube",
+                   .tip = "Add a 20 mm cube from the Hello plugin."});
+
+    // 3. An event listener: runs after every change to any design.
     ctx.listen<plugin::DocumentChanged>(
         [&ctx](const plugin::DocumentChanged& e) { ctx.log("Hello saw a change: " + e.label); });
 }

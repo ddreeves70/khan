@@ -13,7 +13,8 @@ class PluginContext;
 /// outside C++ plugin also reports the version it was compiled against. Both
 /// must equal this number, or Khan refuses to load the plugin with a message.
 /// The number goes up whenever a change could break an existing plugin.
-inline constexpr int kPluginApiVersion = 1;
+/// Version 2 added actions, the shared selection and services.
+inline constexpr int kPluginApiVersion = 2;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

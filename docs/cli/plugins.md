@@ -1,7 +1,10 @@
 # kh_cli plugins
 
-Lists the plugins Khan finds: which loaded, the commands each one adds, and why
-any didn't load.
+Lists the plugins Khan finds: which loaded, the commands and menu items
+(**actions**) each one adds, and why any didn't load.
+
+An action line reads `menu > item  (command)`: in the desktop app, that menu item
+runs that command.
 
 ```text
 kh_cli plugins [--plugins <folder>]...
@@ -26,6 +29,12 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_cylinder
            command feature.delete
            command feature.rename
+           action  Create > Box  (feature.add_box)
+           action  Create > Cylinder  (feature.add_cylinder)
+           action  Combine > Union  (feature.add_boolean)
+           action  Combine > Cut  (feature.add_boolean)
+           action  Combine > Intersect  (feature.add_boolean)
+           action  Edit > Delete step  (feature.delete)
 ```
 
 With the plugins in your build folder (the plugin guide's Hello plugin is one):
@@ -39,8 +48,15 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_cylinder
            command feature.delete
            command feature.rename
+           action  Create > Box  (feature.add_box)
+           action  Create > Cylinder  (feature.add_cylinder)
+           action  Combine > Union  (feature.add_boolean)
+           action  Combine > Cut  (feature.add_boolean)
+           action  Combine > Intersect  (feature.add_boolean)
+           action  Edit > Delete step  (feature.delete)
 loaded   example.hello 1.0.0  Hello
            command example.hello.add_cube
+           action  Create > Cube (Hello)  (example.hello.add_cube)
 ```
 
 ## When a plugin doesn't load
@@ -59,7 +75,7 @@ failed   test.badname 1.0.0  Test badname
 failed   test.noentry 1.0.0  Test noentry
            error [plugin.library_bad]: The Test noentry plugin's program file isn't a Khan plugin (it has no KH_PLUGIN_ENTRY). Ask its author for a fixed version. (...)
 failed   test.oldapi 1.0.0  Test oldapi
-           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 1). Get a version of the plugin made for this Khan. (...)
+           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 2). Get a version of the plugin made for this Khan. (...)
 ```
 
 Every reason and its fix is listed in the plugin guide's

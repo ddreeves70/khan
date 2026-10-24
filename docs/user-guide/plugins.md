@@ -15,6 +15,12 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_cylinder
            command feature.delete
            command feature.rename
+           action  Create > Box  (feature.add_box)
+           action  Create > Cylinder  (feature.add_cylinder)
+           action  Combine > Union  (feature.add_boolean)
+           action  Combine > Cut  (feature.add_boolean)
+           action  Combine > Intersect  (feature.add_boolean)
+           action  Edit > Delete step  (feature.delete)
 ```
 
 ## Use plugins from a folder

@@ -16,6 +16,7 @@ INPUT                  = docs/api-mainpage.md \
                          src/model/include \
                          src/io/include \
                          src/plugin/include \
+                         src/ui/include \
                          plugins/modeling/include \
                          docs/plugin-guide
 FILE_PATTERNS          = *.h *.md
