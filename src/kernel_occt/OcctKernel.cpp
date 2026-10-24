@@ -1,4 +1,5 @@
 #include "kh/kernel_occt/OcctKernel.h"
+#include "kh/kernel_occt/OcctShape.h"
 
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
@@ -292,6 +293,10 @@ public:
 };
 
 }  // namespace
+
+const TopoDS_Shape* occtShape(const ShapeHandle& shape) {
+    return unwrap(shape);
+}
 
 std::unique_ptr<IKernel> makeOcctKernel() {
     return std::make_unique<OcctKernel>();

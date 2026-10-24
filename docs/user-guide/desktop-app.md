@@ -1,12 +1,8 @@
 # The desktop app
 
 `kh_app` is Khan's desktop app. You build a part by adding steps from the menus,
-see every step in the feature tree, and change any step's numbers in Properties.
-Everything you do can be undone.
-
-The 3D view arrives in the next version. Until then the middle of the window
-shows the grid from above, and lists your finished bodies and their volumes. You
-can export a part to look at it in another program.
+see it in 3D as it grows, see every step in the feature tree, and change any
+step's numbers in Properties. Everything you do can be undone.
 
 ![The Khan window with the desk organizer open](images/app-main.png)
 
@@ -15,7 +11,7 @@ can export a part to look at it in another program.
 | 1 | **Menus** | File (new, open, save), Edit (undo, redo, delete), Create (shapes), Combine (union, cut, intersect), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away |
 | 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built |
-| 4 | **Viewer** | The 3D view (next version). For now: the grid seen from above, and the finished bodies with their volumes |
+| 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse or the view cube, and click a body to pick it |
 | 5 | **Properties** | The selected step's name and numbers. Change them here |
 | 6 | **Status bar** | Messages, and what went wrong when something does |
 | 7 | **Grid status** | The grid's spacing and style, and whether snapping is on |
@@ -40,13 +36,67 @@ mouse:
 
 1. **Create > Box.** Khan adds `Box1`, a 20 mm cube, and selects it.
 2. In **Properties**, set the size to x 60, y 30, z 4, and change the name to
-   `Plate`. Each change rebuilds the design; the volume in the middle updates.
+   `Plate`. Each change rebuilds the design, and the viewer shows the new plate.
 3. **Create > Cylinder.** In Properties, set radius 2.5, height 6, base
    x 9, y 15, z -1, and name it `Hole`.
 4. In the feature tree, click **Plate**, then hold Ctrl (⌘ on a Mac) and click
    **Hole**. The order matters: first the body to keep, then the cutting tool.
 5. **Combine > Cut.** Khan adds `Cut1`: the plate with the hole cut out.
 6. **File > Save**, and pick a name.
+
+## The 3D viewer
+
+The viewer in the middle of the window shows your finished bodies, sitting on the
+grid. Steps used up by a later step (like the Hole that a Cut cut out) aren't
+drawn, unless you pick them.
+
+**Moving around** with the mouse:
+
+| To | Do this |
+| --- | --- |
+| Orbit (turn around the part) | Drag with the left button |
+| Pan (slide sideways) | Drag with the right or middle button, or Shift and the left button |
+| Zoom | Roll the wheel; it zooms towards the mouse |
+| Look from a side | Click a face of the **view cube** (top right). Click one of its edges or corners to look from in between |
+| See everything | **Fit all** on the viewer's toolbar |
+
+Z always stays pointing up while you orbit, so the floor stays the floor.
+
+**Picking.** Click a body to pick its step: it turns orange, and the feature tree
+and Properties show the same step. Ctrl-click (⌘-click) or Shift-click picks more
+than one, or un-picks one. Clicking empty space un-picks everything. Picking works
+both ways: rows you pick in the feature tree turn orange in the viewer too. A
+picked step that a later step used up is drawn in orange so you can see where it
+is, like the cutting tool of a Cut.
+
+**Standard views.** The toolbar's **Front**, **Top**, **Right** and **Iso** buttons
+turn the camera to look from that side and zoom to fit (**More views** has Back,
+Left and Bottom). Front looks from -y towards +y, Top looks down, and Iso looks
+from the front, right and above at once.
+
+**Panes.** **Panes** on the toolbar splits the viewer into one pane, two side by
+side, two stacked, or four. Each pane has its own camera. Four panes are set out
+like a drawing: Top above Front, Right beside Front, and Iso in the corner. The
+pane you clicked last has a blue frame, and the view buttons turn that pane;
+**Fit all** fits every pane.
+
+![Four panes: Top, Iso, Front and Right](images/app-viewer-panes.png)
+
+**More viewers.** **Window > New viewer** opens another viewer next to the first,
+with its own panes and cameras, for example to keep a close-up and the whole part
+on screen at once. Drag its tab to move it, even onto another monitor. Extra
+viewers close with their tab's x, and aren't reopened next time.
+
+**No 3D graphics?** The viewer needs OpenGL 2.1 or newer, which almost every
+computer has. If it can't start, the viewer says why and how to fix it (usually:
+update the graphics driver), and shows the grid from above with a list of your
+finished bodies instead:
+
+![The viewer with 3D graphics turned off](images/app-viewer-flat.png)
+
+If the 3D view crashes or draws garbage on your computer, you can turn it off:
+set the environment variable `KH_NO_3D` to `1` before starting Khan (on Windows:
+`set KH_NO_3D=1`, then `kh_app`).
 
 ## The feature tree
 
@@ -105,16 +155,16 @@ you judge sizes and line things up. It starts **on**, every **10 mm**, drawn as
 | --- | --- |
 | ![The grid as dots, 10 mm apart](images/app-grid-dots.png) | ![The grid as lines, 5 mm apart](images/app-grid-lines.png) |
 
-The red line is the x axis and the green line the y axis; they cross at the
-origin, 0, 0. The status bar (7 in the picture at the top) always shows the
+The short coloured lines at the origin (0, 0, 0) are the axes: red is x, green
+is y and blue is z. The status bar (7 in the picture at the top) always shows the
 grid's settings, like "Grid 10 mm, dots, snap off". Khan remembers your grid
 settings for next time.
 
-- **When the grid is very fine,** Khan draws every 2nd, 5th or 10th line so it
-  doesn't turn into a grey blur. Snapping still uses the spacing you set.
-- **Snapping** matters once you place things with the mouse: in the 3D view and
-  in sketches, both coming soon. Numbers you type in Properties are never
-  snapped.
+- **How far the grid reaches:** 50 lines each way from the origin (500 mm with
+  10 mm spacing), but at least 100 mm and never more than 100 lines, so a fine
+  grid stays quick to draw.
+- **Snapping** matters once you place things with the mouse, in sketches (coming
+  soon). Numbers you type in Properties are never snapped.
 
 ## Undo and redo
 
@@ -161,8 +211,8 @@ was on a monitor that's no longer plugged in, it comes back onto your main scree
 
 ## Plugins in the app
 
-The feature tree, Properties, and the Create and Combine menus all come from
-plugins that ship with Khan. Plugins you add (see [Plugins](plugins.md)) can add
+The viewer, the feature tree, Properties, and the Create and Combine menus all
+come from plugins that ship with Khan. Plugins you add (see [Plugins](plugins.md)) can add
 menu items and panels too. Put plugin folders in a `plugins` folder next to
 `kh_app`, or in Khan's folder in your user data:
 

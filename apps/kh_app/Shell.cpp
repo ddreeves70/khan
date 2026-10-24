@@ -25,7 +25,6 @@
 #include <algorithm>
 
 #include "AppUi.h"
-#include "GridView.h"
 #include "kh/core/Version.h"
 #include "kh/io/KhanFile.h"
 #include "kh/plugin/Events.h"
@@ -70,9 +69,8 @@ bool ownerLoaded(const plugin::PluginHost& host, const std::string& id) {
 
 }  // namespace
 
-Shell::Shell(plugin::PluginHost& host, AppUi& ui, kernel::IKernel& kernel, plugin::Grid& grid,
-             QSettings& settings, QWidget* parent)
-    : QMainWindow(parent), host_(host), ui_(ui), kernel_(kernel), settings_(settings), grid_(grid) {
+Shell::Shell(plugin::PluginHost& host, AppUi& ui, plugin::Grid& grid, QSettings& settings, QWidget* parent)
+    : QMainWindow(parent), host_(host), ui_(ui), settings_(settings), grid_(grid) {
     setWindowTitle(QStringLiteral("Khan"));
     resize(1280, 800);
 
@@ -245,24 +243,43 @@ void Shell::buildMenus() {
 }
 
 void Shell::buildPanels() {
-    // The 3D view arrives with kh.viewer; until then the center lists the bodies.
-    viewer_ = new GridView;
-    auto* center = new ads::CDockWidget(docks_, tr("Viewer"));
-    center->setObjectName(QStringLiteral("kh.viewer.main"));
-    center->setWidget(viewer_);
-    auto* centerArea = docks_->setCentralWidget(center);
-
+    // The middle of the window is the first Center panel (kh.viewer's viewer).
+    std::vector<const ui::PanelSpec*> specs;
     for (const auto& spec : ui_.panels()) {
-        if (!ownerLoaded(host_, spec.id) || !spec.create) continue;
-        auto* dock = new ads::CDockWidget(docks_, spec.title);
-        dock->setObjectName(qs(spec.id));
+        if (ownerLoaded(host_, spec.id) && spec.create) specs.push_back(&spec);
+    }
+    const auto centerSpec = std::find_if(specs.begin(), specs.end(),
+                                         [](const auto* s) { return s->area == ui::PanelArea::Center; });
+    auto makeDock = [this](const ui::PanelSpec& spec, const QString& id, const QString& title) {
+        auto* dock = new ads::CDockWidget(docks_, title);
+        dock->setObjectName(id);
         // Panels are as wide as their content needs (their minimum width), not squeezed.
         dock->setWidget(spec.create(), ads::CDockWidget::ForceNoScrollArea);
         dock->setMinimumSizeHintMode(ads::CDockWidget::MinimumSizeHintFromContentMinimumSize);
-        if (spec.area == ui::PanelArea::Center) {
-            docks_->addDockWidgetTabToArea(dock, centerArea);
+        return dock;
+    };
+    if (centerSpec != specs.end()) {
+        centerArea_ =
+            docks_->setCentralWidget(makeDock(**centerSpec, qs((*centerSpec)->id), (*centerSpec)->title));
+    } else {
+        auto* missing =
+            new QLabel(tr("The 3D viewer plugin (kh.viewer) didn't load, so there's nothing to show "
+                          "here. Reinstall Khan to get it back."));
+        missing->setAlignment(Qt::AlignCenter);
+        missing->setWordWrap(true);
+        auto* dock = new ads::CDockWidget(docks_, tr("Viewer"));
+        dock->setObjectName(QStringLiteral("kh.shell.noviewer"));
+        dock->setWidget(missing);
+        centerArea_ = docks_->setCentralWidget(dock);
+    }
+
+    for (const auto* spec : specs) {
+        if (centerSpec != specs.end() && spec == *centerSpec) continue;
+        auto* dock = makeDock(*spec, qs(spec->id), spec->title);
+        if (spec->area == ui::PanelArea::Center) {
+            docks_->addDockWidgetTabToArea(dock, centerArea_);
         } else {
-            docks_->addDockWidget(toAds(spec.area), dock);
+            docks_->addDockWidget(toAds(spec->area), dock);
         }
     }
 
@@ -270,7 +287,38 @@ void Shell::buildPanels() {
         if (auto* dock = docks_->findDockWidget(id)) windowMenu_->addAction(dock->toggleViewAction());
     }
     windowMenu_->addSeparator();
+    for (const auto* spec : specs) {
+        if (!spec->allowMultiple) continue;
+        const QString id = qs(spec->id);
+        auto* a = windowMenu_->addAction(tr("New %1").arg(spec->title.toLower()), this,
+                                         [this, id] { openAnotherPanel(id); });
+        a->setObjectName(QStringLiteral("kh.shell.new.") + id);
+        a->setStatusTip(tr("Open another %1 next to the others.").arg(spec->title.toLower()));
+    }
+    windowMenu_->addSeparator();
     layoutMenu_ = windowMenu_->addMenu(tr("&Layouts"));
+}
+
+QString Shell::openAnotherPanel(const QString& id) {
+    for (const auto& spec : ui_.panels()) {
+        if (qs(spec.id) != id || !spec.allowMultiple || !spec.create || !ownerLoaded(host_, spec.id))
+            continue;
+        // Number copies 2, 3, ... skipping ids still open.
+        int n = std::max(copies_[id], 1);
+        QString newId;
+        do {
+            newId = QStringLiteral("%1.%2").arg(id).arg(++n);
+        } while (docks_->findDockWidget(newId));
+        copies_[id] = n;
+        auto* dock = new ads::CDockWidget(docks_, QStringLiteral("%1 %2").arg(spec.title).arg(n));
+        dock->setObjectName(newId);
+        dock->setWidget(spec.create(), ads::CDockWidget::ForceNoScrollArea);
+        // Copies aren't remembered between runs: closing one deletes it.
+        dock->setFeature(ads::CDockWidget::DockWidgetDeleteOnClose, true);
+        docks_->addDockWidget(ads::RightDockWidgetArea, dock, centerArea_);
+        return newId;
+    }
+    return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -356,7 +404,6 @@ void Shell::showGrid() {
                                              g.style == plugin::GridStyle::Dots ? tr("dots") : tr("lines"),
                                              g.snap ? tr("on") : tr("off"))
                                   : tr("Grid off, snap %1").arg(g.snap ? tr("on") : tr("off")));
-    viewer_->setGrid(g);
 }
 
 void Shell::rebuildLayoutMenu() {
@@ -542,25 +589,6 @@ void Shell::refresh() {
         }
         a->setEnabled(ok);
     }
-    refreshViewer();
-}
-
-void Shell::refreshViewer() {
-    const auto* doc = host_.documents().find(activeDesign());
-    const auto* report = host_.documents().lastRebuild(activeDesign());
-    QString text = tr("The 3D view arrives with the next version of Khan.\n\n");
-    if (!doc || doc->featureCount() == 0) {
-        text += tr("Start with Create > Box or Create > Cylinder.");
-    } else if (report) {
-        text += tr("Finished bodies:");
-        for (const auto& id : report->bodies()) {
-            const auto* f = doc->find(id);
-            const double volume = kernel_.massProps(*report->shapeOf(id)).volume;
-            text += tr("\n%1: %2 mm³").arg(f ? qs(f->name()) : QString(), QString::number(volume, 'f', 2));
-        }
-        if (report->bodies().empty()) text += tr("\nnone yet");
-    }
-    viewer_->setText(text);
 }
 
 void Shell::showProblems(const Diagnostics& problems) {

@@ -23,8 +23,15 @@ A recipe (a "script" runs that shared list of commands before its own "commands"
 An "app" recipe takes a screenshot of the desktop app instead (pass --kh-app):
 
     {"out": "docs/user-guide/images/app-main.png",
-     "commands": [...], "app": {"open": "o.khan", "select": ["Cup"], "settings": {"grid/style": "lines"}},
+     "commands": [...], "app": {"open": "o.khan", "select": ["Cup"], "settings": {"grid/style": "lines"},
+                                "trigger": ["kh.viewer.layout.fourpanes"], "flat": false},
      "crop": [x, y, width, height], "callouts": [{"at": [x, y], "n": 1}]}   both optional
+
+"trigger" clicks menu items and buttons by object name before the picture is
+taken. The 3D viewer needs OpenGL: on Linux the app runs on a virtual screen
+(xvfb-run, with Mesa's software OpenGL); elsewhere it opens on your screen for a
+moment. "flat": true takes the picture without 3D graphics, as the viewer looks
+on a computer that can't start them.
 
 Needs Python 3 with NumPy and Matplotlib.
 """
@@ -33,6 +40,7 @@ import argparse
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -117,7 +125,17 @@ def main():
                     argv += ["--open", app["open"]]
                 if "select" in app:
                     argv += ["--select", ",".join(app["select"])]
-                env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+                if "trigger" in app:
+                    argv += ["--trigger", ",".join(app["trigger"])]
+                env = dict(os.environ)
+                if app.get("flat"):
+                    env.update(QT_QPA_PLATFORM="offscreen", KH_NO_3D="1")
+                elif sys.platform.startswith("linux"):
+                    xvfb = shutil.which("xvfb-run")
+                    if not xvfb:
+                        sys.exit(f"{out.name}: pictures of the 3D view need xvfb-run (apt install xvfb)")
+                    argv = [xvfb, "-a", "-s", "-screen 0 1600x1200x24"] + argv
+                    env.update(QT_QPA_PLATFORM="xcb", LIBGL_ALWAYS_SOFTWARE="1")
                 out.parent.mkdir(parents=True, exist_ok=True)
                 proc = subprocess.run(argv, cwd=tmp, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 if proc.returncode != 0 or not out.exists():

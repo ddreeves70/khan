@@ -225,10 +225,13 @@ TEST_CASE("outside plugins can't use Khan's ids or skip their library", "[plugin
         std::filesystem::create_directories(dir / folder);
         std::ofstream(dir / folder / "plugin.json") << json;
     };
-    write("fake", R"({"id": "kh.fake", "name": "Fake", "version": "1", "apiVersion": 2, "library": "fake"})");
-    write("nolib", R"({"id": "test.nolib", "name": "No library", "version": "1", "apiVersion": 2})");
-    write("gone",
-          R"({"id": "test.gone", "name": "Gone", "version": "1", "apiVersion": 2, "library": "gone"})");
+    const std::string api = std::to_string(kPluginApiVersion);
+    write("fake", R"({"id": "kh.fake", "name": "Fake", "version": "1", "apiVersion": )" + api +
+                      R"(, "library": "fake"})");
+    write("nolib",
+          R"({"id": "test.nolib", "name": "No library", "version": "1", "apiVersion": )" + api + "}");
+    write("gone", R"({"id": "test.gone", "name": "Gone", "version": "1", "apiVersion": )" + api +
+                      R"(, "library": "gone"})");
     write("broken", "{ not json");
     std::filesystem::create_directories(dir / "not_a_plugin");  // no plugin.json: ignored
 

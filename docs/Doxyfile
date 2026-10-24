@@ -17,7 +17,9 @@ INPUT                  = docs/api-mainpage.md \
                          src/io/include \
                          src/plugin/include \
                          src/ui/include \
+                         src/view/include \
                          plugins/modeling/include \
+                         plugins/viewer/include \
                          docs/plugin-guide
 FILE_PATTERNS          = *.h *.md
 RECURSIVE              = YES

@@ -13,7 +13,6 @@
 
 #include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
-#include "kh/kernel/IKernel.h"
 #include "kh/plugin/Grid.h"
 #include "kh/plugin/PluginHost.h"
 
@@ -24,6 +23,7 @@ class QSettings;
 class QToolBar;
 
 namespace ads {
+class CDockAreaWidget;
 class CDockManager;
 class CDockWidget;
 }  // namespace ads
@@ -31,22 +31,19 @@ class CDockWidget;
 namespace kh::app {
 
 class AppUi;
-class GridView;
 
-// The main window. It owns no features of its own: panels, menu items and
-// toolbar buttons come from plugins (through AppUi and PluginHost::actions()).
+// The main window. It owns no features of its own: panels (the viewer too), menu
+// items and toolbar buttons come from plugins (through AppUi and PluginHost::actions()).
 // The shell adds what every program needs: File (new, open, save), Edit (undo,
 // redo), Window (panels and layouts), and one open design at a time.
 class Shell : public QMainWindow {
     Q_OBJECT
 public:
-    // `host` must have loaded its plugins. `settings` keeps layouts and the
-    // window's place between runs.
     // `host` must have loaded its plugins, and `grid` must be the Grid it
     // provides as a service. `settings` keeps layouts, the grid and the window's
-    // place between runs.
-    Shell(plugin::PluginHost& host, AppUi& ui, kernel::IKernel& kernel, plugin::Grid& grid,
-          QSettings& settings, QWidget* parent = nullptr);
+    // place between runs. The panel in the middle comes from a plugin (kh.viewer).
+    Shell(plugin::PluginHost& host, AppUi& ui, plugin::Grid& grid, QSettings& settings,
+          QWidget* parent = nullptr);
     ~Shell() override;
 
     // What to do with unsaved changes before they would be lost.
@@ -75,6 +72,9 @@ public:
     // Panels and layouts.
     QStringList dockIds() const;
     QWidget* panelWidget(const QString& id) const;
+    // Opens another copy of a panel that allows it (Window > New viewer).
+    // Returns the new panel's id, e.g. "kh.viewer.main.2", or empty if it can't.
+    QString openAnotherPanel(const QString& id);
     QByteArray saveLayout() const;
     bool restoreLayout(const QByteArray& layout);
     void saveNamedLayout(const QString& name);
@@ -96,7 +96,6 @@ private:
     void buildPanels();
     void runAction(const plugin::ActionSpec& spec);
     void refresh();
-    void refreshViewer();
     void showProblems(const Diagnostics& problems);
     void showMessage(const QString& message);
     bool confirmLoseChanges();
@@ -107,10 +106,10 @@ private:
 
     plugin::PluginHost& host_;
     AppUi& ui_;
-    kernel::IKernel& kernel_;
     QSettings& settings_;
     ads::CDockManager* docks_ = nullptr;
-    GridView* viewer_ = nullptr;
+    ads::CDockAreaWidget* centerArea_ = nullptr;
+    std::map<QString, int> copies_;  // panel id -> how many copies were opened
     QLabel* gridLabel_ = nullptr;
     plugin::Grid& grid_;
     QLabel* problemLabel_ = nullptr;
