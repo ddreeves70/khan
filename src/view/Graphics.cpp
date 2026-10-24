@@ -6,33 +6,9 @@
 #include <QOpenGLContext>
 #include <QSurfaceFormat>
 
-#include <Aspect_DisplayConnection.hxx>
-#include <Standard_Failure.hxx>
-
-#include "Driver.h"
+#include "OcctGl.h"
 
 namespace kh::view {
-
-namespace detail {
-
-Handle(OpenGl_GraphicDriver) sharedDriver() {
-    static const Handle(OpenGl_GraphicDriver) driver = []() -> Handle(OpenGl_GraphicDriver) {
-        try {
-            Handle(Aspect_DisplayConnection) display = new Aspect_DisplayConnection();
-            // false: Qt makes the OpenGL contexts, OCCT only draws with them.
-            Handle(OpenGl_GraphicDriver) d = new OpenGl_GraphicDriver(display, false);
-            d->ChangeOptions().buffersNoSwap = true;       // Qt swaps the buffers
-            d->ChangeOptions().buffersOpaqueAlpha = true;  // so Qt's window isn't see-through
-            d->ChangeOptions().useSystemBuffer = false;    // draw into OCCT's own buffer, then Qt's
-            return d;
-        } catch (const Standard_Failure&) {
-            return {};
-        }
-    }();
-    return driver;
-}
-
-}  // namespace detail
 
 void prepareGraphics() {
     // OCCT shares shaders and meshes between all views, so their contexts must share.

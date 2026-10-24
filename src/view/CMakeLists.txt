@@ -3,10 +3,11 @@
 # the only library allowed to include OCCT headers; none appear in its public headers.
 kh_add_library(kh_view
   SOURCES
-    Driver.h
     FlatView.cpp
     Graphics.cpp
     Layout.cpp
+    OcctGl.cpp
+    OcctGl.h
     ViewWidget.cpp
     include/kh/view/FlatView.h
     include/kh/view/ViewWidget.h

@@ -12,17 +12,12 @@
 #include <AIS_ViewController.hxx>
 #include <AIS_ViewCube.hxx>
 #include <Aspect_Grid.hxx>
-#include <Aspect_NeutralWindow.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <Bnd_Box.hxx>
 #include <Graphic3d_Camera.hxx>
 #include <Graphic3d_TransformPers.hxx>
-#include <OpenGl_Context.hxx>
-#include <OpenGl_FrameBuffer.hxx>
-#include <OpenGl_View.hxx>
-#include <OpenGl_Window.hxx>
 #include <Prs3d_Drawer.hxx>
 #include <Prs3d_LineAspect.hxx>
 #include <Prs3d_ShadingAspect.hxx>
@@ -40,7 +35,7 @@
 #include <cmath>
 #include <map>
 
-#include "Driver.h"
+#include "OcctGl.h"
 #include "kh/kernel_occt/OcctShape.h"
 #include "kh/view/Graphics.h"
 
@@ -65,23 +60,6 @@ const Quantity_Color kGridLines = rgb(204, 209, 218);
 constexpr double kAxisLength = 25.0;  // mm
 constexpr double kCubeSize = 40.0;    // pixels, before scaling for high-DPI screens
 constexpr int kCubeOffset = 62;       // pixels from the corner to the cube's middle
-
-// Qt's buffer, wrapped so OCCT draws into it. Qt's buffer isn't sRGB.
-class QtFrameBuffer : public OpenGl_FrameBuffer {
-    DEFINE_STANDARD_RTTI_INLINE(QtFrameBuffer, OpenGl_FrameBuffer)
-public:
-    void BindBuffer(const Handle(OpenGl_Context) & gl) override {
-        OpenGl_FrameBuffer::BindBuffer(gl);
-        gl->SetFrameBufferSRGB(true, false);
-    }
-    void BindDrawBuffer(const Handle(OpenGl_Context) & gl) override {
-        OpenGl_FrameBuffer::BindDrawBuffer(gl);
-        gl->SetFrameBufferSRGB(true, false);
-    }
-    void BindReadBuffer(const Handle(OpenGl_Context) & gl) override {
-        OpenGl_FrameBuffer::BindReadBuffer(gl);
-    }
-};
 
 Aspect_VKeyMouse toButtons(Qt::MouseButtons b) {
     Aspect_VKeyMouse out = Aspect_VKeyMouse_NONE;
@@ -430,31 +408,24 @@ void ViewWidget::initializeGL() {
     auto& d = *impl_;
     if (!d.view) return;
     try {
-        Handle(OpenGl_Context) gl = new OpenGl_Context();
-        if (!gl->Init(context()->format().profile() == QSurfaceFormat::CoreProfile)) {
-            d.fail(*this, drawFailed());
-            return;
-        }
         // OCCT wants a native window. On Windows, the one Qt made the context
-        // current on; elsewhere Qt draws into a buffer, so the top-level window
-        // (asking our own widget would make it native, which QOpenGLWidget dislikes).
+        // current on (0 asks for it); elsewhere Qt draws into a buffer, so the
+        // top-level window (asking our own widget would make it native, which
+        // QOpenGLWidget dislikes).
 #if defined(_WIN32)
-        const Aspect_Drawable native = gl->Window();
+        const Aspect_Drawable native = nullptr;
 #else
         const auto native = static_cast<Aspect_Drawable>(window()->winId());
 #endif
         const double ratio = devicePixelRatioF();
-        Handle(Aspect_NeutralWindow) window = Handle(Aspect_NeutralWindow)::DownCast(d.view->Window());
-        const bool first = window.IsNull();
-        if (first) {
-            window = new Aspect_NeutralWindow();
-            window->SetVirtual(true);
-        }
-        window->SetNativeHandle(native);
-        window->SetSize(std::max(1, static_cast<int>(width() * ratio)),
-                        std::max(1, static_cast<int>(height() * ratio)));
+        const bool first = d.view->Window().IsNull();
         // Called again when the panel moves to another window: OCCT takes the new context.
-        d.view->SetWindow(window, gl->RenderingContext());
+        if (!detail::attachContext(d.view, context()->format().profile() == QSurfaceFormat::CoreProfile,
+                                   native, static_cast<int>(width() * ratio),
+                                   static_cast<int>(height() * ratio))) {
+            d.fail(*this, drawFailed());
+            return;
+        }
         if (first) {
             d.cube = new AIS_ViewCube();
             d.cube->SetSize(kCubeSize * ratio);
@@ -477,25 +448,9 @@ void ViewWidget::paintGL() {
     auto& d = *impl_;
     if (!d.view || d.view->Window().IsNull() || !d.problem.isEmpty()) return;
     try {
-        Handle(OpenGl_View) glView = Handle(OpenGl_View)::DownCast(d.view->View());
-        const Handle(OpenGl_Context)& gl = glView->GlWindow()->GetGlContext();
-        Handle(OpenGl_FrameBuffer) fbo = gl->DefaultFrameBuffer();
-        if (fbo.IsNull()) {
-            fbo = new QtFrameBuffer();
-            gl->SetDefaultFrameBuffer(fbo);
-        }
-        if (!fbo->InitWrapper(gl)) {
+        if (!detail::useQtFramebuffer(d.view)) {
             d.fail(*this, drawFailed());
             return;
-        }
-        // Follow the size of Qt's buffer (in device pixels).
-        Handle(Aspect_NeutralWindow) window = Handle(Aspect_NeutralWindow)::DownCast(d.view->Window());
-        Graphic3d_Vec2i old;
-        window->Size(old.x(), old.y());
-        const Graphic3d_Vec2i now = fbo->GetVPSize();
-        if (now != old) {
-            window->SetSize(now.x(), now.y());
-            d.view->MustBeResized();
         }
         if (d.fitPending) d.fit();
         d.view->Invalidate();
