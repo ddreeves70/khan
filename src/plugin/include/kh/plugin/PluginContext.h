@@ -71,11 +71,15 @@ public:
     /// @return The selection.
     virtual Selection& selection() = 0;
 
-    /// Finds a service the program running Khan provides, by name. The desktop
-    /// app provides kh::ui::UiRegistry for adding panels; kh_cli provides none.
-    /// Prefer the typed service<T>().
-    /// @param name The service's name, e.g. "kh.ui".
-    /// @return The service, or nullptr if this program doesn't provide it.
+    /// Finds a service by name: one the program running Khan provides (the
+    /// desktop app provides kh::ui::UiRegistry for adding panels; kh_cli provides
+    /// none), or one another plugin provides with provide().
+    ///
+    /// Look up other plugins' services in an onStart() callback, not while
+    /// registering, and list the plugin in "requires" or "uses" in plugin.json;
+    /// otherwise Khan adds a warning. Prefer the typed service<T>().
+    /// @param name The service's name, e.g. "kh.ui" or "example.ruler/1".
+    /// @return The service, or nullptr if nobody provides it.
     virtual void* service(std::string_view name) = 0;
 
     /// Finds a service by its type.
@@ -83,11 +87,46 @@ public:
     /// if (auto* ui = ctx.service<kh::ui::UiRegistry>()) ui->addPanel(...);
     /// @endcode
     /// @tparam T The service type; it names itself with a static `kServiceName`.
-    /// @return The service, or nullptr if this program doesn't provide it.
+    /// @return The service, or nullptr if nobody provides it.
     template <typename T>
     T* service() {
         return static_cast<T*>(service(T::kServiceName));
     }
+
+    /// Offers a service to other plugins (see "Share something with other
+    /// plugins" in the plugin guide).
+    ///
+    /// Only works while the register function runs; the service becomes
+    /// available when it returns without problems. The name should start with
+    /// the plugin's id and end with a version, like "example.ruler/1". If
+    /// another plugin already provides that name, theirs is kept and this
+    /// plugin gets a warning.
+    /// @param name The service's name.
+    /// @param service The service. It must stay valid until Khan closes.
+    /// @param deprecated True if the service is going away: plugins that use it
+    ///        get a warning telling them to move to a newer version.
+    virtual void provide(std::string name, void* service, bool deprecated) = 0;
+
+    /// Offers a service, named by its type's `kServiceName`.
+    /// @code
+    /// static Ruler ruler;  // lives until Khan closes
+    /// ctx.provide<example::IRuler>(ruler);
+    /// @endcode
+    /// @tparam T The service type (usually an abstract class from a contract header).
+    /// @param service The service. It must stay valid until Khan closes.
+    /// @param deprecated True if the service is going away (see the other provide()).
+    template <typename T>
+    void provide(T& service, bool deprecated = false) {
+        provide(std::string(T::kServiceName), static_cast<void*>(&service), deprecated);
+    }
+
+    /// Runs @p start once every plugin has registered, so every service exists.
+    /// This is where a plugin looks up and connects to other plugins' services.
+    ///
+    /// Only works while the register function runs. Callbacks run in load order.
+    /// Calling fail() in one stops the plugin, like failing while registering.
+    /// @param start What to do when Khan starts.
+    virtual void onStart(std::function<void()> start) = 0;
 
     /// Adds a line to the plugin's log, shown in the Plugin manager and by
     /// `kh_cli plugins`.
@@ -105,12 +144,37 @@ public:
     virtual void keep(Subscription subscription) = 0;
 
     /// Listens for one type of event until Khan closes.
+    ///
+    /// Listening to another plugin's event (its type starts with that plugin's
+    /// id) without listing the plugin in "requires" or "uses" adds a warning.
     /// @tparam E The event type, e.g. DocumentChanged.
     /// @param listener Called with each event of type @p E.
     template <typename E>
     void listen(std::function<void(const E&)> listener) {
+        noteListen(E::kType);
         keep(events().subscribe<E>(std::move(listener)));
     }
+
+    /// Sends one of this plugin's own events to every listener.
+    ///
+    /// The event type's name must start with the plugin's id and a dot, like
+    /// "example.ruler.ready", so two plugins' events never clash; otherwise
+    /// Khan adds a warning (and still sends it).
+    /// @tparam E The event type, a struct with a `kType` name.
+    /// @param event The event.
+    template <typename E>
+    void publish(const E& event) {
+        notePublish(E::kType);
+        events().publish(event);
+    }
+
+    /// Checks an event this plugin is about to send (used by publish()).
+    /// @param type The event's type name.
+    virtual void notePublish(std::string_view type) = 0;
+
+    /// Checks an event this plugin is about to listen to (used by listen()).
+    /// @param type The event's type name.
+    virtual void noteListen(std::string_view type) = 0;
 };
 
 }  // namespace kh::plugin

@@ -1,0 +1,8 @@
+{
+  "id": "test.loopa",
+  "name": "Test loopa",
+  "version": "1.0.0",
+  "description": "Uses test.loopb, which uses it back: a loop, loaded with a warning.",
+  "library": "loopa",
+  "uses": ["test.loopb"]
+}

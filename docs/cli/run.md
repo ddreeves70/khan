@@ -61,6 +61,8 @@ Untitled: 1 step
 $ kh_cli run --plugins build/dev/khan-plugins example.hello.add_cube size=25
 Untitled: 1 step
   Cube1        ok  volume 15625.00 mm^3  mass 19.37 g (PLA)
+[example.tape] The ruler shows lengths in in.
+[example.tape] A 25.4 mm box is 1.00 in long.
 [example.hello] Hello saw a change: Add Cube1
 ```
 

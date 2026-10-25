@@ -3,6 +3,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,8 +32,10 @@ TEST_CASE("the guide's Hello plugin loads and adds a working command", "[plugin]
     CHECK(hello->actions == std::vector<std::string>{"example.hello.cube"});
 
     // It needs kh.modeling, so it loads after it.
-    CHECK(host.plugins().at(0).manifest.id == "kh.modeling");
-    CHECK(host.plugins().at(1).manifest.id == "example.hello");
+    std::vector<std::string> order;
+    for (const auto& p : host.plugins()) order.push_back(p.manifest.id);
+    const auto at = [&](const char* id) { return std::find(order.begin(), order.end(), id) - order.begin(); };
+    CHECK(at("kh.modeling") < at("example.hello"));
 
     // Run its command: a 20 mm cube by default, and 5 mm when asked.
     auto& docs = host.documents();

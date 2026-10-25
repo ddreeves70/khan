@@ -3,6 +3,7 @@
 /// @file
 /// PluginHost: finds plugins, checks them, and loads them in order.
 
+#include <chrono>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -25,7 +26,8 @@ namespace kh::plugin {
 
 namespace detail {
 class Library;
-}
+struct HostShared;
+}  // namespace detail
 
 /// A plugin compiled into Khan itself, such as kh.modeling.
 struct BuiltinPlugin {
@@ -46,10 +48,13 @@ struct PluginInfo {
     PluginManifest manifest;  ///< Its manifest. For a damaged plugin.json, only `folder` and `name` are set.
     bool builtin = false;     ///< True for plugins compiled into Khan.
     PluginState state = PluginState::Failed;  ///< Whether it loaded.
-    Diagnostics issues;                       ///< Why it didn't load, in plain words.
-    std::vector<std::string> messages;        ///< What it wrote with PluginContext::log().
-    std::vector<std::string> commands;        ///< The commands it added, sorted.
-    std::vector<std::string> actions;         ///< The ids of the actions it added, in the order added.
+    /// Why it didn't load (errors), things that work but are probably a mistake
+    /// (warnings, see "Warnings" in the plugin guide), and notes (info), in plain words.
+    Diagnostics issues;
+    std::vector<std::string> messages;  ///< What it wrote with PluginContext::log().
+    std::vector<std::string> commands;  ///< The commands it added, sorted.
+    std::vector<std::string> actions;   ///< The ids of the actions it added, in the order added.
+    std::vector<std::string> services;  ///< The services it provides to other plugins, sorted.
 };
 
 /// Finds plugins, checks their manifests, and loads them in dependency order.
@@ -102,8 +107,20 @@ public:
         provide(std::string(T::kServiceName), static_cast<void*>(&service));
     }
 
+    /// Sets how long a plugin may take to register and start before it gets the
+    /// plugin.slow_start warning. Call before loadAll().
+    /// @param limit The limit; 0 turns the warning off. The default is 500 ms.
+    void setSlowStartLimit(std::chrono::milliseconds limit) { slowStartLimit_ = limit; }
+
     /// Reads every manifest, checks it, and loads the plugins in dependency
-    /// order. Does nothing if called again.
+    /// order (see the class description). Does nothing if called again.
+    ///
+    /// Loading has two phases. First every plugin registers, in dependency order
+    /// ("requires" and "uses"; plugins ready at the same time go in id order).
+    /// Plugins that depend on each other in a loop are loaded anyway, in id
+    /// order, with a warning. Then every loaded plugin's onStart() callbacks run,
+    /// in the same order. A plugin whose "requires" plugin didn't load doesn't
+    /// load either.
     void loadAll();
 
     /// Lists every plugin found, loaded or not.
@@ -142,6 +159,7 @@ public:
 private:
     struct Candidate;
     void loadOne(Candidate& c, PluginInfo& info);
+    void withdraw(Candidate& c, PluginInfo& info);
 
     // Declared so they are destroyed in the safe order: listeners and designs
     // (which hold plugin code) go before the libraries that contain that code.
@@ -152,7 +170,8 @@ private:
     DocumentList documents_;
     Selection selection_;
     std::vector<ActionSpec> actions_;
-    std::map<std::string, void*, std::less<>> services_;
+    std::unique_ptr<detail::HostShared> shared_;  // services and loading state, shared with contexts
+    std::chrono::milliseconds slowStartLimit_{500};
     std::vector<std::unique_ptr<PluginContext>> contexts_;
     std::vector<BuiltinPlugin> builtins_;
     std::vector<std::filesystem::path> folders_;

@@ -1,7 +1,9 @@
 #include "kh/plugin/PluginHost.h"
 
 #include <algorithm>
+#include <chrono>
 #include <exception>
+#include <functional>
 #include <map>
 #include <optional>
 #include <set>
@@ -20,23 +22,92 @@ Diagnostic problem(std::string code, std::string message, std::string detail = {
     return {std::move(code), Severity::Error, std::move(message), std::move(detail)};
 }
 
+Diagnostic warning(std::string code, std::string message, std::string detail = {}) {
+    return {std::move(code), Severity::Warning, std::move(message), std::move(detail)};
+}
+
+Diagnostic note(std::string code, std::string message, std::string detail = {}) {
+    return {std::move(code), Severity::Info, std::move(message), std::move(detail)};
+}
+
 std::string displayName(const PluginManifest& m) {
     if (!m.name.empty()) return "The " + m.name + " plugin";
     if (!m.id.empty()) return "The plugin " + m.id;
     return "The plugin in " + m.folder.string();
 }
 
+// The plugin's name for the middle of a sentence: "Grid", or its id.
+std::string shortName(const PluginManifest& m) {
+    return m.name.empty() ? m.id : m.name;
+}
+
 bool startsWith(std::string_view s, std::string_view prefix) {
     return s.substr(0, prefix.size()) == prefix;
 }
 
-// The context given to one plugin. Commands are collected here while the
-// register function runs, and handed to the host only if it succeeds.
+bool contains(const std::vector<std::string>& list, std::string_view s) {
+    return std::find(list.begin(), list.end(), s) != list.end();
+}
+
+// "example.ruler/2" -> {"example.ruler", 2}; no version -> {name, -1}.
+std::pair<std::string_view, int> splitVersion(std::string_view name) {
+    const auto slash = name.rfind('/');
+    if (slash == std::string_view::npos) return {name, -1};
+    int v = 0;
+    for (char c : name.substr(slash + 1)) {
+        if (c < '0' || c > '9') return {name, -1};
+        v = v * 10 + (c - '0');
+    }
+    return {name.substr(0, slash), v};
+}
+
+std::string milliseconds(std::chrono::steady_clock::duration d) {
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
+    if (ms < 1000) return std::to_string(ms) + " ms";
+    const auto tenths = ms / 100;
+    return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10) + " s";
+}
+
+}  // namespace
+
+// What every plugin context shares with the host: the services, which phase
+// loading is in, and every plugin's manifest (for checks).
+struct detail::HostShared {
+    struct Service {
+        void* pointer = nullptr;
+        std::string provider;  // plugin id; empty for the program running Khan
+        bool deprecated = false;
+    };
+    enum class Phase { Register, Start, Running };
+
+    std::map<std::string, Service, std::less<>> services;
+    Phase phase = Phase::Register;
+    std::map<std::string, const PluginManifest*, std::less<>> manifests;  // by id, while loading
+
+    // The plugin whose id starts a name like "example.ruler.ready": the longest
+    // plugin id followed by a dot. Empty if none.
+    std::string ownerOf(std::string_view name) const {
+        std::string best;
+        for (const auto& [id, m] : manifests) {
+            if (name.size() > id.size() && startsWith(name, id) && name[id.size()] == '.' &&
+                id.size() > best.size())
+                best = id;
+        }
+        return best;
+    }
+};
+
+namespace {
+
+using Shared = detail::HostShared;
+
+// The context given to one plugin. Commands, actions and services are collected
+// here while the register function runs, and handed to the host only if it succeeds.
 class HostContext final : public PluginContext {
 public:
     HostContext(PluginInfo& info, model::CommandRegistry& all, EventBus& bus, DocumentList& docs,
-                Selection& selection, const std::map<std::string, void*, std::less<>>& services)
-        : info_(&info), all_(all), bus_(bus), docs_(docs), selection_(selection), services_(services) {}
+                Selection& selection, Shared& shared)
+        : info_(&info), all_(all), bus_(bus), docs_(docs), selection_(selection), shared_(shared) {}
 
     const PluginManifest& manifest() const override { return info_->manifest; }
 
@@ -57,11 +128,86 @@ public:
         stagedActions_.push_back(std::move(action));
     }
 
+    void provide(std::string name, void* service, bool deprecated) override {
+        if (!registering_) {
+            log("Ignored service " + name + ": services can only be offered while the plugin starts.");
+            return;
+        }
+        stagedServices_.push_back({std::move(name), {service, info_->manifest.id, deprecated}});
+    }
+
+    void onStart(std::function<void()> start) override {
+        if (!registering_) {
+            log("Ignored an onStart callback: it can only be added while the plugin starts.");
+            return;
+        }
+        starts_.push_back(std::move(start));
+    }
+
     Selection& selection() override { return selection_; }
 
     void* service(std::string_view name) override {
-        auto it = services_.find(name);
-        return it == services_.end() ? nullptr : it->second;
+        auto it = shared_.services.find(name);
+        if (it == shared_.services.end()) return nullptr;
+        const auto& provider = it->second.provider;
+        const auto& self = info_->manifest;
+        if (!provider.empty() && provider != self.id) {
+            const auto* by = providerManifest(provider);
+            const std::string byName = by ? shortName(*by) : provider;
+            if (shared_.phase == Shared::Phase::Register) {
+                warnOnce(warning("plugin.early_lookup",
+                                 shortName(self) + " asked for " + std::string(name) +
+                                     " while registering. That only works because of the order plugins "
+                                     "load in; look it up in onStart() instead."));
+            }
+            if (!contains(self.dependencies, provider) && !contains(self.uses, provider)) {
+                warnOnce(warning("plugin.undeclared_dependency",
+                                 shortName(self) + " uses " + std::string(name) + " from " + byName +
+                                     " but doesn't list " + provider +
+                                     " in its plugin.json. Add it to \"uses\" (or \"requires\") so "
+                                     "Khan loads them in the right order."));
+            }
+            if (it->second.deprecated) {
+                warnOnce(warning("plugin.old_contract",
+                                 shortName(self) + " uses " + std::string(name) + ", which " + byName +
+                                     " says is going away. Move to its newer version."));
+            } else if (const auto [base, version] = splitVersion(name); version >= 0) {
+                for (const auto& [other, entry] : shared_.services) {
+                    const auto [otherBase, otherVersion] = splitVersion(other);
+                    if (otherBase == base && otherVersion > version) {
+                        warnOnce(warning("plugin.old_contract",
+                                         shortName(self) + " uses " + std::string(name) + "; " + byName +
+                                             " also offers " + other + ". " + std::string(name) +
+                                             " may be removed in a later version."));
+                        break;
+                    }
+                }
+            }
+        }
+        return it->second.pointer;
+    }
+
+    void notePublish(std::string_view type) override {
+        const auto& self = info_->manifest;
+        if (!startsWith(type, self.id + ".")) {
+            warnOnce(warning("plugin.event_name", shortName(self) + " sent the event " + std::string(type) +
+                                                      ". Event names must start with the plugin id, like " +
+                                                      self.id + ".something, so they don't clash."));
+        }
+    }
+
+    void noteListen(std::string_view type) override {
+        const auto& self = info_->manifest;
+        const auto owner = shared_.ownerOf(type);
+        if (owner.empty() || owner == self.id || contains(self.dependencies, owner) ||
+            contains(self.uses, owner))
+            return;
+        const auto* by = providerManifest(owner);
+        warnOnce(warning("plugin.undeclared_dependency",
+                         shortName(self) + " listens to " + std::string(type) + " from " +
+                             (by ? shortName(*by) : owner) + " but doesn't list " + owner +
+                             " in its plugin.json. Add it to \"uses\" (or \"requires\") so Khan "
+                             "loads them in the right order."));
     }
 
     const model::CommandRegistry& commands() const override { return all_; }
@@ -71,24 +217,53 @@ public:
     void fail(std::string message) override { failures_.push_back(std::move(message)); }
     void keep(Subscription subscription) override { subscriptions_.push_back(std::move(subscription)); }
 
+    // Adds a warning or note once per code and message.
+    void warnOnce(Diagnostic d) {
+        for (const auto& old : info_->issues) {
+            if (old.code == d.code && old.message == d.message) return;
+        }
+        info_->issues.push_back(std::move(d));
+    }
+
     // Called by the host after the register function returns.
     bool registering_ = true;
     model::CommandRegistry staged_;
     std::vector<ActionSpec> stagedActions_;
+    std::vector<std::pair<std::string, Shared::Service>> stagedServices_;
+    std::vector<std::function<void()>> starts_;
     std::vector<std::string> failures_;
     std::vector<Subscription> subscriptions_;
+    std::chrono::steady_clock::duration took{};  // time spent registering and starting
 
     // The host moves each PluginInfo to its final place after loading.
     void retarget(PluginInfo& info) { info_ = &info; }
 
 private:
+    const PluginManifest* providerManifest(const std::string& id) const {
+        auto it = shared_.manifests.find(id);
+        return it == shared_.manifests.end() ? nullptr : it->second;
+    }
+
     PluginInfo* info_;
     model::CommandRegistry& all_;
     EventBus& bus_;
     DocumentList& docs_;
     Selection& selection_;
-    const std::map<std::string, void*, std::less<>>& services_;
+    Shared& shared_;
 };
+
+// Runs a plugin's code, turning exceptions into failure messages.
+template <typename F>
+void guarded(HostContext& hc, F&& f) {
+    try {
+        f();
+    } catch (const std::exception& e) {
+        hc.failures_.push_back(std::string("It stopped with an error (") + e.what() +
+                               "). Ask its author for help.");
+    } catch (...) {
+        hc.failures_.push_back("It stopped with an unknown error. Ask its author for help.");
+    }
+}
 
 }  // namespace
 
@@ -110,7 +285,9 @@ std::string libraryFileName(std::string_view library) {
 }
 
 PluginHost::PluginHost(kernel::IKernel* kernel)
-    : documents_(bus_, registry_, kernel), selection_(bus_, documents_) {
+    : documents_(bus_, registry_, kernel),
+      selection_(bus_, documents_),
+      shared_(std::make_unique<detail::HostShared>()) {
     bus_.setErrorHandler([this](const Diagnostic& d) { eventProblems_.push_back(d); });
 }
 
@@ -126,7 +303,7 @@ void PluginHost::addBuiltin(BuiltinPlugin plugin) {
 }
 
 void PluginHost::provide(std::string name, void* service) {
-    services_[std::move(name)] = service;
+    shared_->services[std::move(name)] = {service, {}, false};
 }
 
 void PluginHost::addFolder(std::filesystem::path folder) {
@@ -219,68 +396,282 @@ void PluginHost::loadAll() {
         }
     }
 
-    // 3. Load in dependency order. Each pass loads every plugin whose needs are
-    //    settled, in id order, so the order is the same on every computer.
+    for (const auto& [id, i] : byId) shared_->manifests[id] = &found[i].manifest;
+    // A plugin's dependencies that are installed: "requires" and "uses".
+    auto depsOf = [&](std::size_t i) {
+        std::vector<std::size_t> out;
+        const auto& m = found[i].manifest;
+        for (const auto* list : {&m.dependencies, &m.uses}) {
+            for (const auto& dep : *list) {
+                if (auto d = byId.find(dep); d != byId.end()) out.push_back(d->second);
+            }
+        }
+        return out;
+    };
+
+    // 3. Loops: plugins that depend on each other, directly or through others.
+    //    They still load (two-phase startup makes that safe), with a warning on
+    //    the loop's first plugin, since a loop is usually a mistake.
+    {
+        // Tarjan's strongly connected components, visiting in id order.
+        std::map<std::size_t, int> index, low;
+        std::vector<std::size_t> stack;
+        std::set<std::size_t> onStack;
+        int next = 0;
+        std::function<void(std::size_t)> visit = [&](std::size_t v) {
+            index[v] = low[v] = next++;
+            stack.push_back(v);
+            onStack.insert(v);
+            for (auto w : depsOf(v)) {
+                if (!index.count(w)) {
+                    visit(w);
+                    low[v] = std::min(low[v], low[w]);
+                } else if (onStack.count(w)) {
+                    low[v] = std::min(low[v], index[w]);
+                }
+            }
+            if (low[v] != index[v]) return;
+            std::vector<std::size_t> group;
+            std::size_t w;
+            do {
+                w = stack.back();
+                stack.pop_back();
+                onStack.erase(w);
+                group.push_back(w);
+            } while (w != v);
+            const auto deps = depsOf(v);
+            const bool selfLoop = std::find(deps.begin(), deps.end(), v) != deps.end();
+            if (group.size() < 2 && !selfLoop) return;
+            // Describe it as a path from the first plugin (by id): A -> B -> A.
+            std::sort(group.begin(), group.end(),
+                      [&](auto x, auto y) { return found[x].manifest.id < found[y].manifest.id; });
+            const std::set<std::size_t> members(group.begin(), group.end());
+            std::vector<std::size_t> path{group.front()};
+            std::set<std::size_t> seen{group.front()};
+            for (;;) {
+                std::optional<std::size_t> step;
+                for (auto d : depsOf(path.back())) {
+                    if (d == group.front() && path.size() > 1) {
+                        step.reset();
+                        break;
+                    }
+                    if (members.count(d) && !seen.count(d)) {
+                        step = d;
+                        break;
+                    }
+                }
+                if (!step) break;
+                path.push_back(*step);
+                seen.insert(*step);
+            }
+            std::string names, arrows;
+            for (std::size_t k = 0; k < group.size(); ++k) {
+                names += (k == 0                  ? ""
+                          : k + 1 == group.size() ? " and "
+                                                  : ", ") +
+                         shortName(found[group[k]].manifest);
+            }
+            for (auto p : path) arrows += shortName(found[p].manifest) + " → ";
+            arrows += shortName(found[path.front()].manifest);
+            found[group.front()].issues.push_back(warning(
+                "plugin.dependency_loop",
+                (group.size() == 1 ? names + " lists itself as a dependency" : names + " need each other") +
+                    " (" + arrows +
+                    "). Khan loaded them anyway, but this is usually a mistake: move what they share into "
+                    "another plugin, or have one use events instead."));
+        };
+        for (const auto& [id, i] : byId) {
+            if (!index.count(i)) visit(i);
+        }
+    }
+
+    // 4. Register, in dependency order. Each step takes the first plugin (by id)
+    //    whose dependencies have all registered; when only loops are left, the
+    //    first plugin of them. So the order is the same on every computer.
     std::vector<std::size_t> pending;
     for (const auto& [id, i] : byId) pending.push_back(i);  // sorted by id
     std::vector<std::size_t> loadOrder;
     std::set<std::size_t> settled;
-    bool progress = true;
-    while (progress && !pending.empty()) {
-        progress = false;
-        for (auto it = pending.begin(); it != pending.end();) {
-            const auto i = *it;
-            auto& info = found[i];
-            bool ready = true;
-            for (const auto& dep : info.manifest.dependencies) {
-                auto d = byId.find(dep);
-                if (d != byId.end() && !settled.count(d->second)) ready = false;
+    auto needsLoaded = [&](std::size_t i) {
+        // A required plugin that has registered but didn't load stops this one.
+        auto& info = found[i];
+        for (const auto& dep : info.manifest.dependencies) {
+            auto d = byId.find(dep);
+            if (d == byId.end()) {
+                info.issues.push_back(
+                    problem("plugin.missing_dependency", displayName(info.manifest) + " needs the plugin " +
+                                                             dep + ", which isn't installed. Install " + dep +
+                                                             " and restart Khan."));
+                return false;
             }
-            if (!ready) {
-                ++it;
-                continue;
+            const auto& needed = found[d->second];
+            if (settled.count(d->second) && needed.state != PluginState::Loaded) {
+                info.state = PluginState::Skipped;
+                info.issues.push_back(
+                    problem("plugin.dependency_failed", displayName(info.manifest) + " needs " +
+                                                            shortName(needed.manifest) +
+                                                            ", which didn't load. Fix that plugin first."));
+                return false;
             }
-            if (candidates[i].usable) {
-                for (const auto& dep : info.manifest.dependencies) {
-                    auto d = byId.find(dep);
-                    if (d == byId.end()) {
-                        info.issues.push_back(problem("plugin.missing_dependency",
-                                                      displayName(info.manifest) + " needs the plugin " +
-                                                          dep + ", which isn't installed. Install " + dep +
-                                                          " and restart Khan."));
-                        candidates[i].usable = false;
-                        break;
-                    }
-                    const auto& needed = found[d->second];
-                    if (needed.state != PluginState::Loaded) {
-                        info.state = PluginState::Skipped;
-                        info.issues.push_back(
-                            problem("plugin.dependency_failed",
-                                    displayName(info.manifest) + " needs " +
-                                        (needed.manifest.name.empty() ? dep : needed.manifest.name) +
-                                        ", which didn't load. Fix that plugin first."));
-                        candidates[i].usable = false;
-                        break;
-                    }
+        }
+        return true;
+    };
+    while (!pending.empty()) {
+        auto pick = std::find_if(pending.begin(), pending.end(), [&](std::size_t i) {
+            for (auto d : depsOf(i)) {
+                if (!settled.count(d)) return false;
+            }
+            return true;
+        });
+        if (pick == pending.end()) pick = pending.begin();  // only loops left
+        const auto i = *pick;
+        pending.erase(pick);
+        auto& info = found[i];
+        if (candidates[i].usable && !needsLoaded(i)) candidates[i].usable = false;
+        if (candidates[i].usable) {
+            for (const auto& dep : info.manifest.uses) {
+                if (!byId.count(dep)) {
+                    info.issues.push_back(
+                        note("plugin.uses_missing", shortName(info.manifest) + " can use " + dep +
+                                                        ", which isn't installed, so what it adds is off."));
                 }
             }
-            if (candidates[i].usable) loadOne(candidates[i], info);
-            settled.insert(i);
-            loadOrder.push_back(i);
-            it = pending.erase(it);
-            progress = true;
+            loadOne(candidates[i], info);
         }
-    }
-    for (auto i : pending) {  // still waiting on each other
-        found[i].issues.push_back(problem(
-            "plugin.cycle", displayName(found[i].manifest) +
-                                " and another plugin each need the other to load first, so neither "
-                                "can. Their authors need to remove one of the \"requires\" entries."));
-        found[i].state = PluginState::Failed;
+        settled.insert(i);
         loadOrder.push_back(i);
     }
 
-    // 4. List them: loaded ones in load order, then the rest.
+    // A plugin in a loop may have registered before a plugin it requires failed:
+    // stop it too, and any plugin that requires it, until nothing changes.
+    auto cascade = [&] {
+        for (bool changed = true; changed;) {
+            changed = false;
+            for (auto i : loadOrder) {
+                auto& info = found[i];
+                if (info.state != PluginState::Loaded) continue;
+                for (const auto& dep : info.manifest.dependencies) {
+                    const auto& needed = found[byId.at(dep)];
+                    if (needed.state == PluginState::Loaded) continue;
+                    info.state = PluginState::Skipped;
+                    info.issues.push_back(problem("plugin.dependency_failed",
+                                                  displayName(info.manifest) + " needs " +
+                                                      shortName(needed.manifest) +
+                                                      ", which didn't load. Fix that plugin first."));
+                    withdraw(candidates[i], info);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+    };
+    cascade();
+
+    // 5. Start: every service exists now. Run each plugin's onStart callbacks.
+    shared_->phase = detail::HostShared::Phase::Start;
+    for (auto i : loadOrder) {
+        auto& info = found[i];
+        auto* hc = candidates[i].context;
+        if (info.state != PluginState::Loaded || !hc) continue;
+        const auto began = std::chrono::steady_clock::now();
+        for (auto& start : hc->starts_) {
+            guarded(*hc, start);
+            if (!hc->failures_.empty()) break;
+        }
+        hc->took += std::chrono::steady_clock::now() - began;
+        if (!hc->failures_.empty()) {
+            for (auto& f : hc->failures_) {
+                info.issues.push_back(problem("plugin.start_failed",
+                                              displayName(info.manifest) + " couldn't start. " + f,
+                                              info.manifest.id));
+            }
+            info.state = PluginState::Failed;
+            withdraw(candidates[i], info);
+            cascade();
+        }
+    }
+
+    // 6. Check every loaded plugin's commands and menu items, then add them.
+    //    A menu item may run any loaded plugin's command, so check until nothing
+    //    more fails, then add what's left.
+    for (bool changed = true; changed;) {
+        changed = false;
+        std::set<std::string> commandNames, actionIds;
+        for (auto i : loadOrder) {
+            const auto* hc = candidates[i].context;
+            if (found[i].state != PluginState::Loaded || !hc) continue;
+            for (const auto* cmd : hc->staged_.commands()) commandNames.insert(cmd->name);
+        }
+        std::set<std::string> takenCommands;
+        for (auto i : loadOrder) {
+            auto& info = found[i];
+            auto* hc = candidates[i].context;
+            if (info.state != PluginState::Loaded || !hc) continue;
+            const auto& m = info.manifest;
+            std::vector<std::string> failures;
+            for (const auto* cmd : hc->staged_.commands()) {
+                if (!info.builtin && !startsWith(cmd->name, m.id + ".")) {
+                    failures.push_back("Its command " + cmd->name + " must start with \"" + m.id +
+                                       ".\". Ask its author for a fixed version.");
+                } else if (!takenCommands.insert(cmd->name).second) {
+                    failures.push_back("Its command " + cmd->name +
+                                       " has the same name as a command another plugin already added. "
+                                       "Turn off one of the two plugins.");
+                }
+            }
+            for (const auto& a : hc->stagedActions_) {
+                if (!isValidId(a.id) || (!info.builtin && !startsWith(a.id, m.id + "."))) {
+                    failures.push_back("Its menu item \"" + a.text + "\" has the id \"" + a.id +
+                                       "\", which must start with \"" + m.id +
+                                       ".\". Ask its author for a fixed version.");
+                } else if (!actionIds.insert(a.id).second) {
+                    failures.push_back("Its menu item \"" + a.text + "\" has the same id as another one (" +
+                                       a.id + "). Ask its author for a fixed version.");
+                } else if (!commandNames.count(a.command)) {
+                    failures.push_back("Its menu item \"" + a.text + "\" runs a command, " + a.command +
+                                       ", that no loaded plugin has. Check its \"requires\" list.");
+                }
+            }
+            if (failures.empty()) continue;
+            for (auto& f : failures) {
+                // f is a whole sentence: from fail() it is the plugin's own words.
+                info.issues.push_back(
+                    problem("plugin.register_failed", displayName(m) + " couldn't start. " + f, m.id));
+            }
+            info.state = PluginState::Failed;
+            withdraw(candidates[i], info);
+            cascade();
+            changed = true;
+            break;
+        }
+    }
+    for (auto i : loadOrder) {
+        auto& info = found[i];
+        auto* hc = candidates[i].context;
+        if (info.state != PluginState::Loaded || !hc) continue;
+        std::vector<std::string> names;
+        for (const auto* cmd : hc->staged_.commands()) {
+            registry_.add(*cmd, *hc->staged_.factory(cmd->name));
+            names.push_back(cmd->name);
+        }
+        info.commands = std::move(names);
+        for (auto& a : hc->stagedActions_) {
+            info.actions.push_back(a.id);
+            actions_.push_back(std::move(a));
+        }
+        hc->stagedActions_.clear();
+        if (slowStartLimit_.count() > 0 && hc->took > slowStartLimit_) {
+            info.issues.push_back(warning("plugin.slow_start",
+                                          shortName(info.manifest) + " took " + milliseconds(hc->took) +
+                                              " to start, which slows Khan's start. Do slow work later, "
+                                              "when it's first needed.",
+                                          "limit " + std::to_string(slowStartLimit_.count()) + " ms"));
+        }
+    }
+    shared_->phase = detail::HostShared::Phase::Running;
+    shared_->manifests.clear();  // they point into `found`, which is about to move
+
+    // 7. List them: loaded ones in load order, then the rest.
     std::stable_partition(loadOrder.begin(), loadOrder.end(),
                           [&](std::size_t i) { return found[i].state == PluginState::Loaded; });
     for (std::size_t i = 0; i < found.size(); ++i) {
@@ -348,49 +739,38 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
         libraries_.push_back(std::move(lib));
     }
 
-    auto ctx = std::make_unique<HostContext>(info, registry_, bus_, documents_, selection_, services_);
+    auto ctx = std::make_unique<HostContext>(info, registry_, bus_, documents_, selection_, *shared_);
     auto& hc = *ctx;
     c.context = &hc;
-    try {
-        fn(hc);
-    } catch (const std::exception& e) {
-        hc.failures_.push_back(std::string("It stopped with an error (") + e.what() +
-                               "). Ask its author for help.");
-    } catch (...) {
-        hc.failures_.push_back("It stopped with an unknown error. Ask its author for help.");
-    }
+    const auto began = std::chrono::steady_clock::now();
+    guarded(hc, [&] { fn(hc); });
+    hc.took = std::chrono::steady_clock::now() - began;
     hc.registering_ = false;
 
-    // Check its commands before adding any of them.
-    std::vector<std::string> names;
-    for (const auto* cmd : hc.staged_.commands()) {
-        if (!info.builtin && !startsWith(cmd->name, m.id + ".")) {
-            hc.failures_.push_back("Its command " + cmd->name + " must start with \"" + m.id +
-                                   ".\". Ask its author for a fixed version.");
-        } else if (registry_.info(cmd->name)) {
-            hc.failures_.push_back("Its command " + cmd->name +
-                                   " has the same name as a command another plugin already added. "
-                                   "Turn off one of the two plugins.");
-        }
-        names.push_back(cmd->name);
-    }
-
-    // Check its actions: their ids, and that their commands exist.
-    std::set<std::string> actionIds;
-    for (const auto& a : actions_) actionIds.insert(a.id);
-    for (const auto& a : hc.stagedActions_) {
-        if (!isValidId(a.id) || (!info.builtin && !startsWith(a.id, m.id + "."))) {
-            hc.failures_.push_back("Its menu item \"" + a.text + "\" has the id \"" + a.id +
-                                   "\", which must start with \"" + m.id +
-                                   ".\". Ask its author for a fixed version.");
-        } else if (!actionIds.insert(a.id).second) {
-            hc.failures_.push_back("Its menu item \"" + a.text + "\" has the same id as another one (" +
-                                   a.id + "). Ask its author for a fixed version.");
-        } else if (!registry_.info(a.command) && !hc.staged_.info(a.command)) {
-            hc.failures_.push_back("Its menu item \"" + a.text + "\" runs a command, " + a.command +
-                                   ", that no loaded plugin has. Check its \"requires\" list.");
+    // Its services become available to the plugins that register after it, and
+    // to every plugin's onStart.
+    std::vector<std::string> provided;
+    if (hc.failures_.empty()) {
+        for (auto& [name, service] : hc.stagedServices_) {
+            auto taken = shared_->services.find(name);
+            if (taken != shared_->services.end()) {
+                const auto& owner = taken->second.provider;
+                const std::string ownerName = owner.empty() ? "Khan"
+                                                            : (shared_->manifests.count(owner)
+                                                                   ? shortName(*shared_->manifests.at(owner))
+                                                                   : owner);
+                hc.warnOnce(warning("plugin.service_taken",
+                                    shortName(m) + " tried to provide " + name + ", which " + ownerName +
+                                        " already provides. Khan kept " + ownerName + "'s."));
+                continue;
+            }
+            shared_->services[name] = service;
+            provided.push_back(name);
         }
     }
+    hc.stagedServices_.clear();
+    std::sort(provided.begin(), provided.end());
+    info.services = std::move(provided);
 
     if (!hc.failures_.empty()) {
         for (auto& f : hc.failures_) {
@@ -401,18 +781,19 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
         contexts_.push_back(std::move(ctx));
         return;
     }
-
-    for (const auto& name : names) {
-        registry_.add(*hc.staged_.info(name), *hc.staged_.factory(name));
-    }
-    info.commands = std::move(names);
-    for (auto& a : hc.stagedActions_) {
-        info.actions.push_back(a.id);
-        actions_.push_back(std::move(a));
-    }
-    hc.stagedActions_.clear();
     info.state = PluginState::Loaded;
     contexts_.push_back(std::move(ctx));
+}
+
+void PluginHost::withdraw(Candidate& c, PluginInfo& info) {
+    // Take back what a plugin offered when it stops after registering: its
+    // listeners and services. Its commands and menu items were never added.
+    if (!c.context) return;
+    c.context->subscriptions_.clear();
+    for (auto it = shared_->services.begin(); it != shared_->services.end();) {
+        it = it->second.provider == info.manifest.id ? shared_->services.erase(it) : std::next(it);
+    }
+    info.services.clear();
 }
 
 }  // namespace kh::plugin
