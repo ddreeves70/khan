@@ -13,6 +13,7 @@ add_executable(kh_tests
   plugin/test_plugin_sharing.cpp
   plugin/test_selection.cpp
   plugin/test_grid.cpp
+  plugin/test_settings.cpp
 )
 target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model kh::io libzip::zip
   kh::plugin kh::plugin_modeling)

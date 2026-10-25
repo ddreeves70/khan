@@ -256,8 +256,11 @@ int listPlugins(int argc, char** argv) {
         for (const auto& svc : p.services) std::printf("           service %s\n", svc.c_str());
         for (const auto& a : host.actions()) {
             if (a.plugin != m.id) continue;
-            std::printf("           action  %s > %s  (%s)\n", a.menu.c_str(), a.text.c_str(),
-                        a.command.c_str());
+            // An action runs a command, or the plugin's own code (often with a check mark).
+            const std::string what = !a.command.empty() ? a.command
+                                     : a.checked        ? std::string("check mark")
+                                                        : std::string("runs plugin code");
+            std::printf("           action  %s > %s  (%s)\n", a.menu.c_str(), a.text.c_str(), what.c_str());
         }
         for (const auto& line : p.messages) std::printf("           log: %s\n", line.c_str());
         printIssues(p.issues, "           ");

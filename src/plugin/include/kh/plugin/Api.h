@@ -16,8 +16,9 @@ class PluginContext;
 /// Version 2 added actions, the shared selection and services. Version 3 added
 /// panels the student can open more than once (PanelSpec::allowMultiple).
 /// Version 4 lets plugins share things: services offered by plugins, onStart(),
-/// publish(), and "uses" in plugin.json.
-inline constexpr int kPluginApiVersion = 4;
+/// publish(), and "uses" in plugin.json. Version 5 added settings(), actions
+/// that run plugin code with a check mark, submenus, and status-bar items.
+inline constexpr int kPluginApiVersion = 5;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

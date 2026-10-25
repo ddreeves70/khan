@@ -67,4 +67,11 @@ struct SelectionChanged {
     std::vector<FeatureId> features;  ///< The selected steps, in the order they were picked.
 };
 
+/// A plugin's remembered setting changed (see PluginSettings).
+struct SettingChanged {
+    static constexpr std::string_view kType = "kh.SettingChanged";  ///< Stable event type name.
+    std::string plugin;  ///< The id of the plugin the setting belongs to.
+    std::string key;     ///< The setting's name, e.g. "unit".
+};
+
 }  // namespace kh::plugin

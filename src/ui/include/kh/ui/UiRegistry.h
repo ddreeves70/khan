@@ -34,6 +34,12 @@ struct PanelSpec {
     bool allowMultiple = false;
 };
 
+/// Something a plugin shows in the desktop app's status bar, at the bottom right.
+struct StatusItemSpec {
+    std::string id{};                    ///< Stable id; must start with the plugin's id and a dot.
+    std::function<QWidget*()> create{};  ///< Makes the widget, usually a QLabel. Khan owns it.
+};
+
 /// Lets a plugin add panels to the desktop app.
 ///
 /// Only the desktop app provides it, so a plugin asks for it and adds its panels
@@ -60,6 +66,13 @@ public:
     /// plugin fails to load.
     /// @param panel Its id, title, default place and how to make it.
     virtual void addPanel(PanelSpec panel) = 0;
+
+    /// Adds something to the status bar, like "Grid 10 mm, lines". Call it from
+    /// the plugin's register function. Khan makes the widget when the main window
+    /// opens, puts it at the bottom right, and drops it if the plugin fails to
+    /// load. Keep it up to date by listening to events.
+    /// @param item Its id and how to make it.
+    virtual void addStatusItem(StatusItemSpec item) = 0;
 
     /// Tells the student about problems, for example why an edit was refused.
     /// The desktop app shows them in the status bar; errors stay until the next

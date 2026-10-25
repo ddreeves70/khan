@@ -14,10 +14,12 @@ namespace kh::app {
 class AppUi final : public ui::UiRegistry {
 public:
     void addPanel(ui::PanelSpec panel) override { panels_.push_back(std::move(panel)); }
+    void addStatusItem(ui::StatusItemSpec item) override { statusItems_.push_back(std::move(item)); }
     void showProblems(const Diagnostics& problems) override;
     void showMessage(const QString& message) override;
 
     const std::vector<ui::PanelSpec>& panels() const { return panels_; }
+    const std::vector<ui::StatusItemSpec>& statusItems() const { return statusItems_; }
 
     // Where messages go. Until set (while plugins load), they are kept and
     // shown when it is.
@@ -26,6 +28,7 @@ public:
 
 private:
     std::vector<ui::PanelSpec> panels_;
+    std::vector<ui::StatusItemSpec> statusItems_;
     std::function<void(const Diagnostics&)> problemSink_;
     std::function<void(const QString&)> messageSink_;
     Diagnostics heldProblems_;

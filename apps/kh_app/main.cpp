@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <memory>
 
+#include "AppSettings.h"
 #include "AppUi.h"
 #include "Shell.h"
 #include "kh/kernel_occt/OcctKernel.h"
@@ -112,6 +113,9 @@ int main(int argc, char** argv) {
     host.addFolder(
         (QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/plugins"))
             .toStdWString());
+    // Plugins' settings last between runs, with the app's own.
+    kh::app::AppSettings pluginSettings(*settings);
+    host.setSettings(pluginSettings);
     // How long a plugin may take to start before it gets a warning (0 turns it off).
     host.setSlowStartLimit(
         std::chrono::milliseconds(settings->value(QStringLiteral("plugins/slowStartMs"), 500).toInt()));

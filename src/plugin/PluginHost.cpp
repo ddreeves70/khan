@@ -106,8 +106,14 @@ using Shared = detail::HostShared;
 class HostContext final : public PluginContext {
 public:
     HostContext(PluginInfo& info, model::CommandRegistry& all, EventBus& bus, DocumentList& docs,
-                Selection& selection, Shared& shared)
-        : info_(&info), all_(all), bus_(bus), docs_(docs), selection_(selection), shared_(shared) {}
+                Selection& selection, Shared& shared, SettingsBackend& settings)
+        : info_(&info),
+          all_(all),
+          bus_(bus),
+          docs_(docs),
+          selection_(selection),
+          shared_(shared),
+          settings_(settings, bus, info.manifest.id) {}
 
     const PluginManifest& manifest() const override { return info_->manifest; }
 
@@ -145,6 +151,7 @@ public:
     }
 
     Selection& selection() override { return selection_; }
+    PluginSettings& settings() override { return settings_; }
 
     void* service(std::string_view name) override {
         auto it = shared_.services.find(name);
@@ -250,6 +257,7 @@ private:
     DocumentList& docs_;
     Selection& selection_;
     Shared& shared_;
+    PluginSettings settings_;
 };
 
 // Runs a plugin's code, turning exceptions into failure messages.
@@ -627,7 +635,15 @@ void PluginHost::loadAll() {
                 } else if (!actionIds.insert(a.id).second) {
                     failures.push_back("Its menu item \"" + a.text + "\" has the same id as another one (" +
                                        a.id + "). Ask its author for a fixed version.");
-                } else if (!commandNames.count(a.command)) {
+                } else if (a.command.empty() && !a.run) {
+                    failures.push_back("Its menu item \"" + a.text +
+                                       "\" does nothing: it has no command and no run function. Ask its "
+                                       "author for a fixed version.");
+                } else if (a.run && !a.command.empty()) {
+                    failures.push_back("Its menu item \"" + a.text +
+                                       "\" has both a command and a run function; it can only have one. "
+                                       "Ask its author for a fixed version.");
+                } else if (!a.run && !commandNames.count(a.command)) {
                     failures.push_back("Its menu item \"" + a.text + "\" runs a command, " + a.command +
                                        ", that no loaded plugin has. Check its \"requires\" list.");
                 }
@@ -739,7 +755,8 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
         libraries_.push_back(std::move(lib));
     }
 
-    auto ctx = std::make_unique<HostContext>(info, registry_, bus_, documents_, selection_, *shared_);
+    auto ctx = std::make_unique<HostContext>(info, registry_, bus_, documents_, selection_, *shared_,
+                                             *settingsBackend_);
     auto& hc = *ctx;
     c.context = &hc;
     const auto began = std::chrono::steady_clock::now();
