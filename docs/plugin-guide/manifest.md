@@ -52,8 +52,8 @@ Khan never stops starting because of a plugin. It lists the plugin as `failed` o
 | `plugin.register_failed` | The register function threw an error, called `fail()`, or added a command or action with a bad or taken name, or an action whose command no loaded plugin has | Read the message: it says which |
 | `plugin.start_failed` | A function given to `onStart` threw an error or called `fail()` | Read the message |
 
-Plugins that `require` or `use` each other in a loop still load, with a warning
-(see [Warnings](sharing.md#warnings)).
+Plugins that `require` or `use` each other in a loop load normally (see
+[Plugins that use each other](sharing.md#plugins-that-use-each-other)).
 
 `kh_cli plugins --plugins <folder>` shows every plugin with its state and the
 message.

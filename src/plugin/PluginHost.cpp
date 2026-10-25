@@ -420,83 +420,7 @@ void PluginHost::loadAll() {
         return out;
     };
 
-    // 3. Loops: plugins that depend on each other, directly or through others.
-    //    They still load (two-phase startup makes that safe), with a warning on
-    //    the loop's first plugin, since a loop is usually a mistake.
-    {
-        // Tarjan's strongly connected components, visiting in id order.
-        std::map<std::size_t, int> index, low;
-        std::vector<std::size_t> stack;
-        std::set<std::size_t> onStack;
-        int next = 0;
-        std::function<void(std::size_t)> visit = [&](std::size_t v) {
-            index[v] = low[v] = next++;
-            stack.push_back(v);
-            onStack.insert(v);
-            for (auto w : depsOf(v)) {
-                if (!index.count(w)) {
-                    visit(w);
-                    low[v] = std::min(low[v], low[w]);
-                } else if (onStack.count(w)) {
-                    low[v] = std::min(low[v], index[w]);
-                }
-            }
-            if (low[v] != index[v]) return;
-            std::vector<std::size_t> group;
-            std::size_t w;
-            do {
-                w = stack.back();
-                stack.pop_back();
-                onStack.erase(w);
-                group.push_back(w);
-            } while (w != v);
-            const auto deps = depsOf(v);
-            const bool selfLoop = std::find(deps.begin(), deps.end(), v) != deps.end();
-            if (group.size() < 2 && !selfLoop) return;
-            // Describe it as a path from the first plugin (by id): A -> B -> A.
-            std::sort(group.begin(), group.end(),
-                      [&](auto x, auto y) { return found[x].manifest.id < found[y].manifest.id; });
-            const std::set<std::size_t> members(group.begin(), group.end());
-            std::vector<std::size_t> path{group.front()};
-            std::set<std::size_t> seen{group.front()};
-            for (;;) {
-                std::optional<std::size_t> step;
-                for (auto d : depsOf(path.back())) {
-                    if (d == group.front() && path.size() > 1) {
-                        step.reset();
-                        break;
-                    }
-                    if (members.count(d) && !seen.count(d)) {
-                        step = d;
-                        break;
-                    }
-                }
-                if (!step) break;
-                path.push_back(*step);
-                seen.insert(*step);
-            }
-            std::string names, arrows;
-            for (std::size_t k = 0; k < group.size(); ++k) {
-                names += (k == 0                  ? ""
-                          : k + 1 == group.size() ? " and "
-                                                  : ", ") +
-                         shortName(found[group[k]].manifest);
-            }
-            for (auto p : path) arrows += shortName(found[p].manifest) + " → ";
-            arrows += shortName(found[path.front()].manifest);
-            found[group.front()].issues.push_back(warning(
-                "plugin.dependency_loop",
-                (group.size() == 1 ? names + " lists itself as a dependency" : names + " need each other") +
-                    " (" + arrows +
-                    "). Khan loaded them anyway, but this is usually a mistake: move what they share into "
-                    "another plugin, or have one use events instead."));
-        };
-        for (const auto& [id, i] : byId) {
-            if (!index.count(i)) visit(i);
-        }
-    }
-
-    // 4. Register, in dependency order. Each step takes the first plugin (by id)
+    // 3. Register, in dependency order. Each step takes the first plugin (by id)
     //    whose dependencies have all registered; when only loops are left, the
     //    first plugin of them. So the order is the same on every computer.
     std::vector<std::size_t> pending;
@@ -578,7 +502,7 @@ void PluginHost::loadAll() {
     };
     cascade();
 
-    // 5. Start: every service exists now. Run each plugin's onStart callbacks.
+    // 4. Start: every service exists now. Run each plugin's onStart callbacks.
     shared_->phase = detail::HostShared::Phase::Start;
     for (auto i : loadOrder) {
         auto& info = found[i];
@@ -602,7 +526,7 @@ void PluginHost::loadAll() {
         }
     }
 
-    // 6. Check every loaded plugin's commands and menu items, then add them.
+    // 5. Check every loaded plugin's commands and menu items, then add them.
     //    A menu item may run any loaded plugin's command, so check until nothing
     //    more fails, then add what's left.
     for (bool changed = true; changed;) {
@@ -690,7 +614,7 @@ void PluginHost::loadAll() {
     shared_->phase = detail::HostShared::Phase::Running;
     shared_->manifests.clear();  // they point into `found`, which is about to move
 
-    // 7. List them: loaded ones in load order, then the rest.
+    // 6. List them: loaded ones in load order, then the rest.
     std::stable_partition(loadOrder.begin(), loadOrder.end(),
                           [&](std::size_t i) { return found[i].state == PluginState::Loaded; });
     for (std::size_t i = 0; i < found.size(); ++i) {

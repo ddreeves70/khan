@@ -22,7 +22,7 @@ Each problem line starts with how serious it is:
 | Word | Meaning |
 | --- | --- |
 | `error` | The plugin didn't load. The message says why and what to do |
-| `warning` | The plugin loaded, but something is probably a mistake, like two plugins that depend on each other in a loop. See [Warnings](../plugin-guide/sharing.md#warnings) |
+| `warning` | The plugin loaded, but something is probably a mistake, like an event named after another plugin. See [Warnings](../plugin-guide/sharing.md#warnings) |
 | `note` | Worth knowing, nothing wrong: for example, a plugin it `uses` isn't installed |
 
 Khan's built-in plugins, like `kh.modeling`, are always loaded.
@@ -104,18 +104,17 @@ failed   test.oldapi 1.0.0  Test oldapi
 Every reason and its fix is listed in the plugin guide's
 [plugin.json page](../plugin-guide/manifest.md#when-khan-refuses-a-plugin).
 
-The two `test.loop` plugins above each use the other. They both load, and the
-first one gets a warning. With `--strict`, that warning makes `kh_cli plugins`
-fail, which is what a plugin author's CI wants:
+The `test.warns` plugin above sends an event named after another plugin, so it
+loads with a warning. With `--strict`, that warning makes `kh_cli plugins` fail,
+which is what a plugin author's CI wants:
 
 <!-- cli-example exit=1 -->
 ```console
 $ kh_cli plugins --plugins build/dev/test-plugins --strict
 loaded   kh.modeling 0.1.0  Modeling (built in)
 ...
-loaded   test.loopa 1.0.0  Test loopa
-           warning [plugin.dependency_loop]: Test loopa and Test loopb need each other (Test loopa → Test loopb → Test loopa). Khan loaded them anyway, but this is usually a mistake: move what they share into another plugin, or have one use events instead.
-loaded   test.loopb 1.0.0  Test loopb
+loaded   test.warns 1.0.0  Test warns
+           warning [plugin.event_name]: Test warns sent the event test.other.ping. Event names must start with the plugin id, like test.warns.something, so they don't clash.
 ...
 ```
 

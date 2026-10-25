@@ -125,12 +125,11 @@ spreading.
 ready at the same time load in id order, so the order is the same on every
 computer.
 
-**Loops are allowed, with a warning.** If plugins depend on each other in a loop
-(A requires B, B requires A), Khan still loads them: two-phase startup means none
-of them needs another during registration. Inside a loop they load in id order.
-Khan warns, because a loop is almost always a mistake and the plugins should
-probably be restructured (see "Breaking a loop" below), but it doesn't force it.
-This replaces today's behavior, where every plugin in a loop fails.
+**Loops are allowed.** If plugins depend on each other in a loop (A requires B,
+B requires A), Khan loads them: two-phase startup means none of them needs
+another during registration. Inside a loop they load in id order. There is no
+warning. (Decided Oct 25, 2026; an earlier version of this design warned about
+loops.)
 
 If a plugin in a loop fails to register, every plugin that `requires` it (in the
 loop or outside) doesn't load, as with any failed dependency; plugins that only
@@ -147,7 +146,6 @@ where they look.
 
 | Code | When | Message (plain words, says how to fix) |
 | --- | --- | --- |
-| `plugin.dependency_loop` | Plugins depend on each other in a loop | "Grid and Snap need each other (Grid → Snap → Grid). Khan loaded them anyway, but this is usually a mistake: move what both need into a third plugin, or have one use events instead." Names the whole loop, once per loop |
 | `plugin.undeclared_dependency` | A plugin uses a service or listens to an event from a plugin it doesn't list in `requires` or `uses` | "Sketcher uses kh.grid/1 from Grid but doesn't list kh.grid in its plugin.json. Add it to \"uses\" so Khan loads them in the right order." |
 | `plugin.early_lookup` | A plugin looks up another plugin's service during registration instead of in `onStart` | "Sketcher asked for kh.grid/1 while registering. That only works because of the load order; look it up in onStart instead." |
 | `plugin.service_taken` | Two plugins provide the same service name | The first (in load order) keeps it; the second gets "Grid Pro tried to provide kh.grid/1, which Grid already provides. Khan kept Grid's." |
@@ -155,7 +153,7 @@ where they look.
 | `plugin.old_contract` | A plugin uses a contract version that has a newer one, or that the provider marks as going away | "Sketcher uses kh.grid/1; Grid also offers kh.grid/2. kh.grid/1 will be removed in a later version." |
 | `plugin.uses_missing` | A `uses` plugin isn't installed | Info, not a warning: "Sketcher can use Grid, which isn't installed, so snapping to the grid is off." |
 | `plugin.slow_start` | Register or start takes longer than the slow-start limit (500 ms unless changed, see below) | "Sam's cube took 1.2 s to start, which slows Khan's start. Do slow work later, when it's first needed." |
-| `plugin.tier_order` | A plugin requires or uses a plugin in the same or a higher tier (see Tiers) | "Grid (Foundation) uses Viewer (UI). A plugin should only use plugins in lower tiers; move the shared part down or use events." |
+| `plugin.tier_order` | A plugin requires or uses a plugin in a higher tier (see Tiers) | "Grid (Foundation) uses Viewer (UI). A plugin should only use plugins in lower tiers; move the shared part down or use events." |
 | `plugin.tier_unknown`, `plugin.tier_conflict` | A plugin names a tier nobody defined, or defines a tier that clashes with another definition | "Sam's mill names the tier sam.machining, which no plugin defines, so its tier isn't checked." |
 
 `kh_cli plugins --strict` turns warnings into failures, for plugin authors' CI.
@@ -165,11 +163,11 @@ default, changed with the `plugins/slowStartMs` setting in the desktop app's
 settings, or `--slow-start-ms <n>` for `kh_cli`. 0 turns the warning off. (A
 slow school laptop might want 1500 ms; a plugin author's CI might want 200 ms.)
 
-## Breaking a loop
+## Patterns for sharing
 
-When a loop warning appears, one of three patterns removes it:
+Three patterns keep dependencies pointing from higher tiers to lower ones:
 
-| Pattern | How it breaks the loop | Example |
+| Pattern | How it works | Example |
 | --- | --- | --- |
 | **Move the shared part down** | Put what both need into a third, lower plugin (or contract) that both depend on | Viewer and sketcher both need snapping: `kh.snap`, which both use and which uses neither |
 | **Turn the arrow around with an extension point** | The lower plugin offers a slot; the higher one plugs into it. The lower one never knows who plugged in | `kh.snap` doesn't depend on the sketcher; the sketcher adds snap sources to `kh.snap` |
@@ -189,7 +187,7 @@ A plugin can say which **tier** it belongs to, in `plugin.json`:
 ```
 
 Tiers are ordered, lowest first, and a plugin should only `require` or `use`
-plugins in lower tiers. Khan defines three:
+plugins in its own tier or lower ones. Khan defines three:
 
 | Tier | For | Khan's own plugins |
 | --- | --- | --- |
@@ -197,7 +195,7 @@ plugins in lower tiers. Khan defines three:
 | `tools` | Things the student does | sketcher, measure, later CAM |
 | `ui` | Panels and views that show the design | `kh.viewer`, `kh.featuretree`, `kh.properties`, later the timeline |
 
-A dependency into the same or a higher tier gets the `plugin.tier_order`
+A dependency into a higher tier gets the `plugin.tier_order`
 warning; a plugin with no tier isn't checked. Tiers never change the load order,
 which comes from dependencies alone. They only point out dependencies that run
 the wrong way.
@@ -228,7 +226,7 @@ machining suite that wants its own layer between tools and the views:
   isn't checked.
 
 **Khan's own CI** runs `kh_cli plugins --strict` on the built-in plugins, so for
-them a loop or a tier warning fails the build. That's how Khan holds itself to
+them a tier warning fails the build. That's how Khan holds itself to
 the rule; it's the same check every plugin gets, made strict.
 
 ## Worked example: the grid
@@ -256,13 +254,13 @@ still be a working CAD program without it? If yes, it's a plugin.
 ## Building it
 
 1. **Mechanisms** (plugin API versions 4 and 5). *Built Oct 25, 2026:* plugin
-   services, two-phase startup, `uses`, loops allowed with the warning, the
-   warnings, `--strict`, the configurable slow-start limit, and the guide's Ruler
+   services, two-phase startup, `uses`, loops allowed (first with a warning,
+   which was later removed), the warnings, `--strict`, the configurable slow-start limit, and the guide's Ruler
    and Tape example (API 4); then the settings store (`ctx.settings()`,
    `kh.SettingChanged`), actions that run plugin code with a check mark,
    submenus, and status-bar items (API 5). Ruler now remembers its unit.
    Originally planned as one step: plugin services, two-phase startup
-   (`onStart`), `uses`, loops allowed with the warning, the other warnings,
+   (`onStart`), `uses`, loops allowed, the other warnings,
    `--strict`, the configurable slow-start limit, the settings store, check-mark actions and status-bar items. The
    plugin guide gets a "Share something with other plugins" page with a worked
    example built and loaded by a test.

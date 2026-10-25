@@ -22,7 +22,7 @@ target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model
 # Hello plugin, and broken ones the host must refuse.
 add_subdirectory(plugin/fixtures)
 add_dependencies(kh_tests kh_test_plugin_noentry kh_test_plugin_oldapi kh_test_plugin_badname
-  kh_test_plugin_loopa kh_test_plugin_loopb)
+  kh_test_plugin_warns)
 target_compile_definitions(kh_tests PRIVATE KH_TEST_PLUGIN_FOLDER="${KH_TEST_PLUGIN_FOLDER}")
 # The plugin guide's code blocks must match the files the tests build.
 add_test(NAME docs.plugin_guide_code

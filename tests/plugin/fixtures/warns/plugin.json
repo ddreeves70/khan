@@ -1,0 +1,7 @@
+{
+  "id": "test.warns",
+  "name": "Test warns",
+  "version": "1.0.0",
+  "description": "Sends an event named after another plugin: it loads, with a warning.",
+  "library": "warns"
+}

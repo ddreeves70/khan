@@ -1,5 +1,5 @@
 // Tests for plugins sharing things with each other: services offered by plugins,
-// two-phase startup, "uses", loops, and the warnings Khan gives while loading
+// two-phase startup, "uses", loops (allowed), and the warnings Khan gives while loading
 // (see docs/design/plugin-contracts.md).
 
 #include <catch2/catch_test_macros.hpp>
@@ -46,13 +46,6 @@ std::vector<std::string> codes(const PluginInfo& p) {
     std::vector<std::string> out;
     for (const auto& d : p.issues) out.push_back(d.code);
     return out;
-}
-
-bool has(const PluginInfo& p, const std::string& code) {
-    for (const auto& d : p.issues) {
-        if (d.code == code) return true;
-    }
-    return false;
 }
 
 // What the test plugins saw.
@@ -224,33 +217,21 @@ TEST_CASE("a loop where one plugin fails stops the plugins that require it", "[p
     host.loadAll();
     CHECK(get(host, "test.b").state == PluginState::Failed);
     CHECK(get(host, "test.a").state == PluginState::Skipped);
-    CHECK(has(get(host, "test.a"), "plugin.dependency_loop"));
-    CHECK(has(get(host, "test.a"), "plugin.dependency_failed"));
+    CHECK(codes(get(host, "test.a")) == std::vector<std::string>{"plugin.dependency_failed"});
 }
 
-TEST_CASE("a longer loop is named in full, once", "[plugin][sharing]") {
+TEST_CASE("longer loops, and a plugin that lists itself, load with no warning", "[plugin][sharing]") {
     PluginHost host;
     host.addBuiltin({manifest("test.a", R"("uses": ["test.b"])"), &nothing});
     host.addBuiltin({manifest("test.b", R"("requires": ["test.c"])"), &nothing});
     host.addBuiltin({manifest("test.c", R"("uses": ["test.a"])"), &nothing});
     host.addBuiltin({manifest("test.d", R"("requires": ["test.a"])"), &nothing});  // outside the loop
-    host.loadAll();
-    const auto& a = get(host, "test.a");
-    REQUIRE(codes(a) == std::vector<std::string>{"plugin.dependency_loop"});
-    CHECK(a.issues[0].message.find("test.a, test.b and test.c need each other") != std::string::npos);
-    CHECK(a.issues[0].message.find("(test.a → test.b → test.c → test.a)") != std::string::npos);
-    CHECK(get(host, "test.b").issues.empty());
-    CHECK(get(host, "test.d").issues.empty());
-    for (const char* id : {"test.a", "test.b", "test.c", "test.d"})
-        CHECK(get(host, id).state == PluginState::Loaded);
-}
-
-TEST_CASE("a plugin that lists itself gets a loop warning", "[plugin][sharing]") {
-    PluginHost host;
     host.addBuiltin({manifest("test.self", R"("uses": ["test.self"])"), &nothing});
     host.loadAll();
-    CHECK(codes(get(host, "test.self")) == std::vector<std::string>{"plugin.dependency_loop"});
-    CHECK(get(host, "test.self").state == PluginState::Loaded);
+    for (const char* id : {"test.a", "test.b", "test.c", "test.d", "test.self"}) {
+        CHECK(get(host, id).state == PluginState::Loaded);
+        CHECK(get(host, id).issues.empty());
+    }
 }
 
 TEST_CASE("an event named after another plugin is warned about", "[plugin][sharing]") {

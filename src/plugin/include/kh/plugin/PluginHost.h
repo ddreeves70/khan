@@ -124,8 +124,8 @@ public:
     ///
     /// Loading has two phases. First every plugin registers, in dependency order
     /// ("requires" and "uses"; plugins ready at the same time go in id order).
-    /// Plugins that depend on each other in a loop are loaded anyway, in id
-    /// order, with a warning. Then every loaded plugin's onStart() callbacks run,
+    /// Plugins that depend on each other in a loop are loaded too, in id
+    /// order; that's allowed and gives no warning. Then every loaded plugin's onStart() callbacks run,
     /// in the same order. A plugin whose "requires" plugin didn't load doesn't
     /// load either.
     void loadAll();
