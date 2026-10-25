@@ -13,6 +13,13 @@
 
 namespace kh::plugin {
 
+/// A tier a plugin adds, placed between existing tiers ("tiers" in plugin.json).
+struct TierSpec {
+    std::string name;    ///< Its name; must start with the plugin's id and a dot, e.g. "sam.mill.machining".
+    std::string after;   ///< The tier it sits above, e.g. "tools". May be empty if `before` is set.
+    std::string before;  ///< The tier it sits below, e.g. "ui". May be empty if `after` is set.
+};
+
 /// What a plugin's `plugin.json` says about it. See docs/plugin-guide/manifest.md.
 ///
 /// @code
@@ -24,7 +31,8 @@ namespace kh::plugin {
 ///   "description": "Adds a command that makes a cube.",
 ///   "library": "hello",
 ///   "requires": ["kh.modeling"],
-///   "uses": ["example.ruler"]
+///   "uses": ["example.ruler"],
+///   "tier": "tools"
 /// }
 /// @endcode
 struct PluginManifest {
@@ -39,7 +47,9 @@ struct PluginManifest {
         dependencies;               ///< Ids of plugins it can't work without ("requires" in plugin.json).
     std::vector<std::string> uses;  ///< Ids of plugins it uses if they're there ("uses" in plugin.json).
     std::vector<std::string> permissions;  ///< Declared permissions. Stored, not yet enforced.
-    std::filesystem::path folder;          ///< The folder the manifest was read from; empty for built-ins.
+    std::string tier;  ///< The tier it belongs to, e.g. "foundation", "tools" or "ui". Empty: not checked.
+    std::vector<TierSpec> tiers;   ///< Tiers it adds ("tiers" in plugin.json).
+    std::filesystem::path folder;  ///< The folder the manifest was read from; empty for built-ins.
 };
 
 /// What parseManifest() returns.

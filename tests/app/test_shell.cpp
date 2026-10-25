@@ -161,6 +161,20 @@ TEST_CASE("the shell is built from plugins", "[app]") {
     CHECK(app.shell->windowTitle() == QStringLiteral("Untitled[*] - Khan"));
 }
 
+TEST_CASE("Khan's own plugins follow the rules: no warnings, and each has a tier", "[app]") {
+    App app;
+    int builtins = 0;
+    for (const auto& p : app.host.plugins()) {
+        if (p.manifest.id.rfind("kh.", 0) != 0) continue;
+        ++builtins;
+        INFO(p.manifest.id);
+        CHECK(p.state == plugin::PluginState::Loaded);
+        CHECK(p.issues.empty());  // as strict as kh_cli plugins --strict
+        CHECK_FALSE(p.manifest.tier.empty());
+    }
+    CHECK(builtins == 5);
+}
+
 TEST_CASE("Create > Box adds a step, selects it, and shows its numbers", "[app]") {
     App app;
     app.click("kh.modeling.box");

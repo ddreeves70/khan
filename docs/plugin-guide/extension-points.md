@@ -372,7 +372,6 @@ These are planned and will be added to this guide as they're built:
 
 | Extension point | What you'll add | When |
 | --- | --- | --- |
-| Tiers | Saying which layer your plugin belongs to, so Khan can warn about dependencies that run the wrong way | Next |
 | Ribbon tabs | Grouping actions into tabs | Later |
 | Viewer tools | A way to use the mouse in the 3D view, with a live preview | With the sketcher, Phase 1 |
 | Feature types | A new kind of step that saves, loads and rebuilds | Phase 2 |

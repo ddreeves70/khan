@@ -4,5 +4,6 @@
   "version": "1.0.0",
   "description": "Adds a command that makes a cube, and notices every change.",
   "library": "hello",
-  "requires": ["kh.modeling"]
+  "requires": ["kh.modeling"],
+  "tier": "tools"
 }

@@ -151,7 +151,8 @@ Ruler also lets the student pick its unit, and remembers the choice:
 See [What a plugin can do](extension-points.md#remember-settings) for more about
 settings and check-mark items.
 
-Ruler's `plugin.json` is ordinary: an `id`, a `name` and a `library`.
+Ruler's `plugin.json` is ordinary: an `id`, a `name`, a `library`, and its
+[tier](manifest.md#tiers), `foundation`, because other plugins build on it.
 
 ## Step 3: Use it
 
@@ -215,7 +216,8 @@ KH_PLUGIN_ENTRY(registerTape)
   "version": "1.0.0",
   "description": "Measures with the Ruler plugin's ruler, if it's there.",
   "library": "tape",
-  "uses": ["example.ruler"]
+  "uses": ["example.ruler"],
+  "tier": "tools"
 }
 ```
 
@@ -243,9 +245,11 @@ item; Tape's log shows it heard the event and measured with the ruler:
 $ kh_cli plugins --plugins build/dev/khan-plugins
 ...
 loaded   example.ruler 1.0.0  Ruler
+           tier    foundation
            service example.ruler/1
            action  View > Ruler shows inches  (check mark)
 loaded   example.tape 1.0.0  Tape
+           tier    tools
            log: The ruler shows lengths in in.
            log: A 25.4 mm box is 1.00 in long.
 ...
@@ -269,6 +273,9 @@ app's Plugin manager; the desktop app also writes them to its log.
 | `plugin.service_taken` | Another plugin already offers that service name. Khan keeps theirs | Pick a name starting with your plugin id |
 | `plugin.event_name` | You sent an event whose name doesn't start with your plugin id | Rename the event's `kType` |
 | `plugin.old_contract` | You use a service version that has a newer one, or that its plugin marked as going away (`ctx.provide(service, true)`) | Move to the newer version |
+| `plugin.tier_order` | You use a plugin in a higher tier (see [Tiers](manifest.md#tiers)) | Move what you share into a lower plugin, or listen to its events instead |
+| `plugin.tier_conflict` | A tier you add can't be added; Khan ignores it | Read the message: it says why |
+| `plugin.tier_unknown` | Your `tier` isn't one Khan or a plugin adds | Fix the spelling, or add the tier |
 | `plugin.slow_start` | Registering and starting took longer than the limit (500 ms unless changed) | Do slow work later, when it's first needed |
 
 There's also one **note**: `plugin.uses_missing`, when a plugin in `uses` isn't

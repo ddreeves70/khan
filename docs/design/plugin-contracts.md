@@ -154,7 +154,7 @@ where they look.
 | `plugin.uses_missing` | A `uses` plugin isn't installed | Info, not a warning: "Sketcher can use Grid, which isn't installed, so snapping to the grid is off." |
 | `plugin.slow_start` | Register or start takes longer than the slow-start limit (500 ms unless changed, see below) | "Sam's cube took 1.2 s to start, which slows Khan's start. Do slow work later, when it's first needed." |
 | `plugin.tier_order` | A plugin requires or uses a plugin in a higher tier (see Tiers) | "Grid (Foundation) uses Viewer (UI). A plugin should only use plugins in lower tiers; move the shared part down or use events." |
-| `plugin.tier_unknown`, `plugin.tier_conflict` | A plugin names a tier nobody defined, or defines a tier that clashes with another definition | "Sam's mill names the tier sam.machining, which no plugin defines, so its tier isn't checked." |
+| `plugin.tier_unknown`, `plugin.tier_conflict` | A plugin names a tier nobody defined, or defines a tier that clashes with another definition | "Mill says it belongs to the tier sam.mill.machining, which no plugin adds, so its tier isn't checked." |
 
 `kh_cli plugins --strict` turns warnings into failures, for plugin authors' CI.
 
@@ -206,12 +206,13 @@ machining suite that wants its own layer between tools and the views:
 ```json
 {
   "id": "sam.mill",
-  "tiers": [{ "name": "sam.machining", "after": "tools", "before": "ui" }],
-  "tier": "sam.machining"
+  "tiers": [{ "name": "sam.mill.machining", "after": "tools", "before": "ui" }],
+  "tier": "sam.mill.machining"
 }
 ```
 
-- A new tier's name starts with the plugin id that defines it (`sam.machining`),
+- A new tier's name starts with the plugin id that defines it and a dot
+  (`sam.mill.machining`),
   so two plugins can't define the same name by accident. Khan's three keep their
   short names.
 - `after` and `before` name existing tiers; at least one is needed. A plugin can
@@ -225,8 +226,10 @@ machining suite that wants its own layer between tools and the views:
 - A plugin naming a tier nobody defines gets `plugin.tier_unknown`, and its tier
   isn't checked.
 
-**Khan's own CI** runs `kh_cli plugins --strict` on the built-in plugins, so for
-them a tier warning fails the build. That's how Khan holds itself to
+**Khan's own CI** checks its own plugins strictly: `kh_cli plugins --strict` on
+`kh.modeling` and the guide's example plugins (the `cli.plugins_strict` test),
+and an app test that every built-in plugin loads with no warnings and has a
+tier. For them a tier warning fails the build. That's how Khan holds itself to
 the rule; it's the same check every plugin gets, made strict.
 
 ## Worked example: the grid
@@ -273,7 +276,9 @@ still be a working CAD program without it? If yes, it's a plugin.
    they are) and the `kh.grid` plugin with its `kh.grid/1` contract. The shell,
    `kh_plugin` and `kh.viewer` now contain no grid code. Overlays live in the base
    rather than in `kh.viewer`, so a foundation plugin like `kh.grid` can draw
-   without depending on a view plugin. *Next:* tiers.
+   without depending on a view plugin. *Tiers built the same day (plugin API 7),*
+   with same-tier dependencies allowed and the loop warning removed, as decided
+   then.
 3. **Later, when first needed:** design data, `kh.snap` (with the sketcher in
    Phase 1), plugin-defined extension points beyond snapping.
 

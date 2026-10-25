@@ -22,7 +22,8 @@ constexpr const char* kManifest = R"({
   "name": "Feature tree",
   "version": "0.1.0",
   "description": "The panel that lists a design's steps.",
-  "requires": ["kh.modeling"]
+  "requires": ["kh.modeling"],
+  "tier": "ui"
 })";
 
 const char* kindName(const model::Feature& f) {

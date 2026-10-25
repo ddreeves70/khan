@@ -252,6 +252,13 @@ int listPlugins(int argc, char** argv) {
         const auto& m = p.manifest;
         std::printf("%-8s %s %s  %s%s\n", stateName(p.state), m.id.empty() ? "(no id)" : m.id.c_str(),
                     m.version.c_str(), m.name.c_str(), p.builtin ? " (built in)" : "");
+        if (!m.tier.empty()) std::printf("           tier    %s\n", m.tier.c_str());
+        for (const auto& t : m.tiers) {
+            std::string where;
+            if (!t.after.empty()) where += "after " + t.after;
+            if (!t.before.empty()) where += (where.empty() ? "" : ", ") + std::string("before ") + t.before;
+            std::printf("           adds tier %s (%s)\n", t.name.c_str(), where.c_str());
+        }
         for (const auto& c : p.commands) std::printf("           command %s\n", c.c_str());
         for (const auto& svc : p.services) std::printf("           service %s\n", svc.c_str());
         for (const auto& a : host.actions()) {

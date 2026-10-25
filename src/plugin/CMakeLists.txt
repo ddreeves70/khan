@@ -11,6 +11,8 @@ kh_add_library(kh_plugin
     PluginHost.cpp
     Selection.cpp
     Settings.cpp
+    Tiers.cpp
+    Tiers.h
   DEPS
     kh::core
     kh::kernel

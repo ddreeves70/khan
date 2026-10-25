@@ -8,6 +8,9 @@
 # Windows, hello.dylib on macOS, hello.so on Linux (see libraryFileName()).
 # See docs/plugin-guide/hello-plugin.md.
 # The plugin API version, read from Api.h so it lives in one place.
+# Changing it re-runs CMake, so every plugin.json gets the new number.
+set_property(DIRECTORY "${CMAKE_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_LIST_DIR}/../src/plugin/include/kh/plugin/Api.h")
 file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../src/plugin/include/kh/plugin/Api.h" kh_api_line
   REGEX "inline constexpr int kPluginApiVersion = [0-9]+;")
 string(REGEX MATCH "= ([0-9]+)" kh_api_match "${kh_api_line}")

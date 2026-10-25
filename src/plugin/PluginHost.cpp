@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "Library.h"
+#include "Tiers.h"
 
 namespace kh::plugin {
 
@@ -420,7 +421,75 @@ void PluginHost::loadAll() {
         return out;
     };
 
-    // 3. Register, in dependency order. Each step takes the first plugin (by id)
+    // 3. Tiers. They never change the load order; they only point out a plugin
+    //    that uses a plugin in a higher tier.
+    {
+        detail::Tiers tiers;
+        // Tiers plugins add, in id order. One placed next to a tier another
+        // plugin adds waits until that one has been added.
+        struct Pending {
+            std::size_t plugin;
+            TierSpec spec;
+        };
+        std::vector<Pending> pending;
+        for (const auto& [id, i] : byId) {
+            if (!candidates[i].usable) continue;
+            for (const auto& t : found[i].manifest.tiers) pending.push_back({i, t});
+        }
+        auto add = [&](const Pending& p, bool last) {
+            bool unknown = false;
+            auto why = tiers.define(found[p.plugin].manifest, p.spec, unknown);
+            if (unknown && !last) return false;
+            if (!why.empty()) found[p.plugin].issues.push_back(warning("plugin.tier_conflict", why));
+            return true;
+        };
+        for (bool progress = true; progress;) {
+            progress = false;
+            for (auto it = pending.begin(); it != pending.end();) {
+                if (add(*it, false)) {
+                    it = pending.erase(it);
+                    progress = true;
+                } else {
+                    ++it;
+                }
+            }
+        }
+        for (const auto& p : pending) add(p, true);  // next to a tier nobody adds
+
+        std::string allTiers;
+        for (const auto& t : tiers.names()) allTiers += (allTiers.empty() ? "" : ", ") + t;
+        for (const auto& [id, i] : byId) {
+            if (!candidates[i].usable) continue;
+            const auto& m = found[i].manifest;
+            if (m.tier.empty()) continue;
+            if (!tiers.known(m.tier)) {
+                found[i].issues.push_back(
+                    warning("plugin.tier_unknown", shortName(m) + " says it belongs to the tier \"" + m.tier +
+                                                       "\", which no plugin adds, so Khan can't check its "
+                                                       "dependencies. Use one of these: " +
+                                                       allTiers + "."));
+                continue;
+            }
+            for (const auto* list : {&m.dependencies, &m.uses}) {
+                for (const auto& dep : *list) {
+                    auto d = byId.find(dep);
+                    if (d == byId.end()) continue;
+                    const auto& dm = found[d->second].manifest;
+                    if (dm.tier.empty() || !tiers.below(m.tier, dm.tier)) continue;
+                    found[i].issues.push_back(warning(
+                        "plugin.tier_order",
+                        shortName(m) + " (tier " + m.tier + ") " +
+                            (list == &m.dependencies ? "requires " : "uses ") + shortName(dm) + " (tier " +
+                            dm.tier +
+                            "), which is in a higher tier. A plugin should only use plugins in its own tier "
+                            "or lower ones: move what they share into a lower plugin, or have " +
+                            shortName(dm) + " send events that " + shortName(m) + " listens to."));
+                }
+            }
+        }
+    }
+
+    // 4. Register, in dependency order. Each step takes the first plugin (by id)
     //    whose dependencies have all registered; when only loops are left, the
     //    first plugin of them. So the order is the same on every computer.
     std::vector<std::size_t> pending;
@@ -502,7 +571,7 @@ void PluginHost::loadAll() {
     };
     cascade();
 
-    // 4. Start: every service exists now. Run each plugin's onStart callbacks.
+    // 5. Start: every service exists now. Run each plugin's onStart callbacks.
     shared_->phase = detail::HostShared::Phase::Start;
     for (auto i : loadOrder) {
         auto& info = found[i];
@@ -526,7 +595,7 @@ void PluginHost::loadAll() {
         }
     }
 
-    // 5. Check every loaded plugin's commands and menu items, then add them.
+    // 6. Check every loaded plugin's commands and menu items, then add them.
     //    A menu item may run any loaded plugin's command, so check until nothing
     //    more fails, then add what's left.
     for (bool changed = true; changed;) {
@@ -614,7 +683,7 @@ void PluginHost::loadAll() {
     shared_->phase = detail::HostShared::Phase::Running;
     shared_->manifests.clear();  // they point into `found`, which is about to move
 
-    // 6. List them: loaded ones in load order, then the rest.
+    // 7. List them: loaded ones in load order, then the rest.
     std::stable_partition(loadOrder.begin(), loadOrder.end(),
                           [&](std::size_t i) { return found[i].state == PluginState::Loaded; });
     for (std::size_t i = 0; i < found.size(); ++i) {

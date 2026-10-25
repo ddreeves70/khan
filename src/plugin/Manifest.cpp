@@ -97,6 +97,35 @@ ManifestResult parseManifest(std::string_view text, const std::filesystem::path&
     list("requires", m.dependencies);
     list("uses", m.uses);
     list("permissions", m.permissions);
+    text_("tier", m.tier, false);
+    if (j.contains("tiers")) {
+        const std::string bad = "In the plugin.json of " + where(folder) +
+                                ", \"tiers\" must be a list like [{\"name\": \"you.plugin.layer\", "
+                                "\"after\": \"tools\"}]." +
+                                fix;
+        bool ok = j["tiers"].is_array();
+        if (ok) {
+            for (const auto& t : j["tiers"]) {
+                if (!t.is_object() || !t.contains("name") || !t["name"].is_string()) {
+                    ok = false;
+                    break;
+                }
+                TierSpec spec;
+                spec.name = t["name"].get<std::string>();
+                for (const auto* key : {"after", "before"}) {
+                    if (!t.contains(key)) continue;
+                    if (!t[key].is_string()) {
+                        ok = false;
+                        break;
+                    }
+                    (std::string_view(key) == "after" ? spec.after : spec.before) = t[key].get<std::string>();
+                }
+                if (!ok) break;
+                m.tiers.push_back(std::move(spec));
+            }
+        }
+        if (!ok) problem(bad);
+    }
 
     if (!j.contains("apiVersion")) {
         problem("The plugin.json of " + where(folder) + " is missing \"apiVersion\"." + fix);
