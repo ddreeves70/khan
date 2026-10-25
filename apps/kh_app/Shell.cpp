@@ -6,7 +6,6 @@
 #include <FloatingDockContainer.h>
 
 #include <QAction>
-#include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFileDialog>
@@ -69,8 +68,8 @@ bool ownerLoaded(const plugin::PluginHost& host, const std::string& id) {
 
 }  // namespace
 
-Shell::Shell(plugin::PluginHost& host, AppUi& ui, plugin::Grid& grid, QSettings& settings, QWidget* parent)
-    : QMainWindow(parent), host_(host), ui_(ui), settings_(settings), grid_(grid) {
+Shell::Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* parent)
+    : QMainWindow(parent), host_(host), ui_(ui), settings_(settings) {
     setWindowTitle(QStringLiteral("Khan"));
     resize(1280, 800);
 
@@ -99,21 +98,6 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, plugin::Grid& grid, QSettings&
     problemLabel_->setObjectName(QStringLiteral("kh.shell.problems"));
     problemLabel_->setStyleSheet(QStringLiteral("color: #c42b1c"));
     statusBar()->addWidget(problemLabel_, 1);
-    gridLabel_ = new QLabel(this);
-    gridLabel_->setObjectName(QStringLiteral("kh.shell.gridstatus"));
-    statusBar()->addPermanentWidget(gridLabel_);
-
-    // The grid as the student left it last time (defaults: shown, 10 mm, no snapping, lines).
-    {
-        plugin::GridSettings g = grid_.settings();
-        g.visible = settings_.value(QStringLiteral("grid/visible"), g.visible).toBool();
-        g.spacing = settings_.value(QStringLiteral("grid/spacing"), g.spacing).toDouble();
-        g.snap = settings_.value(QStringLiteral("grid/snap"), g.snap).toBool();
-        g.style = settings_.value(QStringLiteral("grid/style")).toString() == QStringLiteral("dots")
-                      ? plugin::GridStyle::Dots
-                      : plugin::GridStyle::Lines;
-        grid_.set(g);  // a damaged spacing is refused and the default kept
-    }
     const auto v = kh::version();
     statusBar()->addPermanentWidget(
         new QLabel(tr("Khan %1").arg(QString::fromUtf8(v.data(), static_cast<qsizetype>(v.size()))), this));
@@ -139,15 +123,6 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, plugin::Grid& grid, QSettings&
     subs_.push_back(host_.events().subscribe<SelectionChanged>(later));
     subs_.push_back(
         host_.events().subscribe<SettingChanged>([this](const SettingChanged&) { refreshActions(); }));
-    subs_.push_back(host_.events().subscribe<GridChanged>([this](const GridChanged& e) {
-        settings_.setValue(QStringLiteral("grid/visible"), e.grid.visible);
-        settings_.setValue(QStringLiteral("grid/spacing"), e.grid.spacing);
-        settings_.setValue(QStringLiteral("grid/snap"), e.grid.snap);
-        settings_.setValue(QStringLiteral("grid/style"), e.grid.style == GridStyle::Lines
-                                                             ? QStringLiteral("lines")
-                                                             : QStringLiteral("dots"));
-        showGrid();
-    }));
 
     // Start with an empty design, so Create works straight away.
     host_.documents().add(std::make_unique<model::Document>(model::DocKind::Part, "Untitled"));
@@ -157,7 +132,6 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, plugin::Grid& grid, QSettings&
     const auto last = settings_.value(QLatin1String(kLastLayout)).toByteArray();
     if (!last.isEmpty()) restoreLayout(last);
     rebuildLayoutMenu();
-    showGrid();
     refresh();
 }
 
@@ -215,6 +189,7 @@ void Shell::buildMenus() {
     // Plugin actions, in the menus they name (made in the order first named).
     // View is made now, so plugins can add to it, and placed after their menus.
     viewMenu_ = new QMenu(tr("&View"), this);
+    connect(viewMenu_, &QMenu::aboutToShow, this, [this] { refreshActions(); });
     std::map<std::string, QMenu*> menus{{"File", file}, {"Edit", edit}, {"View", viewMenu_}};
     // "View/Grid style" is the Grid style submenu of View.
     auto menuFor = [&](const std::string& path) {
@@ -255,7 +230,7 @@ void Shell::buildMenus() {
         actions_.emplace_back(spec, a);
     }
 
-    buildViewMenu();
+    menuBar()->addMenu(viewMenu_);  // after the plugins' own menus
     windowMenu_ = menuBar()->addMenu(tr("&Window"));
     auto* help = menuBar()->addMenu(tr("&Help"));
     help->addAction(tr("&About Khan"), this, [this] {
@@ -353,93 +328,6 @@ QString Shell::openAnotherPanel(const QString& id) {
         return newId;
     }
     return {};
-}
-
-// ---------------------------------------------------------------------------
-// The grid
-// ---------------------------------------------------------------------------
-
-void Shell::buildViewMenu() {
-    menuBar()->addMenu(viewMenu_);
-    connect(viewMenu_, &QMenu::aboutToShow, this, [this] { refreshActions(); });
-    if (!viewMenu_->isEmpty()) viewMenu_->addSeparator();  // plugins' items first, then the grid
-    auto named = [](QAction* a, const char* id) {
-        a->setObjectName(QString::fromLatin1(id));
-        return a;
-    };
-
-    auto* show = named(viewMenu_->addAction(tr("Show grid")), "kh.shell.grid.show");
-    show->setCheckable(true);
-    show->setShortcut(QKeySequence(QStringLiteral("Ctrl+G")));
-    show->setStatusTip(tr("Show or hide the grid in the views."));
-    connect(show, &QAction::triggered, this, [this](bool on) { grid_.setVisible(on); });
-
-    auto* snap = named(viewMenu_->addAction(tr("Snap to grid")), "kh.shell.grid.snap");
-    snap->setCheckable(true);
-    snap->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+G")));
-    snap->setStatusTip(tr("Make points you pick with the mouse jump to the nearest grid crossing."));
-    connect(snap, &QAction::triggered, this, [this](bool on) { grid_.setSnap(on); });
-
-    auto* style = viewMenu_->addMenu(tr("Grid style"));
-    auto* styles = new QActionGroup(style);
-    auto* lines = named(style->addAction(tr("Lines")), "kh.shell.grid.lines");
-    auto* dots = named(style->addAction(tr("Dots")), "kh.shell.grid.dots");
-    for (auto* a : {lines, dots}) {
-        a->setCheckable(true);
-        styles->addAction(a);
-    }
-    connect(dots, &QAction::triggered, this, [this] { grid_.setStyle(plugin::GridStyle::Dots); });
-    connect(lines, &QAction::triggered, this, [this] { grid_.setStyle(plugin::GridStyle::Lines); });
-
-    auto* spacing = viewMenu_->addMenu(tr("Grid spacing"));
-    spacing->setObjectName(QStringLiteral("kh.shell.grid.spacing"));
-    auto* spacings = new QActionGroup(spacing);
-    for (double mm : {1.0, 2.0, 5.0, 10.0, 20.0, 50.0}) {
-        auto* a = spacing->addAction(tr("%1 mm").arg(mm));
-        a->setObjectName(QStringLiteral("kh.shell.grid.spacing.%1").arg(mm));
-        a->setCheckable(true);
-        a->setData(mm);
-        spacings->addAction(a);
-        connect(a, &QAction::triggered, this, [this, mm] { grid_.setSpacing(mm); });
-    }
-    spacing->addSeparator();
-    auto* other = named(spacing->addAction(tr("Other...")), "kh.shell.grid.spacing.other");
-    connect(other, &QAction::triggered, this, [this] {
-        bool ok = false;
-        const double mm = QInputDialog::getDouble(
-            this, tr("Grid spacing"), tr("Distance between grid lines (mm):"), grid_.settings().spacing,
-            plugin::Grid::kMinSpacing, plugin::Grid::kMaxSpacing, 2, &ok);
-        if (ok) {
-            if (auto problems = grid_.setSpacing(mm); !problems.empty()) showProblems(problems);
-        }
-    });
-}
-
-void Shell::showGrid() {
-    const auto& g = grid_.settings();
-    const auto num = [](double mm) { return QString::number(mm, 'g', 6); };
-    if (auto* a = findChild<QAction*>(QStringLiteral("kh.shell.grid.show"))) a->setChecked(g.visible);
-    if (auto* a = findChild<QAction*>(QStringLiteral("kh.shell.grid.snap"))) a->setChecked(g.snap);
-    if (auto* a = findChild<QAction*>(QStringLiteral("kh.shell.grid.dots")))
-        a->setChecked(g.style == plugin::GridStyle::Dots);
-    if (auto* a = findChild<QAction*>(QStringLiteral("kh.shell.grid.lines")))
-        a->setChecked(g.style == plugin::GridStyle::Lines);
-    bool preset = false;
-    if (auto* menu = findChild<QMenu*>(QStringLiteral("kh.shell.grid.spacing"))) {
-        for (auto* a : menu->actions()) {
-            if (!a->isCheckable()) continue;
-            a->setChecked(a->data().toDouble() == g.spacing);
-            preset = preset || a->isChecked();
-        }
-    }
-    if (auto* a = findChild<QAction*>(QStringLiteral("kh.shell.grid.spacing.other"))) {
-        a->setText(preset ? tr("Other...") : tr("Other (%1 mm)...").arg(num(g.spacing)));
-    }
-    gridLabel_->setText(g.visible ? tr("Grid %1 mm, %2, snap %3")
-                                        .arg(num(g.spacing),
-                                             g.style == plugin::GridStyle::Dots ? tr("dots") : tr("lines"),
-                                             g.snap ? tr("on") : tr("off"))
-                                  : tr("Grid off, snap %1").arg(g.snap ? tr("on") : tr("off")));
 }
 
 void Shell::rebuildLayoutMenu() {

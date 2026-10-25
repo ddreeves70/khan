@@ -167,6 +167,8 @@ settings for next time.
   grid stays quick to draw.
 - **Snapping** matters once you place things with the mouse, in sketches (coming
   soon). Numbers you type in Properties are never snapped.
+- **The grid is a plugin,** `kh.grid`, built into Khan. That's why it isn't in
+  `kh_cli`: there's nothing to draw it on there.
 
 ## Undo and redo
 

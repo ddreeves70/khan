@@ -156,23 +156,62 @@ that are deleted or undone drop out, and closing the design clears it.
 
 ## Use the grid (desktop app only)
 
-The desktop app shares one grid, provided as the `kh.grid` service. A tool that
-lets the student place points with the mouse snaps them through it, so it obeys
-**View > Snap to grid** like everything else:
+The grid is a plugin too: `kh.grid`. It offers the grid to other plugins as the
+`kh.grid/1` service, described by its contract header `kh/grid/Grid.h`. A tool
+that lets the student place points with the mouse snaps them through it, so it
+obeys **View > Snap to grid** like everything else.
+
+List `kh.grid` in `uses` in your `plugin.json` (`"uses": ["kh.grid"]`), then look
+the grid up when your plugin starts:
 
 ```cpp
-#include "kh/plugin/Grid.h"
+#include "kh/grid/Grid.h"
 
-if (auto* grid = ctx.service<kh::plugin::Grid>()) {
-    kernel::Vec3 p = grid->snap(pointUnderMouse);  // unchanged when snapping is off
-    const auto& g = grid->settings();               // visible, spacing (mm), snap, style
-}
+ctx.onStart([&ctx] {
+    if (auto* grid = ctx.service<kh::grid::IGrid>()) {
+        kernel::Vec3 p = grid->snap(pointUnderMouse);  // unchanged when snapping is off
+        const auto g = grid->settings();               // visible, spacing (mm), snap, style
+    }
+});
+ctx.listen<kh::grid::GridChanged>([](const kh::grid::GridChanged& e) { /* e.grid.spacing */ });
 ```
 
-`kh_cli` has no grid, so the service is `nullptr` there. Change the grid with
-`setVisible`, `setSpacing` (0.01 mm to 1000 mm; outside that it returns a
-problem and changes nothing), `setSnap` and `setStyle`. Each change sends
-`GridChanged`.
+`kh_cli` doesn't load `kh.grid`, so the service is `nullptr` there. The student
+changes the grid with the View menu; other plugins only read it.
+
+## Draw in the viewer
+
+An **overlay** is something every viewer draws over the design: lines, dots, or
+a lattice like graph paper. It's plain data in mm, so your plugin needs no Qt or
+3D code, and the viewer doesn't need to know what it means. This is how the grid
+is drawn.
+
+```cpp
+kh::plugin::Overlay guide;
+guide.points = {{0, 0, 0}, {50, 0, 0}, {0, 0, 0}, {0, 50, 0}};  // two 50 mm lines
+guide.color = {230, 120, 20};                                 // orange
+guide.size = 2;                                               // 2 pixels wide
+ctx.overlays().set("guides", guide);  // its id is "sam.notes.guides"
+```
+
+| Shape | What it draws | Fill in |
+| --- | --- | --- |
+| `OverlayShape::Lines` | A line between each pair of points | `points` (in mm) |
+| `OverlayShape::Points` | A dot at each point | `points` (in mm) |
+| `OverlayShape::Lattice` | Lines every `spacing` mm on a plane, or dots where they cross | `lattice`: `origin`, `xAxis`, `yAxis`, `spacing` and `halfSize` in mm, `dots` |
+
+- Calling `set` again with the same name replaces the overlay; `remove("guides")`
+  takes it away; `visible = false` hides it.
+- `color` has an `a` part for see-through overlays (0 to 255); `size` is the line
+  width or dot size in screen pixels.
+- Overlays are never picked with the mouse and don't count for **Fit all**.
+- Every change sends `kh.OverlaysChanged`, which the viewer listens to.
+- If your plugin fails to start, Khan removes its overlays.
+
+**Worked example:** the built-in [grid plugin](../../plugins/grid/GridPlugin.cpp)
+draws the grid with one Lattice overlay, and also uses settings, check-mark menu
+items, submenus, a status-bar item and a service. It uses only the public plugin
+API, so an outside plugin could replace it. Khan's app tests click through it.
 
 ## Listen to events
 
@@ -194,7 +233,8 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `DocumentChanged` | A command runs, or a step is undone or redone | `doc`, `kind` (`Executed`, `Undone`, `Redone`), `label` |
 | `RebuildFinished` | A design was rebuilt after a change | `doc`, `ok` (did every step build?) |
 | `SelectionChanged` | The selection changes | `doc`, `features` (in picking order) |
-| `GridChanged` | The grid settings change (desktop app) | `grid`: visible, spacing in mm, snap, style |
+| `kh::grid::GridChanged` | The grid settings change (sent by `kh.grid`, desktop app) | `grid`: visible, spacing in mm, snap, style |
+| `OverlaysChanged` | An overlay is added, changed or removed | `id` |
 | `SettingChanged` | A plugin's setting changes | `plugin` (its id), `key` (the setting's name) |
 
 Things to know:
@@ -332,7 +372,7 @@ These are planned and will be added to this guide as they're built:
 
 | Extension point | What you'll add | When |
 | --- | --- | --- |
-| View overlays, tiers | Drawing in the 3D view; saying which layer your plugin belongs to | Next |
+| Tiers | Saying which layer your plugin belongs to, so Khan can warn about dependencies that run the wrong way | Next |
 | Ribbon tabs | Grouping actions into tabs | Later |
 | Viewer tools | A way to use the mouse in the 3D view, with a live preview | With the sketcher, Phase 1 |
 | Feature types | A new kind of step that saves, loads and rebuilds | Phase 2 |

@@ -13,7 +13,6 @@
 
 #include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
-#include "kh/plugin/Grid.h"
 #include "kh/plugin/PluginHost.h"
 
 class QAction;
@@ -39,11 +38,10 @@ class AppUi;
 class Shell : public QMainWindow {
     Q_OBJECT
 public:
-    // `host` must have loaded its plugins, and `grid` must be the Grid it
-    // provides as a service. `settings` keeps layouts, the grid and the window's
-    // place between runs. The panel in the middle comes from a plugin (kh.viewer).
-    Shell(plugin::PluginHost& host, AppUi& ui, plugin::Grid& grid, QSettings& settings,
-          QWidget* parent = nullptr);
+    // `host` must have loaded its plugins. `settings` keeps layouts and the
+    // window's place between runs. The panel in the middle comes from a plugin
+    // (kh.viewer), and so does the grid (kh.grid).
+    Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* parent = nullptr);
     ~Shell() override;
 
     // What to do with unsaved changes before they would be lost.
@@ -102,8 +100,6 @@ private:
     bool confirmLoseChanges();
     void replaceActive(std::unique_ptr<model::Document> doc, std::filesystem::path path);
     void rebuildLayoutMenu();
-    void buildViewMenu();
-    void showGrid();  // menu checks, status bar and the drawing follow the grid
 
     plugin::PluginHost& host_;
     AppUi& ui_;
@@ -111,8 +107,6 @@ private:
     ads::CDockManager* docks_ = nullptr;
     ads::CDockAreaWidget* centerArea_ = nullptr;
     std::map<QString, int> copies_;  // panel id -> how many copies were opened
-    QLabel* gridLabel_ = nullptr;
-    plugin::Grid& grid_;
     QLabel* problemLabel_ = nullptr;
     QToolBar* toolbar_ = nullptr;
     QMenu* windowMenu_ = nullptr;

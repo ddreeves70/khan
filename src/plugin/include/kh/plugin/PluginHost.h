@@ -19,6 +19,7 @@
 #include "kh/plugin/DocumentList.h"
 #include "kh/plugin/EventBus.h"
 #include "kh/plugin/Manifest.h"
+#include "kh/plugin/Overlays.h"
 #include "kh/plugin/PluginContext.h"
 #include "kh/plugin/Selection.h"
 #include "kh/plugin/Settings.h"
@@ -150,6 +151,10 @@ public:
     /// @return The selection.
     Selection& selection() { return selection_; }
 
+    /// Gives every plugin's view overlays.
+    /// @return The overlays.
+    OverlayList& overlays() { return overlays_; }
+
     /// Gives the event bus.
     /// @return The bus.
     EventBus& events() { return bus_; }
@@ -175,6 +180,7 @@ private:
     model::CommandRegistry registry_;
     DocumentList documents_;
     Selection selection_;
+    OverlayList overlays_{bus_};
     std::vector<ActionSpec> actions_;
     std::unique_ptr<detail::HostShared> shared_;  // services and loading state, shared with contexts
     std::chrono::milliseconds slowStartLimit_{500};

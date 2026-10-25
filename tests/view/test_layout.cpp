@@ -1,4 +1,4 @@
-// Tests for the 3D view's plain logic: panes, standard views, the grid and picking.
+// Tests for the 3D view's plain logic: panes, standard views, overlays and picking.
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -71,21 +71,40 @@ TEST_CASE("views and layouts have names the toolbar shows", "[view]") {
     CHECK(layoutName(PaneLayout::Four) == "Four panes");
 }
 
-TEST_CASE("the drawn grid has 50 lines each way, within limits", "[view]") {
-    auto e = gridExtent(10);
-    CHECK(e.step == 10);
-    CHECK(e.halfSize == 500);  // 50 lines of 10 mm
-    e = gridExtent(1);
-    CHECK(e.halfSize == 100);  // at least 100 mm
-    e = gridExtent(0.01);
-    CHECK(e.halfSize == Approx(1.0));  // no more than 100 lines
-    e = gridExtent(1000);
-    CHECK(e.halfSize == 50000);
-    for (double spacing : {0.01, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 1000.0}) {
-        const auto x = gridExtent(spacing);
-        CHECK(x.halfSize / x.step <= 100.0 + 1e-9);
-        CHECK(x.halfSize > 0);
+TEST_CASE("a lattice is lines every spacing, reaching half its size each way", "[view]") {
+    ViewOverlay o;
+    o.shape = OverlayShape::Lattice;
+    o.spacing = 10;
+    o.halfSize = 50;
+    const auto lines = latticeLines(o);
+    REQUIRE(lines.size() == 11 * 4);  // 11 lines each way (-50 to 50), 2 points each
+    double minX = 1e9, maxX = -1e9;
+    for (const auto& p : lines) {
+        CHECK(p.z == 0);
+        minX = std::min(minX, p.x);
+        maxX = std::max(maxX, p.x);
+        // Every point is on a line: x or y is a multiple of 10 mm.
+        CHECK((std::fmod(std::abs(p.x), 10.0) == Approx(0).margin(1e-9) ||
+               std::fmod(std::abs(p.y), 10.0) == Approx(0).margin(1e-9)));
     }
+    CHECK(minX == -50);
+    CHECK(maxX == 50);
+
+    // Dots at the crossings, and a lattice on another plane, moved.
+    o.dots = true;
+    o.origin = {0, 0, 5};
+    o.xAxis = {1, 0, 0};
+    o.yAxis = {0, 0, 1};  // the XZ plane, 5 mm up
+    const auto dots = latticePoints(o);
+    REQUIRE(dots.size() == 11 * 11);
+    for (const auto& p : dots) CHECK(p.y == 0);
+    CHECK(dots.front().z == -45);
+    CHECK(dots.back().z == 55);
+
+    // A spacing that isn't positive draws nothing, instead of looping forever.
+    o.spacing = 0;
+    CHECK(latticeLines(o).empty());
+    CHECK(latticePoints(o).empty());
 }
 
 TEST_CASE("a click keeps the picking order", "[view]") {

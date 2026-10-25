@@ -4,10 +4,10 @@ kh_add_library(kh_plugin
   SOURCES
     DocumentList.cpp
     EventBus.cpp
-    Grid.cpp
     Library.cpp
     Library.h
     Manifest.cpp
+    Overlays.cpp
     PluginHost.cpp
     Selection.cpp
     Settings.cpp

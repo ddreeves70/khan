@@ -48,9 +48,13 @@ public:
     /// @param content The bodies and the selection.
     void setContent(const SceneContent& content);
 
-    /// Changes the grid.
-    /// @param grid The grid.
-    void setGrid(const ViewGrid& grid);
+    /// Changes what is drawn over the design (the grid, guide lines, ...).
+    /// @param overlays The overlays, drawn in this order.
+    void setOverlays(const std::vector<ViewOverlay>& overlays);
+
+    /// Gives how many overlays the view draws.
+    /// @return The number of overlays.
+    int overlayCount() const;
 
     /// Turns the camera to look from a standard direction, and zooms to fit.
     /// @param view The direction.

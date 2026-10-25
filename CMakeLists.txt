@@ -74,6 +74,7 @@ add_subdirectory(plugins/modeling)  # kh.modeling
 if(KH_BUILD_APP)
   add_subdirectory(plugins/featuretree)  # kh.featuretree (Qt)
   add_subdirectory(plugins/properties)   # kh.properties (Qt)
+  add_subdirectory(plugins/grid)         # kh.grid (Qt)
 endif()
 if(TARGET kh_view)
   add_subdirectory(plugins/viewer)       # kh.viewer (Qt + OCCT)
