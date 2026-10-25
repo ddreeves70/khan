@@ -613,8 +613,8 @@
       "app": {
         "open": "tag.khan",
         "settings": {
-          "grid/style": "dots",
-          "grid/spacing": "5"
+          "plugins/kh.grid/style": "dots",
+          "plugins/kh.grid/spacing": "5"
         }
       },
       "crop": [

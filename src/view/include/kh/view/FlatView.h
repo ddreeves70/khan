@@ -6,18 +6,20 @@
 #include <QString>
 #include <QWidget>
 
+#include <vector>
+
 #include "kh/view/Scene.h"
 
 namespace kh::view {
 
-/// Draws the grid seen from above, with a text card in the top-left corner.
+/// Draws the overlays (such as the grid) seen from above, with a text card in the top-left corner.
 ///
 /// The viewer uses it when 3D graphics can't start (see graphicsProblem()), so
 /// the student still sees the grid and a list of the finished bodies.
 class FlatView : public QWidget {
     Q_OBJECT
 public:
-    /// Makes an empty view with the default grid. Its object name is "kh.view.flat".
+    /// Makes an empty view: just the axes. Its object name is "kh.view.flat".
     /// @param parent The widget it sits in.
     explicit FlatView(QWidget* parent = nullptr);
 
@@ -25,31 +27,34 @@ public:
     /// @param text The text, with line breaks.
     void setText(const QString& text);
 
-    /// Changes the grid it draws.
-    /// @param grid The grid.
-    void setGrid(const ViewGrid& grid);
+    /// Changes what it draws behind the text, seen from above (x to the right,
+    /// y up, the origin in the middle).
+    /// @param overlays The overlays, drawn in this order.
+    void setOverlays(const std::vector<ViewOverlay>& overlays);
 
     /// Gives the text on the card.
     /// @return The text.
     const QString& text() const { return text_; }
 
-    /// Gives the grid it draws.
-    /// @return The grid.
-    const ViewGrid& grid() const { return grid_; }
+    /// Gives the overlays it draws.
+    /// @return The overlays.
+    const std::vector<ViewOverlay>& overlays() const { return overlays_; }
 
-    /// Gives the distance between drawn grid lines or dots, in screen pixels.
-    /// A grid too fine to see draws every 2nd, 5th, 10th, ... line instead.
-    /// @return The distance in pixels: 4 pixels per mm, and at least 8.
-    double pixelsPerSpace() const;
+    /// Gives the distance between the drawn lines or dots of a lattice, in
+    /// screen pixels. A lattice too fine to see draws every 2nd, 5th, 10th, ...
+    /// line instead, so it doesn't turn into a grey smear.
+    /// @param lattice A Lattice overlay.
+    /// @return The drawn distance, in pixels.
+    static double pixelsPerSpace(const ViewOverlay& lattice);
 
 protected:
-    /// Draws the grid and the card.
+    /// Draws the overlays, the axes and the card.
     /// @param event Which part to draw (it draws everything).
     void paintEvent(QPaintEvent* event) override;
 
 private:
     QString text_;
-    ViewGrid grid_;
+    std::vector<ViewOverlay> overlays_;
 };
 
 }  // namespace kh::view

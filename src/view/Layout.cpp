@@ -121,14 +121,47 @@ std::string_view layoutName(PaneLayout layout) {
     return "One pane";
 }
 
-GridExtent gridExtent(double spacing) {
-    constexpr double kMinHalf = 100.0;    // mm
-    constexpr double kUsualLines = 50.0;  // each way from the origin
-    constexpr double kMaxLines = 100.0;   // each way, for fine grids
-    GridExtent e;
-    e.step = spacing > 0 ? spacing : 10.0;
-    e.halfSize = std::min(std::max(kMinHalf, e.step * kUsualLines), e.step * kMaxLines);
-    return e;
+namespace {
+
+// How many lines of a lattice each way from its origin. A spacing of 0 or less
+// draws nothing.
+int latticeCount(const ViewOverlay& o) {
+    if (!(o.spacing > 0) || !(o.halfSize >= 0)) return -1;
+    return static_cast<int>(std::floor(o.halfSize / o.spacing + 1e-9));
+}
+
+kernel::Vec3 at(const ViewOverlay& o, double u, double v) {
+    return {o.origin.x + o.xAxis.x * u + o.yAxis.x * v, o.origin.y + o.xAxis.y * u + o.yAxis.y * v,
+            o.origin.z + o.xAxis.z * u + o.yAxis.z * v};
+}
+
+}  // namespace
+
+std::vector<kernel::Vec3> latticeLines(const ViewOverlay& o) {
+    std::vector<kernel::Vec3> out;
+    const int n = latticeCount(o);
+    if (n < 0) return out;
+    const double h = o.halfSize;
+    out.reserve(static_cast<std::size_t>(2 * n + 1) * 4);
+    for (int i = -n; i <= n; ++i) {
+        const double t = i * o.spacing;
+        out.push_back(at(o, t, -h));  // along y
+        out.push_back(at(o, t, h));
+        out.push_back(at(o, -h, t));  // along x
+        out.push_back(at(o, h, t));
+    }
+    return out;
+}
+
+std::vector<kernel::Vec3> latticePoints(const ViewOverlay& o) {
+    std::vector<kernel::Vec3> out;
+    const int n = latticeCount(o);
+    if (n < 0) return out;
+    out.reserve(static_cast<std::size_t>(2 * n + 1) * static_cast<std::size_t>(2 * n + 1));
+    for (int i = -n; i <= n; ++i) {
+        for (int j = -n; j <= n; ++j) out.push_back(at(o, i * o.spacing, j * o.spacing));
+    }
+    return out;
 }
 
 std::vector<FeatureId> mergePick(const std::vector<FeatureId>& before, const std::vector<FeatureId>& after) {

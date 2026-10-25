@@ -36,24 +36,38 @@ struct SceneContent {
     std::vector<FeatureId> selected{};  ///< Selected steps, in picking order; drawn highlighted.
 };
 
-/// The grid on the floor (the XY plane), as a view draws it.
-struct ViewGrid {
-    bool visible = true;  ///< Draw it at all.
-    double spacing = 10;  ///< Distance between grid lines, in mm.
-    bool lines = true;    ///< Lines, or dots when false.
+/// What an overlay draws.
+enum class OverlayShape {
+    Lines,    ///< Straight lines: each pair of `points` is one line.
+    Points,   ///< A dot at each of `points`.
+    Lattice,  ///< Evenly spaced lines, or dots where they cross, on a plane.
 };
 
-/// How much of the grid to draw.
-struct GridExtent {
-    double step = 10;       ///< Distance between drawn lines or dots, in mm.
-    double halfSize = 100;  ///< The grid reaches this far from the origin each way, in mm.
+/// Something drawn over the design that isn't part of it, such as the grid. The
+/// view draws it as given, never picks it, and leaves it out of Fit all.
+struct ViewOverlay {
+    OverlayShape shape = OverlayShape::Lines;  ///< What it draws.
+    std::vector<kernel::Vec3> points{};        ///< For Lines and Points, in mm.
+    kernel::Vec3 origin{};                     ///< Lattice: a crossing point, in mm.
+    kernel::Vec3 xAxis{1, 0, 0};               ///< Lattice: one direction of lines (a unit vector).
+    kernel::Vec3 yAxis{0, 1, 0};               ///< Lattice: the other direction (a unit vector).
+    double spacing = 10;                       ///< Lattice: distance between lines, in mm.
+    double halfSize = 100;                     ///< Lattice: how far it reaches each way, in mm.
+    bool dots = false;                         ///< Lattice: dots at the crossings instead of lines.
+    Rgb color{};                               ///< Its color.
+    int alpha = 255;                           ///< How solid, 0 to 255.
+    double size = 1;                           ///< Line width or dot size, in screen pixels.
 };
 
-/// Works out how much grid to draw for a spacing: 50 lines each way, but at
-/// least 100 mm, and never more than 100 lines, so a fine grid stays quick to draw.
-/// @param spacing The grid spacing, in mm (more than 0).
-/// @return The drawn step (the spacing) and how far the grid reaches.
-GridExtent gridExtent(double spacing);
+/// Works out the lines of a lattice overlay, for drawing.
+/// @param overlay A Lattice overlay.
+/// @return Pairs of points, in mm: each pair is one line.
+std::vector<kernel::Vec3> latticeLines(const ViewOverlay& overlay);
+
+/// Works out the crossings of a lattice overlay, for drawing dots.
+/// @param overlay A Lattice overlay.
+/// @return The crossing points, in mm.
+std::vector<kernel::Vec3> latticePoints(const ViewOverlay& overlay);
 
 /// Works out the selection after a click in a view.
 ///

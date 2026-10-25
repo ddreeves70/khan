@@ -11,12 +11,16 @@
 #include <AIS_Shape.hxx>
 #include <AIS_ViewController.hxx>
 #include <AIS_ViewCube.hxx>
-#include <Aspect_Grid.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <Bnd_Box.hxx>
+#include <Graphic3d_ArrayOfPoints.hxx>
+#include <Graphic3d_ArrayOfSegments.hxx>
+#include <Graphic3d_AspectLine3d.hxx>
+#include <Graphic3d_AspectMarker3d.hxx>
 #include <Graphic3d_Camera.hxx>
+#include <Graphic3d_Group.hxx>
 #include <Graphic3d_TransformPers.hxx>
 #include <Prs3d_Drawer.hxx>
 #include <Prs3d_LineAspect.hxx>
@@ -53,8 +57,54 @@ const Quantity_Color kSelected = rgb(255, 140, 26);
 const Quantity_Color kHover = rgb(90, 170, 255);
 const Quantity_Color kSkyTop = rgb(214, 222, 233);
 const Quantity_Color kSkyBottom = rgb(250, 251, 253);
-const Quantity_Color kGridDots = rgb(132, 140, 154);
-const Quantity_Color kGridLines = rgb(204, 209, 218);
+
+// An overlay, drawn from plain lines or dots. It has no selection, so clicks go
+// through it, and it isn't a shape, so Fit all ignores it.
+class OverlayObject final : public AIS_InteractiveObject {
+public:
+    explicit OverlayObject(const ViewOverlay& o) : overlay_(o) {}
+
+    void Compute(const Handle(PrsMgr_PresentationManager) &, const Handle(Prs3d_Presentation) & prs,
+                 const Standard_Integer) override {
+        const auto& o = overlay_;
+        const Quantity_ColorRGBA color(rgb(o.color.r, o.color.g, o.color.b),
+                                       static_cast<float>(std::clamp(o.alpha, 0, 255) / 255.0));
+        Handle(Graphic3d_Group) group = prs->NewGroup();
+        const bool dots = o.shape == OverlayShape::Points || (o.shape == OverlayShape::Lattice && o.dots);
+        if (dots) {
+            const auto points = o.shape == OverlayShape::Points ? o.points : latticePoints(o);
+            if (points.empty()) return;
+            Handle(Graphic3d_ArrayOfPoints) array =
+                new Graphic3d_ArrayOfPoints(static_cast<int>(points.size()));
+            for (const auto& p : points) array->AddVertex(p.x, p.y, p.z);
+            Handle(Graphic3d_AspectMarker3d) aspect =
+                new Graphic3d_AspectMarker3d(Aspect_TOM_POINT, color.GetRGB(), std::max(1.0, o.size));
+            aspect->SetInteriorColor(color);  // with its alpha
+            if (o.alpha < 255) aspect->SetAlphaMode(Graphic3d_AlphaMode_Blend);
+            group->SetGroupPrimitivesAspect(aspect);
+            group->AddPrimitiveArray(array);
+        } else {
+            const auto points = o.shape == OverlayShape::Lines ? o.points : latticeLines(o);
+            if (points.size() < 2) return;
+            const int count = static_cast<int>(points.size() / 2 * 2);
+            Handle(Graphic3d_ArrayOfSegments) array = new Graphic3d_ArrayOfSegments(count);
+            for (int i = 0; i < count; ++i) {
+                const auto& p = points[static_cast<std::size_t>(i)];
+                array->AddVertex(p.x, p.y, p.z);
+            }
+            Handle(Graphic3d_AspectLine3d) aspect =
+                new Graphic3d_AspectLine3d(color.GetRGB(), Aspect_TOL_SOLID, std::max(1.0, o.size));
+            aspect->SetInteriorColor(color);  // with its alpha
+            if (o.alpha < 255) aspect->SetAlphaMode(Graphic3d_AlphaMode_Blend);
+            group->SetGroupPrimitivesAspect(aspect);
+            group->AddPrimitiveArray(array);
+        }
+    }
+    void ComputeSelection(const Handle(SelectMgr_Selection) &, const Standard_Integer) override {}
+
+private:
+    ViewOverlay overlay_;
+};
 
 constexpr double kAxisLength = 25.0;  // mm
 constexpr double kCubeSize = 40.0;    // pixels, before scaling for high-DPI screens
@@ -153,31 +203,17 @@ struct ViewWidget::Impl {
     Handle(AIS_ViewCube) cube;
     std::map<FeatureId, Shown> shown;
     SceneContent content;
-    ViewGrid grid;
+    std::vector<Handle(OverlayObject)> overlays;
     bool fitPending = true;
     bool everShown = false;  // has the view had a body to fit yet?
     bool ready = false;
     bool clickAdds = false;  // the last click had Ctrl or Shift held
     QString problem;
 
-    void applyGrid() {
-        if (!viewer) return;
-        if (!grid.visible) {
-            viewer->DeactivateGrid();
-            return;
-        }
-        const GridExtent e = gridExtent(grid.spacing);
-        viewer->ActivateGrid(Aspect_GT_Rectangular, grid.lines ? Aspect_GDM_Lines : Aspect_GDM_Points);
-        viewer->SetRectangularGridValues(0, 0, e.step, e.step, 0);
-        viewer->SetRectangularGridGraphicValues(e.halfSize, e.halfSize, 0);
-        viewer->Grid()->SetColors(grid.lines ? kGridLines : kGridDots, grid.lines ? kGridLines : kGridDots);
-        viewer->SetGridEcho(false);
-    }
-
     void fit() {
         Bnd_Box box;
         for (const auto& [id, s] : shown) BRepBndLib::Add(s.object->Shape(), box);
-        if (box.IsVoid()) box.Update(-50, -50, 0, 50, 50, 30);  // the middle of the grid
+        if (box.IsVoid()) box.Update(-50, -50, 0, 50, 50, 30);  // around the origin
         view->FitAll(box, 0.12, false);
         view->ZFitAll();
         fitPending = false;
@@ -263,7 +299,6 @@ ViewWidget::ViewWidget(QWidget* parent) : QOpenGLWidget(parent), impl_(std::make
             axis->SetWidth(2.0);
             d.context->Display(axis, AIS_WireFrame, -1, false);
         }
-        d.applyGrid();
         setStandardView(StandardView::Iso);
     } catch (const Standard_Failure&) {
         d.problem = drawFailed();
@@ -337,13 +372,25 @@ void ViewWidget::setContent(const SceneContent& content) {
     update();
 }
 
-void ViewWidget::setGrid(const ViewGrid& grid) {
-    impl_->grid = grid;
+void ViewWidget::setOverlays(const std::vector<ViewOverlay>& overlays) {
+    auto& d = *impl_;
+    if (!d.context) return;
     try {
-        impl_->applyGrid();
+        for (auto& o : d.overlays) d.context->Remove(o, false);
+        d.overlays.clear();
+        for (const auto& o : overlays) {
+            Handle(OverlayObject) obj = new OverlayObject(o);
+            d.context->Display(obj, 0, -1, false);  // -1: never picked
+            d.overlays.push_back(obj);
+        }
     } catch (const Standard_Failure&) {
+        d.fail(*this, drawFailed());
     }
     update();
+}
+
+int ViewWidget::overlayCount() const {
+    return static_cast<int>(impl_->overlays.size());
 }
 
 void ViewWidget::setStandardView(StandardView v) {

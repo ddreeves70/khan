@@ -106,14 +106,15 @@ using Shared = detail::HostShared;
 class HostContext final : public PluginContext {
 public:
     HostContext(PluginInfo& info, model::CommandRegistry& all, EventBus& bus, DocumentList& docs,
-                Selection& selection, Shared& shared, SettingsBackend& settings)
+                Selection& selection, Shared& shared, SettingsBackend& settings, OverlayList& overlays)
         : info_(&info),
           all_(all),
           bus_(bus),
           docs_(docs),
           selection_(selection),
           shared_(shared),
-          settings_(settings, bus, info.manifest.id) {}
+          settings_(settings, bus, info.manifest.id),
+          overlays_(overlays, info.manifest.id) {}
 
     const PluginManifest& manifest() const override { return info_->manifest; }
 
@@ -152,6 +153,7 @@ public:
 
     Selection& selection() override { return selection_; }
     PluginSettings& settings() override { return settings_; }
+    PluginOverlays& overlays() override { return overlays_; }
 
     void* service(std::string_view name) override {
         auto it = shared_.services.find(name);
@@ -258,6 +260,7 @@ private:
     Selection& selection_;
     Shared& shared_;
     PluginSettings settings_;
+    PluginOverlays overlays_;
 };
 
 // Runs a plugin's code, turning exceptions into failure messages.
@@ -756,7 +759,7 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
     }
 
     auto ctx = std::make_unique<HostContext>(info, registry_, bus_, documents_, selection_, *shared_,
-                                             *settingsBackend_);
+                                             *settingsBackend_, overlays_);
     auto& hc = *ctx;
     c.context = &hc;
     const auto began = std::chrono::steady_clock::now();
@@ -794,7 +797,8 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
             // f is a whole sentence: from fail() it is the plugin's own words.
             failed(problem("plugin.register_failed", who + " couldn't start. " + f, m.id));
         }
-        hc.subscriptions_.clear();  // disconnect its listeners now
+        hc.subscriptions_.clear();    // disconnect its listeners now
+        overlays_.removeOwner(m.id);  // and stop drawing what it drew
         contexts_.push_back(std::move(ctx));
         return;
     }
@@ -811,6 +815,7 @@ void PluginHost::withdraw(Candidate& c, PluginInfo& info) {
         it = it->second.provider == info.manifest.id ? shared_->services.erase(it) : std::next(it);
     }
     info.services.clear();
+    overlays_.removeOwner(info.manifest.id);
 }
 
 }  // namespace kh::plugin

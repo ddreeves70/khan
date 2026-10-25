@@ -13,6 +13,7 @@
 #include "kh/plugin/DocumentList.h"
 #include "kh/plugin/EventBus.h"
 #include "kh/plugin/Manifest.h"
+#include "kh/plugin/Overlays.h"
 #include "kh/plugin/Selection.h"
 #include "kh/plugin/Settings.h"
 
@@ -73,6 +74,12 @@ public:
     /// including in the register function.
     /// @return The settings; keys can't clash with other plugins'.
     virtual PluginSettings& settings() = 0;
+
+    /// Gives this plugin's view overlays: lines, dots and lattices every viewer
+    /// draws over the design. Usable any time. If the plugin fails to start, Khan
+    /// removes the overlays it added.
+    /// @return The overlays; names can't clash with other plugins'.
+    virtual PluginOverlays& overlays() = 0;
 
     /// Gives the shared selection: the steps the student has picked.
     /// @return The selection.

@@ -270,6 +270,12 @@ still be a working CAD program without it? If yes, it's a plugin.
    `plugin.json` (with plugin-defined tiers), and `kh_cli plugins --strict` on
    the built-in plugins in CI.
    The user's guide is unchanged: the grid looks and works the same.
+   *Built Oct 25, 2026 (plugin API 6):* view overlays (`ctx.overlays()`: lines,
+   dots and lattices as plain data, drawn by `kh.viewer` without knowing what
+   they are) and the `kh.grid` plugin with its `kh.grid/1` contract. The shell,
+   `kh_plugin` and `kh.viewer` now contain no grid code. Overlays live in the base
+   rather than in `kh.viewer`, so a foundation plugin like `kh.grid` can draw
+   without depending on a view plugin. *Next:* tiers.
 3. **Later, when first needed:** design data, `kh.snap` (with the sketcher in
    Phase 1), plugin-defined extension points beyond snapping.
 

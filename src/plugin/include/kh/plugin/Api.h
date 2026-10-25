@@ -18,7 +18,9 @@ class PluginContext;
 /// Version 4 lets plugins share things: services offered by plugins, onStart(),
 /// publish(), and "uses" in plugin.json. Version 5 added settings(), actions
 /// that run plugin code with a check mark, submenus, and status-bar items.
-inline constexpr int kPluginApiVersion = 5;
+/// Version 6 added overlays() and moved the grid out of kh_plugin into the
+/// kh.grid plugin (its kh.grid/1 service).
+inline constexpr int kPluginApiVersion = 6;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

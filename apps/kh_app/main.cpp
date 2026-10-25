@@ -33,6 +33,7 @@
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/plugin/PluginHost.h"
 #include "kh/plugins/FeatureTree.h"
+#include "kh/plugins/Grid.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/Properties.h"
 #include "kh/plugins/Viewer.h"
@@ -102,12 +103,11 @@ int main(int argc, char** argv) {
     auto kernel = kh::kernel::makeOcctKernel();
     kh::app::AppUi ui;
     kh::plugin::PluginHost host(kernel.get());
-    kh::plugin::Grid grid(host.events());
     host.provide<kh::ui::UiRegistry>(ui);
-    host.provide(grid);
     host.addBuiltin(kh::plugins::modelingPlugin());
     host.addBuiltin(kh::plugins::featureTreePlugin());
     host.addBuiltin(kh::plugins::propertiesPlugin());
+    host.addBuiltin(kh::plugins::gridPlugin());
     host.addBuiltin(kh::plugins::viewerPlugin());
     host.addFolder((QCoreApplication::applicationDirPath() + QStringLiteral("/plugins")).toStdWString());
     host.addFolder(
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    kh::app::Shell shell(host, ui, grid, *settings);
+    kh::app::Shell shell(host, ui, *settings);
 
     QString open = option(args, QStringLiteral("--open"));
     if (open.isEmpty() && args.size() > 1 &&

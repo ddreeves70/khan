@@ -157,15 +157,52 @@ TEST_CASE("clicking a body picks it; Ctrl-click and empty space change the pick"
     (void)far;
 }
 
-TEST_CASE("the grid can be turned off and restyled without trouble", "[view][gl]") {
+TEST_CASE("overlays are drawn, never picked, and left out of Fit all", "[view][gl]") {
     Fixture f;
     f.view.setStandardView(StandardView::Top);
-    f.view.setGrid({true, 10, false});
+    ViewOverlay line;  // a thick magenta line along y, through the middle
+    line.points = {{0, -40, 1}, {0, 40, 1}};
+    line.color = {220, 0, 220};
+    line.size = 5;
+    ViewOverlay lattice;  // a huge lattice: Fit all must ignore it
+    lattice.shape = OverlayShape::Lattice;
+    lattice.spacing = 100;
+    lattice.halfSize = 5000;
+    lattice.color = {204, 209, 218};
+    ViewOverlay dots = lattice;
+    dots.dots = true;
+    f.view.setOverlays({lattice, dots, line});
     settle(f.view);
-    f.view.setGrid({true, 5, true});
+    CHECK(f.view.overlayCount() == 3);
+    {
+        const QImage img = f.view.grabFramebuffer();
+        bool magenta = false;
+        const int y = img.height() / 3;  // above the middle, away from the x axis
+        for (int x = 0; x < img.width(); ++x) {
+            const QColor c = img.pixelColor(x, y);
+            if (c.red() > 150 && c.blue() > 150 && c.green() < 90) magenta = true;
+        }
+        CHECK(magenta);
+    }
+
+    // Clicking on the line picks nothing.
+    int picks = 0;
+    QObject::connect(&f.view, &ViewWidget::picked, [&](const std::vector<FeatureId>&) { ++picks; });
+    f.view.clickAt(QPoint(f.view.width() / 2, f.view.height() / 3));
     settle(f.view);
-    f.view.setGrid({false, 5, true});
+    CHECK(picks == 0);
+
+    // With a body, Fit all fits the body, not the 10 m lattice.
+    f.view.setContent({{{f.boxId, f.box, false}}, {}});
+    f.view.fitAll();
     settle(f.view);
+    const QImage img = f.view.grabFramebuffer();
+    CHECK_FALSE(isBackground(img.pixelColor(img.width() / 2, img.height() / 2)));
+    CHECK_FALSE(isBackground(img.pixelColor(img.width() / 2, img.height() / 4)));  // the box fills the middle
+
+    f.view.setOverlays({});
+    settle(f.view);
+    CHECK(f.view.overlayCount() == 0);
     CHECK(f.view.ready());
 }
 

@@ -16,7 +16,6 @@
 
 #include "kh/model/Document.h"
 #include "kh/plugin/Events.h"
-#include "kh/plugin/Grid.h"
 #include "kh/ui/UiRegistry.h"
 #include "kh/view/FlatView.h"
 #include "kh/view/Graphics.h"
@@ -31,7 +30,7 @@ constexpr const char* kManifest = R"({
   "id": "kh.viewer",
   "name": "3D viewer",
   "version": "0.1.0",
-  "description": "The 3D view of a design: panes, standard views, the view cube and the grid.",
+  "description": "The 3D view of a design: panes, standard views, the view cube, and what other plugins ask it to draw.",
   "requires": ["kh.modeling"]
 })";
 
@@ -48,16 +47,12 @@ QString slug(std::string_view name) {
     return out;
 }
 
-view::ViewGrid toView(const plugin::GridSettings& g) {
-    return {g.visible, g.spacing, g.style == plugin::GridStyle::Lines};
-}
-
 // The panel: a small toolbar over 1, 2 or 4 panes. Each pane is a ViewWidget
 // with its own camera; the toolbar's views turn the active pane (the one last
 // clicked). Without 3D graphics, a FlatView takes the panes' place.
 class ViewerPanel final : public QWidget {
 public:
-    explicit ViewerPanel(plugin::PluginContext& ctx) : ctx_(ctx), grid_(ctx.service<plugin::Grid>()) {
+    explicit ViewerPanel(plugin::PluginContext& ctx) : ctx_(ctx) {
         setObjectName(QStringLiteral("kh.viewer.panel"));
         auto* layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
@@ -82,7 +77,7 @@ public:
         subs_.push_back(ctx_.events().subscribe<RebuildFinished>(later));
         subs_.push_back(ctx_.events().subscribe<SelectionChanged>(later));
         subs_.push_back(
-            ctx_.events().subscribe<GridChanged>([this](const GridChanged& e) { showGrid(e.grid); }));
+            ctx_.events().subscribe<OverlaysChanged>([this](const OverlaysChanged&) { showOverlays(); }));
 
         problem_ = view::graphicsProblem();
         if (problem_.isEmpty()) {
@@ -212,7 +207,7 @@ private:
         pane->setObjectName(QStringLiteral("kh.viewer.pane"));
         l->addWidget(pane);
         pane->setContent(content_);
-        if (grid_) pane->setGrid(toView(grid_->settings()));
+        pane->setOverlays(viewOverlays(ctx_.overlays().all()));
         connect(pane, &view::ViewWidget::picked, this, [this](const std::vector<FeatureId>& ids) {
             const DocId doc = ctx_.documents().active();
             if (ctx_.documents().find(doc)) ctx_.selection().set(doc, ids);
@@ -246,7 +241,7 @@ private:
         return panes_[static_cast<std::size_t>(std::clamp(active_, 0, static_cast<int>(panes_.size()) - 1))];
     }
 
-    // 3D graphics can't work here: the flat grid, and a card saying why.
+    // 3D graphics can't work here: the flat view, and a card saying why.
     void showFlat() {
         if (flat_) return;
         for (auto* f : frames_) f->hide();
@@ -257,13 +252,16 @@ private:
         toolbar_->hide();
         flat_ = new view::FlatView(body_);
         body_->layout()->addWidget(flat_);
-        if (grid_) flat_->setGrid(toView(grid_->settings()));
+        flat_->setOverlays(viewOverlays(ctx_.overlays().all()));
         refresh();
     }
 
-    void showGrid(const plugin::GridSettings& g) {
-        for (auto* pane : panes_) pane->setGrid(toView(g));
-        if (flat_) flat_->setGrid(toView(g));
+    // Plugins' overlays (the grid, ...): the viewer draws them without knowing
+    // what they are.
+    void showOverlays() {
+        const auto overlays = viewOverlays(ctx_.overlays().all());
+        for (auto* pane : panes_) pane->setOverlays(overlays);
+        if (flat_) flat_->setOverlays(overlays);
     }
 
     void scheduleRefresh() {
@@ -298,7 +296,6 @@ private:
     }
 
     plugin::PluginContext& ctx_;
-    plugin::Grid* grid_ = nullptr;
     QToolBar* toolbar_ = nullptr;
     QWidget* body_ = nullptr;
     QSplitter* splitter_ = nullptr;
@@ -351,6 +348,37 @@ view::SceneContent viewerScene(const plugin::DocumentList& docs, const plugin::S
         const auto* r = report->result(picked);
         if (r && r->status == model::FeatureStatus::Ok && r->shape.valid())
             out.bodies.push_back({picked, r->shape, true, colorOf(picked)});
+    }
+    return out;
+}
+
+std::vector<view::ViewOverlay> viewOverlays(const std::vector<plugin::Overlay>& overlays) {
+    std::vector<view::ViewOverlay> out;
+    for (const auto& o : overlays) {
+        if (!o.visible) continue;
+        view::ViewOverlay v;
+        switch (o.shape) {
+            case plugin::OverlayShape::Lines:
+                v.shape = view::OverlayShape::Lines;
+                break;
+            case plugin::OverlayShape::Points:
+                v.shape = view::OverlayShape::Points;
+                break;
+            case plugin::OverlayShape::Lattice:
+                v.shape = view::OverlayShape::Lattice;
+                break;
+        }
+        v.points = o.points;
+        v.origin = o.lattice.origin;
+        v.xAxis = o.lattice.xAxis;
+        v.yAxis = o.lattice.yAxis;
+        v.spacing = o.lattice.spacing;
+        v.halfSize = o.lattice.halfSize;
+        v.dots = o.lattice.dots;
+        v.color = {o.color.r, o.color.g, o.color.b};
+        v.alpha = o.color.a;
+        v.size = o.size;
+        out.push_back(std::move(v));
     }
     return out;
 }

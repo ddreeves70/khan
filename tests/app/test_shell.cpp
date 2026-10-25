@@ -23,10 +23,12 @@
 #include "AppSettings.h"
 #include "AppUi.h"
 #include "Shell.h"
+#include "kh/grid/Grid.h"
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/model/Feature.h"
 #include "kh/plugin/PluginHost.h"
 #include "kh/plugins/FeatureTree.h"
+#include "kh/plugins/Grid.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/Properties.h"
 #include "kh/plugins/Viewer.h"
@@ -75,6 +77,12 @@ void units(plugin::PluginContext& ctx) {
     }
 }
 
+// A plugin that uses the grid through its contract, like a sketcher would.
+const grid::IGrid* seenGrid = nullptr;
+void gridClient(plugin::PluginContext& ctx) {
+    ctx.onStart([&ctx] { seenGrid = ctx.service<grid::IGrid>(); });
+}
+
 struct App {
     QTemporaryDir dir;
     QSettings settings{dir.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat};
@@ -82,20 +90,23 @@ struct App {
     app::AppSettings pluginSettings{settings};
     app::AppUi ui;
     plugin::PluginHost host{kernel.get()};
-    plugin::Grid grid{host.events()};
     std::unique_ptr<app::Shell> shell;
 
     App() {
         host.provide<ui::UiRegistry>(ui);
-        host.provide(grid);
         host.setSettings(pluginSettings);
         host.addBuiltin(plugins::modelingPlugin());
         host.addBuiltin(plugins::featureTreePlugin());
         host.addBuiltin(plugins::propertiesPlugin());
+        host.addBuiltin(plugins::gridPlugin());
         host.addBuiltin(plugins::viewerPlugin());
         host.addBuiltin({R"({"id":"test.broken","name":"Broken","version":"1","apiVersion":)" +
                              std::to_string(plugin::kPluginApiVersion) + "}",
                          &panelThenFail});
+        host.addBuiltin(
+            {R"({"id":"test.gridclient","name":"Grid client","version":"1","uses":["kh.grid"],"apiVersion":)" +
+                 std::to_string(plugin::kPluginApiVersion) + "}",
+             &gridClient});
         host.addBuiltin({R"({"id":"test.units","name":"Units","version":"1","apiVersion":)" +
                              std::to_string(plugin::kPluginApiVersion) + "}",
                          &units});
@@ -104,7 +115,7 @@ struct App {
     }
 
     void open() {
-        shell = std::make_unique<app::Shell>(host, ui, grid, settings);
+        shell = std::make_unique<app::Shell>(host, ui, settings);
         shell->askUnsaved = [](const QString&) { return app::Shell::Unsaved::Discard; };
         shell->show();
         settle();
@@ -281,78 +292,87 @@ TEST_CASE("named layouts save and open", "[app]") {
 
 TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {
     App app;
-    const auto& g = app.grid.settings();
+    REQUIRE(seenGrid);  // other plugins find it as kh.grid/1
+    const auto g = seenGrid->settings();
     CHECK(g.visible);
-    CHECK(g.style == plugin::GridStyle::Lines);
+    CHECK(g.style == grid::GridStyle::Lines);
     CHECK_FALSE(g.snap);
     CHECK(g.spacing == 10.0);
-    CHECK(app.menu("kh.shell.grid.show")->isChecked());
-    CHECK(app.menu("kh.shell.grid.lines")->isChecked());
-    CHECK_FALSE(app.menu("kh.shell.grid.snap")->isChecked());
-    CHECK(app.menu("kh.shell.grid.spacing.10")->isChecked());
-    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.gridstatus"))->text() ==
+    CHECK(app.menu("kh.grid.show")->isChecked());
+    CHECK(app.menu("kh.grid.lines")->isChecked());
+    CHECK_FALSE(app.menu("kh.grid.dots")->isChecked());
+    CHECK_FALSE(app.menu("kh.grid.snap")->isChecked());
+    CHECK(app.menu("kh.grid.spacing.10")->isChecked());
+    CHECK(app.menu("kh.grid.show")->shortcut() == QKeySequence(QStringLiteral("Ctrl+G")));
+    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.grid.status"))->text() ==
           QStringLiteral("Grid 10 mm, lines, snap off"));
-    auto* view = app.flat();  // no screen in the tests, so the viewer draws flat
+    // The viewer draws it as an overlay (no screen in the tests, so it draws flat).
+    auto* view = app.flat();
     REQUIRE(view);
-    CHECK(view->grid().visible);
-    CHECK(view->grid().spacing == 10.0);
-    CHECK(view->grid().lines);
+    REQUIRE(view->overlays().size() == 1);
+    CHECK(view->overlays()[0].shape == view::OverlayShape::Lattice);
+    CHECK(view->overlays()[0].spacing == 10.0);
+    CHECK_FALSE(view->overlays()[0].dots);
 }
 
 TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]") {
     App app;
-    app.menu("kh.shell.grid.dots")->trigger();
-    app.menu("kh.shell.grid.snap")->trigger();
-    app.menu("kh.shell.grid.spacing.5")->trigger();
-    app.menu("kh.shell.grid.show")->trigger();  // off
+    REQUIRE(seenGrid);
+    app.menu("kh.grid.dots")->trigger();
+    app.menu("kh.grid.snap")->trigger();
+    app.menu("kh.grid.spacing.5")->trigger();
+    app.menu("kh.grid.show")->trigger();  // off
     settle();
-    const auto& g = app.grid.settings();
-    CHECK(g.style == plugin::GridStyle::Dots);
+    const auto g = seenGrid->settings();
+    CHECK(g.style == grid::GridStyle::Dots);
     CHECK(g.snap);
     CHECK(g.spacing == 5.0);
     CHECK_FALSE(g.visible);
-    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.gridstatus"))->text() ==
+    CHECK(app.menu("kh.grid.dots")->isChecked());
+    CHECK_FALSE(app.menu("kh.grid.lines")->isChecked());
+    CHECK(app.menu("kh.grid.spacing.5")->isChecked());
+    CHECK_FALSE(app.menu("kh.grid.spacing.10")->isChecked());
+    CHECK_FALSE(app.menu("kh.grid.show")->isChecked());
+    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.grid.status"))->text() ==
           QStringLiteral("Grid off, snap on"));
-    CHECK_FALSE(app.flat()->grid().visible);  // the viewer follows the grid
-    CHECK_FALSE(app.flat()->grid().lines);
-    CHECK(app.flat()->grid().spacing == 5.0);
+    CHECK(app.flat()->overlays().empty());  // the viewer follows: nothing to draw
+    app.menu("kh.grid.show")->trigger();    // on again
+    settle();
+    REQUIRE(app.flat()->overlays().size() == 1);
+    CHECK(app.flat()->overlays()[0].dots);
+    CHECK(app.flat()->overlays()[0].spacing == 5.0);
 
-    // Next time Khan starts, the grid is as it was left.
-    app.shell.reset();
-    app.grid.set(plugin::GridSettings{});
-    app.open();
-    CHECK(app.grid.settings() == g);
-    CHECK(app.menu("kh.shell.grid.dots")->isChecked());
-    CHECK(app.menu("kh.shell.grid.spacing.5")->isChecked());
+    // Saved with the app's settings, so the next run starts the same way.
+    CHECK(app.settings.value(QStringLiteral("plugins/kh.grid/style")).toString() == QStringLiteral("dots"));
+    CHECK(app.settings.value(QStringLiteral("plugins/kh.grid/spacing")).toString() == QStringLiteral("5"));
+    CHECK(app.settings.value(QStringLiteral("plugins/kh.grid/snap")).toString() == QStringLiteral("true"));
 }
 
 TEST_CASE("a spacing that isn't a preset shows in the Other item", "[app][grid]") {
     App app;
-    REQUIRE(app.grid.setSpacing(12.5).empty());
+    // Changed in the store, as another part of Khan might: the grid follows.
+    app.pluginSettings.write("plugins/kh.grid/spacing", "12.5");
+    app.host.events().publish(plugin::SettingChanged{"kh.grid", "spacing"});
     settle();
-    CHECK(app.menu("kh.shell.grid.spacing.other")->text() == QStringLiteral("Other (12.5 mm)..."));
-    CHECK_FALSE(app.menu("kh.shell.grid.spacing.10")->isChecked());
-}
-
-TEST_CASE("a damaged saved spacing falls back to the default", "[app][grid]") {
-    App app;
-    app.shell.reset();
-    app.settings.setValue(QStringLiteral("grid/spacing"), -3.0);
-    app.grid.set(plugin::GridSettings{});
-    app.open();
-    CHECK(app.grid.settings().spacing == 10.0);
+    REQUIRE(seenGrid);
+    CHECK(seenGrid->settings().spacing == 12.5);
+    CHECK(app.menu("kh.grid.spacing.other")->text() == QStringLiteral("Other (12.5 mm)..."));
+    CHECK_FALSE(app.menu("kh.grid.spacing.10")->isChecked());
+    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.grid.status"))->text() ==
+          QStringLiteral("Grid 12.5 mm, lines, snap off"));
 }
 
 TEST_CASE("a dense grid is drawn every few lines, so it doesn't turn grey", "[app][grid]") {
     App app;
     auto* view = app.flat();
     REQUIRE(view);
-    REQUIRE(app.grid.setSpacing(10.0).empty());
+    REQUIRE(view->overlays().size() == 1);
+    CHECK(view::FlatView::pixelsPerSpace(view->overlays()[0]) == 40.0);  // 10 mm at 4 px per mm
+    app.pluginSettings.write("plugins/kh.grid/spacing", "0.5");
+    app.host.events().publish(plugin::SettingChanged{"kh.grid", "spacing"});
     settle();
-    CHECK(view->pixelsPerSpace() == 40.0);  // 10 mm at 4 px per mm
-    REQUIRE(app.grid.setSpacing(0.5).empty());
-    settle();
-    CHECK(view->pixelsPerSpace() >= 8.0);  // every 5th line: 2.5 mm = 10 px
+    REQUIRE(view->overlays().size() == 1);
+    CHECK(view::FlatView::pixelsPerSpace(view->overlays()[0]) >= 8.0);  // every 5th line: 2.5 mm = 10 px
 }
 
 TEST_CASE("the viewer fills the middle; without 3D graphics it draws flat and says why", "[app][viewer]") {
