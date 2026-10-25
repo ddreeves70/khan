@@ -80,6 +80,7 @@ if(TARGET kh_view)
 endif()
 if(KH_BUILD_EXAMPLE_PLUGINS)
   add_subdirectory(docs/plugin-guide/hello)
+  add_subdirectory(docs/plugin-guide/sharing)
 endif()
 # Your own plugins, built with Khan: -DKH_EXTRA_PLUGINS="C:/code/my-cube;C:/code/other"
 # Each folder needs a CMakeLists.txt that calls kh_add_plugin(). See docs/plugin-guide.

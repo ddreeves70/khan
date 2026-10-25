@@ -38,6 +38,8 @@ The plugins built with Khan (like the example Hello plugin) are in
 $ kh_cli run --plugins build/dev/khan-plugins --save cube.khan example.hello.add_cube size=25
 cube: 1 step
   Cube1        ok  volume 15625.00 mm^3  mass 19.37 g (PLA)
+[example.tape] The ruler shows lengths in in.
+[example.tape] A 25.4 mm box is 1.00 in long.
 [example.hello] Hello saw a change: Add Cube1
 wrote cube.khan
 ```
@@ -54,6 +56,10 @@ Only use plugins from people you trust, the same as any program you install.
 Khan still starts, and [`kh_cli plugins`](../cli/plugins.md) shows the plugin as
 `failed` with a message saying why and how to fix it. The most common reason is a
 plugin made for a different version of Khan.
+
+Lines starting with `warning` are for the plugin's author: the plugin works, but
+something about how it's put together is probably a mistake. You can keep using
+it, and tell its author.
 
 ## Make your own
 

@@ -23,7 +23,8 @@ namespace kh::plugin {
 ///   "apiVersion": 1,
 ///   "description": "Adds a command that makes a cube.",
 ///   "library": "hello",
-///   "requires": ["kh.modeling"]
+///   "requires": ["kh.modeling"],
+///   "uses": ["example.ruler"]
 /// }
 /// @endcode
 struct PluginManifest {
@@ -35,7 +36,8 @@ struct PluginManifest {
     std::string library;  ///< Shared library file name without its extension (.dll, .dylib, .so); empty for
                           ///< built-ins.
     std::vector<std::string>
-        dependencies;  ///< Ids of plugins that must load first ("requires" in plugin.json).
+        dependencies;               ///< Ids of plugins it can't work without ("requires" in plugin.json).
+    std::vector<std::string> uses;  ///< Ids of plugins it uses if they're there ("uses" in plugin.json).
     std::vector<std::string> permissions;  ///< Declared permissions. Stored, not yet enforced.
     std::filesystem::path folder;          ///< The folder the manifest was read from; empty for built-ins.
 };

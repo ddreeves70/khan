@@ -23,6 +23,8 @@ INPUT                  = docs/api-mainpage.md \
                          docs/plugin-guide
 FILE_PATTERNS          = *.h *.md
 RECURSIVE              = YES
+# The guide's example plugins are teaching code, shown on the guide pages.
+EXCLUDE_PATTERNS       = */plugin-guide/sharing/*
 USE_MDFILE_AS_MAINPAGE = docs/api-mainpage.md
 STRIP_FROM_PATH        = src
 STRIP_FROM_INC_PATH    = src/core/include src/kernel/include src/kernel_occt/include src/model/include

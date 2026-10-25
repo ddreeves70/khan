@@ -255,7 +255,11 @@ still be a working CAD program without it? If yes, it's a plugin.
 
 ## Building it
 
-1. **Mechanisms** (plugin API version 4): plugin services, two-phase startup
+1. **Mechanisms** (plugin API version 4). *Built Oct 25, 2026:* plugin services,
+   two-phase startup, `uses`, loops allowed with the warning, the warnings,
+   `--strict`, the configurable slow-start limit, and the guide's Ruler and Tape
+   example. *Next:* the settings store, check-mark actions and status-bar items.
+   Originally planned as one step: plugin services, two-phase startup
    (`onStart`), `uses`, loops allowed with the warning, the other warnings,
    `--strict`, the configurable slow-start limit, the settings store, check-mark actions and status-bar items. The
    plugin guide gets a "Share something with other plugins" page with a worked

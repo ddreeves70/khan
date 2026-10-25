@@ -10,6 +10,7 @@ add_executable(kh_tests
   plugin/test_manifest.cpp
   plugin/test_document_list.cpp
   plugin/test_plugin_host.cpp
+  plugin/test_plugin_sharing.cpp
   plugin/test_selection.cpp
   plugin/test_grid.cpp
 )
@@ -19,15 +20,19 @@ target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model
 # Plugins built as shared libraries and loaded by the tests: the plugin guide's
 # Hello plugin, and broken ones the host must refuse.
 add_subdirectory(plugin/fixtures)
-add_dependencies(kh_tests kh_test_plugin_noentry kh_test_plugin_oldapi kh_test_plugin_badname)
+add_dependencies(kh_tests kh_test_plugin_noentry kh_test_plugin_oldapi kh_test_plugin_badname
+  kh_test_plugin_loopa kh_test_plugin_loopb)
 target_compile_definitions(kh_tests PRIVATE KH_TEST_PLUGIN_FOLDER="${KH_TEST_PLUGIN_FOLDER}")
 # The plugin guide's code blocks must match the files the tests build.
 add_test(NAME docs.plugin_guide_code
   COMMAND ${CMAKE_COMMAND} -DGUIDE=${PROJECT_SOURCE_DIR}/docs/plugin-guide/hello-plugin.md
           -P ${PROJECT_SOURCE_DIR}/cmake/CheckGuideFiles.cmake)
+add_test(NAME docs.plugin_guide_sharing_code
+  COMMAND ${CMAKE_COMMAND} -DGUIDE=${PROJECT_SOURCE_DIR}/docs/plugin-guide/sharing.md
+          -P ${PROJECT_SOURCE_DIR}/cmake/CheckGuideFiles.cmake)
 if(TARGET kh_hello_plugin)
-  target_sources(kh_tests PRIVATE plugin/test_hello_plugin.cpp)
-  add_dependencies(kh_tests kh_hello_plugin)
+  target_sources(kh_tests PRIVATE plugin/test_hello_plugin.cpp plugin/test_sharing_example.cpp)
+  add_dependencies(kh_tests kh_hello_plugin kh_example_ruler_plugin kh_example_tape_plugin)
   target_compile_definitions(kh_tests PRIVATE KH_PLUGIN_FOLDER="${CMAKE_BINARY_DIR}/khan-plugins")
 endif()
 # Checked-in .khan files that every future version must still open.

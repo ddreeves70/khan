@@ -1,0 +1,8 @@
+{
+  "id": "example.tape",
+  "name": "Tape",
+  "version": "1.0.0",
+  "description": "Measures with the Ruler plugin's ruler, if it's there.",
+  "library": "tape",
+  "uses": ["example.ruler"]
+}

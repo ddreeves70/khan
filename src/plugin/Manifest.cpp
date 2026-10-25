@@ -95,6 +95,7 @@ ManifestResult parseManifest(std::string_view text, const std::filesystem::path&
     text_("description", m.description, false);
     text_("library", m.library, false);
     list("requires", m.dependencies);
+    list("uses", m.uses);
     list("permissions", m.permissions);
 
     if (!j.contains("apiVersion")) {
@@ -111,7 +112,9 @@ ManifestResult parseManifest(std::string_view text, const std::filesystem::path&
                 "joined by dots, like \"example.hello\"." +
                 fix);
     }
-    for (const auto& dep : m.dependencies) {
+    std::vector<std::string> named = m.dependencies;
+    named.insert(named.end(), m.uses.begin(), m.uses.end());
+    for (const auto& dep : named) {
         if (!isValidId(dep)) {
             problem("The plugin " + (m.name.empty() ? m.id : m.name) + " needs a plugin called \"" + dep +
                     "\", which isn't a valid plugin id." + fix);

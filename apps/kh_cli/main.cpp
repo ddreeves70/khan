@@ -5,7 +5,8 @@
 //   kh_cli open <file.khan> [--export out [--step name]]  open a design, rebuild it, report each step
 //   kh_cli materials [<file.khan>]      list materials (Khan's own, and a design's)
 //   kh_cli regress [--update] <case|dir>... run regression cases (see tests/corpus/README.md)
-//   kh_cli plugins [--plugins <folder>]...  list plugins, their commands and problems
+//   kh_cli plugins [--plugins <folder>]... [--slow-start-ms <n>] [--strict]  list plugins, their
+//                                       commands, services, problems and warnings
 //   kh_cli help [--plugins <folder>]... [<command>]  list commands, or describe one
 //   kh_cli run [--plugins <folder>]... [--open in.khan] [--save out.khan] <command> [name=value]...
 
@@ -34,7 +35,7 @@ int usage() {
         "       kh_cli open <file.khan> [--export <out.stl|out.step> [--step <name>]]\n"
         "       kh_cli materials [<file.khan>]\n"
         "       kh_cli regress [--update] <case.json|folder>...\n"
-        "       kh_cli plugins [--plugins <folder>]...\n"
+        "       kh_cli plugins [--plugins <folder>]... [--slow-start-ms <n>] [--strict]\n"
         "       kh_cli help [--plugins <folder>]... [<command>]\n"
         "       kh_cli run [--plugins <folder>]... [--open <in.khan>] [--save <out.khan>] <command> "
         "[name=value]...");

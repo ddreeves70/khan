@@ -1,18 +1,29 @@
 # kh_cli plugins
 
-Lists the plugins Khan finds: which loaded, the commands and menu items
-(**actions**) each one adds, and why any didn't load.
+Lists the plugins Khan finds: which loaded, the commands, menu items
+(**actions**) and **services** each one adds, why any didn't load, and warnings
+about things that work but are probably a mistake.
 
 An action line reads `menu > item  (command)`: in the desktop app, that menu item
 runs that command.
 
 ```text
-kh_cli plugins [--plugins <folder>]...
+kh_cli plugins [--plugins <folder>]... [--slow-start-ms <n>] [--strict]
 ```
 
 | Option | Meaning |
 | --- | --- |
 | `--plugins <folder>` | A folder of plugins to load: each plugin is a subfolder with a `plugin.json`. Can be given more than once |
+| `--slow-start-ms <n>` | Warn about a plugin that takes longer than `n` milliseconds to start (default 500; 0 turns the warning off). `kh_cli run` and `kh_cli help` take it too |
+| `--strict` | Treat warnings as failures: exit with 1 if any plugin has a warning. For plugin authors' tests and CI |
+
+Each problem line starts with how serious it is:
+
+| Word | Meaning |
+| --- | --- |
+| `error` | The plugin didn't load. The message says why and what to do |
+| `warning` | The plugin loaded, but something is probably a mistake, like two plugins that depend on each other in a loop. See [Warnings](../plugin-guide/sharing.md#warnings) |
+| `note` | Worth knowing, nothing wrong: for example, a plugin it `uses` isn't installed |
 
 Khan's built-in plugins, like `kh.modeling`, are always loaded.
 
@@ -45,6 +56,11 @@ With the plugins in your build folder (the plugin guide's Hello plugin is one):
 <!-- cli-example -->
 ```console
 $ kh_cli plugins --plugins build/dev/khan-plugins
+loaded   example.ruler 1.0.0  Ruler
+           service example.ruler/1
+loaded   example.tape 1.0.0  Tape
+           log: The ruler shows lengths in in.
+           log: A 25.4 mm box is 1.00 in long.
 loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_boolean
            command feature.add_box
@@ -81,11 +97,34 @@ failed   test.badname 1.0.0  Test badname
 failed   test.noentry 1.0.0  Test noentry
            error [plugin.library_bad]: The Test noentry plugin's program file isn't a Khan plugin (it has no KH_PLUGIN_ENTRY). Ask its author for a fixed version. (...)
 failed   test.oldapi 1.0.0  Test oldapi
-           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 3). Get a version of the plugin made for this Khan. (...)
+           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 4). Get a version of the plugin made for this Khan. (...)
 ```
 
 Every reason and its fix is listed in the plugin guide's
 [plugin.json page](../plugin-guide/manifest.md#when-khan-refuses-a-plugin).
+
+The two `test.loop` plugins above each use the other. They both load, and the
+first one gets a warning. With `--strict`, that warning makes `kh_cli plugins`
+fail, which is what a plugin author's CI wants:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli plugins --plugins build/dev/test-plugins --strict
+loaded   kh.modeling 0.1.0  Modeling (built in)
+...
+loaded   test.loopa 1.0.0  Test loopa
+           warning [plugin.dependency_loop]: Test loopa and Test loopb need each other (Test loopa → Test loopb → Test loopa). Khan loaded them anyway, but this is usually a mistake: move what they share into another plugin, or have one use events instead.
+loaded   test.loopb 1.0.0  Test loopb
+...
+```
+
+The slow-start limit must be a whole number of milliseconds:
+
+<!-- cli-example exit=2 -->
+```console
+$ kh_cli plugins --slow-start-ms soon
+error: --slow-start-ms needs a whole number of milliseconds, like 500 (0 turns the warning off).
+```
 
 To write your own plugin, start with the
 [plugin developer guide](../plugin-guide/README.md).

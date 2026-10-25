@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -23,7 +24,10 @@ namespace {
 
 void printIssues(const Diagnostics& issues, const char* indent = "") {
     for (const auto& d : issues) {
-        std::fprintf(stderr, "%serror [%s]: %s", indent, d.code.c_str(), d.message.c_str());
+        const char* kind = d.severity == Severity::Error     ? "error"
+                           : d.severity == Severity::Warning ? "warning"
+                                                             : "note";
+        std::fprintf(stderr, "%s%s [%s]: %s", indent, kind, d.code.c_str(), d.message.c_str());
         if (!d.detail.empty()) std::fprintf(stderr, " (%s)", d.detail.c_str());
         std::fprintf(stderr, "\n");
     }
@@ -56,19 +60,33 @@ const char* stateName(plugin::PluginState s) {
     return "?";
 }
 
-// Takes the leading "--plugins <folder>" options off the argument list.
-void loadPlugins(plugin::PluginHost& host, std::vector<std::string_view>& args) {
+// Takes the "--plugins <folder>" and "--slow-start-ms <n>" options off the
+// argument list, then loads the plugins. False (with a message) if an option is bad.
+bool loadPlugins(plugin::PluginHost& host, std::vector<std::string_view>& args) {
     host.addBuiltin(plugins::modelingPlugin());
     for (std::size_t i = 0; i + 1 < args.size();) {
         if (args[i] == "--plugins") {
             host.addFolder(std::filesystem::path(std::string(args[i + 1])));
-            args.erase(args.begin() + static_cast<std::ptrdiff_t>(i),
-                       args.begin() + static_cast<std::ptrdiff_t>(i) + 2);
+        } else if (args[i] == "--slow-start-ms") {
+            const std::string text(args[i + 1]);
+            char* end = nullptr;
+            const long ms = std::strtol(text.c_str(), &end, 10);
+            if (text.empty() || *end != '\0' || ms < 0) {
+                std::fprintf(stderr,
+                             "error: --slow-start-ms needs a whole number of milliseconds, like 500 (0 turns "
+                             "the warning off).\n");
+                return false;
+            }
+            host.setSlowStartLimit(std::chrono::milliseconds(ms));
         } else {
             ++i;
+            continue;
         }
+        args.erase(args.begin() + static_cast<std::ptrdiff_t>(i),
+                   args.begin() + static_cast<std::ptrdiff_t>(i) + 2);
     }
     host.loadAll();
+    return true;
 }
 
 std::optional<std::string> takeOption(std::vector<std::string_view>& args, std::string_view name) {
@@ -176,7 +194,7 @@ std::string ownerOf(const plugin::PluginHost& host, const std::string& name) {
 int help(int argc, char** argv) {
     std::vector<std::string_view> args(argv + 2, argv + argc);
     plugin::PluginHost host;
-    loadPlugins(host, args);
+    if (!loadPlugins(host, args)) return 2;
     if (args.size() > 1) {
         std::fprintf(stderr, "usage: kh_cli help [--plugins <folder>]... [<command>]\n");
         return 2;
@@ -217,19 +235,25 @@ int help(int argc, char** argv) {
 
 int listPlugins(int argc, char** argv) {
     std::vector<std::string_view> args(argv + 2, argv + argc);
+    const auto strict = std::find(args.begin(), args.end(), "--strict");
+    const bool isStrict = strict != args.end();
+    if (isStrict) args.erase(strict);
     plugin::PluginHost host;
-    loadPlugins(host, args);
+    if (!loadPlugins(host, args)) return 2;
     if (!args.empty()) {
-        std::fprintf(stderr, "usage: kh_cli plugins [--plugins <folder>]...\n");
+        std::fprintf(stderr,
+                     "usage: kh_cli plugins [--plugins <folder>]... [--slow-start-ms <n>] [--strict]\n");
         return 2;
     }
 
     bool allLoaded = true;
+    bool warned = false;
     for (const auto& p : host.plugins()) {
         const auto& m = p.manifest;
         std::printf("%-8s %s %s  %s%s\n", stateName(p.state), m.id.empty() ? "(no id)" : m.id.c_str(),
                     m.version.c_str(), m.name.c_str(), p.builtin ? " (built in)" : "");
         for (const auto& c : p.commands) std::printf("           command %s\n", c.c_str());
+        for (const auto& svc : p.services) std::printf("           service %s\n", svc.c_str());
         for (const auto& a : host.actions()) {
             if (a.plugin != m.id) continue;
             std::printf("           action  %s > %s  (%s)\n", a.menu.c_str(), a.text.c_str(),
@@ -238,8 +262,10 @@ int listPlugins(int argc, char** argv) {
         for (const auto& line : p.messages) std::printf("           log: %s\n", line.c_str());
         printIssues(p.issues, "           ");
         if (p.state != plugin::PluginState::Loaded) allLoaded = false;
+        for (const auto& d : p.issues) warned = warned || d.severity == Severity::Warning;
     }
-    return allLoaded ? 0 : 1;
+    // --strict: warnings fail too, for plugin authors' CI.
+    return allLoaded && !(isStrict && warned) ? 0 : 1;
 }
 
 int runCommand(int argc, char** argv) {
@@ -252,7 +278,7 @@ int runCommand(int argc, char** argv) {
     std::vector<std::string_view> args(argv + 2, argv + argc);
     auto kernel = kernel::makeOcctKernel();
     plugin::PluginHost host(kernel.get());
-    loadPlugins(host, args);
+    if (!loadPlugins(host, args)) return 2;
     const auto openPath = takeOption(args, "--open");
     const auto savePath = takeOption(args, "--save");
     if (args.empty()) return usage();

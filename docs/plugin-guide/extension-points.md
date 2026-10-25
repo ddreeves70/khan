@@ -222,6 +222,23 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
 [viewer](../../plugins/viewer/ViewerPlugin.cpp) panels are plugins written exactly
 this way. Khan's app tests click through them.
 
+## Share something with other plugins
+
+A plugin can offer a service other plugins use, and send events of its own. The
+whole story, with two working plugins, is on
+[Share something with other plugins](sharing.md). In short:
+
+```cpp
+ctx.provide<example::ruler::IRuler>(ruler);           // offer it, while registering
+ctx.onStart([&ctx] {                                  // after every plugin registered
+    if (auto* r = ctx.service<example::ruler::IRuler>()) { /* use it */ }
+    ctx.publish(MyEvent{});                           // MyEvent::kType starts with your id
+});
+```
+
+List the plugins you use in `uses` (or `requires`) in `plugin.json`, or Khan
+warns you.
+
 ## Log, or refuse to start
 
 ```cpp
@@ -229,7 +246,7 @@ ctx.log("Found 3 printers.");               // shown in the Plugin manager and k
 ctx.fail("This plugin needs a 3D printer connected. Connect one and restart Khan.");
 ```
 
-Call `fail` from the register function when your plugin can't work. When the
+Call `fail` from the register function (or an `onStart` function) when your plugin can't work. When the
 register function returns, Khan removes the plugin's commands and listeners and
 shows your message, so write it for a student and say how to fix it. Throwing an
 exception has the same effect, but your message is better.
@@ -240,6 +257,8 @@ These are planned and will be added to this guide as they're built:
 
 | Extension point | What you'll add | When |
 | --- | --- | --- |
+| Plugin settings, check-mark menu items, status-bar items | Settings Khan remembers for your plugin, and menu items with a check mark | Next |
+| View overlays, tiers | Drawing in the 3D view; saying which layer your plugin belongs to | Next |
 | Ribbon tabs | Grouping actions into tabs | Later |
 | Viewer tools | A way to use the mouse in the 3D view, with a live preview | With the sketcher, Phase 1 |
 | Feature types | A new kind of step that saves, loads and rebuilds | Phase 2 |

@@ -9,10 +9,11 @@ code can't load.
   "id": "example.hello",
   "name": "Hello",
   "version": "1.0.0",
-  "apiVersion": 3,
+  "apiVersion": 4,
   "description": "Adds a command that makes a cube, and notices every change.",
   "library": "hello",
   "requires": ["kh.modeling"],
+  "uses": [],
   "permissions": []
 }
 ```
@@ -22,10 +23,11 @@ code can't load.
 | `id` | yes | The plugin's permanent name: lower-case letters, digits and `_`, in two or more parts joined by dots, like `sam.cube`. Never change it once people use your plugin. Ids starting with `kh.` are kept for Khan's own plugins. |
 | `name` | yes | The name people see, like `Cube`. |
 | `version` | yes | Your plugin's own version, like `1.0.0`. Change it with each release. |
-| `apiVersion` | yes, in the folder Khan loads | The plugin API version the plugin was built for, a whole number. This Khan uses **3**. You don't type it: `kh_add_plugin` writes it into the `plugin.json` next to the built library, from the Khan you build against. |
+| `apiVersion` | yes, in the folder Khan loads | The plugin API version the plugin was built for, a whole number. This Khan uses **4**. You don't type it: `kh_add_plugin` writes it into the `plugin.json` next to the built library, from the Khan you build against. |
 | `description` | no | One plain sentence about what the plugin adds. |
 | `library` | yes for C++ | The program file's name without its ending: `"hello"` means `hello.dll` on Windows, `hello.dylib` on macOS and `hello.so` on Linux. It must be in the same folder as `plugin.json`. |
-| `requires` | no | Ids of plugins that must load before this one. If one is missing or fails, this plugin doesn't load, and Khan says which one is missing. |
+| `requires` | no | Ids of plugins this one can't work without. They load first. If one is missing or fails, this plugin doesn't load, and Khan says which one. |
+| `uses` | no | Ids of plugins this one uses if they're there, such as a plugin whose service it asks for (see [Share something with other plugins](sharing.md)). They load first; if one is missing, this plugin loads anyway, with a note. |
 | `permissions` | no | What the plugin needs to do, such as reading files. Khan stores the list but doesn't check it yet. Python plugins will need it. |
 
 Khan ignores keys it doesn't know, so a newer `plugin.json` still loads in an
@@ -47,8 +49,11 @@ Khan never stops starting because of a plugin. It lists the plugin as `failed` o
 | `plugin.library_bad` | The program file can't be loaded, or has no `KH_PLUGIN_ENTRY` | Rebuild it for this computer and this Khan |
 | `plugin.missing_dependency` | A plugin in `requires` isn't installed | Install it |
 | `plugin.dependency_failed` | A plugin in `requires` didn't load (state `skipped`) | Fix that plugin first |
-| `plugin.cycle` | Two plugins each require the other | Remove one of the `requires` entries |
 | `plugin.register_failed` | The register function threw an error, called `fail()`, or added a command or action with a bad or taken name, or an action whose command no loaded plugin has | Read the message: it says which |
+| `plugin.start_failed` | A function given to `onStart` threw an error or called `fail()` | Read the message |
+
+Plugins that `require` or `use` each other in a loop still load, with a warning
+(see [Warnings](sharing.md#warnings)).
 
 `kh_cli plugins --plugins <folder>` shows every plugin with its state and the
 message.

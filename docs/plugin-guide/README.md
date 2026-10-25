@@ -14,6 +14,9 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
 2. **[plugin.json](manifest.md).** Every key in a plugin's manifest.
 3. **[What a plugin can do](extension-points.md).** Commands, events and open
    designs today, and what comes next.
+4. **[Share something with other plugins](sharing.md).** Offer a service other
+   plugins use, with two small plugins, Ruler and Tape. Also: the warnings Khan
+   gives while loading, and loops.
 
 ## How plugins fit in
 
@@ -32,9 +35,10 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
 - A plugin is a **folder** with a `plugin.json` file and a **shared library** (a
   `.dll` on Windows, `.dylib` on macOS, `.so` on Linux).
 - When Khan starts, the **plugin host** reads every `plugin.json`, checks it, and
-  loads the plugins in order. A plugin always loads after the plugins it needs.
+  loads the plugins in order. A plugin loads after the plugins it needs.
 - Each plugin has one **register function**. Khan calls it once and hands it a
-  `PluginContext`, the plugin's only door into Khan.
+  `PluginContext`, the plugin's only door into Khan. When every plugin has
+  registered, Khan runs the functions they gave to `onStart`.
 - A plugin that can't load is listed with a plain message, and Khan still starts.
 
 ## Three rules
@@ -57,8 +61,9 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
 | Menu items and toolbar buttons (actions) | Works |
 | The shared selection | Works |
 | The grid (settings and snapping) | Works in the desktop app |
-| Panels in the desktop app | Works: the feature tree and Properties are plugins |
-| 3D view tools | Coming with the viewer (Phase 0) |
+| Panels in the desktop app | Works: the feature tree, Properties and the viewer are plugins |
+| Sharing services and events between plugins | Works: [Share something](sharing.md) |
+| 3D view tools | Coming with the sketcher (Phase 1) |
 | New kinds of steps (feature types), file formats | Coming later |
 | Building a plugin without the Khan source (an SDK) | Coming later |
 | Python plugins | Coming later |

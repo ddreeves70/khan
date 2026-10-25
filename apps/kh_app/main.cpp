@@ -23,6 +23,7 @@
 #include <QStandardPaths>
 #include <QStringList>
 
+#include <chrono>
 #include <cstdio>
 #include <memory>
 
@@ -111,7 +112,19 @@ int main(int argc, char** argv) {
     host.addFolder(
         (QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/plugins"))
             .toStdWString());
+    // How long a plugin may take to start before it gets a warning (0 turns it off).
+    host.setSlowStartLimit(
+        std::chrono::milliseconds(settings->value(QStringLiteral("plugins/slowStartMs"), 500).toInt()));
     host.loadAll();
+    // Plugin problems and warnings go to the log, for plugin developers; the
+    // Plugin manager will show them too. Students aren't interrupted.
+    for (const auto& p : host.plugins()) {
+        for (const auto& d : p.issues) {
+            if (d.severity == kh::Severity::Info) continue;
+            std::fprintf(stderr, "%s [%s]: %s\n", d.severity == kh::Severity::Error ? "error" : "warning",
+                         d.code.c_str(), d.message.c_str());
+        }
+    }
 
     kh::app::Shell shell(host, ui, grid, *settings);
 
