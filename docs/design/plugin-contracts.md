@@ -1,6 +1,7 @@
 # Shared concepts between plugins
 
-> **Proposed, Oct 25, 2026.** For review before it's built. Part of the
+> **Agreed Oct 25, 2026** (warning list, configurable slow-start limit, built-in
+> plugins treated like any other, tier names and plugin-defined tiers). Part of the
 > [UI and plugin architecture](architecture.md#ui-and-plugin-architecture).
 
 Some ideas are used by several plugins at once: the grid (drawn by viewers, used
@@ -153,9 +154,16 @@ where they look.
 | `plugin.event_name` | A plugin publishes an event whose type doesn't start with its id | "Sam's cube sent the event cube.made. Event names must start with the plugin id, like sam.cube.made, so they don't clash." |
 | `plugin.old_contract` | A plugin uses a contract version that has a newer one, or that the provider marks as going away | "Sketcher uses kh.grid/1; Grid also offers kh.grid/2. kh.grid/1 will be removed in a later version." |
 | `plugin.uses_missing` | A `uses` plugin isn't installed | Info, not a warning: "Sketcher can use Grid, which isn't installed, so snapping to the grid is off." |
-| `plugin.slow_start` | Register or start takes more than 500 ms | "Sam's cube took 1.2 s to start, which slows Khan's start. Do slow work later, when it's first needed." |
+| `plugin.slow_start` | Register or start takes longer than the slow-start limit (500 ms unless changed, see below) | "Sam's cube took 1.2 s to start, which slows Khan's start. Do slow work later, when it's first needed." |
+| `plugin.tier_order` | A plugin requires or uses a plugin in the same or a higher tier (see Tiers) | "Grid (Foundation) uses Viewer (UI). A plugin should only use plugins in lower tiers; move the shared part down or use events." |
+| `plugin.tier_unknown`, `plugin.tier_conflict` | A plugin names a tier nobody defined, or defines a tier that clashes with another definition | "Sam's mill names the tier sam.machining, which no plugin defines, so its tier isn't checked." |
 
 `kh_cli plugins --strict` turns warnings into failures, for plugin authors' CI.
+
+**The slow-start limit is an application setting,** not a constant: 500 ms by
+default, changed with the `plugins/slowStartMs` setting in the desktop app's
+settings, or `--slow-start-ms <n>` for `kh_cli`. 0 turns the warning off. (A
+slow school laptop might want 1500 ms; a plugin author's CI might want 200 ms.)
 
 ## Breaking a loop
 
@@ -167,21 +175,61 @@ When a loop warning appears, one of three patterns removes it:
 | **Turn the arrow around with an extension point** | The lower plugin offers a slot; the higher one plugs into it. The lower one never knows who plugged in | `kh.snap` doesn't depend on the sketcher; the sketcher adds snap sources to `kh.snap` |
 | **Talk back with events** | The lower plugin announces changes; anyone interested listens. Events create no dependency | The grid publishes `kh.grid.changed`; viewers listen; the grid doesn't know viewers exist |
 
-## Tiers for Khan's own plugins
+## Tiers
 
-Outside plugins may form loops (with a warning). Khan's own plugins hold
-themselves to a stricter rule: they sit in tiers, and a built-in plugin may only
-`require` or `use` plugins in a lower tier.
+**Built-in plugins get no special treatment.** They use only the public plugin
+API, follow the same rules and get the same warnings as any other plugin. The
+only differences are packaging: they ship with each release, and ids starting
+with `kh.` are kept for them.
 
-| Tier | Plugins |
-| --- | --- |
-| Foundation | `kh.modeling`, `kh.grid`, `kh.snap`, units |
-| Tools | sketcher, measure, later CAM |
-| UI | `kh.viewer`, `kh.featuretree`, `kh.properties`, later the timeline |
+A plugin can say which **tier** it belongs to, in `plugin.json`:
 
-A test (`plugins.tiers`) reads every built-in `plugin.json` and fails on a
-dependency into the same or a higher tier, and on any loop. It works like the
-library layering table in CLAUDE.md.
+```json
+{ "id": "kh.grid", "tier": "foundation", "uses": ["kh.snap"] }
+```
+
+Tiers are ordered, lowest first, and a plugin should only `require` or `use`
+plugins in lower tiers. Khan defines three:
+
+| Tier | For | Khan's own plugins |
+| --- | --- | --- |
+| `foundation` | Shared concepts other plugins build on | `kh.modeling`, `kh.grid`, `kh.snap`, units |
+| `tools` | Things the student does | sketcher, measure, later CAM |
+| `ui` | Panels and views that show the design | `kh.viewer`, `kh.featuretree`, `kh.properties`, later the timeline |
+
+A dependency into the same or a higher tier gets the `plugin.tier_order`
+warning; a plugin with no tier isn't checked. Tiers never change the load order,
+which comes from dependencies alone. They only point out dependencies that run
+the wrong way.
+
+**A plugin can add a tier,** placed between existing ones. For example, a
+machining suite that wants its own layer between tools and the views:
+
+```json
+{
+  "id": "sam.mill",
+  "tiers": [{ "name": "sam.machining", "after": "tools", "before": "ui" }],
+  "tier": "sam.machining"
+}
+```
+
+- A new tier's name starts with the plugin id that defines it (`sam.machining`),
+  so two plugins can't define the same name by accident. Khan's three keep their
+  short names.
+- `after` and `before` name existing tiers; at least one is needed. A plugin can
+  only add tiers, never move or remove existing ones.
+- Two tiers placed in the same gap (both between `tools` and `ui`) are treated as
+  side by side: neither is above the other, and a dependency between them gets no
+  tier warning.
+- A tier whose placement contradicts the others (say `after: ui, before: tools`),
+  or a name already defined, gets `plugin.tier_conflict`; Khan ignores that
+  definition and carries on.
+- A plugin naming a tier nobody defines gets `plugin.tier_unknown`, and its tier
+  isn't checked.
+
+**Khan's own CI** runs `kh_cli plugins --strict` on the built-in plugins, so for
+them a loop or a tier warning fails the build. That's how Khan holds itself to
+the rule; it's the same check every plugin gets, made strict.
 
 ## Worked example: the grid
 
@@ -209,10 +257,12 @@ still be a working CAD program without it? If yes, it's a plugin.
 
 1. **Mechanisms** (plugin API version 4): plugin services, two-phase startup
    (`onStart`), `uses`, loops allowed with the warning, the other warnings,
-   `--strict`, the settings store, check-mark actions and status-bar items. The
+   `--strict`, the configurable slow-start limit, the settings store, check-mark actions and status-bar items. The
    plugin guide gets a "Share something with other plugins" page with a worked
    example built and loaded by a test.
-2. **The grid moves out:** view overlays, the `kh.grid` plugin, the tier test.
+2. **The grid moves out:** view overlays, the `kh.grid` plugin, tiers in
+   `plugin.json` (with plugin-defined tiers), and `kh_cli plugins --strict` on
+   the built-in plugins in CI.
    The user's guide is unchanged: the grid looks and works the same.
 3. **Later, when first needed:** design data, `kh.snap` (with the sketcher in
    Phase 1), plugin-defined extension points beyond snapping.
