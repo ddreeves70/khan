@@ -145,7 +145,7 @@ TEST_CASE("one bad plugin doesn't stop the others", "[plugin][host]") {
     CHECK(host.plugins().front().manifest.id == "test.good");  // loaded ones first
 }
 
-TEST_CASE("plugins that need each other load anyway, with a warning", "[plugin][host]") {
+TEST_CASE("plugins that need each other load, with no warning", "[plugin][host]") {
     OrderGuard guard;
     PluginHost host;
     host.addBuiltin({manifest("test.egg", R"("test.chicken")"), &recordA});
@@ -154,12 +154,8 @@ TEST_CASE("plugins that need each other load anyway, with a warning", "[plugin][
     CHECK(guard.seen == std::vector<std::string>{"test.chicken", "test.egg"});  // id order inside a loop
     CHECK(get(host, "test.egg").state == PluginState::Loaded);
     CHECK(get(host, "test.chicken").state == PluginState::Loaded);
-    // One warning, on the loop's first plugin, naming the whole loop.
-    const auto& first = get(host, "test.chicken");
-    REQUIRE(first.issues.size() == 1);
-    CHECK(first.issues[0].code == "plugin.dependency_loop");
-    CHECK(first.issues[0].severity == Severity::Warning);
-    CHECK(first.issues[0].message.find("test.chicken → test.egg → test.chicken") != std::string::npos);
+    // Loops are allowed: two-phase startup makes them safe.
+    CHECK(get(host, "test.chicken").issues.empty());
     CHECK(get(host, "test.egg").issues.empty());
 }
 

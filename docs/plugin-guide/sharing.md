@@ -264,7 +264,6 @@ app's Plugin manager; the desktop app also writes them to its log.
 
 | Code | When | How to fix it |
 | --- | --- | --- |
-| `plugin.dependency_loop` | Plugins depend on each other in a loop (A uses B, B uses A). Khan loads them anyway | Restructure (see below) |
 | `plugin.undeclared_dependency` | You use a service or listen to an event from a plugin that isn't in your `requires` or `uses` | Add it to `uses` |
 | `plugin.early_lookup` | You asked for another plugin's service while registering | Ask in `onStart` |
 | `plugin.service_taken` | Another plugin already offers that service name. Khan keeps theirs | Pick a name starting with your plugin id |
@@ -279,19 +278,13 @@ To make warnings fail your plugin's own tests or CI, use
 `kh_cli plugins --strict` (the `kh_cli plugins` page of the kh_cli reference,
 `docs/cli/plugins.md`, has every option).
 
-## Loops, and how to undo one
+## Plugins that use each other
 
 Khan loads plugins in order: a plugin after the plugins it `requires` or `uses`.
-If two plugins name each other, there's no right order. Because of the two
-steps (everyone registers, then everyone starts), Khan can still load them, and
-it does, with a `plugin.dependency_loop` warning. But a loop usually means
-something is in the wrong place. One of these fixes it:
-
-| Fix | How | Example |
-| --- | --- | --- |
-| **Move the shared part down** | Put what both need in a third plugin that both use | Two plugins that both need units: a Units plugin they both use |
-| **Turn the arrow around** | The lower plugin offers a place others plug into; it never needs to know them | Ruler could offer "add your own unit"; plugins add units to Ruler, Ruler doesn't depend on them |
-| **Talk back with events** | Send an event instead of calling the other plugin | Ruler sends `UnitChanged`; it doesn't know who listens |
+If two plugins name each other (A uses B, B uses A), there's no right order, and
+that's fine: Khan loads them in id order. Because of the two steps (everyone
+registers, then everyone starts), each one's services are there by the time the
+other starts. There's no warning.
 
 ## Tips
 

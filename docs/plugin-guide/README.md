@@ -16,7 +16,7 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
    designs today, and what comes next.
 4. **[Share something with other plugins](sharing.md).** Offer a service other
    plugins use, with two small plugins, Ruler and Tape. Also: the warnings Khan
-   gives while loading, and loops.
+   gives while loading, and plugins that use each other.
 
 ## How plugins fit in
 
