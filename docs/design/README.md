@@ -11,6 +11,7 @@ These pages describe how Khan is designed: what it will do, how the code is orga
 | Page | What it covers |
 | --- | --- |
 | [Architecture](architecture.md) | Goals, the Fusion capability map, system layers, the geometry kernel, every major area (sketcher, modeling, assemblies, drawings, CAM, simulation), the plugin architecture, file formats and risks |
+| [Shared concepts between plugins](plugin-contracts.md) | How a plugin adds something other plugins share (the grid, snapping) without changing Khan's base: contracts, two-phase startup, dependencies, loops and warnings |
 | [UI screens](ui-screens.md) | Mockups of the main window, split views, two monitors and the Plugin manager, with a numbered breakdown of each |
 | [Design model](design-model.md) | The module map, the core domain classes, key C++ interfaces, the `.khan` file format, regeneration and naming |
 | [Class model](class-model.md) | UML class diagrams for the document, features and naming, sketches, the kernel layer, assemblies, and the shell and plugins |
