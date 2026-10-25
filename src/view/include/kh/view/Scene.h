@@ -10,11 +10,24 @@
 
 namespace kh::view {
 
+/// A color, 0 to 255 per channel (sRGB).
+struct Rgb {
+    int r = 158;  ///< Red, 0 to 255.
+    int g = 178;  ///< Green, 0 to 255.
+    int b = 204;  ///< Blue, 0 to 255.
+
+    /// Compares two colors.
+    /// @param other The color to compare with.
+    /// @return True if all three channels are the same.
+    bool operator==(const Rgb& other) const = default;
+};
+
 /// One shape to draw, belonging to one step of the design.
 struct SceneBody {
     FeatureId feature{};          ///< The step the shape belongs to; picking it selects this step.
     kernel::ShapeHandle shape{};  ///< The shape, from the OCCT kernel.
     bool ghost = false;           ///< Drawn see-through: a step that is used up by a later step.
+    Rgb color{};                  ///< Its color: its material's. The default is a light steel blue.
 };
 
 /// Everything a view draws of a design.

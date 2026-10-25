@@ -1,5 +1,6 @@
 #include "Plugins.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -328,7 +329,14 @@ int runCommand(int argc, char** argv) {
         const auto* r = report->result(f.id());
         std::printf("  %-12s %s", f.name().c_str(), statusName(r->status));
         if (r->status == model::FeatureStatus::Ok) {
-            std::printf("  volume %.2f mm^3", kernel->massProps(r->shape).volume);
+            const auto& material = design.materialOf(f.id());
+            const auto mass = model::bodyMass(*kernel, r->shape, material);
+            std::printf("  volume %.2f mm^3", mass.volume);
+            // Finished bodies also get their mass and material.
+            const auto& bodies = report->bodies();
+            if (std::find(bodies.begin(), bodies.end(), f.id()) != bodies.end()) {
+                std::printf("  mass %.2f g (%s)", mass.grams, material.name.c_str());
+            }
         }
         std::printf("\n");
         printIssues(r->issues, "    ");

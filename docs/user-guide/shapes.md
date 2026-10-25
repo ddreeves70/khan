@@ -28,7 +28,7 @@ corner nearest the origin. The box grows from the corner along +x, +y and +z.
 ```console
 $ kh_cli run feature.add_box size=40,30,20
 Untitled: 1 step
-  Box1         ok  volume 24000.00 mm^3
+  Box1         ok  volume 24000.00 mm^3  mass 29.76 g (PLA)
 ```
 
 Move it by changing the corner. This box starts 10 mm to the right and 5 mm up:
@@ -37,7 +37,7 @@ Move it by changing the corner. This box starts 10 mm to the right and 5 mm up:
 ```console
 $ kh_cli run feature.add_box corner=10,0,5 size=40,30,20
 Untitled: 1 step
-  Box1         ok  volume 24000.00 mm^3
+  Box1         ok  volume 24000.00 mm^3  mass 29.76 g (PLA)
 ```
 
 Every size must be more than 0 mm. [All box settings](../cli/commands.md#featureadd_box).
@@ -53,7 +53,7 @@ center of its bottom circle), and an **axis** (the direction it points).
 ```console
 $ kh_cli run feature.add_cylinder radius=10 height=25
 Untitled: 1 step
-  Cylinder1    ok  volume 7853.98 mm^3
+  Cylinder1    ok  volume 7853.98 mm^3  mass 9.74 g (PLA)
 ```
 
 The axis is a direction, written like a position: `0,0,1` points up (the
@@ -65,7 +65,7 @@ default), `1,0,0` points along x, `0,1,0` along y.
 ```console
 $ kh_cli run feature.add_cylinder radius=5 height=40 axis=1,0,0
 Untitled: 1 step
-  Cylinder1    ok  volume 3141.59 mm^3
+  Cylinder1    ok  volume 3141.59 mm^3  mass 3.90 g (PLA)
 ```
 
 Only the direction of the axis matters, not its length: `0,0,1` and `0,0,5` are

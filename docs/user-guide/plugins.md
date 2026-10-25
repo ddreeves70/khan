@@ -15,6 +15,9 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_cylinder
            command feature.delete
            command feature.rename
+           command feature.set_material
+           command material.define
+           command material.delete
            action  Create > Box  (feature.add_box)
            action  Create > Cylinder  (feature.add_cylinder)
            action  Combine > Union  (feature.add_boolean)
@@ -34,7 +37,7 @@ The plugins built with Khan (like the example Hello plugin) are in
 ```console
 $ kh_cli run --plugins build/dev/khan-plugins --save cube.khan example.hello.add_cube size=25
 cube: 1 step
-  Cube1        ok  volume 15625.00 mm^3
+  Cube1        ok  volume 15625.00 mm^3  mass 19.37 g (PLA)
 [example.hello] Hello saw a change: Add Cube1
 wrote cube.khan
 ```

@@ -1,6 +1,7 @@
 #include "kh/model/Commands.h"
 
 #include <algorithm>
+#include <cctype>
 #include <utility>
 
 #include "kh/model/Document.h"
@@ -171,6 +172,140 @@ Diagnostics RenameFeatureCommand::apply(DocumentEditor& editor) {
 
 void RenameFeatureCommand::revert(DocumentEditor& editor) {
     if (Feature* f = editor.find(id_)) f->setName(oldName_);
+}
+
+// ---------------------------------------------------------------------------
+// Materials
+// ---------------------------------------------------------------------------
+
+namespace {
+
+bool sameName(std::string_view a, std::string_view b) {
+    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
+               return std::tolower(static_cast<unsigned char>(x)) ==
+                      std::tolower(static_cast<unsigned char>(y));
+           });
+}
+
+}  // namespace
+
+SetMaterialCommand::SetMaterialCommand(FeatureId id, std::string keyOrName)
+    : id_(id), wanted_(std::move(keyOrName)) {}
+
+std::string SetMaterialCommand::label() const {
+    return material_.empty() ? "Clear material of " + name_ : "Make " + name_ + " " + material_;
+}
+
+Diagnostics SetMaterialCommand::apply(DocumentEditor& editor) {
+    const auto& doc = editor.document();
+    Feature* f = editor.find(id_);
+    if (!f) return {error("feature.not_found", "That step isn't in the design anymore.")};
+    std::string key;
+    material_.clear();
+    if (!wanted_.empty()) {
+        const Material* m = doc.findMaterial(wanted_);
+        if (!m) {
+            return {error("material.unknown", "There is no material called " + wanted_ +
+                                                  ". See the list with kh_cli materials, or add your own "
+                                                  "with material.define.")};
+        }
+        key = m->key;
+        material_ = m->name;
+    }
+    name_ = f->name();
+    oldKey_ = f->material();
+    f->setMaterial(key);
+    return {};
+}
+
+void SetMaterialCommand::revert(DocumentEditor& editor) {
+    if (Feature* f = editor.find(id_)) f->setMaterial(oldKey_);
+}
+
+DefineMaterialCommand::DefineMaterialCommand(Material material, std::string badColor)
+    : material_(std::move(material)), badColor_(std::move(badColor)) {
+    material_.builtin = false;
+}
+
+std::string DefineMaterialCommand::label() const {
+    return (old_ ? "Change material " : "Add material ") + material_.name;
+}
+
+Diagnostics DefineMaterialCommand::apply(DocumentEditor& editor) {
+    if (!badColor_.empty()) {
+        return {error("material.color", "Khan can't read the color " + badColor_ +
+                                            ". Write it as # and six hex digits, like #3366cc.")};
+    }
+    if (auto issues = checkMaterial(material_); !issues.empty()) return issues;
+    if (findBuiltinMaterial(material_.name)) {
+        return {error("material.builtin", material_.name +
+                                              " is one of Khan's own materials, which can't be changed. Give "
+                                              "yours another name, like My " +
+                                              material_.name + ".")};
+    }
+    auto& list = editor.materials();
+    const auto it = std::find_if(list.begin(), list.end(),
+                                 [&](const Material& m) { return sameName(m.name, material_.name); });
+    if (it != list.end()) {
+        old_ = *it;
+        material_.key = it->key;  // steps that use it keep using it
+        index_ = static_cast<std::size_t>(it - list.begin());
+        *it = material_;
+    } else {
+        old_.reset();
+        if (material_.key.empty()) material_.key = MaterialId::generate().toString();  // same id on redo
+        index_ = list.size();
+        list.push_back(material_);
+    }
+    return {};
+}
+
+void DefineMaterialCommand::revert(DocumentEditor& editor) {
+    auto& list = editor.materials();
+    if (index_ >= list.size()) return;
+    if (old_) {
+        list[index_] = *old_;
+    } else {
+        list.erase(list.begin() + static_cast<std::ptrdiff_t>(index_));
+    }
+}
+
+DeleteMaterialCommand::DeleteMaterialCommand(std::string keyOrName) : wanted_(std::move(keyOrName)) {}
+
+std::string DeleteMaterialCommand::label() const {
+    return "Delete material " + (removed_ ? removed_->name : wanted_);
+}
+
+Diagnostics DeleteMaterialCommand::apply(DocumentEditor& editor) {
+    const auto& doc = editor.document();
+    auto& list = editor.materials();
+    const auto it = std::find_if(list.begin(), list.end(), [&](const Material& m) {
+        return m.key == wanted_ || sameName(m.name, wanted_);
+    });
+    if (it == list.end()) {
+        if (findBuiltinMaterial(wanted_)) {
+            return {error("material.builtin",
+                          wanted_ + " is one of Khan's own materials, which can't be deleted.")};
+        }
+        return {error("material.unknown", "This design has no material of its own called " + wanted_ + ".")};
+    }
+    for (std::size_t i = 0; i < doc.featureCount(); ++i) {
+        const auto& f = doc.featureAt(i);
+        if (f.material() == it->key) {
+            return {error("material.in_use", it->name + " is used by " + f.name() +
+                                                 ". Pick another material for " + f.name() + " first.")};
+        }
+    }
+    index_ = static_cast<std::size_t>(it - list.begin());
+    removed_ = *it;
+    list.erase(it);
+    return {};
+}
+
+void DeleteMaterialCommand::revert(DocumentEditor& editor) {
+    if (!removed_) return;
+    auto& list = editor.materials();
+    list.insert(list.begin() + static_cast<std::ptrdiff_t>(std::min(index_, list.size())), *removed_);
 }
 
 }  // namespace kh::model

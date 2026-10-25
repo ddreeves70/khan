@@ -64,6 +64,16 @@ public:
     /// @param s True to skip this step during a rebuild.
     void setSuppressed(bool s) { suppressed_ = s; }
 
+    /// Gives the material picked for this step's body.
+    /// @return A material's key (see Material::key), or empty if none was picked:
+    ///         then the body's material comes from the step it was made from, or
+    ///         is the default (see Document::materialOf()).
+    const std::string& material() const { return material_; }
+
+    /// Picks the material for this step's body. Use from a Command (SetMaterialCommand).
+    /// @param key A material's key, or empty to go back to the material it gets by default.
+    void setMaterial(std::string key) { material_ = std::move(key); }
+
     /// Gives the kind of feature.
     /// @return The feature type.
     virtual FeatureType type() const = 0;
@@ -108,6 +118,7 @@ private:
     FeatureId id_;
     std::string name_;
     bool suppressed_ = false;
+    std::string material_;
 };
 
 /// A rectangular block from a corner point and a size along x, y and z (mm).

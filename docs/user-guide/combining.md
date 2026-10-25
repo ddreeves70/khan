@@ -13,12 +13,12 @@ cylinder that overlaps its right side.
 ```console
 $ kh_cli run --save parts.khan feature.add_box size=30,30,10
 parts: 1 step
-  Box1         ok  volume 9000.00 mm^3
+  Box1         ok  volume 9000.00 mm^3  mass 11.16 g (PLA)
 wrote parts.khan
 $ kh_cli run --open parts.khan --save parts.khan feature.add_cylinder base=30,15,0 radius=10 height=20
 parts: 2 steps
-  Box1         ok  volume 9000.00 mm^3
-  Cylinder1    ok  volume 6283.19 mm^3
+  Box1         ok  volume 9000.00 mm^3  mass 11.16 g (PLA)
+  Cylinder1    ok  volume 6283.19 mm^3  mass 7.79 g (PLA)
 wrote parts.khan
 ```
 
@@ -40,7 +40,7 @@ $ kh_cli run --open parts.khan feature.add_boolean operation=union a=Box1 b=Cyli
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
-  Union1       ok  volume 13712.39 mm^3
+  Union1       ok  volume 13712.39 mm^3  mass 17.00 g (PLA)
 ```
 
 The volume is less than 9000 + 6283.19, because the part where they overlap is
@@ -59,7 +59,7 @@ $ kh_cli run --open parts.khan feature.add_boolean operation=cut a=Box1 b=Cylind
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
-  Cut1         ok  volume 7429.20 mm^3
+  Cut1         ok  volume 7429.20 mm^3  mass 9.21 g (PLA)
 ```
 
 ## Intersect
@@ -75,7 +75,7 @@ $ kh_cli run --open parts.khan feature.add_boolean operation=intersect a=Box1 b=
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
-  Intersect1   ok  volume 1570.80 mm^3
+  Intersect1   ok  volume 1570.80 mm^3  mass 1.95 g (PLA)
 ```
 
 ## Chains of Boolean steps

@@ -14,6 +14,9 @@ All lengths are in millimeters (mm). Positions and sizes are written `x,y,z`:
 | [`feature.add_boolean`](#featureadd_boolean) | Joins two bodies, cuts one from another, or keeps their overlap |
 | [`feature.rename`](#featurerename) | Renames a step |
 | [`feature.delete`](#featuredelete) | Deletes a step |
+| [`feature.set_material`](#featureset_material) | Picks what a body is made of |
+| [`material.define`](#materialdefine) | Adds a material of your own, or changes one |
+| [`material.delete`](#materialdelete) | Removes a material you added |
 
 Plugins can add more commands. [`kh_cli help`](help.md) lists every command
 Khan has right now.
@@ -32,7 +35,7 @@ Adds a box with its edges along x, y and z.
 ```console
 $ kh_cli run --save box.khan feature.add_box size=40,30,20
 box: 1 step
-  Box1         ok  volume 24000.00 mm^3
+  Box1         ok  volume 24000.00 mm^3  mass 29.76 g (PLA)
 wrote box.khan
 ```
 
@@ -44,7 +47,7 @@ Moved away from the origin, and named:
 ```console
 $ kh_cli run feature.add_box corner=10,0,5 size=20,20,2 name=Shelf
 Untitled: 1 step
-  Shelf        ok  volume 800.00 mm^3
+  Shelf        ok  volume 800.00 mm^3  mass 0.99 g (PLA)
 ```
 
 ## feature.add_cylinder
@@ -63,7 +66,7 @@ Adds a round cylinder.
 ```console
 $ kh_cli run feature.add_cylinder radius=10 height=25
 Untitled: 1 step
-  Cylinder1    ok  volume 7853.98 mm^3
+  Cylinder1    ok  volume 7853.98 mm^3  mass 9.74 g (PLA)
 ```
 
 ![A cylinder standing up, and one lying along x](images/cmd-cylinders.png)
@@ -74,7 +77,7 @@ Lying on its side, pointing along x:
 ```console
 $ kh_cli run feature.add_cylinder radius=5 height=40 axis=1,0,0 name=Rod
 Untitled: 1 step
-  Rod          ok  volume 3141.59 mm^3
+  Rod          ok  volume 3141.59 mm^3  mass 3.90 g (PLA)
 ```
 
 ## feature.add_boolean
@@ -94,12 +97,12 @@ A box and a cylinder that overlap:
 ```console
 $ kh_cli run --save parts.khan feature.add_box size=30,30,10
 parts: 1 step
-  Box1         ok  volume 9000.00 mm^3
+  Box1         ok  volume 9000.00 mm^3  mass 11.16 g (PLA)
 wrote parts.khan
 $ kh_cli run --open parts.khan --save parts.khan feature.add_cylinder base=30,15,0 radius=10 height=20
 parts: 2 steps
-  Box1         ok  volume 9000.00 mm^3
-  Cylinder1    ok  volume 6283.19 mm^3
+  Box1         ok  volume 9000.00 mm^3  mass 11.16 g (PLA)
+  Cylinder1    ok  volume 6283.19 mm^3  mass 7.79 g (PLA)
 wrote parts.khan
 ```
 
@@ -113,17 +116,17 @@ $ kh_cli run --open parts.khan feature.add_boolean operation=union a=Box1 b=Cyli
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
-  Union1       ok  volume 13712.39 mm^3
+  Union1       ok  volume 13712.39 mm^3  mass 17.00 g (PLA)
 $ kh_cli run --open parts.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
-  Cut1         ok  volume 7429.20 mm^3
+  Cut1         ok  volume 7429.20 mm^3  mass 9.21 g (PLA)
 $ kh_cli run --open parts.khan feature.add_boolean operation=intersect a=Box1 b=Cylinder1
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
-  Intersect1   ok  volume 1570.80 mm^3
+  Intersect1   ok  volume 1570.80 mm^3  mass 1.95 g (PLA)
 ```
 
 The Boolean step uses up `a` and `b`: they stay in the design (you can still
@@ -143,11 +146,11 @@ the step itself, not its name.
 ```console
 $ kh_cli run --save tag.khan feature.add_box size=60,30,4
 tag: 1 step
-  Box1         ok  volume 7200.00 mm^3
+  Box1         ok  volume 7200.00 mm^3  mass 8.93 g (PLA)
 wrote tag.khan
 $ kh_cli run --open tag.khan --save tag.khan feature.rename feature=Box1 name=Plate
 tag: 1 step
-  Plate        ok  volume 7200.00 mm^3
+  Plate        ok  volume 7200.00 mm^3  mass 8.93 g (PLA)
 wrote tag.khan
 ```
 
@@ -173,7 +176,7 @@ Deletes a step. A step that other steps use can't be deleted; delete those first
 ```console
 $ kh_cli run --save scrap.khan feature.add_box size=10,10,10
 scrap: 1 step
-  Box1         ok  volume 1000.00 mm^3
+  Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
 wrote scrap.khan
 $ kh_cli run --open scrap.khan --save scrap.khan feature.delete feature=Box1
 scrap: 0 steps
@@ -189,4 +192,119 @@ $ kh_cli demo demo.khan
 wrote demo.khan
 $ kh_cli run --open demo.khan feature.delete feature=Plate
 error [feature.in_use]: Plate is used by Tag. Delete or change Tag first.
+```
+
+## feature.set_material
+
+Picks what a step's body is made of. The material sets the body's mass, weight,
+material cost and its color in the viewer. A body with no material picked is
+**PLA**. A union, cut or intersect with no material of its own takes the material
+of its first body, `a` (see [Materials](../user-guide/materials.md)).
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `feature` | step name | yes | The step |
+| `material` | text | yes | A material's name, like `PLA` or `"Aluminum 6061"` (upper or lower case). [`kh_cli materials`](materials.md) lists them. Leave it empty (`material=`) to go back to the material the step gets by default |
+
+The demo tag in aluminum instead of PLA: `Tag` cuts the hole out of `Plate`, so it
+takes `Plate`'s material.
+
+<!-- cli-example -->
+```console
+$ kh_cli demo tag.khan
+wrote tag.khan
+$ kh_cli run --open tag.khan --save tag.khan feature.set_material feature=Plate material="Aluminum 6061"
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 19.23 g (Aluminum 6061)
+wrote tag.khan
+```
+
+A material Khan doesn't know is refused:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli demo tag.khan
+wrote tag.khan
+$ kh_cli run --open tag.khan feature.set_material feature=Plate material=gold
+error [material.unknown]: There is no material called gold. See the list with kh_cli materials, or add your own with material.define.
+```
+
+## material.define
+
+Adds a material of your own to the design, for a filament or stock Khan doesn't
+list. It's saved in the design. Defining a material with the same name again
+changes it, and every step that uses it follows. Khan's own materials can't be
+changed: give yours another name, like `My PLA`.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `name` | text | yes | The material's name |
+| `density` | number | yes | Density in g/cm³, from 0.01 to 25. Water is 1; the maker's data sheet has it |
+| `color` | text | no | Its color in the viewer, as `#` and six hex digits, like `#3366cc`. Default `#9eb2cc` |
+| `youngs_modulus` | number | no | Stiffness (Young's modulus) in GPa. Default 0, meaning unknown |
+| `poissons_ratio` | number | no | Poisson's ratio, 0 to 0.5. Default 0, meaning unknown |
+| `yield_strength` | number | no | Yield strength in MPa. Default 0, meaning unknown |
+| `cost_per_kg` | number | no | Price per kilogram. Default 0, meaning unknown |
+
+<!-- cli-example -->
+```console
+$ kh_cli demo tag.khan
+wrote tag.khan
+$ kh_cli run --open tag.khan --save tag.khan material.define name="Blue PETG" density=1.27 color=#3366cc cost_per_kg=25
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote tag.khan
+$ kh_cli run --open tag.khan --save tag.khan feature.set_material feature=Plate material="Blue PETG"
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 9.04 g (Blue PETG)
+wrote tag.khan
+$ kh_cli materials tag.khan
+material                density stiffness  poisson    yield   price
+                         g/cm^3       GPa               MPa  per kg
+...
+Demo tag's own:
+Blue PETG                  1.27         -        -        -   25.00
+```
+
+Numbers that can't be right are refused:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli demo tag.khan
+wrote tag.khan
+$ kh_cli run --open tag.khan material.define name=Fluff density=0
+error [material.density]: A material's density must be between 0.01 and 25 g/cm³. Water is 1 g/cm³, PLA 1.24, steel 7.87.
+```
+
+## material.delete
+
+Removes a material you added. A material a step uses can't be removed: pick
+another material for that step first. Khan's own materials can't be removed.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `name` | text | yes | The material's name |
+
+<!-- cli-example -->
+```console
+$ kh_cli demo tag.khan
+wrote tag.khan
+$ kh_cli run --open tag.khan --save tag.khan material.define name=Cork density=0.24
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote tag.khan
+$ kh_cli run --open tag.khan --save tag.khan material.delete name=Cork
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote tag.khan
 ```

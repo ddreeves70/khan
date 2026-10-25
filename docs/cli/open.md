@@ -1,6 +1,7 @@
 # kh_cli open
 
-Opens a saved design, rebuilds it, and prints every step with its volume. It can
+Opens a saved design, rebuilds it, and prints every step with its volume, and
+each finished body's mass and material. It can
 also export the finished shape for 3D printing or another CAD program.
 
 ```text
@@ -18,7 +19,7 @@ Each step shows one of these:
 
 | Word | Meaning |
 | --- | --- |
-| `ok` | The step built. Its volume is shown |
+| `ok` | The step built. Its volume is shown; a finished body also shows its mass and [material](../user-guide/materials.md) |
 | `failed` | The step couldn't be built. The line under it says why |
 | `blocked` | The step uses another step that failed or is turned off |
 | `off` | The step is turned off (suppressed) |
@@ -35,7 +36,7 @@ $ kh_cli open tag.khan
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
-  Tag          ok  volume 7121.46 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
 ```
 
 Export it for 3D printing:
@@ -46,7 +47,7 @@ $ kh_cli open tag.khan --export tag.stl
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
-  Tag          ok  volume 7121.46 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
 wrote tag.stl
 ```
 
@@ -58,7 +59,7 @@ $ kh_cli open tag.khan --export hole.step --step Hole
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
-  Tag          ok  volume 7121.46 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
 wrote hole.step
 ```
 
@@ -71,17 +72,17 @@ a [`feature.add_boolean`](commands.md#featureadd_boolean) to join them:
 ```console
 $ kh_cli run --save two.khan feature.add_box size=10,10,10
 two: 1 step
-  Box1         ok  volume 1000.00 mm^3
+  Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
 wrote two.khan
 $ kh_cli run --open two.khan --save two.khan feature.add_box corner=20,0,0 size=5,5,5
 two: 2 steps
-  Box1         ok  volume 1000.00 mm^3
-  Box2         ok  volume 125.00 mm^3
+  Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
+  Box2         ok  volume 125.00 mm^3  mass 0.15 g (PLA)
 wrote two.khan
 $ kh_cli open two.khan --export two.stl
 two: 2 steps
-  Box1         ok  volume 1000.00 mm^3
-  Box2         ok  volume 125.00 mm^3
+  Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
+  Box2         ok  volume 125.00 mm^3  mass 0.15 g (PLA)
 error: this design has 2 finished bodies, and export writes one. Combine them with feature.add_boolean, or pick one with --step <name>.
 ```
 

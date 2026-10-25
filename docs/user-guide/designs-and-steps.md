@@ -35,7 +35,7 @@ $ kh_cli open tag.khan
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
-  Tag          ok  volume 7121.46 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
 ```
 
 | Status | Meaning |

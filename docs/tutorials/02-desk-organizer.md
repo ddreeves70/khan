@@ -31,7 +31,7 @@ step is the finished part.
 ```console
 $ kh_cli run --save organizer.khan feature.add_box name=Base size=120,60,8
 organizer: 1 step
-  Base         ok  volume 57600.00 mm^3
+  Base         ok  volume 57600.00 mm^3  mass 71.42 g (PLA)
 wrote organizer.khan
 ```
 
@@ -45,8 +45,8 @@ edge is 8 mm from the base's left side.
 ```console
 $ kh_cli run --open organizer.khan --save organizer.khan feature.add_cylinder name=Cup base=30,30,0 radius=22 height=80
 organizer: 2 steps
-  Base         ok  volume 57600.00 mm^3
-  Cup          ok  volume 121642.47 mm^3
+  Base         ok  volume 57600.00 mm^3  mass 71.42 g (PLA)
+  Cup          ok  volume 121642.47 mm^3  mass 150.84 g (PLA)
 wrote organizer.khan
 ```
 
@@ -65,7 +65,7 @@ $ kh_cli run --open organizer.khan --save organizer.khan feature.add_boolean nam
 organizer: 3 steps
   Base         ok  volume 57600.00 mm^3
   Cup          ok  volume 121642.47 mm^3
-  Body         ok  volume 167078.22 mm^3
+  Body         ok  volume 167078.22 mm^3  mass 207.18 g (PLA)
 wrote organizer.khan
 ```
 
@@ -84,12 +84,12 @@ up past the top of the cup.
 $ kh_cli run --open organizer.khan --save organizer.khan feature.add_cylinder name=PenHole base=30,30,6 radius=18 height=80
 organizer: 4 steps
 ...
-  PenHole      ok  volume 81430.08 mm^3
+  PenHole      ok  volume 81430.08 mm^3  mass 100.97 g (PLA)
 wrote organizer.khan
 $ kh_cli run --open organizer.khan --save organizer.khan feature.add_boolean name=Hollow operation=cut a=Body b=PenHole
 organizer: 5 steps
 ...
-  Hollow       ok  volume 91755.40 mm^3
+  Hollow       ok  volume 91755.40 mm^3  mass 113.78 g (PLA)
 wrote organizer.khan
 ```
 
@@ -108,12 +108,12 @@ base. Like the hole in Tutorial 1, it sticks out above the top (to z = 9).
 $ kh_cli run --open organizer.khan --save organizer.khan feature.add_box name=Slot corner=65,24,4 size=45,12,5
 organizer: 6 steps
 ...
-  Slot         ok  volume 2700.00 mm^3
+  Slot         ok  volume 2700.00 mm^3  mass 3.35 g (PLA)
 wrote organizer.khan
 $ kh_cli run --open organizer.khan --save organizer.khan feature.add_boolean name=Slotted operation=cut a=Hollow b=Slot
 organizer: 7 steps
 ...
-  Slotted      ok  volume 89595.40 mm^3
+  Slotted      ok  volume 89595.40 mm^3  mass 111.10 g (PLA)
 wrote organizer.khan
 ```
 
@@ -135,7 +135,7 @@ organizer: 7 steps
   PenHole      ok  volume 81430.08 mm^3
   Hollow       ok  volume 91755.40 mm^3
   Slot         ok  volume 2700.00 mm^3
-  Organizer    ok  volume 89595.40 mm^3
+  Organizer    ok  volume 89595.40 mm^3  mass 111.10 g (PLA)
 wrote organizer.khan
 ```
 
@@ -149,7 +149,7 @@ changes, not by name.
 $ kh_cli open organizer.khan --export organizer.stl
 organizer: 7 steps
 ...
-  Organizer    ok  volume 89595.40 mm^3
+  Organizer    ok  volume 89595.40 mm^3  mass 111.10 g (PLA)
 wrote organizer.stl
 ```
 
