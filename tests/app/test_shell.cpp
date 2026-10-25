@@ -10,13 +10,17 @@
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
+#include <QMenuBar>
 #include <QSettings>
+#include <QStatusBar>
 #include <QTemporaryDir>
 #include <QToolBar>
 #include <QTreeWidget>
 
 #include <memory>
 
+#include "AppSettings.h"
 #include "AppUi.h"
 #include "Shell.h"
 #include "kh/kernel_occt/OcctKernel.h"
@@ -47,10 +51,35 @@ void panelThenFail(plugin::PluginContext& ctx) {
     ctx.fail("Testing a plugin that fails.");
 }
 
+// A plugin with a setting, a check-mark item in a View submenu, and a status-bar
+// item, like the plugin guide's examples.
+void units(plugin::PluginContext& ctx) {
+    auto& settings = ctx.settings();
+    ctx.addAction(
+        {.id = "test.units.inches",
+         .text = "Inches",
+         .menu = "View/Units",
+         .tip = "Show sizes in inches.",
+         .run = [&settings] { settings.set("inches", !settings.flag("inches")); },
+         .checked = [&settings] { return settings.flag("inches"); },
+         .currentText =
+             [&settings] { return std::string(settings.flag("inches") ? "Inches (on)" : "Inches"); }});
+    ctx.addAction({.id = "test.units.oops", .text = "Oops", .menu = "View/Units", .run = [] {
+                       throw std::runtime_error("no tape");
+                   }});
+    if (auto* ui = ctx.service<ui::UiRegistry>()) {
+        ui->addStatusItem({"test.units.status", [&settings] {
+                               return new QLabel(settings.flag("inches") ? QStringLiteral("in")
+                                                                         : QStringLiteral("mm"));
+                           }});
+    }
+}
+
 struct App {
     QTemporaryDir dir;
     QSettings settings{dir.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat};
     std::unique_ptr<kernel::IKernel> kernel = kernel::makeOcctKernel();
+    app::AppSettings pluginSettings{settings};
     app::AppUi ui;
     plugin::PluginHost host{kernel.get()};
     plugin::Grid grid{host.events()};
@@ -59,6 +88,7 @@ struct App {
     App() {
         host.provide<ui::UiRegistry>(ui);
         host.provide(grid);
+        host.setSettings(pluginSettings);
         host.addBuiltin(plugins::modelingPlugin());
         host.addBuiltin(plugins::featureTreePlugin());
         host.addBuiltin(plugins::propertiesPlugin());
@@ -66,6 +96,9 @@ struct App {
         host.addBuiltin({R"({"id":"test.broken","name":"Broken","version":"1","apiVersion":)" +
                              std::to_string(plugin::kPluginApiVersion) + "}",
                          &panelThenFail});
+        host.addBuiltin({R"({"id":"test.units","name":"Units","version":"1","apiVersion":)" +
+                             std::to_string(plugin::kPluginApiVersion) + "}",
+                         &units});
         host.loadAll();
         open();
     }
@@ -434,4 +467,58 @@ TEST_CASE("a cut shows which body its material comes from", "[app][material]") {
     app.host.selection().set(doc, {app.doc().featureAt(2).id()});
     settle();
     CHECK(app.field<QComboBox>("material")->currentText() == QStringLiteral("Same as Plate: Oak (red)"));
+}
+
+TEST_CASE("a plugin's check-mark item in a View submenu changes its setting", "[app][settings]") {
+    App app;
+    auto* a = app.shell->action("test.units.inches");
+    REQUIRE(a);
+    CHECK(a->isCheckable());
+    CHECK_FALSE(a->isChecked());
+    CHECK(a->isEnabled());
+    // It's in View > Units.
+    QMenu* units = nullptr;
+    for (auto* m : app.shell->findChildren<QMenu*>()) {
+        if (m->title() == QStringLiteral("Units")) units = m;
+    }
+    REQUIRE(units);
+    CHECK(units->actions().contains(a));
+    auto* view = qobject_cast<QMenu*>(units->parent());
+    REQUIRE(view);
+    CHECK(view->title() == QStringLiteral("&View"));
+
+    a->trigger();
+    settle();
+    CHECK(a->isChecked());
+    CHECK(a->text() == QStringLiteral("Inches (on)"));
+    CHECK(app.settings.value(QStringLiteral("plugins/test.units/inches")).toString() ==
+          QStringLiteral("true"));
+
+    // A change made somewhere else (another panel, a script) shows as soon as
+    // Khan hears about it.
+    app.pluginSettings.write("plugins/test.units/inches", "false");
+    app.host.events().publish(plugin::SettingChanged{"test.units", "inches"});
+    CHECK_FALSE(a->isChecked());
+    CHECK(a->text() == QStringLiteral("Inches"));
+}
+
+TEST_CASE("a plugin's status-bar item shows, and its setting lasts between runs", "[app][settings]") {
+    App app;
+    auto* label = app.shell->statusBar()->findChild<QLabel*>(QStringLiteral("test.units.status"));
+    REQUIRE(label);
+    CHECK(label->text() == QStringLiteral("mm"));
+    app.click("test.units.inches");
+    app.open();  // a new window, as on the next run
+    label = app.shell->statusBar()->findChild<QLabel*>(QStringLiteral("test.units.status"));
+    REQUIRE(label);
+    CHECK(label->text() == QStringLiteral("in"));
+    CHECK(app.shell->action("test.units.inches")->isChecked());
+}
+
+TEST_CASE("a plugin action that fails says so, without closing Khan", "[app][settings]") {
+    App app;
+    app.click("test.units.oops");
+    auto* problems = app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.problems"));
+    REQUIRE(problems);
+    CHECK(problems->text().contains(QStringLiteral("Oops stopped with an error")));
 }

@@ -32,3 +32,29 @@ TEST_CASE("the guide's Tape plugin uses the Ruler plugin's ruler", "[plugin][sha
     CHECK(ruler->issues.empty());
     CHECK(tape->issues.empty());
 }
+
+TEST_CASE("the guide's Ruler remembers its unit, and its View item switches it", "[plugin][sharing][guide]") {
+    MemorySettings store;
+    store.write("plugins/example.ruler/unit", "mm");  // picked last time
+    PluginHost host;
+    host.setSettings(store);
+    host.addFolder(KH_PLUGIN_FOLDER);
+    host.loadAll();
+    const auto* tape = host.find("example.tape");
+    REQUIRE(tape);
+    CHECK(tape->messages ==
+          std::vector<std::string>{"The ruler shows lengths in mm.", "A 25.4 mm box is 25.40 mm long."});
+
+    const ActionSpec* inches = nullptr;
+    for (const auto& a : host.actions()) {
+        if (a.id == "example.ruler.inches") inches = &a;
+    }
+    REQUIRE(inches);
+    CHECK(inches->menu == "View");
+    CHECK_FALSE(inches->checked());
+    inches->run();  // the student clicks it
+    CHECK(inches->checked());
+    CHECK(store.read("plugins/example.ruler/unit") == "in");
+    CHECK(tape->messages.back() == "The ruler shows lengths in in.");
+    CHECK(host.find("example.ruler")->issues.empty());
+}

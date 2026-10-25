@@ -72,7 +72,10 @@ struct UnitChanged {
 <!-- guide-file: sharing/ruler/ruler.cpp -->
 
 ```cpp
-// The Ruler plugin: shares a ruler that shows lengths in inches.
+// The Ruler plugin: shares a ruler that shows lengths in inches or mm. The
+// student picks with View > Ruler shows inches, and Khan remembers it.
+#include <string>
+
 #include "example/ruler/Ruler.h"
 #include "kh/plugin/Api.h"
 #include "kh/plugin/PluginContext.h"
@@ -82,17 +85,37 @@ namespace {
 using example::ruler::IRuler;
 using example::ruler::UnitChanged;
 
-class InchRuler final : public IRuler {
+class Ruler final : public IRuler {
 public:
-    const char* unit() const override { return "in"; }
-    double fromMm(double mm) const override { return mm / 25.4; }  // 25.4 mm in an inch
+    bool inches = true;
+    const char* unit() const override { return inches ? "in" : "mm"; }
+    double fromMm(double mm) const override { return inches ? mm / 25.4 : mm; }  // 25.4 mm in an inch
 };
 
-InchRuler ruler;  // lives until Khan closes
+Ruler ruler;  // lives until Khan closes
 
 void registerRuler(kh::plugin::PluginContext& ctx) {
+    // The unit the student picked last time ("in" the first time).
+    auto& settings = ctx.settings();
+    ruler.inches = settings.text("unit", "in") == "in";
+
     // Step 1, registering: offer the ruler to every other plugin.
     ctx.provide<IRuler>(ruler);
+
+    // A View menu item with a check mark. Clicking it changes the setting.
+    ctx.addAction({.id = "example.ruler.inches",
+                   .text = "Ruler shows inches",
+                   .menu = "View",
+                   .tip = "Show lengths in inches instead of mm.",
+                   .run = [&settings] { settings.set("unit", ruler.inches ? "mm" : "in"); },
+                   .checked = [] { return ruler.inches; }});
+
+    // When the setting changes, change the ruler and tell the other plugins.
+    ctx.listen<kh::plugin::SettingChanged>([&ctx, &settings](const kh::plugin::SettingChanged& e) {
+        if (e.plugin != "example.ruler" || e.key != "unit") return;
+        ruler.inches = settings.text("unit", "in") == "in";
+        ctx.publish(UnitChanged{ruler.unit()});
+    });
 
     // Step 2, starting: every plugin has registered. Tell them the unit.
     ctx.onStart([&ctx] { ctx.publish(UnitChanged{ruler.unit()}); });
@@ -115,6 +138,18 @@ A plugin starts in **two steps**:
 
 `ctx.publish` is like `ctx.events().publish`, but it checks that the event's name
 starts with your plugin's id.
+
+Ruler also lets the student pick its unit, and remembers the choice:
+
+- `ctx.settings()` is the plugin's own settings. `settings.text("unit", "in")` reads
+  the saved unit, or `"in"` if there isn't one yet. Khan keeps settings between runs.
+- The menu item has a `run` function instead of a command, because picking a unit
+  doesn't change a design. Its `checked` function puts a check mark next to it.
+- `settings.set(...)` sends a `kh.SettingChanged` event. Ruler listens for its own
+  `unit` setting, changes the ruler, and tells everyone the new unit.
+
+See [What a plugin can do](extension-points.md#remember-settings) for more about
+settings and check-mark items.
 
 Ruler's `plugin.json` is ordinary: an `id`, a `name` and a `library`.
 
@@ -200,8 +235,8 @@ target_include_directories(example_ruler_api INTERFACE "${CMAKE_CURRENT_SOURCE_D
 kh_add_plugin(kh_example_tape_plugin MANIFEST tape/plugin.json SOURCES tape/tape.cpp DEPS example_ruler_api)
 ```
 
-Build Khan, then list the plugins. Ruler offers its service; Tape's log shows
-it heard the event and measured with the ruler:
+Build Khan, then list the plugins. Ruler offers its service and its View menu
+item; Tape's log shows it heard the event and measured with the ruler:
 
 <!-- cli-example -->
 ```console
@@ -209,6 +244,7 @@ $ kh_cli plugins --plugins build/dev/khan-plugins
 ...
 loaded   example.ruler 1.0.0  Ruler
            service example.ruler/1
+           action  View > Ruler shows inches  (check mark)
 loaded   example.tape 1.0.0  Tape
            log: The ruler shows lengths in in.
            log: A 25.4 mm box is 1.00 in long.

@@ -137,6 +137,8 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, plugin::Grid& grid, QSettings&
     subs_.push_back(host_.events().subscribe<RebuildFinished>(later));
     subs_.push_back(host_.events().subscribe<ActiveDocumentChanged>(later));
     subs_.push_back(host_.events().subscribe<SelectionChanged>(later));
+    subs_.push_back(
+        host_.events().subscribe<SettingChanged>([this](const SettingChanged&) { refreshActions(); }));
     subs_.push_back(host_.events().subscribe<GridChanged>([this](const GridChanged& e) {
         settings_.setValue(QStringLiteral("grid/visible"), e.grid.visible);
         settings_.setValue(QStringLiteral("grid/spacing"), e.grid.spacing);
@@ -211,17 +213,39 @@ void Shell::buildMenus() {
     toolbar_->addAction(redo_);
 
     // Plugin actions, in the menus they name (made in the order first named).
-    std::map<std::string, QMenu*> menus{{"File", file}, {"Edit", edit}};
+    // View is made now, so plugins can add to it, and placed after their menus.
+    viewMenu_ = new QMenu(tr("&View"), this);
+    std::map<std::string, QMenu*> menus{{"File", file}, {"Edit", edit}, {"View", viewMenu_}};
+    // "View/Grid style" is the Grid style submenu of View.
+    auto menuFor = [&](const std::string& path) {
+        std::string sofar;
+        QMenu* parent = nullptr;
+        std::size_t from = 0;
+        for (;;) {
+            const auto slash = path.find('/', from);
+            const std::string part =
+                path.substr(from, slash == std::string::npos ? std::string::npos : slash - from);
+            sofar += (sofar.empty() ? "" : "/") + part;
+            QMenu*& m = menus[sofar];
+            if (!m) {
+                m = parent ? parent->addMenu(qs(part)) : menuBar()->addMenu(qs(part));
+                connect(m, &QMenu::aboutToShow, this, [this] { refreshActions(); });
+            }
+            parent = m;
+            if (slash == std::string::npos) return m;
+            from = slash + 1;
+        }
+    };
     bool toolbarSeparator = false;
     for (const auto& spec : host_.actions()) {
-        QMenu*& menu = menus[spec.menu];
-        if (!menu) menu = menuBar()->addMenu(qs(spec.menu));
+        QMenu* menu = menuFor(spec.menu);
         if (menu == edit && edit->actions().size() == 2) edit->addSeparator();
         auto* a = menu->addAction(qs(spec.text));
         a->setObjectName(qs(spec.id));
         a->setToolTip(qs(spec.tip));
         a->setStatusTip(qs(spec.tip));
         if (!spec.shortcut.empty()) a->setShortcut(QKeySequence(qs(spec.shortcut)));
+        a->setCheckable(static_cast<bool>(spec.checked));
         connect(a, &QAction::triggered, this, [this, spec] { runAction(spec); });
         if (spec.toolbar) {
             if (!toolbarSeparator) toolbar_->addSeparator();
@@ -297,6 +321,16 @@ void Shell::buildPanels() {
     }
     windowMenu_->addSeparator();
     layoutMenu_ = windowMenu_->addMenu(tr("&Layouts"));
+
+    // Plugins' status-bar items, at the bottom right, before Khan's own.
+    int at = 1;  // after the problems label
+    for (const auto& item : ui_.statusItems()) {
+        if (!ownerLoaded(host_, item.id) || !item.create) continue;
+        if (auto* w = item.create()) {
+            w->setObjectName(qs(item.id));
+            statusBar()->insertPermanentWidget(at++, w);
+        }
+    }
 }
 
 QString Shell::openAnotherPanel(const QString& id) {
@@ -326,7 +360,9 @@ QString Shell::openAnotherPanel(const QString& id) {
 // ---------------------------------------------------------------------------
 
 void Shell::buildViewMenu() {
-    viewMenu_ = menuBar()->addMenu(tr("&View"));
+    menuBar()->addMenu(viewMenu_);
+    connect(viewMenu_, &QMenu::aboutToShow, this, [this] { refreshActions(); });
+    if (!viewMenu_->isEmpty()) viewMenu_->addSeparator();  // plugins' items first, then the grid
     auto named = [](QAction* a, const char* id) {
         a->setObjectName(QString::fromLatin1(id));
         return a;
@@ -425,7 +461,38 @@ void Shell::rebuildLayoutMenu() {
 // Actions
 // ---------------------------------------------------------------------------
 
+void Shell::refreshActions() {
+    for (auto& [spec, a] : actions_) {
+        try {
+            if (spec.checked) a->setChecked(spec.checked());
+            if (spec.currentText) a->setText(qs(spec.currentText()));
+        } catch (...) {
+            // A plugin's check-mark function failed: leave the item as it was.
+        }
+    }
+}
+
 void Shell::runAction(const plugin::ActionSpec& spec) {
+    if (spec.run) {
+        // The plugin's own code (a setting, a dialog), not a change to a design.
+        try {
+            spec.run();
+        } catch (const std::exception& e) {
+            showProblems({{"action.failed", Severity::Error,
+                           tr("%1 stopped with an error (%2). Ask the plugin's author for help.")
+                               .arg(qs(spec.text), QString::fromUtf8(e.what()))
+                               .toStdString(),
+                           spec.plugin}});
+        } catch (...) {
+            showProblems({{"action.failed", Severity::Error,
+                           tr("%1 stopped with an error. Ask the plugin's author for help.")
+                               .arg(qs(spec.text))
+                               .toStdString(),
+                           spec.plugin}});
+        }
+        refreshActions();
+        return;
+    }
     auto& docs = host_.documents();
     const DocId doc = activeDesign();
     model::Args args = spec.args;
@@ -583,12 +650,13 @@ void Shell::refresh() {
 
     const auto& sel = host_.selection();
     for (auto& [spec, a] : actions_) {
-        bool ok = doc != nullptr;
+        bool ok = doc != nullptr || static_cast<bool>(spec.run);
         if (!spec.fromSelection.empty()) {
             ok = ok && sel.doc() == activeDesign() && sel.features().size() == spec.fromSelection.size();
         }
         a->setEnabled(ok);
     }
+    refreshActions();
 }
 
 void Shell::showProblems(const Diagnostics& problems) {

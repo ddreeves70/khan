@@ -57,8 +57,10 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
 | --- | --- |
 | C++ plugins built with Khan | Works: [Hello](hello-plugin.md) |
 | Commands | Works |
-| Events: design opened, closed, changed, rebuilt, active design | Works |
+| Events: design opened, closed, changed, rebuilt, active design, setting changed | Works |
 | Menu items and toolbar buttons (actions) | Works |
+| Check-mark menu items, submenus, status-bar items | Works |
+| Plugin settings Khan remembers | Works |
 | The shared selection | Works |
 | The grid (settings and snapping) | Works in the desktop app |
 | Panels in the desktop app | Works: the feature tree, Properties and the viewer are plugins |

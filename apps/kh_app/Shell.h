@@ -96,6 +96,7 @@ private:
     void buildPanels();
     void runAction(const plugin::ActionSpec& spec);
     void refresh();
+    void refreshActions();  // plugins' check marks and changing texts
     void showProblems(const Diagnostics& problems);
     void showMessage(const QString& message);
     bool confirmLoseChanges();

@@ -2,6 +2,7 @@
 # is a library so the app tests drive the same code; panels and menu items come
 # from plugins. Panels dock through Qt ADS (cmake/KhAds.cmake).
 qt_add_library(kh_app_core STATIC
+  AppSettings.h
   AppUi.cpp
   AppUi.h
   Shell.cpp

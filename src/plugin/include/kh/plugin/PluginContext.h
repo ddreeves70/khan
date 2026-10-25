@@ -14,6 +14,7 @@
 #include "kh/plugin/EventBus.h"
 #include "kh/plugin/Manifest.h"
 #include "kh/plugin/Selection.h"
+#include "kh/plugin/Settings.h"
 
 namespace kh::plugin {
 
@@ -66,6 +67,12 @@ public:
     /// undo() and redo(), so undo and events always work.
     /// @return The shared document list.
     virtual DocumentList& documents() = 0;
+
+    /// Gives this plugin's remembered settings. In the desktop app they last
+    /// between runs; in kh_cli they're forgotten when it ends. Usable any time,
+    /// including in the register function.
+    /// @return The settings; keys can't clash with other plugins'.
+    virtual PluginSettings& settings() = 0;
 
     /// Gives the shared selection: the steps the student has picked.
     /// @return The selection.

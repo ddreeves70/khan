@@ -21,6 +21,7 @@
 #include "kh/plugin/Manifest.h"
 #include "kh/plugin/PluginContext.h"
 #include "kh/plugin/Selection.h"
+#include "kh/plugin/Settings.h"
 
 namespace kh::plugin {
 
@@ -107,6 +108,11 @@ public:
         provide(std::string(T::kServiceName), static_cast<void*>(&service));
     }
 
+    /// Sets where plugins' settings are kept (see PluginContext::settings()).
+    /// Call before loadAll(). Without it, settings are kept in memory only.
+    /// @param backend The settings store. Must outlive the host.
+    void setSettings(SettingsBackend& backend) { settingsBackend_ = &backend; }
+
     /// Sets how long a plugin may take to register and start before it gets the
     /// plugin.slow_start warning. Call before loadAll().
     /// @param limit The limit; 0 turns the warning off. The default is 500 ms.
@@ -172,6 +178,8 @@ private:
     std::vector<ActionSpec> actions_;
     std::unique_ptr<detail::HostShared> shared_;  // services and loading state, shared with contexts
     std::chrono::milliseconds slowStartLimit_{500};
+    MemorySettings memorySettings_;
+    SettingsBackend* settingsBackend_ = &memorySettings_;
     std::vector<std::unique_ptr<PluginContext>> contexts_;
     std::vector<BuiltinPlugin> builtins_;
     std::vector<std::filesystem::path> folders_;

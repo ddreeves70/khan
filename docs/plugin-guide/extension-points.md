@@ -69,9 +69,75 @@ ctx.addAction({.id = "kh.modeling.cut", .text = "Cut", .menu = "Combine",
                .tip = "Cut the second selected body out of the first."});
 ```
 
+**Submenus.** A `/` in `menu` makes a submenu: `.menu = "View/Grid style"` puts
+the item in the **Grid style** submenu of **View**.
+
 Khan refuses a plugin whose action has a badly formed id, an id another action
 already has, or a command no loaded plugin has. Like commands, actions can only
 be added while the register function runs.
+
+## Check-mark items, and items that run your own code
+
+Some menu items don't change a design: they turn something on or off, or open a
+dialog. Give them a `run` function instead of a command. Add `checked` and the
+item gets a check mark whenever it returns `true`:
+
+```cpp
+auto& settings = ctx.settings();
+ctx.addAction({.id = "sam.notes.show_dates",
+               .text = "Show dates on notes",
+               .menu = "View",
+               .tip = "Write the date next to every note.",
+               .run = [&settings] { settings.set("dates", !settings.flag("dates")); },
+               .checked = [&settings] { return settings.flag("dates"); }});
+```
+
+- Khan asks `checked` when the menu opens, after every change to a design, and
+  whenever a setting changes, so the check mark is always right.
+- `currentText` (optional) gives the item's words the same way, for items like
+  **Other (12.5 mm)...** whose words change.
+- An item has a command *or* a `run` function, never both and never neither;
+  Khan refuses the plugin otherwise.
+- Changes to designs still go through commands. A `run` function that wants to
+  change a design runs a command with `ctx.documents()`, so undo works.
+- If `run` throws an exception, Khan shows "*item* stopped with an error" in the
+  status bar and keeps going.
+- In `kh_cli plugins` these items show `(check mark)` or `(runs plugin code)`
+  instead of a command name.
+
+## Remember settings
+
+`ctx.settings()` is your plugin's own settings. The desktop app keeps them between
+runs, with Khan's own settings; `kh_cli` keeps them only while it runs.
+
+```cpp
+auto& settings = ctx.settings();
+double spacing = settings.number("spacing", 10.0);  // mm; 10 if never set
+bool dates = settings.flag("dates");                // false if never set
+std::string name = settings.text("name", "Sam");
+
+settings.set("spacing", 12.5);  // numbers, text or true/false
+settings.remove("name");        // back to the fallback
+```
+
+- Names are yours alone: Khan stores `spacing` as `plugins/sam.notes/spacing`, so
+  two plugins can both have a `spacing`.
+- Numbers are saved with a `.` as the decimal point on every computer, and
+  read back exactly.
+- Changing a setting sends a `kh.SettingChanged` event with the plugin id and the
+  name, only if the value really changed. Listen to it to update what you show:
+
+  ```cpp
+  ctx.listen<kh::plugin::SettingChanged>([](const kh::plugin::SettingChanged& e) {
+      if (e.plugin == "sam.notes" && e.key == "dates") { /* redraw the notes */ }
+  });
+  ```
+
+- Store your own settings only. Read other plugins' settings through a
+  [service](sharing.md) they offer, so they can change how they keep them.
+
+The [Ruler example](sharing.md#step-2-offer-it) uses a setting and a check-mark
+item together.
 
 ## Use the selection
 
@@ -129,6 +195,7 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `RebuildFinished` | A design was rebuilt after a change | `doc`, `ok` (did every step build?) |
 | `SelectionChanged` | The selection changes | `doc`, `features` (in picking order) |
 | `GridChanged` | The grid settings change (desktop app) | `grid`: visible, spacing in mm, snap, style |
+| `SettingChanged` | A plugin's setting changes | `plugin` (its id), `key` (the setting's name) |
 
 Things to know:
 
@@ -201,6 +268,14 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
   closes).
 - Change designs only through `ctx.documents()`, like everywhere else.
 - `ui->showProblems(problems)` shows what went wrong in the status bar.
+- **Status-bar items.** `ui->addStatusItem` puts a small widget at the bottom
+  right of the window, like Khan's grid size. Khan calls your function once when
+  the window opens and owns the widget:
+
+  ```cpp
+  ui->addStatusItem({"sam.notes.count",  // starts with your plugin id
+                     [&ctx] { return new NoteCountLabel(ctx); }});
+  ```
 - **More than one?** Set `allowMultiple` and the **Window** menu gets
   **New** *your panel's title*. Each one is made by its own call to your function,
   so keep its state in the widget, not in the plugin. Copies aren't reopened when
@@ -257,7 +332,6 @@ These are planned and will be added to this guide as they're built:
 
 | Extension point | What you'll add | When |
 | --- | --- | --- |
-| Plugin settings, check-mark menu items, status-bar items | Settings Khan remembers for your plugin, and menu items with a check mark | Next |
 | View overlays, tiers | Drawing in the 3D view; saying which layer your plugin belongs to | Next |
 | Ribbon tabs | Grouping actions into tabs | Later |
 | Viewer tools | A way to use the mouse in the 3D view, with a live preview | With the sketcher, Phase 1 |

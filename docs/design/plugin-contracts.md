@@ -255,10 +255,12 @@ still be a working CAD program without it? If yes, it's a plugin.
 
 ## Building it
 
-1. **Mechanisms** (plugin API version 4). *Built Oct 25, 2026:* plugin services,
-   two-phase startup, `uses`, loops allowed with the warning, the warnings,
-   `--strict`, the configurable slow-start limit, and the guide's Ruler and Tape
-   example. *Next:* the settings store, check-mark actions and status-bar items.
+1. **Mechanisms** (plugin API versions 4 and 5). *Built Oct 25, 2026:* plugin
+   services, two-phase startup, `uses`, loops allowed with the warning, the
+   warnings, `--strict`, the configurable slow-start limit, and the guide's Ruler
+   and Tape example (API 4); then the settings store (`ctx.settings()`,
+   `kh.SettingChanged`), actions that run plugin code with a check mark,
+   submenus, and status-bar items (API 5). Ruler now remembers its unit.
    Originally planned as one step: plugin services, two-phase startup
    (`onStart`), `uses`, loops allowed with the warning, the other warnings,
    `--strict`, the configurable slow-start limit, the settings store, check-mark actions and status-bar items. The
