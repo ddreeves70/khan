@@ -52,11 +52,19 @@ Handle(Graphic3d_GraphicDriver) sharedDriver() {
     return driver;
 }
 
-std::string attachContext(const Handle(V3d_View) & view, bool coreProfile, Aspect_Drawable native, int width,
-                          int height) {
+std::string attachContext(const Handle(V3d_View) & view, bool coreProfile, Aspect_Drawable native,
+                          Aspect_Drawable fallback, int width, int height, std::string& used) {
     Handle(OpenGl_Context) gl = new OpenGl_Context();
     if (!gl->Init(coreProfile)) return "OpenGl_Context::Init failed on Qt's context";
+    used = native ? "given window" : "context's window";
     if (!native) native = gl->Window();
+    if (!native) {
+        // Qt made its context current on an offscreen buffer (Windows does this
+        // for QOpenGLWidget), which has no window: use the top-level window,
+        // which Qt draws with OpenGL too, so the context works with it.
+        native = fallback;
+        used = "top-level window (the context had none)";
+    }
     Handle(Aspect_NeutralWindow) window = Handle(Aspect_NeutralWindow)::DownCast(view->Window());
     if (window.IsNull()) {
         window = new Aspect_NeutralWindow();

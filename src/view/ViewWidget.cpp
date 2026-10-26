@@ -487,21 +487,25 @@ void ViewWidget::initializeGL() {
     }
     try {
         // OCCT wants a native window. On Windows, the one Qt made the context
-        // current on (0 asks for it); elsewhere Qt draws into a buffer, so the
+        // current on (0 asks for it), or the top-level window if that's an
+        // offscreen buffer with none; elsewhere Qt draws into a buffer, so the
         // top-level window (asking our own widget would make it native, which
         // QOpenGLWidget dislikes).
+        const auto topLevel = static_cast<Aspect_Drawable>(window()->winId());
 #if defined(_WIN32)
         const Aspect_Drawable native = nullptr;
 #else
-        const auto native = static_cast<Aspect_Drawable>(window()->winId());
+        const Aspect_Drawable native = topLevel;
 #endif
         const double ratio = devicePixelRatioF();
         const bool first = d.view->Window().IsNull();
         // Called again when the panel moves to another window: OCCT takes the new context.
-        if (const auto why = detail::attachContext(
-                d.view, context()->format().profile() == QSurfaceFormat::CoreProfile, native,
-                static_cast<int>(width() * ratio), static_cast<int>(height() * ratio));
-            !why.empty()) {
+        std::string used;
+        const auto why = detail::attachContext(
+            d.view, context()->format().profile() == QSurfaceFormat::CoreProfile, native, topLevel,
+            static_cast<int>(width() * ratio), static_cast<int>(height() * ratio), used);
+        d.glInfo += QStringLiteral(", window: ") + QString::fromStdString(used);
+        if (!why.empty()) {
             d.fail(*this, drawFailed(d.where(QStringLiteral("OCCT couldn't use Qt's OpenGL context: ") +
                                              QString::fromStdString(why))));
             return;
