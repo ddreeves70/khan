@@ -62,6 +62,15 @@ Each phase ends with a build you can try and a written exit check.
 - PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry.
 - Core constraints and driving dimensions; degrees-of-freedom coloring; conflict highlighting.
 - Auto-constraints while drawing, snapping, and closed-profile detection.
+- **Full B-spline support,** after lines, arcs and circles work (early Phase 2 if Phase 1 runs long). Spline constraints are where a solver most easily fails, so they come once the basic sketcher is solid:
+  - Drawing by control points and by fit points (the curve passes through the points clicked).
+  - Editing: drag points, add and remove points, change degree and weights, with the rest of the sketch staying solved.
+  - Constraints: end on a line or arc, tangent (G1) and curvature-continuous (G2) where curves meet, point on spline, dimensions on control and fit points.
+  - Degrees of freedom and conflicts reported for splines like any other geometry, so a spline can be fully constrained.
+  - Closed profiles with spline edges extrude and revolve like any other profile (OCCT already handles B-splines in 3D).
+  - Import a spline from a file of points, with Reload from file.
+  - PlaneGCS already represents B-splines and has a few constraints; we add the rest in our extracted copy, behind `ISolver`, and offer the changes back to FreeCAD (LGPL requires publishing them anyway, and upstream keeps them maintained).
+  - **Spline exit:** every item above works in the app, each spline constraint has a property test (really tangent, really through its fit points), and tricky splines are in the regression corpus.
 - **Exit:** a new user can draw and fully constrain a bracket profile in under 5 minutes in a hallway test.
 
 ### Phase 2: Parametric core
