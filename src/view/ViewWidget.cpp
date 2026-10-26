@@ -498,10 +498,12 @@ void ViewWidget::initializeGL() {
         const double ratio = devicePixelRatioF();
         const bool first = d.view->Window().IsNull();
         // Called again when the panel moves to another window: OCCT takes the new context.
-        if (!detail::attachContext(d.view, context()->format().profile() == QSurfaceFormat::CoreProfile,
-                                   native, static_cast<int>(width() * ratio),
-                                   static_cast<int>(height() * ratio))) {
-            d.fail(*this, drawFailed(d.where(QStringLiteral("OCCT couldn't use Qt's OpenGL context"))));
+        if (const auto why = detail::attachContext(
+                d.view, context()->format().profile() == QSurfaceFormat::CoreProfile, native,
+                static_cast<int>(width() * ratio), static_cast<int>(height() * ratio));
+            !why.empty()) {
+            d.fail(*this, drawFailed(d.where(QStringLiteral("OCCT couldn't use Qt's OpenGL context: ") +
+                                             QString::fromStdString(why))));
             return;
         }
         if (first) {
@@ -526,8 +528,12 @@ void ViewWidget::paintGL() {
     auto& d = *impl_;
     if (!d.view || d.view->Window().IsNull() || !d.problem.isEmpty()) return;
     try {
-        if (!detail::useQtFramebuffer(d.view)) {
-            d.fail(*this, drawFailed(d.where(QStringLiteral("OCCT couldn't draw into Qt's framebuffer"))));
+        if (const auto why = detail::useQtFramebuffer(d.view); !why.empty()) {
+            d.fail(*this,
+                   drawFailed(d.where(QStringLiteral("OCCT couldn't draw into Qt's framebuffer: %1; Qt's "
+                                                     "framebuffer is %2")
+                                          .arg(QString::fromStdString(why))
+                                          .arg(defaultFramebufferObject()))));
             return;
         }
         if (d.fitPending) d.fit();
