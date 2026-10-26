@@ -52,11 +52,19 @@ Handle(Graphic3d_GraphicDriver) sharedDriver() {
     return driver;
 }
 
-bool attachContext(const Handle(V3d_View) & view, bool coreProfile, Aspect_Drawable native, int width,
-                   int height) {
+std::string attachContext(const Handle(V3d_View) & view, bool coreProfile, Aspect_Drawable native,
+                          Aspect_Drawable fallback, int width, int height, std::string& used) {
     Handle(OpenGl_Context) gl = new OpenGl_Context();
-    if (!gl->Init(coreProfile)) return false;
+    if (!gl->Init(coreProfile)) return "OpenGl_Context::Init failed on Qt's context";
+    used = native ? "given window" : "context's window";
     if (!native) native = gl->Window();
+    if (!native) {
+        // Qt made its context current on an offscreen buffer (Windows does this
+        // for QOpenGLWidget), which has no window: use the top-level window,
+        // which Qt draws with OpenGL too, so the context works with it.
+        native = fallback;
+        used = "top-level window (the context had none)";
+    }
     Handle(Aspect_NeutralWindow) window = Handle(Aspect_NeutralWindow)::DownCast(view->Window());
     if (window.IsNull()) {
         window = new Aspect_NeutralWindow();
@@ -65,19 +73,29 @@ bool attachContext(const Handle(V3d_View) & view, bool coreProfile, Aspect_Drawa
     window->SetNativeHandle(native);
     window->SetSize(std::max(1, width), std::max(1, height));
     view->SetWindow(window, gl->RenderingContext());
-    return true;
+    return {};
 }
 
-bool useQtFramebuffer(const Handle(V3d_View) & view) {
+std::string useQtFramebuffer(const Handle(V3d_View) & view) {
     Handle(OpenGl_View) glView = Handle(OpenGl_View)::DownCast(view->View());
-    if (glView.IsNull() || glView->GlWindow().IsNull()) return false;
+    if (glView.IsNull()) return "no OpenGl_View";
+    if (glView->GlWindow().IsNull()) return "no OpenGl_Window";
     const Handle(OpenGl_Context)& gl = glView->GlWindow()->GetGlContext();
+    if (gl.IsNull() || !gl->IsValid()) return "OCCT's OpenGL context isn't valid";
+    if (gl->arbFBO == nullptr) return "OCCT's OpenGL context has no framebuffer objects";
+    GLint bound = 0;
+    gl->core11fwd->glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
+    const bool hasNative = !view->Window().IsNull() && view->Window()->NativeHandle() != 0;
+    const std::string state =
+        "framebuffer " + std::to_string(bound) +
+        (gl->IsCurrent() ? ", OCCT's context current" : ", OCCT's context not current") +
+        (hasNative ? ", native window" : ", no native window");
     Handle(OpenGl_FrameBuffer) fbo = gl->DefaultFrameBuffer();
     if (fbo.IsNull()) {
         fbo = new QtFrameBuffer();
         gl->SetDefaultFrameBuffer(fbo);
     }
-    if (!fbo->InitWrapper(gl)) return false;
+    if (!fbo->InitWrapper(gl)) return "wrapping Qt's framebuffer failed (" + state + ")";
     // Follow the size of Qt's buffer (in device pixels).
     Handle(Aspect_NeutralWindow) window = Handle(Aspect_NeutralWindow)::DownCast(view->Window());
     Graphic3d_Vec2i old;
@@ -87,7 +105,7 @@ bool useQtFramebuffer(const Handle(V3d_View) & view) {
         window->SetSize(now.x(), now.y());
         view->MustBeResized();
     }
-    return true;
+    return {};
 }
 
 }  // namespace kh::view::detail

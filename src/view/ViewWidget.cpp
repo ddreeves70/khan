@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QMouseEvent>
 #include <QOpenGLContext>
+#include <QOpenGLFunctions>
 #include <QPointer>
 #include <QWheelEvent>
 
@@ -38,6 +39,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <type_traits>
 
 #include "OcctGl.h"
 #include "kh/kernel_occt/OcctShape.h"
@@ -127,11 +129,34 @@ Aspect_VKeyFlags toFlags(Qt::KeyboardModifiers m) {
     return out;
 }
 
-QString drawFailed() {
+// The message for the student, plus what went wrong where, for Khan's
+// developers (shown in small print on the flat view's card).
+QString drawFailed(const QString& detail) {
     return QCoreApplication::translate("kh::view",
                                        "The 3D view couldn't start OpenGL on this computer. Update the "
                                        "graphics driver (in a virtual machine, "
-                                       "turn on 3D acceleration), then restart Khan.");
+                                       "turn on 3D acceleration), then restart Khan.") +
+           QStringLiteral("\n\n") +
+           QCoreApplication::translate("kh::view", "Details for Khan's developers: %1").arg(detail);
+}
+
+// A Qt window id as OCCT's window handle: a pointer (HWND) on Windows, a
+// number on macOS and Linux.
+template <typename Drawable = Aspect_Drawable>
+Drawable toDrawable(WId id) {
+    // A template, so the branch that doesn't apply here isn't compiled.
+    if constexpr (std::is_pointer_v<Drawable>) {
+        return reinterpret_cast<Drawable>(id);
+    } else {
+        return static_cast<Drawable>(id);
+    }
+}
+
+// "Standard_ProgramError: <message>", from an OCCT exception.
+QString failureText(const Standard_Failure& e) {
+    const QString type = QString::fromLatin1(e.DynamicType()->Name());
+    const QString message = QString::fromUtf8(e.GetMessageString());
+    return message.isEmpty() ? type : type + QStringLiteral(": ") + message;
 }
 
 }  // namespace
@@ -219,6 +244,13 @@ struct ViewWidget::Impl {
         fitPending = false;
     }
 
+    QString glInfo;  // the graphics card and OpenGL version, for failure details
+
+    // A failure's details, with the graphics card and OpenGL version when known.
+    QString where(const QString& what) const {
+        return glInfo.isEmpty() ? what : what + QStringLiteral(" [") + glInfo + QStringLiteral("]");
+    }
+
     void fail(ViewWidget& w, const QString& why) {
         if (!problem.isEmpty()) return;
         problem = why;
@@ -300,8 +332,8 @@ ViewWidget::ViewWidget(QWidget* parent) : QOpenGLWidget(parent), impl_(std::make
             d.context->Display(axis, AIS_WireFrame, -1, false);
         }
         setStandardView(StandardView::Iso);
-    } catch (const Standard_Failure&) {
-        d.problem = drawFailed();
+    } catch (const Standard_Failure& e) {
+        d.problem = drawFailed(QStringLiteral("making the viewer: ") + failureText(e));
         d.view.Nullify();
         d.context.Nullify();
         d.viewer.Nullify();
@@ -366,8 +398,8 @@ void ViewWidget::setContent(const SceneContent& content) {
             d.everShown = true;
             d.fitPending = true;
         }
-    } catch (const Standard_Failure&) {
-        d.fail(*this, drawFailed());
+    } catch (const Standard_Failure& e) {
+        d.fail(*this, drawFailed(d.where(QStringLiteral("showing bodies: ") + failureText(e))));
     }
     update();
 }
@@ -383,8 +415,8 @@ void ViewWidget::setOverlays(const std::vector<ViewOverlay>& overlays) {
             d.context->Display(obj, 0, -1, false);  // -1: never picked
             d.overlays.push_back(obj);
         }
-    } catch (const Standard_Failure&) {
-        d.fail(*this, drawFailed());
+    } catch (const Standard_Failure& e) {
+        d.fail(*this, drawFailed(d.where(QStringLiteral("showing overlays: ") + failureText(e))));
     }
     update();
 }
@@ -454,23 +486,41 @@ QSize ViewWidget::sizeHint() const {
 void ViewWidget::initializeGL() {
     auto& d = *impl_;
     if (!d.view) return;
+    if (auto* gl = QOpenGLContext::currentContext()) {
+        auto* f = gl->functions();
+        const auto text = [f](GLenum what) {
+            const auto* s = reinterpret_cast<const char*>(f->glGetString(what));
+            return s ? QString::fromLatin1(s) : QStringLiteral("?");
+        };
+        const auto fmt = gl->format();
+        d.glInfo = QStringLiteral("%1, OpenGL %2, %3 profile")
+                       .arg(text(GL_RENDERER), text(GL_VERSION),
+                            fmt.profile() == QSurfaceFormat::CoreProfile ? QStringLiteral("core")
+                                                                         : QStringLiteral("compatibility"));
+    }
     try {
         // OCCT wants a native window. On Windows, the one Qt made the context
-        // current on (0 asks for it); elsewhere Qt draws into a buffer, so the
+        // current on (0 asks for it), or the top-level window if that's an
+        // offscreen buffer with none; elsewhere Qt draws into a buffer, so the
         // top-level window (asking our own widget would make it native, which
         // QOpenGLWidget dislikes).
+        const auto topLevel = toDrawable(window()->winId());
 #if defined(_WIN32)
         const Aspect_Drawable native = nullptr;
 #else
-        const auto native = static_cast<Aspect_Drawable>(window()->winId());
+        const Aspect_Drawable native = topLevel;
 #endif
         const double ratio = devicePixelRatioF();
         const bool first = d.view->Window().IsNull();
         // Called again when the panel moves to another window: OCCT takes the new context.
-        if (!detail::attachContext(d.view, context()->format().profile() == QSurfaceFormat::CoreProfile,
-                                   native, static_cast<int>(width() * ratio),
-                                   static_cast<int>(height() * ratio))) {
-            d.fail(*this, drawFailed());
+        std::string used;
+        const auto why = detail::attachContext(
+            d.view, context()->format().profile() == QSurfaceFormat::CoreProfile, native, topLevel,
+            static_cast<int>(width() * ratio), static_cast<int>(height() * ratio), used);
+        d.glInfo += QStringLiteral(", window: ") + QString::fromStdString(used);
+        if (!why.empty()) {
+            d.fail(*this, drawFailed(d.where(QStringLiteral("OCCT couldn't use Qt's OpenGL context: ") +
+                                             QString::fromStdString(why))));
             return;
         }
         if (first) {
@@ -486,8 +536,8 @@ void ViewWidget::initializeGL() {
                 Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER, Graphic3d_Vec2i(offset, offset)));
             d.context->Display(d.cube, 0, 0, false);
         }
-    } catch (const Standard_Failure&) {
-        d.fail(*this, drawFailed());
+    } catch (const Standard_Failure& e) {
+        d.fail(*this, drawFailed(d.where(QStringLiteral("starting OpenGL: ") + failureText(e))));
     }
 }
 
@@ -495,8 +545,12 @@ void ViewWidget::paintGL() {
     auto& d = *impl_;
     if (!d.view || d.view->Window().IsNull() || !d.problem.isEmpty()) return;
     try {
-        if (!detail::useQtFramebuffer(d.view)) {
-            d.fail(*this, drawFailed());
+        if (const auto why = detail::useQtFramebuffer(d.view); !why.empty()) {
+            d.fail(*this,
+                   drawFailed(d.where(QStringLiteral("OCCT couldn't draw into Qt's framebuffer: %1; Qt's "
+                                                     "framebuffer is %2")
+                                          .arg(QString::fromStdString(why))
+                                          .arg(defaultFramebufferObject()))));
             return;
         }
         if (d.fitPending) d.fit();
@@ -504,8 +558,8 @@ void ViewWidget::paintGL() {
         d.view->InvalidateImmediate();
         d.controller.FlushViewEvents(d.context, d.view, true);
         d.ready = true;
-    } catch (const Standard_Failure&) {
-        d.fail(*this, drawFailed());
+    } catch (const Standard_Failure& e) {
+        d.fail(*this, drawFailed(d.where(QStringLiteral("drawing: ") + failureText(e))));
     }
 }
 
