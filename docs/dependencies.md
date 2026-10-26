@@ -55,7 +55,7 @@ Khan's own code is Apache-2.0, free forever. A dependency must keep it that way:
 
 | Dependency | What it's for | When | License | Plan and open questions |
 | --- | --- | --- | --- | --- |
-| **PlaneGCS** (from FreeCAD) | The sketch constraint solver | Phase 1 | LGPL-2.1+ | Extract from FreeCAD into its own shared library behind Khan's `ISolver` interface, so it can be replaced. Supports splines only partly; spline constraints may need our own work |
+| **PlaneGCS** (from FreeCAD) | The sketch constraint solver | Phase 1 | LGPL-2.1+ | Extract from FreeCAD into its own shared library behind Khan's `ISolver` interface, so it can be replaced. Supports splines only partly; we add full B-spline support (see the roadmap, Phase 1) and offer it back to FreeCAD |
 | **Eigen** | Linear algebra, used by PlaneGCS (and later our own math) | Phase 1 | MPL-2.0 | vcpkg (`eigen3`). Header-only |
 | **Boost** (a few header-only parts) | PlaneGCS uses some Boost headers | Phase 1 | BSL-1.0 | To confirm when extracting PlaneGCS; take only what it needs from vcpkg |
 | **pybind11** + embedded **CPython** | Python scripting, console, Python plugins; bindings generated from the command registry | Phase 5 | BSD-3-Clause; PSF | vcpkg (`pybind11`, `python3`). Ship Python with the installer |
