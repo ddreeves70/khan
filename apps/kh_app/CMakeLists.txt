@@ -47,6 +47,16 @@ if(WIN32)
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:kh_app> $<TARGET_FILE_DIR:kh_app>
     COMMAND_EXPAND_LISTS
     COMMENT "Copying DLLs next to kh_app.exe")
+  # windeployqt copies only the "windows" platform plugin, but the smoke test and
+  # screenshots run with QT_QPA_PLATFORM=offscreen: copy that plugin too, so they work
+  # on any computer, not just where QT_PLUGIN_PATH points into Qt.
+  if(TARGET Qt6::QOffscreenIntegrationPlugin)
+    add_custom_command(TARGET kh_app POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:kh_app>/platforms"
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt6::QOffscreenIntegrationPlugin>"
+              "$<TARGET_FILE_DIR:kh_app>/platforms"
+      VERBATIM)
+  endif()
 endif()
 
 # Builds the main window without a screen and checks its panels and layouts.
