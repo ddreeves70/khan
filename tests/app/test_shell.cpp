@@ -13,6 +13,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QPalette>
 #include <QSettings>
 #include <QStatusBar>
 #include <QTemporaryDir>
@@ -527,6 +528,24 @@ TEST_CASE("the viewer fills the middle; without 3D graphics it draws flat and sa
     app.shell->action("kh.modeling.box")->trigger();
     settle();
     CHECK(app.flat()->text().contains(QStringLiteral("Finished bodies: Box1")));
+}
+
+TEST_CASE("the flat view's words can be read in dark mode", "[app][viewer]") {
+    view::FlatView flat;
+    QPalette dark = flat.palette();
+    dark.setColor(QPalette::WindowText, Qt::white);  // as in Windows dark mode
+    flat.setPalette(dark);
+    flat.setText(QStringLiteral("MMMMMMMMMMMMMMMM"));
+    flat.resize(400, 300);
+    const QImage img = flat.grab().toImage();
+    int darkPixels = 0;  // the card is light, so its words must be dark
+    for (int y = 28; y < 60; ++y) {
+        for (int x = 28; x < 300; ++x) {
+            const QColor c = img.pixelColor(x, y);
+            if (c.red() < 120 && c.green() < 120 && c.blue() < 120) ++darkPixels;
+        }
+    }
+    CHECK(darkPixels > 50);
 }
 
 TEST_CASE("Window > New viewer opens more viewers", "[app][viewer]") {
