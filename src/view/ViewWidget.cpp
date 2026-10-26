@@ -39,6 +39,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <type_traits>
 
 #include "OcctGl.h"
 #include "kh/kernel_occt/OcctShape.h"
@@ -137,6 +138,18 @@ QString drawFailed(const QString& detail) {
                                        "turn on 3D acceleration), then restart Khan.") +
            QStringLiteral("\n\n") +
            QCoreApplication::translate("kh::view", "Details for Khan's developers: %1").arg(detail);
+}
+
+// A Qt window id as OCCT's window handle: a pointer (HWND) on Windows, a
+// number on macOS and Linux.
+template <typename Drawable = Aspect_Drawable>
+Drawable toDrawable(WId id) {
+    // A template, so the branch that doesn't apply here isn't compiled.
+    if constexpr (std::is_pointer_v<Drawable>) {
+        return reinterpret_cast<Drawable>(id);
+    } else {
+        return static_cast<Drawable>(id);
+    }
 }
 
 // "Standard_ProgramError: <message>", from an OCCT exception.
@@ -491,7 +504,7 @@ void ViewWidget::initializeGL() {
         // offscreen buffer with none; elsewhere Qt draws into a buffer, so the
         // top-level window (asking our own widget would make it native, which
         // QOpenGLWidget dislikes).
-        const auto topLevel = static_cast<Aspect_Drawable>(window()->winId());
+        const auto topLevel = toDrawable(window()->winId());
 #if defined(_WIN32)
         const Aspect_Drawable native = nullptr;
 #else
