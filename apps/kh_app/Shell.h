@@ -50,12 +50,17 @@ public:
     std::function<Unsaved(const QString& name)> askUnsaved;
     // Asks where to save. Tests replace it. Empty means cancelled.
     std::function<QString(const QString& suggested)> askSavePath;
+    // Asks where to export (.stl or .step). Tests replace it. Empty means cancelled.
+    std::function<QString(const QString& suggested)> askExportPath;
 
     // Designs. Each returns what went wrong, if anything (also shown in the status bar).
     bool newDesign();  // false if the student cancelled
     Diagnostics openDesign(const std::filesystem::path& path);
     Diagnostics saveDesign(const std::filesystem::path& path);
     bool save();  // to its file, or asks where; false if cancelled or failed
+    // Writes one body of the active design as STL or STEP, chosen by the file's
+    // ending: the picked step if exactly one is picked, else the only finished body.
+    Diagnostics exportDesign(const std::filesystem::path& path);
     DocId activeDesign() const;
     std::filesystem::path activePath() const;
 
@@ -115,6 +120,7 @@ private:
     QAction* undo_ = nullptr;
     QAction* redo_ = nullptr;
     QAction* save_ = nullptr;
+    QAction* export_ = nullptr;
     std::vector<std::pair<plugin::ActionSpec, QAction*>> actions_;
     std::map<DocId, std::filesystem::path> paths_;
     QByteArray defaultLayout_;

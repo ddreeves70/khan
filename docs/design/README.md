@@ -16,6 +16,7 @@ These pages describe how Khan is designed: what it will do, how the code is orga
 | [Design model](design-model.md) | The module map, the core domain classes, key C++ interfaces, the `.khan` file format, regeneration and naming |
 | [Class model](class-model.md) | UML class diagrams for the document, features and naming, sketches, the kernel layer, assemblies, and the shell and plugins |
 | [AI assistant](ai-assistant.md) | The optional assistant: what it can do, how changes stay under the user's control, teaching it, and privacy for schools |
+| [Phase 0 exit check](phase0-exit.md) | What finishing Phase 0 means: the automated tests that cover it on every OS, and the steps to check by hand |
 | [Roadmap](roadmap.md) | Decisions, what is reused versus built, and the phases from foundations to the first classroom release and beyond |
 | [SolidWorks-class scope](solidworks-scope.md) | What professional, SolidWorks-class capability adds, and the small choices made now so it can land later |
 

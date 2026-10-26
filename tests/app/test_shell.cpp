@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFile>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -18,6 +19,7 @@
 #include <QToolBar>
 #include <QTreeWidget>
 
+#include <cstring>
 #include <memory>
 
 #include "AppSettings.h"
@@ -275,6 +277,128 @@ TEST_CASE("save, then open again", "[app]") {
     CHECK(app.doc().featureCount() == 1);
     CHECK(app.tree()->topLevelItem(0)->text(0) == QStringLiteral("Box1"));
     CHECK(app.host.documents().ids().size() == 1);  // one design at a time
+}
+
+namespace {
+
+// How many triangles an STL file holds, binary or text; -1 if it isn't one.
+long stlTriangles(const QString& path) {
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) return -1;
+    const QByteArray data = f.readAll();
+    if (data.startsWith("solid") && data.contains("endsolid")) return data.count("facet normal");
+    if (data.size() < 84) return -1;
+    quint32 count = 0;
+    std::memcpy(&count, data.constData() + 80, 4);  // little-endian, as STL files are
+    return data.size() == 84 + 50 * static_cast<qsizetype>(count) ? static_cast<long>(count) : -1;
+}
+
+QByteArray fileStart(const QString& path) {
+    QFile f(path);
+    return f.open(QIODevice::ReadOnly) ? f.read(64) : QByteArray();
+}
+
+}  // namespace
+
+TEST_CASE("File > Export writes the part as STL or STEP", "[app][export]") {
+    App app;
+    app.click("kh.modeling.box");
+    auto* exportAct = app.menu("kh.shell.export");
+    REQUIRE(exportAct);
+    CHECK(exportAct->shortcut() == QKeySequence(QStringLiteral("Ctrl+E")));
+    const QString stl = app.dir.filePath(QStringLiteral("part.stl"));
+    QString suggested;
+    app.shell->askExportPath = [&](const QString& s) {
+        suggested = s;
+        return stl;
+    };
+    exportAct->trigger();
+    settle();
+    CHECK(suggested == QStringLiteral("Untitled.stl"));
+    CHECK(stlTriangles(stl) == 12);  // a box: 6 faces, 2 triangles each
+    CHECK(app.shell->lastProblems().empty());
+    // The design itself is unchanged, and still needs saving.
+    CHECK(app.doc().featureCount() == 1);
+    CHECK(app.shell->isWindowModified());
+
+    const QString step = app.dir.filePath(QStringLiteral("part.STEP"));  // any capitals
+    REQUIRE(app.shell->exportDesign(step.toStdWString()).empty());
+    CHECK(fileStart(step).startsWith("ISO-10303-21"));
+}
+
+TEST_CASE("Export explains what to do when it can't pick one body", "[app][export]") {
+    App app;
+    const auto path = [&](const char* name) {
+        return app.dir.filePath(QString::fromLatin1(name)).toStdWString();
+    };
+
+    auto problems = app.shell->exportDesign(path("empty.stl"));  // nothing made yet
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "export.nothing");
+    CHECK(problems[0].message.find("Create > Box") != std::string::npos);
+
+    app.click("kh.modeling.box");
+    app.click("kh.modeling.cylinder");  // two separate bodies
+    app.tree()->clearSelection();
+    settle();
+    problems = app.shell->exportDesign(path("two.stl"));
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "export.which");
+    CHECK(problems[0].message.find("2 bodies") != std::string::npos);
+    CHECK_FALSE(QFile::exists(app.dir.filePath(QStringLiteral("two.stl"))));
+
+    app.pickRows({1});  // pick the cylinder: that's what's exported
+    REQUIRE(app.shell->exportDesign(path("cylinder.stl")).empty());
+    CHECK(stlTriangles(app.dir.filePath(QStringLiteral("cylinder.stl"))) > 12);
+
+    problems =
+        app.shell->exportDesign(app.dir.filePath(QStringLiteral("no-such-folder/part.stl")).toStdWString());
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "export.stl.failed");
+    CHECK(problems[0].message ==
+          "Khan couldn't write part.stl. Check that the folder is still there and that "
+          "you're allowed to save in it.");
+
+    problems = app.shell->exportDesign(path("part.obj"));
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "export.format");
+    CHECK(problems[0].message.find(".stl") != std::string::npos);
+}
+
+TEST_CASE("Phase 0 exit check: box, undo, save, reopen, export STL, all through plugins", "[app][export]") {
+    // docs/design/phase0-exit.md: this runs on Windows, macOS and Linux in CI.
+    App app;
+    // The box tool and the viewer are plugins.
+    REQUIRE(app.host.find("kh.modeling"));
+    CHECK(app.host.find("kh.modeling")->state == plugin::PluginState::Loaded);
+    CHECK(app.host.find("kh.viewer")->state == plugin::PluginState::Loaded);
+    CHECK(app.shell->panelWidget(QStringLiteral("kh.viewer.main")));
+
+    app.click("kh.modeling.box");  // Create > Box
+    REQUIRE(app.doc().featureCount() == 1);
+    app.shell->undoAction()->trigger();  // Edit > Undo
+    settle();
+    CHECK(app.doc().featureCount() == 0);
+    app.shell->redoAction()->trigger();  // Edit > Redo
+    settle();
+    REQUIRE(app.doc().featureCount() == 1);
+
+    const QString khan = app.dir.filePath(QStringLiteral("exit.khan"));
+    app.shell->askSavePath = [&](const QString&) { return khan; };
+    REQUIRE(app.shell->save());  // File > Save
+    CHECK_FALSE(app.shell->isWindowModified());
+
+    REQUIRE(app.shell->newDesign());  // File > New, then File > Open
+    REQUIRE(app.shell->openDesign(khan.toStdWString()).empty());
+    settle();
+    REQUIRE(app.doc().featureCount() == 1);
+    CHECK(app.doc().featureAt(0).name() == "Box1");
+
+    const QString stl = app.dir.filePath(QStringLiteral("exit.stl"));
+    app.shell->askExportPath = [&](const QString&) { return stl; };
+    app.menu("kh.shell.export")->trigger();  // File > Export
+    settle();
+    CHECK(stlTriangles(stl) == 12);
 }
 
 TEST_CASE("unsaved changes: cancel keeps the design", "[app]") {

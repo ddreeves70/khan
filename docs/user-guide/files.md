@@ -32,7 +32,10 @@ A few things about `.khan` files:
 ## Exporting
 
 To use a part somewhere else, **export** its shape. Exported files hold only the
-shape, not the steps, so keep the `.khan` file too.
+shape, not the steps, so keep the `.khan` file too. In the desktop app, use
+[File > Export...](desktop-app.md#exporting) (Ctrl+E). With `kh_cli`, use
+`kh_cli open --export`, as shown below.
+
 
 | Format | Ending | Use it for |
 | --- | --- | --- |

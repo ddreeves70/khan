@@ -98,6 +98,9 @@ Check the volume: the hole takes away the part of the cylinder inside the plate,
 
 ## Step 4: Export it for 3D printing
 
+In the desktop app, open `tag.khan` and pick **File > Export...** (Ctrl+E), then
+save it as `tag.stl`. With `kh_cli`:
+
 <!-- cli-example -->
 ```console
 $ kh_cli open tag.khan --export tag.stl
