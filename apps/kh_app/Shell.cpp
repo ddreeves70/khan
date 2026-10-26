@@ -22,6 +22,7 @@
 #include <QToolBar>
 
 #include <algorithm>
+#include <cctype>
 
 #include "AppUi.h"
 #include "kh/core/Version.h"
@@ -86,6 +87,17 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* 
             QFileDialog::getSaveFileName(this, tr("Save design"), suggested, tr("Khan designs (*.khan)"));
         if (!path.isEmpty() && !path.endsWith(QStringLiteral(".khan"), Qt::CaseInsensitive)) {
             path += QStringLiteral(".khan");
+        }
+        return path;
+    };
+    askExportPath = [this](const QString& suggested) {
+        const QString stl = tr("STL, for 3D printing (*.stl)");
+        const QString step = tr("STEP, for other CAD programs (*.step *.stp)");
+        QString filter = stl;
+        QString path = QFileDialog::getSaveFileName(this, tr("Export"), suggested,
+                                                    stl + QStringLiteral(";;") + step, &filter);
+        if (!path.isEmpty() && QFileInfo(path).suffix().isEmpty()) {
+            path += filter == step ? QStringLiteral(".step") : QStringLiteral(".stl");
         }
         return path;
     };
@@ -167,6 +179,15 @@ void Shell::buildMenus() {
         if (!path.isEmpty()) saveDesign(path.toStdWString());
     });
     saveAs->setShortcut(QKeySequence::SaveAs);
+    file->addSeparator();
+    export_ = file->addAction(tr("&Export..."), this, [this] {
+        const auto* doc = host_.documents().find(activeDesign());
+        const auto path = askExportPath(qs(doc ? doc->name() : "Untitled") + QStringLiteral(".stl"));
+        if (!path.isEmpty()) exportDesign(path.toStdWString());
+    });
+    export_->setObjectName(QStringLiteral("kh.shell.export"));
+    export_->setShortcut(QKeySequence(QStringLiteral("Ctrl+E")));
+    export_->setStatusTip(tr("Write the part as STL (for 3D printing) or STEP (for other CAD programs)."));
     file->addSeparator();
     file->addAction(tr("&Quit"), this, [this] { close(); })->setShortcut(QKeySequence::Quit);
 
@@ -496,6 +517,70 @@ Diagnostics Shell::saveDesign(const std::filesystem::path& path) {
     return {};
 }
 
+Diagnostics Shell::exportDesign(const std::filesystem::path& path) {
+    auto fail = [this](std::string code, QString message) {
+        Diagnostics problems{{std::move(code), Severity::Error, message.toStdString(), {}}};
+        showProblems(problems);
+        return problems;
+    };
+    auto& docs = host_.documents();
+    const DocId id = activeDesign();
+    const auto* doc = docs.find(id);
+    const auto* report = docs.lastRebuild(id);
+    const auto* kernel = docs.kernel();
+    if (!doc || !report || !kernel) return fail("export.nothing", tr("There's nothing to export yet."));
+
+    std::string ending = path.extension().string();
+    std::transform(ending.begin(), ending.end(), ending.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    kernel::ExportFormat format{};
+    if (ending == ".stl") {
+        format = kernel::ExportFormat::Stl;
+    } else if (ending == ".step" || ending == ".stp") {
+        format = kernel::ExportFormat::Step;
+    } else {
+        return fail("export.format", tr("Khan can export .stl files (for 3D printing) and .step files (for "
+                                        "other CAD programs). End the file name with .stl or .step."));
+    }
+
+    // The picked step, if exactly one built step is picked; otherwise the one
+    // finished body.
+    FeatureId which{};
+    const auto& picked = host_.selection().features();
+    if (host_.selection().doc() == id && picked.size() == 1 && report->shapeOf(picked.front())) {
+        which = picked.front();
+    } else if (report->bodies().size() == 1) {
+        which = report->bodies().front();
+    } else if (report->bodies().empty()) {
+        return fail("export.nothing",
+                    tr("There's nothing to export yet. Make a shape first, like Create > Box."));
+    } else {
+        return fail("export.which",
+                    tr("This design has %1 bodies, and Export writes one. Pick the step to export in the "
+                       "feature tree, or join them with Combine > Union.")
+                        .arg(report->bodies().size()));
+    }
+    const auto* shape = report->shapeOf(which);
+    if (!shape) return fail("export.nothing", tr("That step didn't build, so there's nothing to export."));
+    auto problems = kernel->exportFile(*shape, format, path);
+    if (!problems.empty()) {
+        // The kernel's words are short; say how to fix it, keeping its code and details.
+        for (auto& d : problems) {
+            d.message = tr("Khan couldn't write %1. Check that the folder is still there and that you're "
+                           "allowed to save in it.")
+                            .arg(QString::fromStdWString(path.filename().wstring()))
+                            .toStdString();
+        }
+        showProblems(problems);
+        return problems;
+    }
+    const auto* feature = doc->find(which);
+    showMessage(tr("Exported %1 to %2")
+                    .arg(feature ? qs(feature->name()) : tr("the part"),
+                         QString::fromStdWString(path.filename().wstring())));
+    return {};
+}
+
 bool Shell::save() {
     auto path = activePath();
     if (path.empty()) {
@@ -533,6 +618,7 @@ void Shell::refresh() {
 
     undo_->setEnabled(doc && doc->canUndo());
     redo_->setEnabled(doc && doc->canRedo());
+    export_->setEnabled(doc != nullptr);
     undo_->setText(doc && doc->canUndo() ? tr("Undo %1").arg(qs(doc->undoLabel())) : tr("Undo"));
     redo_->setText(doc && doc->canRedo() ? tr("Redo %1").arg(qs(doc->redoLabel())) : tr("Redo"));
 

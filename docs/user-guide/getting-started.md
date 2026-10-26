@@ -58,6 +58,8 @@ wrote first.khan
 
 ## 4. Export it
 
+In the desktop app, that's **File > Export...** (Ctrl+E). With `kh_cli`:
+
 <!-- cli-example -->
 ```console
 $ kh_cli open first.khan --export first.stl

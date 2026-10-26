@@ -15,12 +15,12 @@ works in either.
 
 | You can do now | Coming next |
 | --- | --- |
-| Boxes, cylinders, union, cut, intersect | Export from the app's File menu |
+| Boxes, cylinders, union, cut, intersect | Sketches, extrude, revolve |
 | Name, rename and delete steps; undo and redo | |
 | The desktop app: 3D viewer with 1, 2 or 4 panes, feature tree, Properties, layouts | |
 | Materials: mass, weight, material cost and color | |
-| Save and open `.khan` designs | Sketches, extrude, revolve |
-| Export STL (3D printing) and STEP (other CAD programs) | Fillets, chamfers, holes, patterns |
+| Save and open `.khan` designs | |
+| Export STL (3D printing) and STEP (other CAD programs), from the app's File menu or `kh_cli` | Fillets, chamfers, holes, patterns |
 | Add plugins | Import STEP, STL and 3MF |
 
 ## Contents

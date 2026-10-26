@@ -187,12 +187,32 @@ Opening a design starts a fresh undo history.
 | File > Open... | Ctrl+O | Opens a `.khan` design |
 | File > Save | Ctrl+S | Saves to the design's file (asks for a name the first time) |
 | File > Save as... | Ctrl+Shift+S | Saves under a new name |
+| File > Export... | Ctrl+E | Writes the part as STL (for 3D printing) or STEP (for other CAD programs) |
 
 A `*` after the name in the title bar means there are unsaved changes. Khan asks
-before closing or replacing a design with unsaved changes.
+before closing or replacing a design with unsaved changes. Khan has one design
+open at a time for now.
 
-Khan has one design open at a time for now. To export STL or STEP, use
-[`kh_cli open --export`](../cli/open.md) until the File menu gets Export.
+## Exporting
+
+**File > Export...** writes your part to a file another program can use: an
+`.stl` file for your 3D printer's slicer, or a `.step` file for other CAD
+programs. Pick the type in the box under the file name, or just end the name with
+`.stl` or `.step`. The status bar says what was written, like "Exported Tag to
+tag.stl".
+
+Export writes one body:
+
+- If you picked one step in the feature tree, that step's shape is exported
+  (even one a later step used up, like the Hole of a Cut).
+- Otherwise, the design's one finished body.
+- If the design has two or more finished bodies and none is picked, Khan says so:
+  pick the one you want in the feature tree, or join them with
+  [Combine > Union](combining.md#union).
+
+An exported file holds only the shape, so keep your `.khan` file too: it's the
+one you can change later. More about the formats is on the
+[Files](files.md#exporting) page.
 
 ## Panels and layouts
 

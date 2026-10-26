@@ -53,6 +53,17 @@ $ kh_cli open missing.khan
 error [file.cant_read]: Khan couldn't open missing.khan. Check that the file is still there and that you're allowed to open it. missing.khan
 ```
 
+## Export didn't work
+
+The desktop app shows these in the status bar after **File > Export...**:
+
+| Code | Meaning | Fix |
+| --- | --- | --- |
+| `export.nothing` | There's no shape to export yet, or the picked step didn't build | Make a shape (Create > Box), or fix the step that failed |
+| `export.which` | The design has two or more finished bodies, and Export writes one | Pick one step in the feature tree, or join the bodies with Combine > Union |
+| `export.format` | The file name doesn't end with `.stl`, `.step` or `.stp` | End the name with `.stl` (3D printing) or `.step` (other CAD programs) |
+| `export.stl.failed`, `export.step.failed` | The file couldn't be written | Check the folder is still there and you're allowed to save in it |
+
 ## A plugin didn't load
 
 Run [`kh_cli plugins`](../cli/plugins.md): it lists each plugin with the reason.
