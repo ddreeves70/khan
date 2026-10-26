@@ -31,7 +31,8 @@ constexpr const char* kManifest = R"({
   "name": "3D viewer",
   "version": "0.1.0",
   "description": "The 3D view of a design: panes, standard views, the view cube, and what other plugins ask it to draw.",
-  "requires": ["kh.modeling"]
+  "requires": ["kh.modeling"],
+  "tier": "ui"
 })";
 
 QString qs(std::string_view s) {

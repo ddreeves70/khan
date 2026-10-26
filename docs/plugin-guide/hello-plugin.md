@@ -36,7 +36,8 @@ Copy the three files from [`hello/`](hello/) to start.
   "version": "1.0.0",
   "description": "Adds a command that makes a cube, and notices every change.",
   "library": "hello",
-  "requires": ["kh.modeling"]
+  "requires": ["kh.modeling"],
+  "tier": "tools"
 }
 ```
 
@@ -49,6 +50,9 @@ Copy the three files from [`hello/`](hello/) to start.
   `hello.dylib` or `hello.so`, depending on your computer.
 - **requires** lists plugins that must load first. Hello makes boxes, so it needs
   `kh.modeling`.
+- **tier** says which layer of Khan Hello belongs to. It's something the student
+  does, so `tools`. It may use plugins in `tools` or `foundation` (like
+  `kh.modeling`), and Khan warns if it uses one in a higher tier.
 
 Every key is explained in [plugin.json](manifest.md).
 

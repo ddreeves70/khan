@@ -2,6 +2,7 @@
   "id": "example.ruler",
   "name": "Ruler",
   "version": "1.0.0",
-  "description": "Shares a ruler that shows lengths in inches.",
-  "library": "ruler"
+  "description": "Shares a ruler that shows lengths in inches or mm.",
+  "library": "ruler",
+  "tier": "foundation"
 }

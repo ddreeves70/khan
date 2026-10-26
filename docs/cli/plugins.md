@@ -17,6 +17,10 @@ kh_cli plugins [--plugins <folder>]... [--slow-start-ms <n>] [--strict]
 | `--slow-start-ms <n>` | Warn about a plugin that takes longer than `n` milliseconds to start (default 500; 0 turns the warning off). `kh_cli run` and `kh_cli help` take it too |
 | `--strict` | Treat warnings as failures: exit with 1 if any plugin has a warning. For plugin authors' tests and CI |
 
+Under each plugin, Khan lists its `tier` (see
+[Tiers](../plugin-guide/manifest.md#tiers)), any tiers it `adds`, and the
+commands, services and menu items (`action`) it adds.
+
 Each problem line starts with how serious it is:
 
 | Word | Meaning |
@@ -35,6 +39,7 @@ Only the built-in plugins:
 ```console
 $ kh_cli plugins
 loaded   kh.modeling 0.1.0  Modeling (built in)
+           tier    foundation
            command feature.add_boolean
            command feature.add_box
            command feature.add_cylinder
@@ -57,12 +62,15 @@ With the plugins in your build folder (the plugin guide's Hello plugin is one):
 ```console
 $ kh_cli plugins --plugins build/dev/khan-plugins
 loaded   example.ruler 1.0.0  Ruler
+           tier    foundation
            service example.ruler/1
            action  View > Ruler shows inches  (check mark)
 loaded   example.tape 1.0.0  Tape
+           tier    tools
            log: The ruler shows lengths in in.
            log: A 25.4 mm box is 1.00 in long.
 loaded   kh.modeling 0.1.0  Modeling (built in)
+           tier    foundation
            command feature.add_boolean
            command feature.add_box
            command feature.add_cylinder
@@ -78,6 +86,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            action  Combine > Intersect  (feature.add_boolean)
            action  Edit > Delete step  (feature.delete)
 loaded   example.hello 1.0.0  Hello
+           tier    tools
            command example.hello.add_cube
            action  Create > Cube (Hello)  (example.hello.add_cube)
 ```
@@ -98,7 +107,7 @@ failed   test.badname 1.0.0  Test badname
 failed   test.noentry 1.0.0  Test noentry
            error [plugin.library_bad]: The Test noentry plugin's program file isn't a Khan plugin (it has no KH_PLUGIN_ENTRY). Ask its author for a fixed version. (...)
 failed   test.oldapi 1.0.0  Test oldapi
-           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 6). Get a version of the plugin made for this Khan. (...)
+           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 7). Get a version of the plugin made for this Khan. (...)
 ```
 
 Every reason and its fix is listed in the plugin guide's

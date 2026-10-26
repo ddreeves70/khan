@@ -10,6 +10,7 @@ and file formats. Khan's own modeling commands come from a built-in plugin,
 ```console
 $ kh_cli plugins
 loaded   kh.modeling 0.1.0  Modeling (built in)
+           tier    foundation
            command feature.add_boolean
            command feature.add_box
            command feature.add_cylinder

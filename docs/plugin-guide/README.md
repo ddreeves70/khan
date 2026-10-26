@@ -64,6 +64,7 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
 | The shared selection | Works |
 | The grid (settings and snapping), from the `kh.grid` plugin | Works in the desktop app |
 | Drawing in the viewer (overlays) | Works |
+| Tiers, and tiers a plugin adds | Works: [plugin.json](manifest.md#tiers) |
 | Panels in the desktop app | Works: the feature tree, Properties and the viewer are plugins |
 | Sharing services and events between plugins | Works: [Share something](sharing.md) |
 | 3D view tools | Coming with the sketcher (Phase 1) |

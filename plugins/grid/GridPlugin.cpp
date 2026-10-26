@@ -26,7 +26,8 @@ constexpr const char* kManifest = R"({
   "id": "kh.grid",
   "name": "Grid",
   "version": "0.1.0",
-  "description": "The grid: its View menu items, its drawing in the viewers, and snapping to it."
+  "description": "The grid: its View menu items, its drawing in the viewers, and snapping to it.",
+  "tier": "foundation"
 })";
 
 bool spacingOk(double spacing) {

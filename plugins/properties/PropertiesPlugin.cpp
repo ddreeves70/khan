@@ -34,7 +34,8 @@ constexpr const char* kManifest = R"({
   "name": "Properties",
   "version": "0.1.0",
   "description": "The panel for changing the selected step's name and numbers.",
-  "requires": ["kh.modeling"]
+  "requires": ["kh.modeling"],
+  "tier": "ui"
 })";
 
 constexpr qint64 kMergeMs = 800;                 // edits to one number this close together are one undo step

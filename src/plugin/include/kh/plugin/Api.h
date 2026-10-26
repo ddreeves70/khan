@@ -19,8 +19,9 @@ class PluginContext;
 /// publish(), and "uses" in plugin.json. Version 5 added settings(), actions
 /// that run plugin code with a check mark, submenus, and status-bar items.
 /// Version 6 added overlays() and moved the grid out of kh_plugin into the
-/// kh.grid plugin (its kh.grid/1 service).
-inline constexpr int kPluginApiVersion = 6;
+/// kh.grid plugin (its kh.grid/1 service). Version 7 added tiers ("tier" and
+/// "tiers" in plugin.json, and in PluginManifest).
+inline constexpr int kPluginApiVersion = 7;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

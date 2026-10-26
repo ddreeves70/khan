@@ -14,6 +14,7 @@ add_executable(kh_tests
   plugin/test_selection.cpp
   plugin/test_settings.cpp
   plugin/test_overlays.cpp
+  plugin/test_tiers.cpp
 )
 target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model kh::io libzip::zip
   kh::plugin kh::plugin_modeling)
@@ -35,6 +36,13 @@ if(TARGET kh_hello_plugin)
   target_sources(kh_tests PRIVATE plugin/test_hello_plugin.cpp plugin/test_sharing_example.cpp)
   add_dependencies(kh_tests kh_hello_plugin kh_example_ruler_plugin kh_example_tape_plugin)
   target_compile_definitions(kh_tests PRIVATE KH_PLUGIN_FOLDER="${CMAKE_BINARY_DIR}/khan-plugins")
+endif()
+# Khan holds its own plugins to the rules: kh.modeling and the guide's example
+# plugins load with no warnings at all, even with --strict. (The desktop app's
+# built-in plugins are checked the same way in the app tests.)
+if(TARGET kh_hello_plugin AND TARGET kh_cli)
+  add_test(NAME cli.plugins_strict
+    COMMAND kh_cli plugins --strict --plugins "${CMAKE_BINARY_DIR}/khan-plugins")
 endif()
 # Checked-in .khan files that every future version must still open.
 target_compile_definitions(kh_tests PRIVATE KH_TEST_FILES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/files")
