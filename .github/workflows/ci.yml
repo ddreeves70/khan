@@ -115,6 +115,9 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          # Like a developer's own computer: Qt's plugins must come from next to
+          # the programs, not from the Qt install that install-qt-action points to.
+          unset QT_PLUGIN_PATH
           ctest --preset ci 2>&1 | tee test.log
 
       - name: CLI smoke test

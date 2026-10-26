@@ -124,6 +124,16 @@ if(TARGET kh_app_core)
         COMMAND "${KH_WINDEPLOYQT}" --no-translations --no-compiler-runtime "$<TARGET_FILE:kh_app_tests>"
         VERBATIM)
     endif()
+    # windeployqt copies only the "windows" platform plugin, but the tests run
+    # with QT_QPA_PLATFORM=offscreen: copy that plugin too, so the tests work
+    # on any computer, not just where QT_PLUGIN_PATH points into Qt.
+    if(TARGET Qt6::QOffscreenIntegrationPlugin)
+      add_custom_command(TARGET kh_app_tests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:kh_app_tests>/platforms"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt6::QOffscreenIntegrationPlugin>"
+                "$<TARGET_FILE_DIR:kh_app_tests>/platforms"
+        VERBATIM)
+    endif()
   endif()
   catch_discover_tests(kh_app_tests DISCOVERY_MODE PRE_TEST
     PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
