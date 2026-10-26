@@ -104,7 +104,9 @@ void FlatView::paintEvent(QPaintEvent*) {
         painter.setPen(QColor(214, 218, 225));
         painter.setBrush(QColor(255, 255, 255, 235));
         painter.drawRoundedRect(used.adjusted(-pad, -pad, pad, pad), 8, 8);
-        painter.setPen(palette().color(QPalette::WindowText));
+        // The card is always light, so its text is always dark: the window's own
+        // text color is white in dark mode, which made the words invisible.
+        painter.setPen(QColor(31, 35, 40));
         painter.drawText(used, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, text_);
     }
 }
