@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <map>
+#include <set>
 #include <utility>
 
 #include "kh/model/Document.h"
@@ -306,6 +308,114 @@ void DeleteMaterialCommand::revert(DocumentEditor& editor) {
     if (!removed_) return;
     auto& list = editor.materials();
     list.insert(list.begin() + static_cast<std::ptrdiff_t>(std::min(index_, list.size())), *removed_);
+}
+
+}  // namespace kh::model
+
+namespace kh::model {
+
+// ---------------------------------------------------------------------------
+// Copying steps, and AddFeaturesCommand
+// ---------------------------------------------------------------------------
+
+std::vector<std::unique_ptr<Feature>> freshIds(std::vector<std::unique_ptr<Feature>> steps) {
+    std::map<FeatureId, FeatureId> map;
+    for (const auto& f : steps) map[f->id()] = FeatureId::generate();
+    std::vector<std::unique_ptr<Feature>> out;
+    for (const auto& f : steps) {
+        auto copy = f->copyWithId(map.at(f->id()));
+        copy->remapInputs(map);
+        out.push_back(std::move(copy));
+    }
+    return out;
+}
+
+std::vector<std::unique_ptr<Feature>> copySteps(const Document& doc, const std::vector<FeatureId>& ids) {
+    // The steps and everything they use, found by following inputs.
+    std::set<FeatureId> wanted;
+    std::vector<FeatureId> todo(ids.begin(), ids.end());
+    while (!todo.empty()) {
+        const FeatureId id = todo.back();
+        todo.pop_back();
+        const auto* f = doc.find(id);
+        if (!f || !wanted.insert(id).second) continue;
+        for (const auto& dep : f->dependencies()) todo.push_back(dep);
+    }
+    std::vector<std::unique_ptr<Feature>> steps;
+    for (std::size_t i = 0; i < doc.featureCount(); ++i) {  // in design order
+        const auto& f = doc.featureAt(i);
+        if (wanted.count(f.id())) steps.push_back(f.clone());
+    }
+    return freshIds(std::move(steps));
+}
+
+namespace {
+
+// "Box12" -> "Box"; "Plate" -> "Plate": the name a renamed copy is numbered from.
+std::string nameBase(const std::string& name) {
+    std::size_t end = name.size();
+    while (end > 0 && std::isdigit(static_cast<unsigned char>(name[end - 1]))) --end;
+    return end == 0 ? name : name.substr(0, end);
+}
+
+}  // namespace
+
+AddFeaturesCommand::AddFeaturesCommand(std::vector<std::unique_ptr<Feature>> features,
+                                       std::vector<Material> materials, std::string label)
+    : pending_(std::move(features)), materials_(std::move(materials)), label_(std::move(label)) {
+    for (const auto& f : pending_) ids_.push_back(f->id());
+}
+
+Diagnostics AddFeaturesCommand::apply(DocumentEditor& editor) {
+    const auto& doc = editor.document();
+    if (pending_.empty()) return {error("feature.nothing", "There are no steps to add.")};
+    for (const auto& f : pending_) {
+        if (doc.find(f->id())) return {error("feature.duplicate", "These steps are already in the design.")};
+    }
+    // Materials first, so the steps can use them.
+    auto& list = editor.materials();
+    addedMaterials_.clear();
+    for (const auto& m : materials_) {
+        if (doc.findMaterial(m.key)) continue;  // pasted before: it's already here
+        if (const auto* same = doc.findMaterial(m.name)) {
+            // The design has its own material with this name: the steps use that one.
+            for (auto& f : pending_) {
+                if (f->material() == m.key) f->setMaterial(same->key);
+            }
+            continue;
+        }
+        list.push_back(m);
+        addedMaterials_.push_back(m.key);
+    }
+    // Then the steps, one after the other, renamed if their names are taken.
+    std::size_t added = 0;
+    for (auto& f : pending_) {
+        if (f->name().empty() || nameTaken(doc, f->name(), f->id()))
+            f->setName(doc.uniqueName(nameBase(f->name())));
+        if (auto issues = checkInputs(doc, *f, doc.featureCount()); !issues.empty()) {
+            // Put everything back: the design must be unchanged.
+            for (std::size_t i = added; i-- > 0;) pending_[i] = editor.remove(ids_[i]);
+            revertMaterials(editor);
+            return issues;
+        }
+        editor.insert(doc.featureCount(), std::move(f));
+        ++added;
+    }
+    return {};
+}
+
+void AddFeaturesCommand::revert(DocumentEditor& editor) {
+    for (std::size_t i = ids_.size(); i-- > 0;) pending_[i] = editor.remove(ids_[i]);
+    revertMaterials(editor);
+}
+
+void AddFeaturesCommand::revertMaterials(DocumentEditor& editor) {
+    auto& list = editor.materials();
+    for (const auto& key : addedMaterials_) {
+        list.erase(std::remove_if(list.begin(), list.end(), [&](const Material& m) { return m.key == key; }),
+                   list.end());
+    }
+    addedMaterials_.clear();
 }
 
 }  // namespace kh::model

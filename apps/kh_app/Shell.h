@@ -71,6 +71,10 @@ public:
     QAction* action(const std::string& id) const;
     QAction* undoAction() const { return undo_; }
     QAction* redoAction() const { return redo_; }
+    QAction* copyAction() const { return copy_; }
+    QAction* pasteAction() const { return paste_; }
+    void copySteps();   // the picked steps (and the steps they use) to the clipboard
+    void pasteSteps();  // steps on the clipboard to the end of the active design
 
     // Panels and layouts.
     QStringList dockIds() const;
@@ -119,6 +123,8 @@ private:
     QMenu* layoutMenu_ = nullptr;
     QAction* undo_ = nullptr;
     QAction* redo_ = nullptr;
+    QAction* copy_ = nullptr;
+    QAction* paste_ = nullptr;
     QAction* save_ = nullptr;
     QAction* export_ = nullptr;
     std::vector<std::pair<plugin::ActionSpec, QAction*>> actions_;

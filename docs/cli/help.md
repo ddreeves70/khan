@@ -22,6 +22,7 @@ Commands for kh_cli run:
   feature.add_box          Add box
   feature.add_cylinder     Add cylinder
   feature.delete           Delete step
+  feature.duplicate        Duplicate step
   feature.rename           Rename step
   feature.set_material     Set material
   material.define          Define material

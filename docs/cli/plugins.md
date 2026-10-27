@@ -44,6 +44,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_box
            command feature.add_cylinder
            command feature.delete
+           command feature.duplicate
            command feature.rename
            command feature.set_material
            command material.define
@@ -53,6 +54,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            action  Combine > Union  (feature.add_boolean)
            action  Combine > Cut  (feature.add_boolean)
            action  Combine > Intersect  (feature.add_boolean)
+           action  Edit > Duplicate step  (feature.duplicate)
            action  Edit > Delete step  (feature.delete)
 ```
 
@@ -75,6 +77,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_box
            command feature.add_cylinder
            command feature.delete
+           command feature.duplicate
            command feature.rename
            command feature.set_material
            command material.define
@@ -84,6 +87,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            action  Combine > Union  (feature.add_boolean)
            action  Combine > Cut  (feature.add_boolean)
            action  Combine > Intersect  (feature.add_boolean)
+           action  Edit > Duplicate step  (feature.duplicate)
            action  Edit > Delete step  (feature.delete)
 loaded   example.hello 1.0.0  Hello
            tier    tools

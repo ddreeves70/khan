@@ -68,6 +68,13 @@ void registerModeling(plugin::PluginContext& ctx) {
                                  .toolbar = true,
                                  .tip = c.tip});
     }
+    ctx.addAction(ActionSpec{.id = "kh.modeling.duplicate",
+                             .text = "Duplicate step",
+                             .menu = "Edit",
+                             .command = "feature.duplicate",
+                             .fromSelection = {"feature"},
+                             .shortcut = "Ctrl+D",
+                             .tip = "Copy the selected step, and the steps it uses, as new steps."});
     ctx.addAction(ActionSpec{.id = "kh.modeling.delete",
                              .text = "Delete step",
                              .menu = "Edit",

@@ -64,6 +64,17 @@ The desktop app shows these in the status bar after **File > Export...**:
 | `export.format` | The file name doesn't end with `.stl`, `.step` or `.stp` | End the name with `.stl` (3D printing) or `.step` (other CAD programs) |
 | `export.stl.failed`, `export.step.failed` | The file couldn't be written | Check the folder is still there and you're allowed to save in it |
 
+## Paste didn't work
+
+The desktop app shows these in the status bar after **Edit > Paste**:
+
+| Code | Meaning | Fix |
+| --- | --- | --- |
+| `paste.not_steps` | What's on the clipboard isn't steps copied from Khan | Pick steps in the feature tree, Edit > Copy, then paste |
+| `paste.too_new` | The steps were copied from a newer Khan | Update Khan, then paste again |
+| `paste.damaged` | The copied text was changed or cut short | Copy the steps again |
+| `paste.unknown_step` | A copied step is a kind this Khan doesn't know | Update Khan, or add the plugin that makes that kind of step |
+
 ## A plugin didn't load
 
 Run [`kh_cli plugins`](../cli/plugins.md): it lists each plugin with the reason.

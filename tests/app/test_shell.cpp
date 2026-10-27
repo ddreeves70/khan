@@ -7,9 +7,11 @@
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFile>
+#include <QGuiApplication>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -277,6 +279,67 @@ TEST_CASE("renaming in the tree, and refusing a taken name", "[app]") {
     CHECK(app.tree()->topLevelItem(1)->text(0) == QStringLiteral("Box2"));  // put back
     REQUIRE_FALSE(app.shell->lastProblems().empty());
     CHECK(app.shell->lastProblems()[0].code == "feature.name_taken");
+}
+
+TEST_CASE("Edit > Duplicate step copies the picked step and the steps it uses", "[app][copy]") {
+    App app;
+    app.click("kh.modeling.box");
+    app.click("kh.modeling.cylinder");
+    app.pickRows({0, 1});
+    app.click("kh.modeling.cut");
+    CHECK(app.shell->action("kh.modeling.duplicate")->isEnabled());  // Cut1 is picked
+    app.click("kh.modeling.duplicate");
+    REQUIRE(app.doc().featureCount() == 6);
+    CHECK(app.doc().featureAt(3).name() == "Box2");
+    CHECK(app.doc().featureAt(4).name() == "Cylinder2");
+    CHECK(app.doc().featureAt(5).name() == "Cut2");
+    REQUIRE(app.host.selection().features().size() == 1);
+    CHECK(app.host.selection().features()[0] == app.doc().featureAt(5).id());  // the copy is picked
+    app.shell->undoAction()->trigger();
+    settle();
+    CHECK(app.doc().featureCount() == 3);
+}
+
+TEST_CASE("Copy and Paste put steps into another design", "[app][copy]") {
+    App app;
+    CHECK_FALSE(app.menu("kh.shell.copy")->isEnabled());  // nothing picked
+    app.click("kh.modeling.box");                         // Box1 is picked
+    app.tree()->topLevelItem(0)->setText(0, QStringLiteral("Plate"));
+    settle();
+    app.pickRows({0});
+    REQUIRE(app.menu("kh.shell.copy")->isEnabled());
+    app.menu("kh.shell.copy")->trigger();
+    settle();
+    CHECK(app.menu("kh.shell.paste")->isEnabled());
+    CHECK(app.shell->statusBar()->currentMessage() == QStringLiteral("Copied 1 step."));
+
+    REQUIRE(app.shell->newDesign());
+    settle();
+    CHECK(app.doc().featureCount() == 0);
+    app.menu("kh.shell.paste")->trigger();
+    settle();
+    REQUIRE(app.doc().featureCount() == 1);
+    CHECK(app.doc().featureAt(0).name() == "Plate");
+    CHECK(app.tree()->topLevelItem(0)->text(0) == QStringLiteral("Plate"));
+    CHECK(app.host.selection().features() == std::vector<FeatureId>{app.doc().featureAt(0).id()});
+    CHECK(app.doc().undoLabel() == "Paste 1 step");
+
+    app.menu("kh.shell.paste")->trigger();  // again: a second, renamed copy
+    settle();
+    REQUIRE(app.doc().featureCount() == 2);
+    CHECK(app.doc().featureAt(1).name() == "Plate1");
+    CHECK(app.doc().featureAt(1).id() != app.doc().featureAt(0).id());
+}
+
+TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {
+    App app;
+    QGuiApplication::clipboard()->setText(QStringLiteral("just some words"));
+    settle();
+    CHECK_FALSE(app.menu("kh.shell.paste")->isEnabled());
+    app.shell->pasteSteps();  // Ctrl+V does this even if the menu item is grey
+    REQUIRE(app.shell->lastProblems().size() == 1);
+    CHECK(app.shell->lastProblems()[0].code == "paste.not_steps");
+    CHECK(app.doc().featureCount() == 0);
 }
 
 TEST_CASE("a step that doesn't build shows as failed, with the reason", "[app]") {

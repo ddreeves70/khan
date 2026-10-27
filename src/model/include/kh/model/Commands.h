@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "kh/model/Command.h"
 #include "kh/model/Material.h"
@@ -164,6 +165,53 @@ private:
     std::string wanted_;
     std::optional<Material> removed_;
     std::size_t index_ = 0;
+};
+
+/// Copies steps for duplicating or pasting: the given steps and every step they
+/// use (their inputs, and their inputs' inputs), in design order. The copies get
+/// new ids, and their inputs point at the other copies, so the copies don't
+/// depend on the originals. Names are unchanged; AddFeaturesCommand renames
+/// copies whose names are taken.
+/// @param doc The design the steps are in.
+/// @param ids The steps to copy, in any order. Ids not in the design are ignored.
+/// @return The copies, ready for AddFeaturesCommand; empty if none of @p ids is in the design.
+std::vector<std::unique_ptr<Feature>> copySteps(const Document& doc, const std::vector<FeatureId>& ids);
+
+/// Gives steps new ids, keeping them pointed at each other (see copySteps()).
+/// Used for steps read from the clipboard, which may already be in the design.
+/// @param steps Steps that only use each other, in order.
+/// @return The same steps with new ids.
+std::vector<std::unique_ptr<Feature>> freshIds(std::vector<std::unique_ptr<Feature>> steps);
+
+/// Adds several steps at the end of the design as one undo step: a duplicate or a
+/// paste. A step whose name is taken is renamed like a new one (Box1 becomes the
+/// next free BoxN). Materials the steps use that the design doesn't have yet are
+/// added too.
+class AddFeaturesCommand final : public Command {
+public:
+    /// Prepares the command.
+    /// @param features The steps, in order; a step may only use earlier steps in this list or the design.
+    /// @param materials Custom materials the steps may use (added if the design lacks them).
+    /// @param label The undo label, e.g. "Duplicate Box1" or "Paste 3 steps".
+    AddFeaturesCommand(std::vector<std::unique_ptr<Feature>> features, std::vector<Material> materials,
+                       std::string label);
+
+    std::string label() const override { return label_; }
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+    /// Gives the ids of the steps it adds.
+    /// @return Their ids, in order.
+    const std::vector<FeatureId>& ids() const { return ids_; }
+
+private:
+    void revertMaterials(DocumentEditor& editor);
+
+    std::vector<std::unique_ptr<Feature>> pending_;  // owned here while not in the document
+    std::vector<Material> materials_;
+    std::vector<std::string> addedMaterials_;  // keys added by apply()
+    std::vector<FeatureId> ids_;
+    std::string label_;
 };
 
 }  // namespace kh::model

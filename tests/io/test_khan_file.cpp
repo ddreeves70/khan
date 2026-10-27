@@ -15,6 +15,7 @@
 #include "../model/FakeKernel.h"
 #include "kh/core/Version.h"
 #include "kh/io/KhanFile.h"
+#include "kh/io/Steps.h"
 #include "kh/model/Commands.h"
 #include "kh/model/Document.h"
 
@@ -414,4 +415,88 @@ TEST_CASE("the checked-in schema 1 file still opens", "[io][compat]") {
     REQUIRE(report.ok());
     // Fake volumes: plate 60*30*4 = 7200, hole 3*2.5^2*6 = 112.5 (FakeKernel uses 3 for pi).
     CHECK_THAT(kernel.massProps(*report.shapeOf(doc.featureAt(2).id())).volume, WithinAbs(7087.5, 1e-9));
+}
+
+// ---------------------------------------------------------------------------
+// Steps as text (copy and paste)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("copied steps read back with new ids, the same numbers and the steps they use", "[io][copy]") {
+    auto doc = makeDesign();
+    const auto tag = doc->featureAt(2).id();
+    const std::string text = io::stepsToText(*doc, {tag});
+    CHECK(io::looksLikeSteps(text));
+
+    auto pasted = io::stepsFromText(text);
+    REQUIRE(pasted.ok());
+    REQUIRE(pasted.steps.size() == 3);
+    CHECK(pasted.steps[0]->name() == "Plate");
+    CHECK(pasted.steps[2]->name() == "Tag");
+    for (const auto& f : pasted.steps) CHECK_FALSE(doc->find(f->id()));
+    CHECK(pasted.steps[2]->dependencies() ==
+          std::vector<FeatureId>{pasted.steps[0]->id(), pasted.steps[1]->id()});
+    const auto& hole = dynamic_cast<const model::CylinderFeature&>(*pasted.steps[1]);
+    CHECK_THAT(hole.radius(), WithinAbs(2.5, 1e-12));
+
+    // Into another design: it rebuilds to the same tag.
+    model::Document other;
+    REQUIRE(other
+                .execute(std::make_unique<model::AddFeaturesCommand>(std::move(pasted.steps),
+                                                                     std::move(pasted.materials), "Paste"))
+                .empty());
+    test::FakeKernel k;
+    const auto report = other.regenerate(k);
+    REQUIRE(report.ok());
+    CHECK(test::FakeKernel::volumeOf(*report.shapeOf(other.featureAt(2).id())) ==
+          test::FakeKernel::volumeOf(*doc->regenerate(k).shapeOf(tag)));
+}
+
+TEST_CASE("copied steps keep being turned off, and bring their own materials", "[io][copy][material]") {
+    auto doc = makeDesign();
+    const auto plate = doc->featureAt(0).id();
+    model::Material blue{"", "Blue PETG", 1.27, {0x33, 0x66, 0xcc}, 2.1, 0.38, 50, 25, false};
+    REQUIRE(doc->execute(std::make_unique<model::DefineMaterialCommand>(blue)).empty());
+    REQUIRE(doc->execute(std::make_unique<model::SetMaterialCommand>(plate, "Blue PETG")).empty());
+
+    auto pasted = io::stepsFromText(io::stepsToText(*doc, {plate, doc->featureAt(3).id()}));
+    REQUIRE(pasted.steps.size() == 2);
+    CHECK(pasted.steps[0]->material() == doc->customMaterials()[0].key);
+    CHECK(pasted.steps[1]->suppressed());  // Spare was turned off
+    REQUIRE(pasted.materials.size() == 1);
+    CHECK(pasted.materials[0] == doc->customMaterials()[0]);
+}
+
+TEST_CASE("pasting text that isn't steps explains why", "[io][copy]") {
+    auto code = [](std::string_view text) {
+        auto r = io::stepsFromText(text);
+        CHECK_FALSE(r.ok());
+        REQUIRE(r.issues.size() == 1);
+        CHECK_FALSE(r.issues[0].message.empty());
+        return r.issues[0].code;
+    };
+    CHECK(code("hello") == "paste.not_steps");
+    CHECK(code(R"({"format":"khan-steps","version":1,"steps":[]})") == "paste.not_steps");
+    CHECK(code(R"({"format":"khan-steps","version":2,"steps":[]})") == "paste.too_new");
+    CHECK(code(R"({"format":"khan-steps","version":1,"steps":[{"name":"Box1"}]})") == "paste.damaged");
+    CHECK_FALSE(io::looksLikeSteps("hello"));
+    CHECK_FALSE(io::looksLikeSteps(""));
+
+    // A step that uses a step that wasn't copied.
+    auto doc = makeDesign();
+    const std::string text = io::stepsToText(*doc, {doc->featureAt(2).id()});
+    // Point Tag at a step that isn't in the copy: change the second mention of Plate's id.
+    auto j = text;
+    const auto idAt = j.find("\"id\"");
+    REQUIRE(idAt != std::string::npos);
+    const auto start = j.find('"', j.find(':', idAt)) + 1;
+    const std::string plateId = j.substr(start, j.find('"', start) - start);
+    const auto again = j.find(plateId, start + plateId.size());
+    REQUIRE(again != std::string::npos);
+    j.replace(again, plateId.size(), FeatureId::generate().toString());
+    CHECK(code(j) == "paste.damaged");
+}
+
+TEST_CASE("copying a step that isn't in the design gives no text", "[io][copy]") {
+    auto doc = makeDesign();
+    CHECK(io::stepsToText(*doc, {FeatureId::generate()}).empty());
 }
