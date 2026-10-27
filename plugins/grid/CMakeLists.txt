@@ -6,6 +6,7 @@ kh_add_library(kh_plugin_grid
     GridPlugin.cpp
   DEPS
     kh::ui
+    kh::plugin_viewoptions
     kh::plugin
     kh::kernel
 )

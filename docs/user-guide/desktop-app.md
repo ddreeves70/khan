@@ -159,7 +159,8 @@ you judge sizes and line things up. It starts **on**, every **10 mm**, drawn as
 
 The status bar (7 in the picture at the top) always shows the
 grid's settings, like "Grid 10 mm, lines, snap off". Khan remembers your grid
-settings for next time.
+settings for next time, and they're also in the [View options](#view-options)
+panel, where Grid spacing takes any size.
 
 - **How far the grid reaches:** 50 lines each way from the origin (500 mm with
   10 mm spacing), but at least 100 mm and never more than 100 lines, so a fine
@@ -181,8 +182,24 @@ height (z). Both start **on**:
 | View > Show axes | Shows or hides the three axes (and their letters) |
 | View > Show axis labels | Shows or hides just the letters X, Y and Z |
 
-Khan remembers both for next time. The letters always face you and stay the
+Khan remembers both for next time, and both are also in the
+[View options](#view-options) panel. The letters always face you and stay the
 same size as you zoom. The axes are a plugin too, `kh.axes`, built into Khan.
+
+## View options
+
+Everything the viewer can show, the grid and the axes so far, is also in one
+place: **View > View options...** opens the **View options** panel. It lists every
+option, grouped, and changing one there is the same as using the View menu: the
+menu's check marks follow, and Khan remembers it.
+
+![The View options panel](images/app-view-options.png)
+
+- The panel starts closed. Close it again with its **x**, or open and close it from
+  the **Window** menu. Like any panel, you can dock it anywhere.
+- **Grid spacing** takes any size from 0.01 mm to 1000 mm, not just the menu's
+  sizes. Type it and press Enter.
+- Coming soon: different options for each pane, like a grid in the top view only.
 
 ## Undo and redo
 

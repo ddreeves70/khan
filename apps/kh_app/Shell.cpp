@@ -115,6 +115,13 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* 
         new QLabel(tr("Khan %1").arg(QString::fromUtf8(v.data(), static_cast<qsizetype>(v.size()))), this));
     ui_.setSinks([this](const Diagnostics& d) { showProblems(d); },
                  [this](const QString& m) { showMessage(m); });
+    ui_.setPanelSink([this](const std::string& id) {
+        if (auto* dock = docks_->findDockWidget(qs(id))) {
+            dock->toggleView(true);
+            dock->raise();
+            dock->setAsCurrentTab();
+        }
+    });
 
     buildMenus();
     buildPanels();
@@ -150,6 +157,7 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* 
 Shell::~Shell() {
     subs_.clear();
     ui_.setSinks({}, {});
+    ui_.setPanelSink({});
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +309,7 @@ void Shell::buildPanels() {
         } else {
             docks_->addDockWidget(toAds(spec->area), dock);
         }
+        if (spec->startHidden) dock->toggleView(false);
     }
 
     for (const auto& id : dockIds()) {

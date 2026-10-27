@@ -9,6 +9,7 @@
 #include "kh/grid/Grid.h"
 #include "kh/plugin/Settings.h"
 #include "kh/plugins/Grid.h"
+#include "kh/plugins/ViewOptions.h"
 
 using namespace kh;
 using grid::GridChanged;
@@ -18,17 +19,27 @@ using plugins::GridService;
 
 namespace {
 
+// The grid's view options, kept the way kh.viewoptions keeps them.
 struct Store {
     plugin::MemorySettings memory;
     plugin::EventBus bus;
-    plugin::PluginSettings settings{memory, bus, "kh.grid"};
+    plugin::PluginSettings settings{memory, bus, "kh.viewoptions"};
+    plugins::ViewOptionsService options{settings, bus};
+    plugin::Subscription relay =
+        bus.subscribe<plugin::SettingChanged>([this](const plugin::SettingChanged& e) {
+            if (e.plugin == "kh.viewoptions") options.settingChanged(e.key);
+        });
+
+    Store() {
+        for (auto& o : plugins::gridOptions()) REQUIRE(options.add(o).empty());
+    }
 };
 
 }  // namespace
 
 TEST_CASE("the grid starts shown, 10 mm, no snapping, lines", "[grid]") {
     Store s;
-    GridService g(s.settings, s.bus);
+    GridService g(s.options, s.bus);
     CHECK(g.settings() == GridSettings{});
     CHECK(g.settings().visible);
     CHECK(g.settings().spacing == 10.0);
@@ -38,7 +49,7 @@ TEST_CASE("the grid starts shown, 10 mm, no snapping, lines", "[grid]") {
 
 TEST_CASE("each change tells listeners once, and is saved", "[grid]") {
     Store s;
-    GridService g(s.settings, s.bus);
+    GridService g(s.options, s.bus);
     std::vector<GridSettings> heard;
     auto sub = s.bus.subscribe<GridChanged>([&](const GridChanged& e) { heard.push_back(e.grid); });
 
@@ -56,53 +67,58 @@ TEST_CASE("each change tells listeners once, and is saved", "[grid]") {
     CHECK(heard.back().snap);
     CHECK_FALSE(heard.back().visible);
 
-    CHECK(s.memory.read("plugins/kh.grid/style") == "dots");
-    CHECK(s.memory.read("plugins/kh.grid/spacing") == "2.5");
-    CHECK(s.memory.read("plugins/kh.grid/snap") == "true");
-    CHECK(s.memory.read("plugins/kh.grid/visible") == "false");
+    CHECK(s.memory.read("plugins/kh.viewoptions/kh.grid.style") == "dots");
+    CHECK(s.memory.read("plugins/kh.viewoptions/kh.grid.spacing") == "2.5");
+    CHECK(s.memory.read("plugins/kh.viewoptions/kh.grid.snap") == "true");
+    CHECK(s.memory.read("plugins/kh.viewoptions/kh.grid.show") == "false");
 
     // The next run reads it back.
-    GridService again(s.settings, s.bus);
+    GridService again(s.options, s.bus);
     CHECK(again.settings() == heard.back());
 }
 
 TEST_CASE("a spacing outside 0.01 to 1000 mm is refused with a plain message", "[grid]") {
     Store s;
-    GridService g(s.settings, s.bus);
+    GridService g(s.options, s.bus);
     for (double bad : {0.0, -5.0, 0.001, 5000.0}) {
         const auto problems = g.setSpacing(bad);
         REQUIRE(problems.size() == 1);
-        CHECK(problems[0].code == "grid.spacing");
-        CHECK(problems[0].message.find("between 0.01 mm and 1000 mm") != std::string::npos);
+        CHECK(problems[0].code == "viewoptions.value");
+        CHECK(problems[0].message ==
+              "Grid spacing must be between 0.01 mm and 1000 mm. Pick one like 1, 5 or 10 mm.");
     }
     CHECK(g.settings().spacing == 10.0);  // unchanged
-    CHECK_FALSE(s.memory.read("plugins/kh.grid/spacing"));
+    CHECK_FALSE(s.memory.read("plugins/kh.viewoptions/kh.grid.spacing"));
 }
 
 TEST_CASE("a damaged saved spacing falls back to the default", "[grid]") {
     Store s;
     for (const char* bad : {"-3", "0", "huge", "1e9"}) {
-        s.memory.write("plugins/kh.grid/spacing", bad);
-        GridService g(s.settings, s.bus);
+        s.memory.write("plugins/kh.viewoptions/kh.grid.spacing", bad);
+        GridService g(s.options, s.bus);
         CHECK(g.settings().spacing == 10.0);
     }
 }
 
-TEST_CASE("changes made in the store are picked up when the grid reloads", "[grid]") {
+TEST_CASE("the grid follows its view options, however they change", "[grid]") {
     Store s;
-    GridService g(s.settings, s.bus);
+    GridService g(s.options, s.bus);
     int heard = 0;
     auto sub = s.bus.subscribe<GridChanged>([&](const GridChanged&) { ++heard; });
-    s.memory.write("plugins/kh.grid/style", "dots");
-    g.reload();
+    REQUIRE(s.options.set("kh.grid.style", std::string("dots")).empty());  // the panel or menu
     CHECK(g.settings().style == GridStyle::Dots);
-    g.reload();  // nothing new
+    REQUIRE(s.options.set("kh.grid.style", std::string("dots")).empty());  // nothing new
     CHECK(heard == 1);
+    // Written to the store by something else, which then says so.
+    s.memory.write("plugins/kh.viewoptions/kh.grid.spacing", "2.5");
+    s.bus.publish(plugin::SettingChanged{"kh.viewoptions", "kh.grid.spacing"});
+    CHECK(g.settings().spacing == 2.5);
+    CHECK(heard == 2);
 }
 
 TEST_CASE("snapping moves points to the nearest crossing, only when it's on", "[grid]") {
     Store s;
-    GridService g(s.settings, s.bus);
+    GridService g(s.options, s.bus);
     REQUIRE(g.setSpacing(5.0).empty());
     CHECK(g.snap(12.4) == 12.4);  // off: unchanged
 

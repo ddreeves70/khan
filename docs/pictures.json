@@ -613,8 +613,8 @@
       "app": {
         "open": "tag.khan",
         "settings": {
-          "plugins/kh.grid/style": "dots",
-          "plugins/kh.grid/spacing": "5"
+          "plugins/kh.viewoptions/kh.grid.style": "dots",
+          "plugins/kh.viewoptions/kh.grid.spacing": "5"
         }
       },
       "crop": [
@@ -622,6 +622,23 @@
         72,
         672,
         520
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-view-options.png",
+      "size": "1280x800",
+      "script": "tag",
+      "app": {
+        "open": "tag.khan",
+        "trigger": [
+          "kh.viewoptions.show"
+        ]
+      },
+      "crop": [
+        1062,
+        50,
+        218,
+        300
       ]
     },
     {

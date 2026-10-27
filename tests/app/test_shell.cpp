@@ -6,6 +6,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFile>
@@ -35,6 +36,7 @@
 #include "kh/plugins/Grid.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/Properties.h"
+#include "kh/plugins/ViewOptions.h"
 #include "kh/plugins/Viewer.h"
 #include "kh/ui/UiRegistry.h"
 #include "kh/view/FlatView.h"
@@ -117,6 +119,7 @@ struct App {
         host.addBuiltin(plugins::modelingPlugin());
         host.addBuiltin(plugins::featureTreePlugin());
         host.addBuiltin(plugins::propertiesPlugin());
+        host.addBuiltin(plugins::viewOptionsPlugin());
         host.addBuiltin(plugins::axesPlugin());
         host.addBuiltin(plugins::gridPlugin());
         host.addBuiltin(plugins::viewerPlugin());
@@ -172,8 +175,9 @@ struct App {
 
 TEST_CASE("the shell is built from plugins", "[app]") {
     App app;
-    CHECK(app.shell->dockIds() == QStringList({"kh.featuretree.panel", "kh.properties.panel",
-                                               "kh.viewer.main"}));  // no test.broken.panel
+    CHECK(app.shell->dockIds() ==
+          QStringList({"kh.featuretree.panel", "kh.properties.panel", "kh.viewer.main",
+                       "kh.viewoptions.panel"}));  // no test.broken.panel
     CHECK(app.shell->action("kh.modeling.box"));
     CHECK(app.shell->action("kh.modeling.cut"));
     CHECK_FALSE(app.shell->action("kh.modeling.cut")->isEnabled());  // needs two steps picked
@@ -192,7 +196,7 @@ TEST_CASE("Khan's own plugins follow the rules: no warnings, and each has a tier
         CHECK(p.issues.empty());  // as strict as kh_cli plugins --strict
         CHECK_FALSE(p.manifest.tier.empty());
     }
-    CHECK(builtins == 6);
+    CHECK(builtins == 7);
 }
 
 TEST_CASE("Create > Box adds a step, selects it, and shows its numbers", "[app]") {
@@ -455,8 +459,8 @@ TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {
     CHECK_FALSE(g.snap);
     CHECK(g.spacing == 10.0);
     CHECK(app.menu("kh.grid.show")->isChecked());
-    CHECK(app.menu("kh.grid.lines")->isChecked());
-    CHECK_FALSE(app.menu("kh.grid.dots")->isChecked());
+    CHECK(app.menu("kh.grid.style.lines")->isChecked());
+    CHECK_FALSE(app.menu("kh.grid.style.dots")->isChecked());
     CHECK_FALSE(app.menu("kh.grid.snap")->isChecked());
     CHECK(app.menu("kh.grid.spacing.10")->isChecked());
     CHECK(app.menu("kh.grid.show")->shortcut() == QKeySequence(QStringLiteral("Ctrl+G")));
@@ -474,7 +478,7 @@ TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {
 TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]") {
     App app;
     REQUIRE(seenGrid);
-    app.menu("kh.grid.dots")->trigger();
+    app.menu("kh.grid.style.dots")->trigger();
     app.menu("kh.grid.snap")->trigger();
     app.menu("kh.grid.spacing.5")->trigger();
     app.menu("kh.grid.show")->trigger();  // off
@@ -484,8 +488,8 @@ TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]"
     CHECK(g.snap);
     CHECK(g.spacing == 5.0);
     CHECK_FALSE(g.visible);
-    CHECK(app.menu("kh.grid.dots")->isChecked());
-    CHECK_FALSE(app.menu("kh.grid.lines")->isChecked());
+    CHECK(app.menu("kh.grid.style.dots")->isChecked());
+    CHECK_FALSE(app.menu("kh.grid.style.lines")->isChecked());
     CHECK(app.menu("kh.grid.spacing.5")->isChecked());
     CHECK_FALSE(app.menu("kh.grid.spacing.10")->isChecked());
     CHECK_FALSE(app.menu("kh.grid.show")->isChecked());
@@ -499,16 +503,19 @@ TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]"
     CHECK(lattice(app.flat())->spacing == 5.0);
 
     // Saved with the app's settings, so the next run starts the same way.
-    CHECK(app.settings.value(QStringLiteral("plugins/kh.grid/style")).toString() == QStringLiteral("dots"));
-    CHECK(app.settings.value(QStringLiteral("plugins/kh.grid/spacing")).toString() == QStringLiteral("5"));
-    CHECK(app.settings.value(QStringLiteral("plugins/kh.grid/snap")).toString() == QStringLiteral("true"));
+    CHECK(app.settings.value(QStringLiteral("plugins/kh.viewoptions/kh.grid.style")).toString() ==
+          QStringLiteral("dots"));
+    CHECK(app.settings.value(QStringLiteral("plugins/kh.viewoptions/kh.grid.spacing")).toString() ==
+          QStringLiteral("5"));
+    CHECK(app.settings.value(QStringLiteral("plugins/kh.viewoptions/kh.grid.snap")).toString() ==
+          QStringLiteral("true"));
 }
 
 TEST_CASE("a spacing that isn't a preset shows in the Other item", "[app][grid]") {
     App app;
     // Changed in the store, as another part of Khan might: the grid follows.
-    app.pluginSettings.write("plugins/kh.grid/spacing", "12.5");
-    app.host.events().publish(plugin::SettingChanged{"kh.grid", "spacing"});
+    app.pluginSettings.write("plugins/kh.viewoptions/kh.grid.spacing", "12.5");
+    app.host.events().publish(plugin::SettingChanged{"kh.viewoptions", "kh.grid.spacing"});
     settle();
     REQUIRE(seenGrid);
     CHECK(seenGrid->settings().spacing == 12.5);
@@ -524,8 +531,8 @@ TEST_CASE("a dense grid is drawn every few lines, so it doesn't turn grey", "[ap
     REQUIRE(view);
     REQUIRE(lattice(view));
     CHECK(view::FlatView::pixelsPerSpace(*lattice(view)) == 40.0);  // 10 mm at 4 px per mm
-    app.pluginSettings.write("plugins/kh.grid/spacing", "0.5");
-    app.host.events().publish(plugin::SettingChanged{"kh.grid", "spacing"});
+    app.pluginSettings.write("plugins/kh.viewoptions/kh.grid.spacing", "0.5");
+    app.host.events().publish(plugin::SettingChanged{"kh.viewoptions", "kh.grid.spacing"});
     settle();
     REQUIRE(lattice(view));
     CHECK(view::FlatView::pixelsPerSpace(*lattice(view)) >= 8.0);  // every 5th line: 2.5 mm = 10 px
@@ -600,7 +607,8 @@ TEST_CASE("the axes are drawn with their letters, and View can hide either", "[a
     CHECK_FALSE(labels->isChecked());
     CHECK(countShape(view, view::OverlayShape::Lines) == 3);
     CHECK(countShape(view, view::OverlayShape::Labels) == 0);
-    CHECK(app.settings.value(QStringLiteral("plugins/kh.axes/labels")).toString() == QStringLiteral("false"));
+    CHECK(app.settings.value(QStringLiteral("plugins/kh.viewoptions/kh.axes.labels")).toString() ==
+          QStringLiteral("false"));
 
     labels->trigger();
     axes->trigger();  // axes off: their letters go too
@@ -611,6 +619,46 @@ TEST_CASE("the axes are drawn with their letters, and View can hide either", "[a
     axes->trigger();
     settle();
     CHECK(countShape(view, view::OverlayShape::Labels) == 3);
+}
+
+TEST_CASE("the View options panel starts closed, opens from View, and changes options",
+          "[app][viewoptions]") {
+    App app;
+    REQUIRE(app.shell->dockIds().contains(QStringLiteral("kh.viewoptions.panel")));
+    auto* panel = app.shell->panelWidget(QStringLiteral("kh.viewoptions.panel"));
+    REQUIRE(panel);
+    CHECK_FALSE(panel->isVisible());   // closed until asked for
+    app.click("kh.viewoptions.show");  // View > View options...
+    CHECK(panel->isVisible());
+
+    // Every view option is there, grouped: the grid's and the axes'.
+    auto* labels = panel->findChild<QCheckBox*>(QStringLiteral("kh.axes.labels"));
+    auto* spacing = panel->findChild<QDoubleSpinBox*>(QStringLiteral("kh.grid.spacing"));
+    auto* style = panel->findChild<QComboBox*>(QStringLiteral("kh.grid.style"));
+    REQUIRE(labels);
+    REQUIRE(spacing);
+    REQUIRE(style);
+    CHECK(labels->isChecked());
+    CHECK(spacing->value() == 10.0);
+    CHECK(spacing->suffix() == QStringLiteral(" mm"));
+    CHECK(style->currentText() == QStringLiteral("Lines"));
+
+    // Changing it in the panel changes it everywhere: the drawing and the menu.
+    labels->setChecked(false);
+    spacing->setValue(5.0);
+    style->setCurrentIndex(style->findData(QStringLiteral("dots")));
+    settle();
+    CHECK(countShape(app.flat(), view::OverlayShape::Labels) == 0);
+    CHECK_FALSE(app.menu("kh.axes.labels")->isChecked());
+    REQUIRE(seenGrid);
+    CHECK(seenGrid->settings().spacing == 5.0);
+    CHECK(app.menu("kh.grid.spacing.5")->isChecked());
+    CHECK(app.menu("kh.grid.style.dots")->isChecked());
+
+    // And the menu changes the panel.
+    app.menu("kh.axes.labels")->trigger();
+    settle();
+    CHECK(labels->isChecked());
 }
 
 TEST_CASE("Window > New viewer opens more viewers", "[app][viewer]") {

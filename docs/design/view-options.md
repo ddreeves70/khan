@@ -119,8 +119,9 @@ The service builds:
   the "Show options for" list, and the per-pane markers and reset buttons.
 
 `kh.viewoptions` is in the `foundation` tier, so `kh.grid` (foundation) and
-`kh.axes` can require it. It adds its panel only in the desktop app; in `kh_cli`
-it still stores options, so scripts can set them.
+`kh.axes` can require it. For now it's built with the desktop app only (its panel
+uses Qt), like the grid and the axes; options in `kh_cli` can come later if
+scripts need them.
 
 ## What moves
 
@@ -138,7 +139,11 @@ The grid's status-bar text stays in `kh.grid` and shows the active pane's values
 
 1. `kh.viewoptions` with all-panes values: the service, options, events, the View
    menu built from options and the panel. `kh.grid` and `kh.axes` move onto it.
-   For the student, nothing changes except the new panel.
+   For the student, nothing changes except the new panel. *Built Oct 27, 2026
+   (plugin API 9):* the panel starts closed and opens from View > View
+   options...; plugins call `addOption()`, which adds the option's menu items as
+   their own. Looking up a plugin's service while registering no longer warns
+   when that plugin is in `requires`.
 2. Per-pane values: pane keys from the viewer, overlays for one pane, the
    right-click menu, panel scope, markers, saved with layouts, and `kh.grid/2`.
 
