@@ -15,7 +15,7 @@ bool same(const Overlay& a, const Overlay& b) {
     const auto& p = a.lattice;
     const auto& q = b.lattice;
     return a.id == b.id && a.shape == b.shape && a.color == b.color && a.size == b.size &&
-           a.visible == b.visible && a.points.size() == b.points.size() &&
+           a.visible == b.visible && a.texts == b.texts && a.points.size() == b.points.size() &&
            std::equal(a.points.begin(), a.points.end(), b.points.begin(),
                       [](const auto& x, const auto& y) { return same(x, y); }) &&
            same(p.origin, q.origin) && same(p.xAxis, q.xAxis) && same(p.yAxis, q.yAxis) &&

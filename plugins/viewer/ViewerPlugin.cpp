@@ -368,8 +368,12 @@ std::vector<view::ViewOverlay> viewOverlays(const std::vector<plugin::Overlay>& 
             case plugin::OverlayShape::Lattice:
                 v.shape = view::OverlayShape::Lattice;
                 break;
+            case plugin::OverlayShape::Labels:
+                v.shape = view::OverlayShape::Labels;
+                break;
         }
         v.points = o.points;
+        v.texts = o.texts;
         v.origin = o.lattice.origin;
         v.xAxis = o.lattice.xAxis;
         v.yAxis = o.lattice.yAxis;

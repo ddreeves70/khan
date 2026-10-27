@@ -9,7 +9,7 @@ code can't load.
   "id": "example.hello",
   "name": "Hello",
   "version": "1.0.0",
-  "apiVersion": 7,
+  "apiVersion": 8,
   "description": "Adds a command that makes a cube, and notices every change.",
   "library": "hello",
   "requires": ["kh.modeling"],
@@ -24,7 +24,7 @@ code can't load.
 | `id` | yes | The plugin's permanent name: lower-case letters, digits and `_`, in two or more parts joined by dots, like `sam.cube`. Never change it once people use your plugin. Ids starting with `kh.` are kept for Khan's own plugins. |
 | `name` | yes | The name people see, like `Cube`. |
 | `version` | yes | Your plugin's own version, like `1.0.0`. Change it with each release. |
-| `apiVersion` | yes, in the folder Khan loads | The plugin API version the plugin was built for, a whole number. This Khan uses **7**. You don't type it: `kh_add_plugin` writes it into the `plugin.json` next to the built library, from the Khan you build against. |
+| `apiVersion` | yes, in the folder Khan loads | The plugin API version the plugin was built for, a whole number. This Khan uses **8**. You don't type it: `kh_add_plugin` writes it into the `plugin.json` next to the built library, from the Khan you build against. |
 | `description` | no | One plain sentence about what the plugin adds. |
 | `library` | yes for C++ | The program file's name without its ending: `"hello"` means `hello.dll` on Windows, `hello.dylib` on macOS and `hello.so` on Linux. It must be in the same folder as `plugin.json`. |
 | `requires` | no | Ids of plugins this one can't work without. They load first. If one is missing or fails, this plugin doesn't load, and Khan says which one. |

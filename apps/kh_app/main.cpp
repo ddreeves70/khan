@@ -32,6 +32,7 @@
 #include "Shell.h"
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/plugin/PluginHost.h"
+#include "kh/plugins/Axes.h"
 #include "kh/plugins/FeatureTree.h"
 #include "kh/plugins/Grid.h"
 #include "kh/plugins/Modeling.h"
@@ -107,6 +108,7 @@ int main(int argc, char** argv) {
     host.addBuiltin(kh::plugins::modelingPlugin());
     host.addBuiltin(kh::plugins::featureTreePlugin());
     host.addBuiltin(kh::plugins::propertiesPlugin());
+    host.addBuiltin(kh::plugins::axesPlugin());
     host.addBuiltin(kh::plugins::gridPlugin());
     host.addBuiltin(kh::plugins::viewerPlugin());
     host.addFolder((QCoreApplication::applicationDirPath() + QStringLiteral("/plugins")).toStdWString());

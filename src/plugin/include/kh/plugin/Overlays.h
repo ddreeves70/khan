@@ -30,6 +30,7 @@ enum class OverlayShape {
     Lines,    ///< Straight lines: each pair of `points` is one line.
     Points,   ///< A dot at each of `points`.
     Lattice,  ///< Evenly spaced lines (or dots where they cross) on a plane, like graph paper.
+    Labels,   ///< Words: `texts[i]` is written at `points[i]`, always facing the screen.
 };
 
 /// A lattice: lines every `spacing` mm on a plane, like graph paper.
@@ -49,12 +50,13 @@ struct OverlayLattice {
 /// Overlays are never picked with the mouse and don't count when zooming to fit.
 struct Overlay {
     OverlayShape shape = OverlayShape::Lines;  ///< What it draws.
-    std::vector<kernel::Vec3> points{};        ///< For Lines and Points, in mm.
+    std::vector<kernel::Vec3> points{};        ///< For Lines, Points and Labels, in mm.
+    std::vector<std::string> texts{};          ///< For Labels: the words, one for each point.
     OverlayLattice lattice{};                  ///< For Lattice.
     OverlayColor color{};                      ///< Its color.
-    double size = 1;                           ///< Line width or dot size, in screen pixels.
-    bool visible = true;                       ///< False to hide it without removing it.
-    std::string id{};                          ///< Set by Khan: the plugin id and the overlay's name.
+    double size = 1;      ///< Line width, dot size or the height of a label's letters, in screen pixels.
+    bool visible = true;  ///< False to hide it without removing it.
+    std::string id{};     ///< Set by Khan: the plugin id and the overlay's name.
 };
 
 /// Sent when an overlay is added, changed or removed.

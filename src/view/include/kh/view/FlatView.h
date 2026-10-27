@@ -19,7 +19,7 @@ namespace kh::view {
 class FlatView : public QWidget {
     Q_OBJECT
 public:
-    /// Makes an empty view: just the axes. Its object name is "kh.view.flat".
+    /// Makes an empty view. Its object name is "kh.view.flat".
     /// @param parent The widget it sits in.
     explicit FlatView(QWidget* parent = nullptr);
 
@@ -28,7 +28,8 @@ public:
     void setText(const QString& text);
 
     /// Changes what it draws behind the text, seen from above (x to the right,
-    /// y up, the origin in the middle).
+    /// y up, the origin in the middle). Lattices are drawn first, underneath
+    /// the others.
     /// @param overlays The overlays, drawn in this order.
     void setOverlays(const std::vector<ViewOverlay>& overlays);
 
@@ -48,7 +49,7 @@ public:
     static double pixelsPerSpace(const ViewOverlay& lattice);
 
 protected:
-    /// Draws the overlays, the axes and the card.
+    /// Draws the overlays and the card.
     /// @param event Which part to draw (it draws everything).
     void paintEvent(QPaintEvent* event) override;
 

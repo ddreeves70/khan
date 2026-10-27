@@ -30,6 +30,7 @@
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/model/Feature.h"
 #include "kh/plugin/PluginHost.h"
+#include "kh/plugins/Axes.h"
 #include "kh/plugins/FeatureTree.h"
 #include "kh/plugins/Grid.h"
 #include "kh/plugins/Modeling.h"
@@ -86,6 +87,21 @@ void gridClient(plugin::PluginContext& ctx) {
     ctx.onStart([&ctx] { seenGrid = ctx.service<grid::IGrid>(); });
 }
 
+// The grid, among the overlays a view draws (the axes are overlays too).
+const view::ViewOverlay* lattice(const view::FlatView* v) {
+    for (const auto& o : v->overlays()) {
+        if (o.shape == view::OverlayShape::Lattice) return &o;
+    }
+    return nullptr;
+}
+
+// What a view draws for the axes: lines and labels, by color.
+int countShape(const view::FlatView* v, view::OverlayShape shape) {
+    int n = 0;
+    for (const auto& o : v->overlays()) n += o.shape == shape ? 1 : 0;
+    return n;
+}
+
 struct App {
     QTemporaryDir dir;
     QSettings settings{dir.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat};
@@ -101,6 +117,7 @@ struct App {
         host.addBuiltin(plugins::modelingPlugin());
         host.addBuiltin(plugins::featureTreePlugin());
         host.addBuiltin(plugins::propertiesPlugin());
+        host.addBuiltin(plugins::axesPlugin());
         host.addBuiltin(plugins::gridPlugin());
         host.addBuiltin(plugins::viewerPlugin());
         host.addBuiltin({R"({"id":"test.broken","name":"Broken","version":"1","apiVersion":)" +
@@ -175,7 +192,7 @@ TEST_CASE("Khan's own plugins follow the rules: no warnings, and each has a tier
         CHECK(p.issues.empty());  // as strict as kh_cli plugins --strict
         CHECK_FALSE(p.manifest.tier.empty());
     }
-    CHECK(builtins == 5);
+    CHECK(builtins == 6);
 }
 
 TEST_CASE("Create > Box adds a step, selects it, and shows its numbers", "[app]") {
@@ -448,10 +465,10 @@ TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {
     // The viewer draws it as an overlay (no screen in the tests, so it draws flat).
     auto* view = app.flat();
     REQUIRE(view);
-    REQUIRE(view->overlays().size() == 1);
-    CHECK(view->overlays()[0].shape == view::OverlayShape::Lattice);
-    CHECK(view->overlays()[0].spacing == 10.0);
-    CHECK_FALSE(view->overlays()[0].dots);
+    const auto* grid = lattice(view);
+    REQUIRE(grid);
+    CHECK(grid->spacing == 10.0);
+    CHECK_FALSE(grid->dots);
 }
 
 TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]") {
@@ -474,12 +491,12 @@ TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]"
     CHECK_FALSE(app.menu("kh.grid.show")->isChecked());
     CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.grid.status"))->text() ==
           QStringLiteral("Grid off, snap on"));
-    CHECK(app.flat()->overlays().empty());  // the viewer follows: nothing to draw
-    app.menu("kh.grid.show")->trigger();    // on again
+    CHECK_FALSE(lattice(app.flat()));     // the viewer follows: no grid to draw
+    app.menu("kh.grid.show")->trigger();  // on again
     settle();
-    REQUIRE(app.flat()->overlays().size() == 1);
-    CHECK(app.flat()->overlays()[0].dots);
-    CHECK(app.flat()->overlays()[0].spacing == 5.0);
+    REQUIRE(lattice(app.flat()));
+    CHECK(lattice(app.flat())->dots);
+    CHECK(lattice(app.flat())->spacing == 5.0);
 
     // Saved with the app's settings, so the next run starts the same way.
     CHECK(app.settings.value(QStringLiteral("plugins/kh.grid/style")).toString() == QStringLiteral("dots"));
@@ -505,13 +522,13 @@ TEST_CASE("a dense grid is drawn every few lines, so it doesn't turn grey", "[ap
     App app;
     auto* view = app.flat();
     REQUIRE(view);
-    REQUIRE(view->overlays().size() == 1);
-    CHECK(view::FlatView::pixelsPerSpace(view->overlays()[0]) == 40.0);  // 10 mm at 4 px per mm
+    REQUIRE(lattice(view));
+    CHECK(view::FlatView::pixelsPerSpace(*lattice(view)) == 40.0);  // 10 mm at 4 px per mm
     app.pluginSettings.write("plugins/kh.grid/spacing", "0.5");
     app.host.events().publish(plugin::SettingChanged{"kh.grid", "spacing"});
     settle();
-    REQUIRE(view->overlays().size() == 1);
-    CHECK(view::FlatView::pixelsPerSpace(view->overlays()[0]) >= 8.0);  // every 5th line: 2.5 mm = 10 px
+    REQUIRE(lattice(view));
+    CHECK(view::FlatView::pixelsPerSpace(*lattice(view)) >= 8.0);  // every 5th line: 2.5 mm = 10 px
 }
 
 TEST_CASE("the viewer fills the middle; without 3D graphics it draws flat and says why", "[app][viewer]") {
@@ -530,6 +547,23 @@ TEST_CASE("the viewer fills the middle; without 3D graphics it draws flat and sa
     CHECK(app.flat()->text().contains(QStringLiteral("Finished bodies: Box1")));
 }
 
+TEST_CASE("the flat view draws lines on top of the grid", "[app][viewer]") {
+    view::FlatView flat;
+    view::ViewOverlay grid;
+    grid.shape = view::OverlayShape::Lattice;
+    grid.color = {204, 209, 218};
+    view::ViewOverlay axis;  // along the grid's x line through the origin
+    axis.points = {{0, 0, 0}, {25, 0, 0}};
+    axis.color = {209, 69, 59};
+    axis.size = 2;
+    flat.setOverlays({axis, grid});  // the grid given last, as when its plugin loads later
+    flat.resize(400, 300);
+    const QImage img = flat.grab().toImage();
+    bool red = false;
+    for (int y = 145; y <= 155; ++y) red = red || img.pixelColor(250, y) == QColor(209, 69, 59);
+    CHECK(red);
+}
+
 TEST_CASE("the flat view's words can be read in dark mode", "[app][viewer]") {
     view::FlatView flat;
     QPalette dark = flat.palette();
@@ -546,6 +580,37 @@ TEST_CASE("the flat view's words can be read in dark mode", "[app][viewer]") {
         }
     }
     CHECK(darkPixels > 50);
+}
+
+TEST_CASE("the axes are drawn with their letters, and View can hide either", "[app][axes]") {
+    App app;
+    auto* view = app.flat();
+    REQUIRE(view);
+    CHECK(countShape(view, view::OverlayShape::Lines) == 3);   // x, y and z
+    CHECK(countShape(view, view::OverlayShape::Labels) == 3);  // X, Y and Z
+    auto* axes = app.menu("kh.axes.show");
+    auto* labels = app.menu("kh.axes.labels");
+    REQUIRE(axes);
+    REQUIRE(labels);
+    CHECK(axes->isChecked());
+    CHECK(labels->isChecked());
+
+    labels->trigger();  // letters off, axes stay
+    settle();
+    CHECK_FALSE(labels->isChecked());
+    CHECK(countShape(view, view::OverlayShape::Lines) == 3);
+    CHECK(countShape(view, view::OverlayShape::Labels) == 0);
+    CHECK(app.settings.value(QStringLiteral("plugins/kh.axes/labels")).toString() == QStringLiteral("false"));
+
+    labels->trigger();
+    axes->trigger();  // axes off: their letters go too
+    settle();
+    CHECK(countShape(view, view::OverlayShape::Lines) == 0);
+    CHECK(countShape(view, view::OverlayShape::Labels) == 0);
+    CHECK(labels->isChecked());  // still on, for when the axes come back
+    axes->trigger();
+    settle();
+    CHECK(countShape(view, view::OverlayShape::Labels) == 3);
 }
 
 TEST_CASE("Window > New viewer opens more viewers", "[app][viewer]") {
