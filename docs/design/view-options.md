@@ -1,8 +1,10 @@
 # View options
 
-> **Draft, Oct 27, 2026**, for review. Agreed so far: one shared service for view
-> options instead of each plugin managing its own; different values per pane are
-> possible, but a change applies to every pane unless you choose "this pane only".
+> **Agreed Oct 27, 2026:** one shared service for view options instead of each
+> plugin managing its own; different values per pane are possible, but a change
+> applies to every pane unless you choose "this pane only"; every option,
+> including custom "Other..." values, can be set per pane; a new pane starts with
+> the all-panes values.
 > Builds on [Shared concepts between plugins](plugin-contracts.md).
 
 ## The problem
@@ -143,9 +145,9 @@ The grid's status-bar text stays in `kh.grid` and shows the active pane's values
 Each step updates the plugin guide (a new "Add view options" section replacing
 the hand-made check-mark example for view settings) and the user guide.
 
-## Open questions
+## Decisions
 
-- Should **"Other..." values** (like a 12.5 mm grid) also be offered as per-pane?
-  Proposed: yes, every option works the same way.
-- Should a **new pane** (switching from 1 to 4 panes) start with the all-panes
-  values? Proposed: yes; a pane's own values are only ever set on purpose.
+- **"Other..." values** (like a 12.5 mm grid) can be set per pane too: every
+  option works the same way.
+- **A new pane** (switching from 1 to 4 panes, or a new viewer) starts with the
+  all-panes values; a pane's own values are only ever set on purpose.
