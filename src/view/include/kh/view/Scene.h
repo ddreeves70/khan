@@ -3,6 +3,7 @@
 /// @file
 /// What a 3D view shows: bodies, the selection and the grid. Plain data, no Qt or OCCT.
 
+#include <string>
 #include <vector>
 
 #include "kh/core/Id.h"
@@ -41,13 +42,15 @@ enum class OverlayShape {
     Lines,    ///< Straight lines: each pair of `points` is one line.
     Points,   ///< A dot at each of `points`.
     Lattice,  ///< Evenly spaced lines, or dots where they cross, on a plane.
+    Labels,   ///< Words: `texts[i]` is written at `points[i]`, facing the screen.
 };
 
 /// Something drawn over the design that isn't part of it, such as the grid. The
 /// view draws it as given, never picks it, and leaves it out of Fit all.
 struct ViewOverlay {
     OverlayShape shape = OverlayShape::Lines;  ///< What it draws.
-    std::vector<kernel::Vec3> points{};        ///< For Lines and Points, in mm.
+    std::vector<kernel::Vec3> points{};        ///< For Lines, Points and Labels, in mm.
+    std::vector<std::string> texts{};          ///< For Labels: the words, one for each point.
     kernel::Vec3 origin{};                     ///< Lattice: a crossing point, in mm.
     kernel::Vec3 xAxis{1, 0, 0};               ///< Lattice: one direction of lines (a unit vector).
     kernel::Vec3 yAxis{0, 1, 0};               ///< Lattice: the other direction (a unit vector).
@@ -56,7 +59,7 @@ struct ViewOverlay {
     bool dots = false;                         ///< Lattice: dots at the crossings instead of lines.
     Rgb color{};                               ///< Its color.
     int alpha = 255;                           ///< How solid, 0 to 255.
-    double size = 1;                           ///< Line width or dot size, in screen pixels.
+    double size = 1;  ///< Line width, dot size or the height of a label's letters, in screen pixels.
 };
 
 /// Works out the lines of a lattice overlay, for drawing.

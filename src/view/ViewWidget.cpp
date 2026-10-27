@@ -16,12 +16,15 @@
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <Bnd_Box.hxx>
+#include <Font_NameOfFont.hxx>
 #include <Graphic3d_ArrayOfPoints.hxx>
 #include <Graphic3d_ArrayOfSegments.hxx>
 #include <Graphic3d_AspectLine3d.hxx>
 #include <Graphic3d_AspectMarker3d.hxx>
+#include <Graphic3d_AspectText3d.hxx>
 #include <Graphic3d_Camera.hxx>
 #include <Graphic3d_Group.hxx>
+#include <Graphic3d_Text.hxx>
 #include <Graphic3d_TransformPers.hxx>
 #include <Prs3d_Drawer.hxx>
 #include <Prs3d_LineAspect.hxx>
@@ -73,7 +76,24 @@ public:
                                        static_cast<float>(std::clamp(o.alpha, 0, 255) / 255.0));
         Handle(Graphic3d_Group) group = prs->NewGroup();
         const bool dots = o.shape == OverlayShape::Points || (o.shape == OverlayShape::Lattice && o.dots);
-        if (dots) {
+        if (o.shape == OverlayShape::Labels) {
+            // Words that always face the screen and keep their size in pixels.
+            Handle(Graphic3d_AspectText3d) aspect = new Graphic3d_AspectText3d();
+            aspect->SetColor(color.GetRGB());
+            aspect->SetFont(Font_NOF_SANS_SERIF);
+            aspect->SetTextFontAspect(Font_FA_Bold);
+            group->SetGroupPrimitivesAspect(aspect);
+            const std::size_t n = std::min(o.points.size(), o.texts.size());
+            for (std::size_t i = 0; i < n; ++i) {
+                Handle(Graphic3d_Text) text =
+                    new Graphic3d_Text(static_cast<Standard_ShortReal>(std::max(6.0, o.size)));
+                text->SetText(o.texts[i].c_str());
+                text->SetPosition(gp_Pnt(o.points[i].x, o.points[i].y, o.points[i].z));
+                text->SetHorizontalAlignment(Graphic3d_HTA_CENTER);
+                text->SetVerticalAlignment(Graphic3d_VTA_CENTER);
+                group->AddText(text);
+            }
+        } else if (dots) {
             const auto points = o.shape == OverlayShape::Points ? o.points : latticePoints(o);
             if (points.empty()) return;
             Handle(Graphic3d_ArrayOfPoints) array =
@@ -108,9 +128,8 @@ private:
     ViewOverlay overlay_;
 };
 
-constexpr double kAxisLength = 25.0;  // mm
-constexpr double kCubeSize = 40.0;    // pixels, before scaling for high-DPI screens
-constexpr int kCubeOffset = 62;       // pixels from the corner to the cube's middle
+constexpr double kCubeSize = 40.0;  // pixels, before scaling for high-DPI screens
+constexpr int kCubeOffset = 62;     // pixels from the corner to the cube's middle
 
 Aspect_VKeyMouse toButtons(Qt::MouseButtons b) {
     Aspect_VKeyMouse out = Aspect_VKeyMouse_NONE;
@@ -318,19 +337,6 @@ ViewWidget::ViewWidget(QWidget* parent) : QOpenGLWidget(parent), impl_(std::make
         d.view->ChangeRenderingParams().NbMsaaSamples = 4;
         d.controller.ViewAnimation()->SetView(d.view);
 
-        // The axes through the origin: X red, Y green, Z blue. They can't be picked.
-        const struct {
-            gp_Pnt end;
-            Quantity_Color color;
-        } axes[] = {{gp_Pnt(kAxisLength, 0, 0), rgb(209, 69, 59)},
-                    {gp_Pnt(0, kAxisLength, 0), rgb(46, 155, 79)},
-                    {gp_Pnt(0, 0, kAxisLength), rgb(52, 101, 196)}};
-        for (const auto& a : axes) {
-            Handle(AIS_Shape) axis = new AIS_Shape(BRepBuilderAPI_MakeEdge(gp_Pnt(0, 0, 0), a.end).Edge());
-            axis->SetColor(a.color);
-            axis->SetWidth(2.0);
-            d.context->Display(axis, AIS_WireFrame, -1, false);
-        }
         setStandardView(StandardView::Iso);
     } catch (const Standard_Failure& e) {
         d.problem = drawFailed(QStringLiteral("making the viewer: ") + failureText(e));
@@ -527,7 +533,7 @@ void ViewWidget::initializeGL() {
             d.cube = new AIS_ViewCube();
             d.cube->SetSize(kCubeSize * ratio);
             d.cube->SetFontHeight(9 * ratio);
-            d.cube->SetDrawAxes(false);  // the axes are drawn at the origin instead
+            d.cube->SetDrawAxes(false);  // the kh.axes plugin draws axes at the origin instead
             d.cube->SetViewAnimation(d.controller.ViewAnimation());
             d.cube->SetFixedAnimationLoop(false);
             d.cube->SetAutoStartAnimation(true);

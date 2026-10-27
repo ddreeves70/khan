@@ -1,5 +1,6 @@
 #include "kh/view/FlatView.h"
 
+#include <QFontMetricsF>
 #include <QPainter>
 
 #include <algorithm>
@@ -52,7 +53,17 @@ void FlatView::paintEvent(QPaintEvent*) {
         return QPointF(origin.x() + p.x * kPixelsPerMm, origin.y() - p.y * kPixelsPerMm);
     };
 
+    // Lattices (like the grid) first, underneath everything else, so lines that
+    // lie on them (like the axes) still show.
+    std::vector<const ViewOverlay*> order;
     for (const auto& o : overlays_) {
+        if (o.shape == OverlayShape::Lattice) order.push_back(&o);
+    }
+    for (const auto& o : overlays_) {
+        if (o.shape != OverlayShape::Lattice) order.push_back(&o);
+    }
+    for (const auto* drawn : order) {
+        const auto& o = *drawn;
         if (o.shape == OverlayShape::Lattice) {
             // Seen from above: only a lattice on a floor-like plane makes sense here,
             // and it covers the whole view.
@@ -77,6 +88,22 @@ void FlatView::paintEvent(QPaintEvent*) {
                 }
                 painter.setRenderHint(QPainter::Antialiasing, false);
             }
+        } else if (o.shape == OverlayShape::Labels) {
+            const QFont before = painter.font();
+            QFont font = before;
+            font.setBold(true);
+            font.setPixelSize(static_cast<int>(std::max(6.0, o.size)));
+            painter.setFont(font);
+            painter.setPen(qcolor(o));
+            const QFontMetricsF metrics(font);
+            for (std::size_t i = 0; i < std::min(o.points.size(), o.texts.size()); ++i) {
+                const QString word = QString::fromStdString(o.texts[i]);
+                const QRectF box = metrics.boundingRect(word);
+                painter.drawText(toScreen(o.points[i]) -
+                                     QPointF(box.width() / 2, -metrics.ascent() / 2 + metrics.descent() / 2),
+                                 word);
+            }
+            painter.setFont(before);
         } else if (o.shape == OverlayShape::Lines) {
             painter.setPen(QPen(qcolor(o), std::max(1.0, o.size)));
             for (std::size_t i = 0; i + 1 < o.points.size(); i += 2)
@@ -90,12 +117,6 @@ void FlatView::paintEvent(QPaintEvent*) {
             painter.setRenderHint(QPainter::Antialiasing, false);
         }
     }
-    // The two axes through the origin: x red, y green, like the 3D view.
-    painter.setPen(QPen(QColor(209, 69, 59, 160), 1.5));
-    painter.drawLine(QPointF(origin.x(), origin.y()), QPointF(width(), origin.y()));
-    painter.setPen(QPen(QColor(46, 155, 79, 160), 1.5));
-    painter.drawLine(QPointF(origin.x(), origin.y()), QPointF(origin.x(), 0));
-
     // The text, on a light card in the top-left corner, so the origin stays clear.
     if (!text_.isEmpty()) {
         const int margin = 16, pad = 12;

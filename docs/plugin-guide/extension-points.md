@@ -199,6 +199,7 @@ ctx.overlays().set("guides", guide);  // its id is "sam.notes.guides"
 | `OverlayShape::Lines` | A line between each pair of points | `points` (in mm) |
 | `OverlayShape::Points` | A dot at each point | `points` (in mm) |
 | `OverlayShape::Lattice` | Lines every `spacing` mm on a plane, or dots where they cross | `lattice`: `origin`, `xAxis`, `yAxis`, `spacing` and `halfSize` in mm, `dots` |
+| `OverlayShape::Labels` | Words that always face the screen, like the axes' X, Y and Z | `points` (in mm) and `texts`, one word for each point; `size` is the letters' height in pixels |
 
 - Calling `set` again with the same name replaces the overlay; `remove("guides")`
   takes it away; `visible = false` hides it.
@@ -212,6 +213,9 @@ ctx.overlays().set("guides", guide);  // its id is "sam.notes.guides"
 draws the grid with one Lattice overlay, and also uses settings, check-mark menu
 items, submenus, a status-bar item and a service. It uses only the public plugin
 API, so an outside plugin could replace it. Khan's app tests click through it.
+The built-in [axes plugin](../../plugins/axes/AxesPlugin.cpp) is a smaller
+example: three Lines overlays and three Labels overlays, two check-mark View
+items and two settings, with no Qt at all.
 
 ## Listen to events
 

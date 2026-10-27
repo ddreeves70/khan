@@ -71,6 +71,7 @@ endif()
 
 # Built-in plugins, and the plugin guide's examples (built like outside plugins)
 add_subdirectory(plugins/modeling)  # kh.modeling
+add_subdirectory(plugins/axes)      # kh.axes
 if(KH_BUILD_APP)
   add_subdirectory(plugins/featuretree)  # kh.featuretree (Qt)
   add_subdirectory(plugins/properties)   # kh.properties (Qt)

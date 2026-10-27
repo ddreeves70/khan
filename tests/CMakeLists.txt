@@ -15,9 +15,10 @@ add_executable(kh_tests
   plugin/test_settings.cpp
   plugin/test_overlays.cpp
   plugin/test_tiers.cpp
+  plugin/test_axes.cpp
 )
 target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model kh::io libzip::zip
-  kh::plugin kh::plugin_modeling)
+  kh::plugin kh::plugin_modeling kh::plugin_axes)
 
 # Plugins built as shared libraries and loaded by the tests: the plugin guide's
 # Hello plugin, and broken ones the host must refuse.
@@ -112,7 +113,7 @@ endif()
 if(TARGET kh_app_core)
   add_executable(kh_app_tests app/main.cpp app/test_shell.cpp app/test_grid_plugin.cpp)
   target_link_libraries(kh_app_tests PRIVATE Catch2::Catch2 kh_app_core kh::kernel_occt kh::view
-    kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_grid kh::plugin_viewer)
+    kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_axes kh::plugin_grid kh::plugin_viewer)
   kh_set_warnings(kh_app_tests)
   if(WIN32)
     # Qt's DLLs and plugins (including the offscreen platform) and ADS, next to the .exe.

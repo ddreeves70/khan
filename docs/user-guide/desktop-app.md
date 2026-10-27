@@ -157,8 +157,7 @@ you judge sizes and line things up. It starts **on**, every **10 mm**, drawn as
 | --- | --- |
 | ![The grid as lines, 10 mm apart](images/app-grid-lines.png) | ![The grid as dots, 5 mm apart](images/app-grid-dots.png) |
 
-The short coloured lines at the origin (0, 0, 0) are the axes: red is x, green
-is y and blue is z. The status bar (7 in the picture at the top) always shows the
+The status bar (7 in the picture at the top) always shows the
 grid's settings, like "Grid 10 mm, lines, snap off". Khan remembers your grid
 settings for next time.
 
@@ -169,6 +168,21 @@ settings for next time.
   soon). Numbers you type in Properties are never snapped.
 - **The grid is a plugin,** `kh.grid`, built into Khan. That's why it isn't in
   `kh_cli`: there's nothing to draw it on there.
+
+## The axes
+
+The short coloured lines at the origin (0, 0, 0) are the **axes**, each 25 mm
+long and labeled at its end: red **X**, green **Y** and blue **Z**. They show
+which way is which, so you can tell a box's width (x) from its depth (y) and
+height (z). Both start **on**:
+
+| Menu item | What it does |
+| --- | --- |
+| View > Show axes | Shows or hides the three axes (and their letters) |
+| View > Show axis labels | Shows or hides just the letters X, Y and Z |
+
+Khan remembers both for next time. The letters always face you and stay the
+same size as you zoom. The axes are a plugin too, `kh.axes`, built into Khan.
 
 ## Undo and redo
 
