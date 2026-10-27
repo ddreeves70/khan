@@ -35,15 +35,15 @@ below).
 
 | Step | What you should see | Windows | macOS | Linux |
 | --- | --- | --- | --- | --- |
-| 1. Start `kh_app` | The window opens with the feature tree, a 3D viewer in the middle (not the flat stand-in) and Properties | ☐ | ☐ | ☑ |
-| 2. Create > Box | A box in the viewer, `Box1` in the feature tree | ☐ | ☐ | ☑ |
-| 3. Drag in the viewer, then Fit all | The view orbits, then the box fills the view | ☐ | ☐ | ☑ |
-| 4. Edit > Undo, then Edit > Redo | The box goes away, then comes back | ☐ | ☐ | ☑ |
-| 5. File > Save, as `box.khan` | The `*` leaves the title bar | ☐ | ☐ | ☑ |
-| 6. File > New, then File > Open `box.khan` | The box is back, named `Box1` | ☐ | ☐ | ☑ |
-| 7. File > Export..., as `box.stl` | The status bar says "Exported Box1 to box.stl" | ☐ | ☐ | ☑ |
-| 8. Open `box.stl` in a slicer (Cura, PrusaSlicer, Bambu Studio) | A 20 mm cube (the default box) | ☐ | ☐ | ☑ |
-| 9. `kh_cli plugins --plugins <build folder>/khan-plugins`, then `kh_cli run --plugins <build folder>/khan-plugins example.hello.add_cube size=25` | Hello is `loaded`; the run makes `Cube1` | ☐ | ☐ | ☑ |
+| 1. Start `kh_app` | The window opens with the feature tree, a 3D viewer in the middle (not the flat stand-in) and Properties | ☑ | ☑ | ☑ |
+| 2. Create > Box | A box in the viewer, `Box1` in the feature tree | ☑ | ☑ | ☑ |
+| 3. Drag in the viewer, then Fit all | The view orbits, then the box fills the view | ☑ | ☑ | ☑ |
+| 4. Edit > Undo, then Edit > Redo | The box goes away, then comes back | ☑ | ☑ | ☑ |
+| 5. File > Save, as `box.khan` | The `*` leaves the title bar | ☑ | ☑ | ☑ |
+| 6. File > New, then File > Open `box.khan` | The box is back, named `Box1` | ☑ | ☑ | ☑ |
+| 7. File > Export..., as `box.stl` | The status bar says "Exported Box1 to box.stl" | ☑ | ☑ | ☑ |
+| 8. Open `box.stl` in a slicer (Cura, PrusaSlicer, Bambu Studio) | A 20 mm cube (the default box) | ☑ | ☑ | ☑ |
+| 9. `kh_cli plugins --plugins <build folder>/khan-plugins`, then `kh_cli run --plugins <build folder>/khan-plugins example.hello.add_cube size=25` | Hello is `loaded`; the run makes `Cube1` | ☑ | ☑ | ☑ |
 
 Windows is the main machine; macOS is checked occasionally.
 
@@ -71,7 +71,10 @@ which drags across the view on Linux in every CI run.
 
 - Automated half: in place from the pull request that added File > Export
   (Oct 25, 2026), and running on all three OSes.
-- By hand: Linux done (Oct 26, 2026, `92bd10e`). Windows and macOS not yet
-  ticked; when a column is done, note the date and the commit here. The Windows
-  3D view needed two fixes first (PR #30: OCCT gets the top-level window when
-  Qt's context has none).
+- By hand:
+  - Windows and macOS: done Oct 27, 2026, by David Reeves, on `main` at
+    `92bd10e`. The Windows 3D view needed fixes first (PRs #28 to #30: Qt's
+    offscreen plugin for the tests, readable messages in dark mode, and OCCT
+    getting the top-level window when Qt's context has none).
+  - Linux: done Oct 26, 2026, on `92bd10e`, by Claude (see Linux, above).
+- **Phase 0 is done.**

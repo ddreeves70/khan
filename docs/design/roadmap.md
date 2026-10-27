@@ -55,7 +55,7 @@ Each phase ends with a build you can try and a written exit check.
 - Plugin shell: plugin host and manifests in a Qt-free `kh_plugin` library, event bus, shared selection, and Qt ADS docking with saved layouts. Box, cylinder and Booleans move into the `kh.modeling` plugin.
 - Viewer as the first UI plugin (`kh.viewer`): 1, 2 or 4 panes with their own cameras, more than one viewer, orbit/pan/zoom, view cube, selection shared across views. A short spike first checks that Qt ADS builds in CI on all three systems.
 - Plugin developer guide v0, in `docs/plugin-guide/` and published with the API reference: a Hello plugin tutorial, the manifest format and the extension points built so far. From here on, every pull request that changes the plugin API updates the guide (a CLAUDE.md rule).
-- **Exit:** create a box, undo, save, reopen, export STL on all three OSes, with the box tool and the viewer loaded as plugins, and the guide's Hello plugin adding a working command. The checklist, with the tests that cover it and the steps to check by hand: [Phase 0 exit check](phase0-exit.md).
+- **Exit:** create a box, undo, save, reopen, export STL on all three OSes, with the box tool and the viewer loaded as plugins, and the guide's Hello plugin adding a working command. The checklist, with the tests that cover it and the steps to check by hand: [Phase 0 exit check](phase0-exit.md). **Done Oct 27, 2026:** checked on Windows, macOS and Linux.
 
 ### Phase 1: Sketcher
 
