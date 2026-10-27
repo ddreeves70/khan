@@ -1,4 +1,4 @@
-// Tests for the kh.axes plugin: what it draws, and its settings.
+// Tests for the kh.axes plugin: what it draws, and its view options.
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -6,6 +6,7 @@
 
 #include "kh/plugin/PluginHost.h"
 #include "kh/plugins/Axes.h"
+#include "kh/plugins/ViewOptions.h"
 
 using namespace kh;
 
@@ -34,11 +35,12 @@ TEST_CASE("the axes are three 25 mm lines from the origin, with their letters pa
     for (const auto& a : plugins::axesOverlays(false, true)) CHECK_FALSE(a.overlay.visible);
 }
 
-TEST_CASE("kh.axes follows its settings, and remembers them", "[axes]") {
+TEST_CASE("kh.axes follows its view options, and Khan remembers them", "[axes]") {
     plugin::MemorySettings store;
-    store.write("plugins/kh.axes/labels", "false");  // turned off last time
+    store.write("plugins/kh.viewoptions/kh.axes.labels", "false");  // turned off last time
     plugin::PluginHost host;
     host.setSettings(store);
+    host.addBuiltin(plugins::viewOptionsPlugin());
     host.addBuiltin(plugins::axesPlugin());
     host.loadAll();
     REQUIRE(host.find("kh.axes")->state == plugin::PluginState::Loaded);
@@ -52,7 +54,8 @@ TEST_CASE("kh.axes follows its settings, and remembers them", "[axes]") {
         if (a.id == "kh.axes.show") show = &a;
     }
     REQUIRE(show);
-    show->run();  // View > Show axes: off
+    CHECK(show->plugin == "kh.axes");  // the menu item is the axes' own
+    show->run();                       // View > Show axes: off
     CHECK_FALSE(visible("kh.axes.z"));
-    CHECK(store.read("plugins/kh.axes/visible") == "false");
+    CHECK(store.read("plugins/kh.viewoptions/kh.axes.show") == "false");
 }

@@ -21,8 +21,9 @@ class PluginContext;
 /// Version 6 added overlays() and moved the grid out of kh_plugin into the
 /// kh.grid plugin (its kh.grid/1 service). Version 7 added tiers ("tier" and
 /// "tiers" in plugin.json, and in PluginManifest). Version 8 added Labels
-/// overlays (words drawn in the viewers).
-inline constexpr int kPluginApiVersion = 8;
+/// overlays (words drawn in the viewers). Version 9 added panels that start
+/// closed (PanelSpec::startHidden) and UiRegistry::showPanel().
+inline constexpr int kPluginApiVersion = 9;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

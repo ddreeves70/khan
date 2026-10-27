@@ -4,12 +4,14 @@
 /// kh.grid: the built-in plugin with the grid: its settings, View menu items,
 /// status-bar text, drawing and snapping.
 
+#include <vector>
+
 #include "kh/core/Diagnostic.h"
 #include "kh/grid/Grid.h"
 #include "kh/plugin/EventBus.h"
 #include "kh/plugin/Overlays.h"
 #include "kh/plugin/PluginHost.h"
-#include "kh/plugin/Settings.h"
+#include "kh/viewoptions/ViewOptions.h"
 
 namespace kh::plugins {
 
@@ -25,14 +27,19 @@ plugin::BuiltinPlugin gridPlugin();
 /// @return The overlay; hidden when the grid is off.
 plugin::Overlay gridOverlay(const grid::GridSettings& grid);
 
-/// The grid itself, inside kh.grid. Its settings are kept in the plugin's
-/// settings, so they last between runs.
+/// Gives the grid's view options: kh.grid.show, kh.grid.snap, kh.grid.style
+/// and kh.grid.spacing, in the order the View menu shows them.
+/// @return The options, for kh.viewoptions.
+std::vector<viewoptions::OptionSpec> gridOptions();
+
+/// The grid itself, inside kh.grid. Its settings are kh.grid's view options
+/// (see gridOptions()), so kh.viewoptions remembers and shows them.
 class GridService final : public grid::IGrid {
 public:
-    /// Makes the grid from what was saved; a damaged spacing falls back to 10 mm.
-    /// @param settings kh.grid's settings. Must outlive the grid.
-    /// @param bus Where GridChanged is sent. Must outlive the grid.
-    GridService(plugin::PluginSettings& settings, plugin::EventBus& bus);
+    /// Makes the grid from its view options, which must already be added.
+    /// @param options The view options service. Must outlive the grid.
+    /// @param bus Where GridChanged is sent, and ViewOptionChanged heard. Must outlive the grid.
+    GridService(viewoptions::IViewOptions& options, plugin::EventBus& bus);
 
     grid::GridSettings settings() const override { return settings_; }
     double snap(double value) const override;
@@ -48,15 +55,14 @@ public:
     /// @return A problem if it is outside 0.01 to 1000 mm.
     Diagnostics setSpacing(double spacing);
 
-    /// Reads the settings again, after someone changed them in the store.
-    void reload();
-
 private:
     grid::GridSettings read() const;
+    void reload();
 
-    plugin::PluginSettings& store_;
+    viewoptions::IViewOptions& options_;
     plugin::EventBus& bus_;
     grid::GridSettings settings_;
+    plugin::Subscription sub_;
     bool writing_ = false;
 };
 

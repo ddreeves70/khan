@@ -164,11 +164,14 @@ public:
         if (!provider.empty() && provider != self.id) {
             const auto* by = providerManifest(provider);
             const std::string byName = by ? shortName(*by) : provider;
-            if (shared_.phase == Shared::Phase::Register) {
+            // While registering, only a plugin in "requires" is sure to have
+            // registered already (Khan loads it first); anything else is luck.
+            if (shared_.phase == Shared::Phase::Register && !contains(self.dependencies, provider)) {
                 warnOnce(warning("plugin.early_lookup",
                                  shortName(self) + " asked for " + std::string(name) +
                                      " while registering. That only works because of the order plugins "
-                                     "load in; look it up in onStart() instead."));
+                                     "load in; look it up in onStart() instead, or list " +
+                                     provider + " in \"requires\"."));
             }
             if (!contains(self.dependencies, provider) && !contains(self.uses, provider)) {
                 warnOnce(warning("plugin.undeclared_dependency",

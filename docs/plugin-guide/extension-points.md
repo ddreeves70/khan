@@ -80,7 +80,8 @@ be added while the register function runs.
 
 Some menu items don't change a design: they turn something on or off, or open a
 dialog. Give them a `run` function instead of a command. Add `checked` and the
-item gets a check mark whenever it returns `true`:
+item gets a check mark whenever it returns `true`. (For things the viewer shows,
+use view options instead, described below: they make these items for you.)
 
 ```cpp
 auto& settings = ctx.settings();
@@ -153,6 +154,62 @@ sel.set(docId, {boxId});   // select the box everywhere
 
 Every change sends `SelectionChanged`. The selection keeps itself valid: steps
 that are deleted or undone drop out, and closing the design clears it.
+
+## Add view options (desktop app only)
+
+If your plugin draws something in the viewer that the student may want to turn on
+or off or adjust, make it a **view option**. The `kh.viewoptions` plugin then
+remembers it, checks it, adds its View menu items, and shows it in the **View
+options** panel next to the grid and the axes. You don't write any menu or settings
+code.
+
+List `kh.viewoptions` in `requires` in your `plugin.json` (`"requires":
+["kh.viewoptions"]`). Because it's required, Khan loads it first, so you can look
+up its service while registering:
+
+```cpp
+#include "kh/viewoptions/ViewOptions.h"
+
+void registerNotes(kh::plugin::PluginContext& ctx) {
+    auto* options = ctx.service<kh::viewoptions::IViewOptions>();
+    if (!options) return;  // not in the desktop app
+    using kh::viewoptions::OptionKind;
+    kh::viewoptions::addOption(ctx, *options,
+        {.id = "sam.notes.show", .text = "Show notes", .group = "Notes",
+         .kind = OptionKind::Flag, .initial = true});
+    kh::viewoptions::addOption(ctx, *options,
+        {.id = "sam.notes.size", .text = "Note size", .group = "Notes",
+         .kind = OptionKind::Length, .initial = 5.0, .min = 1, .max = 50,
+         .presets = {2, 5, 10}});
+
+    // Redraw when one of your options changes.
+    ctx.listen<kh::viewoptions::ViewOptionChanged>([&ctx, options](const auto& e) {
+        if (e.option.rfind("sam.notes.", 0) == 0) { /* options->flag("sam.notes.show") ... */ }
+    });
+}
+```
+
+| Kind | Holds | In the View menu |
+| --- | --- | --- |
+| `Flag` | On or off (`bool`) | A check-mark item (with `shortcut`, if you give one) |
+| `Choice` | One of `choices` (each a `value` that's stored and a `text` that's shown) | A submenu named after the option, one item each |
+| `Length` | A length in mm between `min` and `max` | A submenu of `presets` ("5 mm") and **Other...**, which asks for any value |
+| `Number` | A number between `min` and `max` | Like Length, without "mm" |
+
+- Read values with `options->flag(id)`, `number(id)` or `choice(id)`; change them
+  with `options->set(id, value)`. A value outside the limits, or not one of the
+  choices, is refused with a plain message, and nothing changes.
+- Option ids start with your plugin's id and a dot. The menu items `addOption`
+  makes are yours too, with ids built from the option's: `sam.notes.show`,
+  `sam.notes.size.5`, `sam.notes.size.other`.
+- Every change sends `kh.viewoptions.changed` (`ViewOptionChanged`) with the
+  option's id.
+- Khan keeps the values with the app's settings, under
+  `plugins/kh.viewoptions/<option id>`.
+
+**Worked examples:** the built-in [axes](../../plugins/axes/AxesPlugin.cpp)
+(two Flags) and [grid](../../plugins/grid/GridPlugin.cpp) (Flags, a Choice and a
+Length) plugins.
 
 ## Use the grid (desktop app only)
 
@@ -237,6 +294,7 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `DocumentChanged` | A command runs, or a step is undone or redone | `doc`, `kind` (`Executed`, `Undone`, `Redone`), `label` |
 | `RebuildFinished` | A design was rebuilt after a change | `doc`, `ok` (did every step build?) |
 | `SelectionChanged` | The selection changes | `doc`, `features` (in picking order) |
+| `kh::viewoptions::ViewOptionChanged` | A view option changes (sent by `kh.viewoptions`, desktop app) | `option` (its id) |
 | `kh::grid::GridChanged` | The grid settings change (sent by `kh.grid`, desktop app) | `grid`: visible, spacing in mm, snap, style |
 | `OverlaysChanged` | An overlay is added, changed or removed | `id` |
 | `SettingChanged` | A plugin's setting changes | `plugin` (its id), `key` (the setting's name) |

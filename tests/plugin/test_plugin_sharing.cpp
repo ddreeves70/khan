@@ -161,6 +161,16 @@ TEST_CASE("looking up another plugin's service while registering is warned about
     CHECK(codes(get(host, "test.user")) == std::vector<std::string>{"plugin.early_lookup"});
 }
 
+TEST_CASE("looking up a required plugin's service while registering is fine", "[plugin][sharing]") {
+    SeenGuard guard;
+    PluginHost host;
+    host.addBuiltin({manifest("test.ruler"), &provideRuler});
+    host.addBuiltin({manifest("test.user", R"("requires": ["test.ruler"])"), &useRulerAtRegister});
+    host.loadAll();
+    CHECK(seen->atRegister != nullptr);  // "requires" makes Khan load the ruler first, always
+    CHECK(get(host, "test.user").issues.empty());
+}
+
 TEST_CASE("the app's own services never give warnings", "[plugin][sharing]") {
     SeenGuard guard;
     PluginHost host;

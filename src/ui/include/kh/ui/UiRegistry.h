@@ -32,6 +32,9 @@ struct PanelSpec {
     /// The student can open more than one of this panel (Window > New ...), like
     /// a second viewer. Each one is made by its own call to create().
     bool allowMultiple = false;
+    /// Starts closed: the student opens it from the Window menu (or the plugin
+    /// opens it with UiRegistry::showPanel()).
+    bool startHidden = false;
 };
 
 /// Something a plugin shows in the desktop app's status bar, at the bottom right.
@@ -83,6 +86,12 @@ public:
     /// Shows a short note in the status bar, e.g. "Saved bracket.khan".
     /// @param message Plain words.
     virtual void showMessage(const QString& message) = 0;
+
+    /// Opens a panel (if it was closed) and brings it to the front, e.g. from a
+    /// menu item. Does nothing before the main window exists, or if no panel
+    /// has this id.
+    /// @param id The panel's id, e.g. "kh.viewoptions.panel".
+    virtual void showPanel(const std::string& id) = 0;
 };
 
 }  // namespace kh::ui

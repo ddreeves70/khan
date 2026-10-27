@@ -1,7 +1,5 @@
 #include "kh/plugins/Grid.h"
 
-#include <QApplication>
-#include <QInputDialog>
 #include <QLabel>
 
 #include <algorithm>
@@ -27,20 +25,9 @@ constexpr const char* kManifest = R"({
   "name": "Grid",
   "version": "0.1.0",
   "description": "The grid: its View menu items, its drawing in the viewers, and snapping to it.",
-  "tier": "foundation"
+  "tier": "foundation",
+  "requires": ["kh.viewoptions"]
 })";
-
-bool spacingOk(double spacing) {
-    return std::isfinite(spacing) && spacing >= grid::kMinSpacing && spacing <= grid::kMaxSpacing;
-}
-
-Diagnostic badSpacing(double spacing) {
-    std::ostringstream detail;
-    detail << "spacing " << spacing << " mm";
-    return {"grid.spacing", Severity::Error,
-            "The grid spacing must be between 0.01 mm and 1000 mm. Pick a size like 1, 5 or 10 mm.",
-            detail.str()};
-}
 
 // "12.5", "10": the spacing as a student would write it.
 std::string mmText(double mm) {
@@ -70,94 +57,34 @@ private:
     plugin::Subscription sub_;
 };
 
-constexpr double kPresets[] = {1.0, 2.0, 5.0, 10.0, 20.0, 50.0};  // mm
-
-bool isPreset(double mm) {
-    return std::find(std::begin(kPresets), std::end(kPresets), mm) != std::end(kPresets);
-}
-
 void registerGrid(plugin::PluginContext& ctx) {
-    // Shared by the actions and listeners below, which Khan keeps while the
-    // plugin is loaded, so the grid lives exactly as long as they do.
-    auto grid = std::make_shared<GridService>(ctx.settings(), ctx.events());
+    // The grid's settings are view options: kh.viewoptions remembers them and
+    // builds their View menu items. It's in "requires", so it's here already.
+    auto* options = ctx.service<viewoptions::IViewOptions>();
+    if (!options) {
+        ctx.fail("The grid needs the View options plugin (kh.viewoptions). Reinstall Khan to get it back.");
+        return;
+    }
+    for (auto& spec : gridOptions()) {
+        if (auto problems = viewoptions::addOption(ctx, *options, std::move(spec)); !problems.empty()) {
+            ctx.fail(problems.front().message);
+            return;
+        }
+    }
+
+    // Shared by the listener below, which Khan keeps while the plugin is loaded,
+    // so the grid lives exactly as long as it does.
+    auto grid = std::make_shared<GridService>(*options, ctx.events());
     ctx.provide<grid::IGrid>(*grid);
-    auto* ui = ctx.service<ui::UiRegistry>();
 
     // Drawing: one lattice overlay, redrawn whenever the grid changes.
     auto& overlays = ctx.overlays();
     overlays.set("grid", gridOverlay(grid->settings()));
-    ctx.listen<GridChanged>([&overlays](const GridChanged& e) { overlays.set("grid", gridOverlay(e.grid)); });
-    // Someone changed a setting in the store (another copy of the app, a test).
-    ctx.listen<plugin::SettingChanged>([grid](const plugin::SettingChanged& e) {
-        if (e.plugin == "kh.grid") grid->reload();
-    });
-
-    // The View menu.
-    auto change = [grid](auto edit) {
-        return [grid, edit] {
-            auto g = grid->settings();
-            edit(g);
-            grid->set(g);
-        };
-    };
-    ctx.addAction({.id = "kh.grid.show",
-                   .text = "Show grid",
-                   .menu = "View",
-                   .shortcut = "Ctrl+G",
-                   .tip = "Show or hide the grid in the views.",
-                   .run = change([](GridSettings& g) { g.visible = !g.visible; }),
-                   .checked = [grid] { return grid->settings().visible; }});
-    ctx.addAction({.id = "kh.grid.snap",
-                   .text = "Snap to grid",
-                   .menu = "View",
-                   .shortcut = "Ctrl+Shift+G",
-                   .tip = "Make points you pick with the mouse jump to the nearest grid crossing.",
-                   .run = change([](GridSettings& g) { g.snap = !g.snap; }),
-                   .checked = [grid] { return grid->settings().snap; }});
-    ctx.addAction({.id = "kh.grid.lines",
-                   .text = "Lines",
-                   .menu = "View/Grid style",
-                   .tip = "Draw the grid as lines, like graph paper.",
-                   .run = change([](GridSettings& g) { g.style = GridStyle::Lines; }),
-                   .checked = [grid] { return grid->settings().style == GridStyle::Lines; }});
-    ctx.addAction({.id = "kh.grid.dots",
-                   .text = "Dots",
-                   .menu = "View/Grid style",
-                   .tip = "Draw the grid as a dot at every crossing.",
-                   .run = change([](GridSettings& g) { g.style = GridStyle::Dots; }),
-                   .checked = [grid] { return grid->settings().style == GridStyle::Dots; }});
-    for (double mm : kPresets) {
-        ctx.addAction({.id = "kh.grid.spacing." + mmText(mm),
-                       .text = mmText(mm) + " mm",
-                       .menu = "View/Grid spacing",
-                       .tip = "Put the grid lines " + mmText(mm) + " mm apart.",
-                       .run = [grid, mm] { grid->setSpacing(mm); },
-                       .checked = [grid, mm] { return grid->settings().spacing == mm; }});
-    }
-    ctx.addAction({.id = "kh.grid.spacing.other",
-                   .text = "Other...",
-                   .menu = "View/Grid spacing",
-                   .tip = "Type any distance between grid lines, from 0.01 mm to 1000 mm.",
-                   .run =
-                       [grid, ui] {
-                           if (!qApp) return;
-                           bool ok = false;
-                           const double mm = QInputDialog::getDouble(
-                               QApplication::activeWindow(), QObject::tr("Grid spacing"),
-                               QObject::tr("Distance between grid lines (mm):"), grid->settings().spacing,
-                               grid::kMinSpacing, grid::kMaxSpacing, 2, &ok);
-                           if (!ok) return;
-                           if (auto problems = grid->setSpacing(mm); !problems.empty() && ui)
-                               ui->showProblems(problems);
-                       },
-                   .currentText =
-                       [grid] {
-                           const double mm = grid->settings().spacing;
-                           return isPreset(mm) ? std::string("Other...") : "Other (" + mmText(mm) + " mm)...";
-                       }});
+    ctx.listen<GridChanged>(
+        [grid, &overlays](const GridChanged& e) { overlays.set("grid", gridOverlay(e.grid)); });
 
     // The status bar, in the desktop app.
-    if (ui) {
+    if (auto* ui = ctx.service<ui::UiRegistry>()) {
         auto& bus = ctx.events();
         ui->addStatusItem({"kh.grid.status", [grid, &bus] { return new GridLabel(bus, *grid); }});
     }
@@ -165,31 +92,70 @@ void registerGrid(plugin::PluginContext& ctx) {
 
 }  // namespace
 
-GridService::GridService(plugin::PluginSettings& settings, plugin::EventBus& bus)
-    : store_(settings), bus_(bus), settings_(read()) {}
+std::vector<viewoptions::OptionSpec> gridOptions() {
+    using viewoptions::OptionKind;
+    return {
+        {.id = "kh.grid.show",
+         .text = "Show grid",
+         .group = "Grid",
+         .tip = "Show or hide the grid in the views.",
+         .kind = OptionKind::Flag,
+         .initial = true,
+         .shortcut = "Ctrl+G"},
+        {.id = "kh.grid.snap",
+         .text = "Snap to grid",
+         .group = "Grid",
+         .tip = "Make points you pick with the mouse jump to the nearest grid crossing.",
+         .kind = OptionKind::Flag,
+         .initial = false,
+         .shortcut = "Ctrl+Shift+G"},
+        {.id = "kh.grid.style",
+         .text = "Grid style",
+         .group = "Grid",
+         .tip = "Lines look like graph paper; dots are lighter and keep the part easy to see.",
+         .kind = OptionKind::Choice,
+         .initial = std::string("lines"),
+         .choices = {{"lines", "Lines"}, {"dots", "Dots"}}},
+        {.id = "kh.grid.spacing",
+         .text = "Grid spacing",
+         .group = "Grid",
+         .tip = "The distance between grid lines, from 0.01 mm to 1000 mm.",
+         .kind = OptionKind::Length,
+         .initial = 10.0,
+         .min = grid::kMinSpacing,
+         .max = grid::kMaxSpacing,
+         .presets = {1, 2, 5, 10, 20, 50}},
+    };
+}
+
+GridService::GridService(viewoptions::IViewOptions& options, plugin::EventBus& bus)
+    : options_(options), bus_(bus), settings_(read()) {
+    sub_ = bus.subscribe<viewoptions::ViewOptionChanged>([this](const viewoptions::ViewOptionChanged& e) {
+        if (e.option.rfind("kh.grid.", 0) == 0) reload();
+    });
+}
 
 GridSettings GridService::read() const {
     GridSettings g;
-    g.visible = store_.flag("visible", g.visible);
-    const double spacing = store_.number("spacing", g.spacing);
-    if (spacingOk(spacing)) g.spacing = spacing;  // a damaged spacing keeps the default
-    g.snap = store_.flag("snap", g.snap);
-    g.style = store_.text("style", "lines") == "dots" ? GridStyle::Dots : GridStyle::Lines;
+    g.visible = options_.flag("kh.grid.show");
+    g.snap = options_.flag("kh.grid.snap");
+    g.style = options_.choice("kh.grid.style") == "dots" ? GridStyle::Dots : GridStyle::Lines;
+    if (const double spacing = options_.number("kh.grid.spacing"); spacing > 0) g.spacing = spacing;
     return g;
 }
 
 Diagnostics GridService::set(const GridSettings& next) {
-    if (!spacingOk(next.spacing)) return {badSpacing(next.spacing)};
-    if (next == settings_) return {};
-    settings_ = next;
-    writing_ = true;  // one GridChanged for all four settings, not one each
-    store_.set("visible", next.visible);
-    store_.set("spacing", next.spacing);
-    store_.set("snap", next.snap);
-    store_.set("style", next.style == GridStyle::Dots ? "dots" : "lines");
+    writing_ = true;  // one GridChanged for all four options, not one each
+    // The spacing first: if it's refused, nothing changes.
+    auto problems = options_.set("kh.grid.spacing", next.spacing);
+    if (problems.empty()) {
+        options_.set("kh.grid.show", next.visible);
+        options_.set("kh.grid.snap", next.snap);
+        options_.set("kh.grid.style", std::string(next.style == GridStyle::Dots ? "dots" : "lines"));
+    }
     writing_ = false;
-    bus_.publish(GridChanged{settings_});
-    return {};
+    reload();
+    return problems;
 }
 
 Diagnostics GridService::setSpacing(double spacing) {

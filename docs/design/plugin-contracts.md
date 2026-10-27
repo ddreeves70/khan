@@ -147,7 +147,7 @@ where they look.
 | Code | When | Message (plain words, says how to fix) |
 | --- | --- | --- |
 | `plugin.undeclared_dependency` | A plugin uses a service or listens to an event from a plugin it doesn't list in `requires` or `uses` | "Sketcher uses kh.grid/1 from Grid but doesn't list kh.grid in its plugin.json. Add it to \"uses\" so Khan loads them in the right order." |
-| `plugin.early_lookup` | A plugin looks up another plugin's service during registration instead of in `onStart` | "Sketcher asked for kh.grid/1 while registering. That only works because of the load order; look it up in onStart instead." |
+| `plugin.early_lookup` | A plugin looks up another plugin's service during registration instead of in `onStart`, and doesn't `require` that plugin (a required plugin always registers first, so that's fine) | "Sketcher asked for kh.grid/1 while registering. That only works because of the load order; look it up in onStart instead." |
 | `plugin.service_taken` | Two plugins provide the same service name | The first (in load order) keeps it; the second gets "Grid Pro tried to provide kh.grid/1, which Grid already provides. Khan kept Grid's." |
 | `plugin.event_name` | A plugin publishes an event whose type doesn't start with its id | "Sam's cube sent the event cube.made. Event names must start with the plugin id, like sam.cube.made, so they don't clash." |
 | `plugin.old_contract` | A plugin uses a contract version that has a newer one, or that the provider marks as going away | "Sketcher uses kh.grid/1; Grid also offers kh.grid/2. kh.grid/1 will be removed in a later version." |

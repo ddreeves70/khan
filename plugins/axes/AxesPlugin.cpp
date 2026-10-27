@@ -13,34 +13,34 @@ constexpr const char* kManifest = R"({
   "name": "Axes",
   "version": "0.1.0",
   "description": "The x, y and z axes at the origin, with their letters.",
-  "tier": "ui"
+  "tier": "ui",
+  "requires": ["kh.viewoptions"]
 })";
 
-// Draws (or hides) the axes as the settings say.
-void show(plugin::PluginContext& ctx) {
-    const auto& s = ctx.settings();
-    for (auto& a : axesOverlays(s.flag("visible", true), s.flag("labels", true)))
+// Draws (or hides) the axes as the options say.
+void show(plugin::PluginContext& ctx, const viewoptions::IViewOptions& options) {
+    for (auto& a : axesOverlays(options.flag("kh.axes.show"), options.flag("kh.axes.labels")))
         ctx.overlays().set(a.name, std::move(a.overlay));
 }
 
 void registerAxes(plugin::PluginContext& ctx) {
-    show(ctx);
-    ctx.listen<plugin::SettingChanged>([&ctx](const plugin::SettingChanged& e) {
-        if (e.plugin == "kh.axes") show(ctx);
+    // Its two settings are view options: kh.viewoptions remembers them and builds
+    // their View menu items. It's in "requires", so it's here already.
+    auto* options = ctx.service<viewoptions::IViewOptions>();
+    if (!options) {
+        ctx.fail("The axes need the View options plugin (kh.viewoptions). Reinstall Khan to get it back.");
+        return;
+    }
+    for (auto& spec : axesOptions()) {
+        if (auto problems = viewoptions::addOption(ctx, *options, std::move(spec)); !problems.empty()) {
+            ctx.fail(problems.front().message);
+            return;
+        }
+    }
+    show(ctx, *options);
+    ctx.listen<viewoptions::ViewOptionChanged>([&ctx, options](const viewoptions::ViewOptionChanged& e) {
+        if (e.option.rfind("kh.axes.", 0) == 0) show(ctx, *options);
     });
-    auto& settings = ctx.settings();
-    ctx.addAction({.id = "kh.axes.show",
-                   .text = "Show axes",
-                   .menu = "View",
-                   .tip = "Show or hide the x, y and z axes at the origin.",
-                   .run = [&settings] { settings.set("visible", !settings.flag("visible", true)); },
-                   .checked = [&settings] { return settings.flag("visible", true); }});
-    ctx.addAction({.id = "kh.axes.labels",
-                   .text = "Show axis labels",
-                   .menu = "View",
-                   .tip = "Write X, Y and Z at the ends of the axes.",
-                   .run = [&settings] { settings.set("labels", !settings.flag("labels", true)); },
-                   .checked = [&settings] { return settings.flag("labels", true); }});
 }
 
 }  // namespace
@@ -77,6 +77,21 @@ std::vector<AxesOverlay> axesOverlays(bool axes, bool labels) {
         out.push_back({a.label, std::move(label)});
     }
     return out;
+}
+
+std::vector<viewoptions::OptionSpec> axesOptions() {
+    return {{.id = "kh.axes.show",
+             .text = "Show axes",
+             .group = "Axes",
+             .tip = "Show or hide the x, y and z axes at the origin.",
+             .kind = viewoptions::OptionKind::Flag,
+             .initial = true},
+            {.id = "kh.axes.labels",
+             .text = "Show axis labels",
+             .group = "Axes",
+             .tip = "Write X, Y and Z at the ends of the axes.",
+             .kind = viewoptions::OptionKind::Flag,
+             .initial = true}};
 }
 
 plugin::BuiltinPlugin axesPlugin() {

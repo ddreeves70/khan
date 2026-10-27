@@ -269,7 +269,7 @@ app's Plugin manager; the desktop app also writes them to its log.
 | Code | When | How to fix it |
 | --- | --- | --- |
 | `plugin.undeclared_dependency` | You use a service or listen to an event from a plugin that isn't in your `requires` or `uses` | Add it to `uses` |
-| `plugin.early_lookup` | You asked for another plugin's service while registering | Ask in `onStart` |
+| `plugin.early_lookup` | You asked for another plugin's service while registering, and that plugin isn't in your `requires` | Ask in `onStart`, or list it in `requires` (then Khan always loads it first) |
 | `plugin.service_taken` | Another plugin already offers that service name. Khan keeps theirs | Pick a name starting with your plugin id |
 | `plugin.event_name` | You sent an event whose name doesn't start with your plugin id | Rename the event's `kType` |
 | `plugin.old_contract` | You use a service version that has a newer one, or that its plugin marked as going away (`ctx.provide(service, true)`) | Move to the newer version |

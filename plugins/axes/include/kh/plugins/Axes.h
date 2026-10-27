@@ -8,14 +8,19 @@
 
 #include "kh/plugin/Overlays.h"
 #include "kh/plugin/PluginHost.h"
+#include "kh/viewoptions/ViewOptions.h"
 
 namespace kh::plugins {
 
 /// Gives the kh.axes plugin. It draws the three axes through the origin in
-/// every viewer (x red, y green, z blue), labeled X, Y and Z, and adds
-/// View > Show axes and View > Show axis labels, which Khan remembers.
+/// every viewer (x red, y green, z blue), labeled X, Y and Z, with two view
+/// options: View > Show axes and View > Show axis labels.
 /// @return Its manifest and register function, for PluginHost::addBuiltin().
 plugin::BuiltinPlugin axesPlugin();
+
+/// Gives the axes' view options: kh.axes.show and kh.axes.labels.
+/// @return The options, for kh.viewoptions.
+std::vector<viewoptions::OptionSpec> axesOptions();
 
 /// What kh.axes draws.
 struct AxesOverlay {
