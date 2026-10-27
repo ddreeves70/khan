@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "kh/grid/Grid.h"
+#include "kh/plugin/PluginHost.h"
 #include "kh/plugin/Settings.h"
 #include "kh/plugins/Grid.h"
 #include "kh/plugins/ViewOptions.h"
@@ -161,4 +162,57 @@ TEST_CASE("the grid is drawn as a lattice of about 50 lines each way, within lim
     o = plugins::gridOverlay(g);
     CHECK(o.lattice.dots);
     CHECK_FALSE(o.visible);
+}
+
+namespace {
+
+// A plugin that looks at kh.grid and kh.viewoptions, as a sketcher would.
+const grid::IGrid* peekedGrid = nullptr;
+viewoptions::IViewOptions* peekedOptions = nullptr;
+void peek(plugin::PluginContext& ctx) {
+    ctx.onStart([&ctx] {
+        peekedGrid = ctx.service<grid::IGrid>();
+        peekedOptions = ctx.service<viewoptions::IViewOptions>();
+    });
+}
+
+}  // namespace
+
+TEST_CASE("a pane can have its own grid: drawn there, and snapped to there", "[grid][panes]") {
+    plugin::MemorySettings store;
+    plugin::PluginHost host;
+    host.setSettings(store);
+    host.addBuiltin(plugins::viewOptionsPlugin());
+    host.addBuiltin(plugins::gridPlugin());
+    host.addBuiltin(
+        {R"({"id": "test.peek", "name": "Peek", "version": "1", "requires": ["kh.grid", "kh.viewoptions"]})",
+         &peek});
+    host.loadAll();
+    const grid::IGrid* grid = peekedGrid;
+    viewoptions::IViewOptions* options = peekedOptions;
+    REQUIRE(grid);
+    REQUIRE(options);
+    options->addPane({"v1.p1", "Viewer 1, left pane"});
+    options->addPane({"v1.p2", "Viewer 1, right pane"});
+    auto lattice = [&](const char* pane) {
+        for (const auto& o : host.overlays().forPane(pane)) {
+            if (o.id == "kh.grid.grid") return o.lattice;
+        }
+        FAIL("no grid");
+        return plugin::OverlayLattice{};
+    };
+
+    REQUIRE(options->setInPane("kh.grid.spacing", 5.0, "v1.p1").empty());
+    REQUIRE(options->setInPane("kh.grid.snap", true, "v1.p1").empty());
+    CHECK(lattice("v1.p1").spacing == 5.0);
+    CHECK(lattice("v1.p2").spacing == 10.0);
+    CHECK(grid->settings("v1.p1").spacing == 5.0);
+    CHECK(grid->settings().spacing == 10.0);
+    const auto snapped = grid->snap(kernel::Vec3{6.4, 0, 0}, "v1.p1");
+    CHECK(snapped.x == 5.0);
+    CHECK(grid->snap(kernel::Vec3{6.4, 0, 0}).x == 6.4);  // all panes: snapping is off
+
+    options->resetPane("v1.p1");
+    CHECK(host.overlays().find("kh.grid.grid", "v1.p1") == nullptr);
+    CHECK(lattice("v1.p1").spacing == 10.0);
 }

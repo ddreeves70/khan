@@ -3,6 +3,7 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
 #include <QSplitter>
@@ -11,6 +12,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -21,6 +23,7 @@
 #include "kh/view/Graphics.h"
 #include "kh/view/Layout.h"
 #include "kh/view/ViewWidget.h"
+#include "kh/viewoptions/ViewOptions.h"
 
 namespace kh::plugins {
 
@@ -32,6 +35,7 @@ constexpr const char* kManifest = R"({
   "version": "0.1.0",
   "description": "The 3D view of a design: panes, standard views, the view cube, and what other plugins ask it to draw.",
   "requires": ["kh.modeling"],
+  "uses": ["kh.viewoptions"],
   "tier": "ui"
 })";
 
@@ -53,7 +57,10 @@ QString slug(std::string_view name) {
 // clicked). Without 3D graphics, a FlatView takes the panes' place.
 class ViewerPanel final : public QWidget {
 public:
-    explicit ViewerPanel(plugin::PluginContext& ctx) : ctx_(ctx) {
+    // `number` counts the viewers opened (1 for the first), so each pane has a
+    // key the view options can remember, like "viewer1.pane2".
+    ViewerPanel(plugin::PluginContext& ctx, int number)
+        : ctx_(ctx), options_(ctx.service<viewoptions::IViewOptions>()), number_(number) {
         setObjectName(QStringLiteral("kh.viewer.panel"));
         auto* layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
@@ -79,6 +86,8 @@ public:
         subs_.push_back(ctx_.events().subscribe<SelectionChanged>(later));
         subs_.push_back(
             ctx_.events().subscribe<OverlaysChanged>([this](const OverlaysChanged&) { showOverlays(); }));
+        subs_.push_back(ctx_.events().subscribe<viewoptions::ViewOptionChanged>(
+            [this](const viewoptions::ViewOptionChanged&) { showOwnBars(); }));
 
         problem_ = view::graphicsProblem();
         if (problem_.isEmpty()) {
@@ -89,7 +98,37 @@ public:
         refresh();
     }
 
+    ~ViewerPanel() override {
+        // The window is closing: forget the panes, but keep their own options
+        // for next time.
+        if (options_) {
+            for (std::size_t i = 0; i < panes_.size(); ++i) options_->removePane(paneKey(i), false);
+        }
+    }
+
 private:
+    std::string paneKey(std::size_t i) const {
+        return "viewer" + std::to_string(number_) + ".pane" + std::to_string(i + 1);
+    }
+
+    // "Viewer 1", or "Viewer 1, top left pane" when there's more than one.
+    std::string paneName(std::size_t i) const {
+        static const char* const two[2][2] = {{"left", "right"}, {"top", "bottom"}};
+        static const char* const four[] = {"top left", "top right", "bottom left", "bottom right"};
+        const std::string viewer = "Viewer " + std::to_string(number_);
+        switch (layout_) {
+            case view::PaneLayout::Single:
+                return viewer;
+            case view::PaneLayout::SideBySide:
+                return viewer + ", " + two[0][i % 2] + " pane";
+            case view::PaneLayout::Stacked:
+                return viewer + ", " + two[1][i % 2] + " pane";
+            case view::PaneLayout::Four:
+                return viewer + ", " + four[i % 4] + " pane";
+        }
+        return viewer;
+    }
+
     void buildToolbar() {
         // Panes: one button that opens a menu of layouts.
         auto* panes = new QToolButton(toolbar_);
@@ -153,6 +192,9 @@ private:
         layout_ = layout;
         const int count = view::paneCount(layout);
         while (static_cast<int>(panes_.size()) > count) {
+            // Closed for good: the pane's own options go with it.
+            if (options_) options_->removePane(paneKey(panes_.size() - 1), true);
+            bars_.pop_back();
             delete frames_.back();  // deletes its pane too
             frames_.pop_back();
             panes_.pop_back();
@@ -196,7 +238,13 @@ private:
         if (auto* a =
                 findChild<QAction*>(QStringLiteral("kh.viewer.layout.") + slug(view::layoutName(layout))))
             a->setChecked(true);
+        // Tell the view options about the panes (their names depend on the layout).
+        if (options_) {
+            for (std::size_t i = 0; i < panes_.size(); ++i) options_->addPane({paneKey(i), paneName(i)});
+        }
         showActive();
+        showOverlays();
+        showOwnBars();
     }
 
     void addPane() {
@@ -204,11 +252,35 @@ private:
         frame->setObjectName(QStringLiteral("kh.viewer.paneframe"));
         auto* l = new QVBoxLayout(frame);
         l->setContentsMargins(2, 2, 2, 2);
+        l->setSpacing(0);
+        const std::size_t index = panes_.size();
+
+        // Shown when the pane has its own view options.
+        auto* bar = new QWidget(frame);
+        bar->setObjectName(QStringLiteral("kh.viewer.ownbar"));
+        bar->setStyleSheet(QStringLiteral("QWidget#kh\\.viewer\\.ownbar { background: #fff4d6; }"));
+        auto* barLayout = new QHBoxLayout(bar);
+        barLayout->setContentsMargins(6, 2, 2, 2);
+        auto* note = new QLabel(tr("Own view options"), bar);
+        note->setObjectName(QStringLiteral("kh.viewer.ownnote"));
+        barLayout->addWidget(note, 1);
+        auto* same = new QToolButton(bar);
+        same->setObjectName(QStringLiteral("kh.viewer.ownreset"));
+        same->setText(tr("Same as all panes"));
+        same->setToolTip(tr("Use the same view options as all the other panes."));
+        connect(same, &QToolButton::clicked, this, [this, index] {
+            if (options_) options_->resetPane(paneKey(index));
+        });
+        barLayout->addWidget(same);
+        bar->hide();
+        l->addWidget(bar);
+        bars_.push_back(bar);
+
         auto* pane = new view::ViewWidget(frame);
         pane->setObjectName(QStringLiteral("kh.viewer.pane"));
         l->addWidget(pane);
         pane->setContent(content_);
-        pane->setOverlays(viewOverlays(ctx_.overlays().all()));
+        pane->setOverlays(viewOverlays(ctx_.overlays().forPane(paneKey(index))));
         connect(pane, &view::ViewWidget::picked, this, [this](const std::vector<FeatureId>& ids) {
             const DocId doc = ctx_.documents().active();
             if (ctx_.documents().find(doc)) ctx_.selection().set(doc, ids);
@@ -217,7 +289,11 @@ private:
             const auto it = std::find(panes_.begin(), panes_.end(), pane);
             if (it == panes_.end()) return;
             active_ = static_cast<int>(it - panes_.begin());
+            if (options_) options_->setActivePane(paneKey(static_cast<std::size_t>(active_)));
             showActive();
+        });
+        connect(pane, &view::ViewWidget::menuRequested, this, [this, index](QPoint at) {
+            if (options_) options_->showPaneMenu(paneKey(index), at.x(), at.y());
         });
         connect(pane, &view::ViewWidget::failed, this, [this](const QString& why) {
             problem_ = why;
@@ -248,21 +324,40 @@ private:
         for (auto* f : frames_) f->hide();
         delete splitter_;
         splitter_ = nullptr;
+        if (options_) {
+            for (std::size_t i = 0; i < panes_.size(); ++i) options_->removePane(paneKey(i), false);
+        }
         frames_.clear();
         panes_.clear();
+        bars_.clear();
         toolbar_->hide();
         flat_ = new view::FlatView(body_);
         body_->layout()->addWidget(flat_);
-        flat_->setOverlays(viewOverlays(ctx_.overlays().all()));
+        flat_->setOverlays(viewOverlays(ctx_.overlays().forPane({})));
         refresh();
     }
 
     // Plugins' overlays (the grid, ...): the viewer draws them without knowing
-    // what they are.
+    // what they are. A pane draws its own overlays instead of the every-pane
+    // ones with the same name.
     void showOverlays() {
-        const auto overlays = viewOverlays(ctx_.overlays().all());
-        for (auto* pane : panes_) pane->setOverlays(overlays);
-        if (flat_) flat_->setOverlays(overlays);
+        for (std::size_t i = 0; i < panes_.size(); ++i)
+            panes_[i]->setOverlays(viewOverlays(ctx_.overlays().forPane(paneKey(i))));
+        if (flat_) flat_->setOverlays(viewOverlays(ctx_.overlays().forPane({})));
+    }
+
+    // The note above a pane that has its own view options, naming them.
+    void showOwnBars() {
+        for (std::size_t i = 0; i < bars_.size(); ++i) {
+            const auto own = options_ ? options_->ownOptions(paneKey(i)) : std::vector<std::string>{};
+            QStringList names;
+            for (const auto& id : own) {
+                if (const auto* o = options_->find(id)) names << qs(o->text);
+            }
+            bars_[i]->setVisible(!own.empty());
+            bars_[i]->setToolTip(tr("Different in this pane: %1. Right-click in the pane to change them.")
+                                     .arg(names.join(QStringLiteral(", "))));
+        }
     }
 
     void scheduleRefresh() {
@@ -297,6 +392,9 @@ private:
     }
 
     plugin::PluginContext& ctx_;
+    viewoptions::IViewOptions* options_ = nullptr;  // null if kh.viewoptions isn't loaded
+    int number_ = 1;
+    std::vector<QWidget*> bars_;  // one per pane: "This pane has its own view options"
     QToolBar* toolbar_ = nullptr;
     QWidget* body_ = nullptr;
     QSplitter* splitter_ = nullptr;
@@ -317,8 +415,9 @@ void registerViewer(plugin::PluginContext& ctx) {
         ctx.log("No desktop app here, so the 3D viewer isn't shown.");
         return;
     }
+    auto opened = std::make_shared<int>(0);  // viewers opened so far, to number them
     ui::PanelSpec spec{"kh.viewer.main", QObject::tr("Viewer"), ui::PanelArea::Center,
-                       [&ctx] { return new ViewerPanel(ctx); }};
+                       [&ctx, opened] { return new ViewerPanel(ctx, ++*opened); }};
     spec.allowMultiple = true;
     ui->addPanel(std::move(spec));
 }

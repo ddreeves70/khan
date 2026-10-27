@@ -19,6 +19,7 @@
 #include <QStatusBar>
 #include <QTemporaryDir>
 #include <QToolBar>
+#include <QToolButton>
 #include <QTreeWidget>
 
 #include <cstring>
@@ -85,8 +86,12 @@ void units(plugin::PluginContext& ctx) {
 
 // A plugin that uses the grid through its contract, like a sketcher would.
 const grid::IGrid* seenGrid = nullptr;
+viewoptions::IViewOptions* seenOptions = nullptr;
 void gridClient(plugin::PluginContext& ctx) {
-    ctx.onStart([&ctx] { seenGrid = ctx.service<grid::IGrid>(); });
+    ctx.onStart([&ctx] {
+        seenGrid = ctx.service<grid::IGrid>();
+        seenOptions = ctx.service<viewoptions::IViewOptions>();
+    });
 }
 
 // The grid, among the overlays a view draws (the axes are overlays too).
@@ -127,7 +132,7 @@ struct App {
                              std::to_string(plugin::kPluginApiVersion) + "}",
                          &panelThenFail});
         host.addBuiltin(
-            {R"({"id":"test.gridclient","name":"Grid client","version":"1","uses":["kh.grid"],"apiVersion":)" +
+            {R"({"id":"test.gridclient","name":"Grid client","version":"1","uses":["kh.grid","kh.viewoptions"],"apiVersion":)" +
                  std::to_string(plugin::kPluginApiVersion) + "}",
              &gridClient});
         host.addBuiltin({R"({"id":"test.units","name":"Units","version":"1","apiVersion":)" +
@@ -452,7 +457,7 @@ TEST_CASE("named layouts save and open", "[app]") {
 
 TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {
     App app;
-    REQUIRE(seenGrid);  // other plugins find it as kh.grid/1
+    REQUIRE(seenGrid);  // other plugins find it as kh.grid/2
     const auto g = seenGrid->settings();
     CHECK(g.visible);
     CHECK(g.style == grid::GridStyle::Lines);
@@ -659,6 +664,55 @@ TEST_CASE("the View options panel starts closed, opens from View, and changes op
     app.menu("kh.axes.labels")->trigger();
     settle();
     CHECK(labels->isChecked());
+}
+
+TEST_CASE("the View options panel can show and change one pane's options", "[app][viewoptions][panes]") {
+    App app;
+    REQUIRE(seenOptions);
+    // No screen in the tests, so the viewer has no panes; add two as a viewer would.
+    seenOptions->addPane({"test.p1", "Viewer 9, left pane"});
+    seenOptions->addPane({"test.p2", "Viewer 9, right pane"});
+    app.click("kh.viewoptions.show");
+    auto* panel = app.shell->panelWidget(QStringLiteral("kh.viewoptions.panel"));
+    auto* scope = panel->findChild<QComboBox*>(QStringLiteral("kh.viewoptions.scope"));
+    auto* labels = panel->findChild<QCheckBox*>(QStringLiteral("kh.axes.labels"));
+    auto* reset = panel->findChild<QToolButton*>(QStringLiteral("kh.axes.labels.reset"));
+    REQUIRE(scope);
+    REQUIRE(labels);
+    REQUIRE(reset);
+    CHECK(scope->count() == 3);
+    CHECK(scope->itemText(0) == QStringLiteral("All panes"));
+    CHECK(scope->itemText(1) == QStringLiteral("Viewer 9, left pane"));
+
+    scope->setCurrentIndex(1);  // the left pane only
+    settle();
+    CHECK_FALSE(reset->isVisible());
+    labels->setChecked(false);
+    settle();
+    CHECK(seenOptions->hasOwn("kh.axes.labels", "test.p1"));
+    CHECK_FALSE(seenOptions->flag("kh.axes.labels", "test.p1"));
+    CHECK(seenOptions->flag("kh.axes.labels"));  // all panes: still on
+    CHECK(app.menu("kh.axes.labels")->isChecked());
+    CHECK(reset->isVisible());
+    CHECK(labels->font().bold());  // its own value stands out
+
+    scope->setCurrentIndex(2);  // the right pane follows all panes
+    settle();
+    CHECK(labels->isChecked());
+    CHECK_FALSE(reset->isVisible());
+
+    scope->setCurrentIndex(1);
+    settle();
+    reset->click();  // back to the all-panes value
+    settle();
+    CHECK_FALSE(seenOptions->hasOwn("kh.axes.labels", "test.p1"));
+    CHECK(labels->isChecked());
+
+    // A pane that goes away for good leaves the list, and the panel shows all panes.
+    seenOptions->removePane("test.p1", true);
+    settle();
+    CHECK(scope->count() == 2);
+    CHECK(scope->currentIndex() == 0);
 }
 
 TEST_CASE("Window > New viewer opens more viewers", "[app][viewer]") {

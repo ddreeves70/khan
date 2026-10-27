@@ -57,12 +57,15 @@ struct Overlay {
     double size = 1;      ///< Line width, dot size or the height of a label's letters, in screen pixels.
     bool visible = true;  ///< False to hide it without removing it.
     std::string id{};     ///< Set by Khan: the plugin id and the overlay's name.
+    std::string
+        pane{};  ///< Set by Khan: the pane it's for (see PluginOverlays::set()), or empty for every pane.
 };
 
 /// Sent when an overlay is added, changed or removed.
 struct OverlaysChanged {
     static constexpr std::string_view kType = "kh.OverlaysChanged";  ///< Stable event type name.
     std::string id;                                                  ///< The overlay's full id.
+    std::string pane;  ///< The pane it's for, or empty for every pane.
 };
 
 /// Every plugin's overlays, in the order they were first added. The plugin host
@@ -76,27 +79,35 @@ public:
     OverlayList(const OverlayList&) = delete;
     OverlayList& operator=(const OverlayList&) = delete;
 
-    /// Adds an overlay, or replaces the one with the same id. Sends
+    /// Adds an overlay, or replaces the one with the same id and pane. Sends
     /// OverlaysChanged if anything changed.
-    /// @param overlay The overlay, with its full `id` set.
+    /// @param overlay The overlay, with its full `id` (and `pane`, if it's for one pane) set.
     void set(Overlay overlay);
 
     /// Removes an overlay. Sends OverlaysChanged if it was there.
     /// @param id Its full id.
-    void remove(std::string_view id);
+    /// @param pane The pane it's for, or empty for the every-pane one.
+    void remove(std::string_view id, std::string_view pane = {});
 
-    /// Removes every overlay a plugin added, e.g. when it fails to start.
+    /// Removes every overlay a plugin added, for every pane, e.g. when it fails to start.
     /// @param plugin The plugin's id.
     void removeOwner(std::string_view plugin);
 
     /// Finds an overlay.
     /// @param id Its full id, e.g. "kh.grid.grid".
+    /// @param pane The pane it's for, or empty for the every-pane one.
     /// @return It, or nullptr.
-    const Overlay* find(std::string_view id) const;
+    const Overlay* find(std::string_view id, std::string_view pane = {}) const;
 
-    /// Gives every overlay, in the order they were first added.
+    /// Gives every overlay, for every pane, in the order they were first added.
     /// @return The overlays.
     const std::vector<Overlay>& all() const { return overlays_; }
+
+    /// Gives what one pane draws: every every-pane overlay, except that one with
+    /// the same id for this pane is used instead.
+    /// @param pane The pane's key, e.g. "viewer1.pane2".
+    /// @return The overlays, in the order they were first added.
+    std::vector<Overlay> forPane(std::string_view pane) const;
 
 private:
     EventBus& bus_;
@@ -122,15 +133,23 @@ public:
     /// Adds or replaces one of this plugin's overlays.
     /// @param name A short name, e.g. "grid"; its full id is "<plugin id>.<name>".
     /// @param overlay What to draw.
-    void set(std::string_view name, Overlay overlay);
+    /// @param pane Empty to draw it in every pane; a pane's key to draw it in that
+    ///        pane only, instead of the every-pane overlay with the same name.
+    void set(std::string_view name, Overlay overlay, std::string_view pane = {});
 
     /// Removes one of this plugin's overlays.
     /// @param name Its short name.
-    void remove(std::string_view name);
+    /// @param pane The pane it was for, or empty for the every-pane one.
+    void remove(std::string_view name, std::string_view pane = {});
 
-    /// Gives every plugin's overlays, for a viewer to draw.
+    /// Gives every plugin's overlays, for every pane.
     /// @return The overlays, in the order they were first added.
     const std::vector<Overlay>& all() const { return list_.all(); }
+
+    /// Gives what one pane draws (see OverlayList::forPane()).
+    /// @param pane The pane's key.
+    /// @return The overlays.
+    std::vector<Overlay> forPane(std::string_view pane) const { return list_.forPane(pane); }
 
     /// Gives an overlay's full id.
     /// @param name Its short name.

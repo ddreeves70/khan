@@ -59,3 +59,39 @@ TEST_CASE("kh.axes follows its view options, and Khan remembers them", "[axes]")
     CHECK_FALSE(visible("kh.axes.z"));
     CHECK(store.read("plugins/kh.viewoptions/kh.axes.show") == "false");
 }
+
+namespace {
+
+viewoptions::IViewOptions* peeked = nullptr;
+void peek(plugin::PluginContext& ctx) {
+    ctx.onStart([&ctx] { peeked = ctx.service<viewoptions::IViewOptions>(); });
+}
+
+}  // namespace
+
+TEST_CASE("a pane can hide its axis labels on its own", "[axes][panes]") {
+    plugin::MemorySettings store;
+    plugin::PluginHost host;
+    host.setSettings(store);
+    host.addBuiltin(plugins::viewOptionsPlugin());
+    host.addBuiltin(plugins::axesPlugin());
+    host.addBuiltin(
+        {R"({"id": "test.peek", "name": "Peek", "version": "1", "requires": ["kh.viewoptions"]})", &peek});
+    host.loadAll();
+    viewoptions::IViewOptions* options = peeked;
+    REQUIRE(options);
+    options->addPane({"v1.p1", "Viewer 1, left pane"});
+    options->addPane({"v1.p2", "Viewer 1, right pane"});
+    auto labelsShown = [&](const char* pane) {
+        for (const auto& o : host.overlays().forPane(pane)) {
+            if (o.id == "kh.axes.x_label") return o.visible;
+        }
+        return false;
+    };
+    REQUIRE(options->setInPane("kh.axes.labels", false, "v1.p1").empty());
+    CHECK_FALSE(labelsShown("v1.p1"));
+    CHECK(labelsShown("v1.p2"));
+    REQUIRE(options->set("kh.axes.labels", true).empty());  // a change for all panes
+    CHECK(labelsShown("v1.p1"));
+    CHECK(host.overlays().find("kh.axes.x_label", "v1.p1") == nullptr);
+}

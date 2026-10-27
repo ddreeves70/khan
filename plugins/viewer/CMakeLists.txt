@@ -7,4 +7,5 @@ kh_add_library(kh_plugin_viewer
     kh::plugin
     kh::model
     kh::view
+    kh::plugin_viewoptions
 )

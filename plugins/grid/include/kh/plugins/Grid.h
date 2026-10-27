@@ -15,7 +15,7 @@
 
 namespace kh::plugins {
 
-/// Gives the kh.grid plugin. It offers the grid (kh.grid/1) to other plugins,
+/// Gives the kh.grid plugin. It offers the grid (kh.grid/2) to other plugins,
 /// adds the grid's View menu items, remembers its settings, draws it in every
 /// viewer with an overlay, and shows it in the status bar of the desktop app.
 /// @return Its manifest and register function, for PluginHost::addBuiltin().
@@ -42,8 +42,15 @@ public:
     GridService(viewoptions::IViewOptions& options, plugin::EventBus& bus);
 
     grid::GridSettings settings() const override { return settings_; }
+    grid::GridSettings settings(std::string_view pane) const override;
     double snap(double value) const override;
     kernel::Vec3 snap(const kernel::Vec3& point) const override;
+    kernel::Vec3 snap(const kernel::Vec3& point, std::string_view pane) const override;
+
+    /// Checks whether a pane has its own grid ("This pane only").
+    /// @param pane The pane's key.
+    /// @return True if any of the grid's options differ in that pane.
+    bool hasOwn(std::string_view pane) const;
 
     /// Changes every setting at once. Sends GridChanged once if anything changed.
     /// @param settings The new settings.
@@ -56,8 +63,8 @@ public:
     Diagnostics setSpacing(double spacing);
 
 private:
-    grid::GridSettings read() const;
-    void reload();
+    grid::GridSettings read(std::string_view pane) const;
+    void changed(const viewoptions::ViewOptionChanged& e);
 
     viewoptions::IViewOptions& options_;
     plugin::EventBus& bus_;

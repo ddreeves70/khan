@@ -1,5 +1,7 @@
 #include "kh/plugins/Axes.h"
 
+#include <memory>
+#include <set>
 #include <string>
 
 #include "kh/plugin/Events.h"
@@ -17,10 +19,25 @@ constexpr const char* kManifest = R"({
   "requires": ["kh.viewoptions"]
 })";
 
-// Draws (or hides) the axes as the options say.
-void show(plugin::PluginContext& ctx, const viewoptions::IViewOptions& options) {
+// Draws (or hides) the axes as the options say: for every pane, and again for
+// each pane that has its own axes options. `drawn` lists those panes.
+void show(plugin::PluginContext& ctx, const viewoptions::IViewOptions& options,
+          std::set<std::string>& drawn) {
     for (auto& a : axesOverlays(options.flag("kh.axes.show"), options.flag("kh.axes.labels")))
         ctx.overlays().set(a.name, std::move(a.overlay));
+    std::set<std::string> now;
+    for (const auto& p : options.panes()) {
+        if (!options.hasOwn("kh.axes.show", p.key) && !options.hasOwn("kh.axes.labels", p.key)) continue;
+        for (auto& a :
+             axesOverlays(options.flag("kh.axes.show", p.key), options.flag("kh.axes.labels", p.key)))
+            ctx.overlays().set(a.name, std::move(a.overlay), p.key);
+        now.insert(p.key);
+    }
+    for (const auto& pane : drawn) {
+        if (now.count(pane)) continue;
+        for (const auto& a : axesOverlays(true, true)) ctx.overlays().remove(a.name, pane);
+    }
+    drawn = std::move(now);
 }
 
 void registerAxes(plugin::PluginContext& ctx) {
@@ -37,10 +54,14 @@ void registerAxes(plugin::PluginContext& ctx) {
             return;
         }
     }
-    show(ctx, *options);
-    ctx.listen<viewoptions::ViewOptionChanged>([&ctx, options](const viewoptions::ViewOptionChanged& e) {
-        if (e.option.rfind("kh.axes.", 0) == 0) show(ctx, *options);
-    });
+    auto drawn = std::make_shared<std::set<std::string>>();
+    show(ctx, *options, *drawn);
+    ctx.listen<viewoptions::ViewOptionChanged>(
+        [&ctx, options, drawn](const viewoptions::ViewOptionChanged& e) {
+            if (e.option.rfind("kh.axes.", 0) == 0) show(ctx, *options, *drawn);
+        });
+    ctx.listen<viewoptions::PanesChanged>(
+        [&ctx, options, drawn](const viewoptions::PanesChanged&) { show(ctx, *options, *drawn); });
 }
 
 }  // namespace

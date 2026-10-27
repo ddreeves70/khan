@@ -207,6 +207,31 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
 - Khan keeps the values with the app's settings, under
   `plugins/kh.viewoptions/<option id>`.
 
+**Panes.** Every option has an all-panes value, and the student can give one pane
+its own value (right-click in the pane, or the panel's "Show options for"). If what
+you draw depends on an option, draw it for each pane that has its own value:
+
+```cpp
+// The pane's own value if it has one, otherwise the all-panes value.
+bool show = options->flag("sam.notes.show", pane);
+// Which panes exist, and whether one has its own value.
+for (const auto& p : options->panes()) {
+    if (options->hasOwn("sam.notes.show", p.key)) {
+        ctx.overlays().set("notes", notesOverlay(options->flag("sam.notes.show", p.key)), p.key);
+    }
+}
+```
+
+- An overlay set with a pane's key is drawn in that pane **instead of** the
+  every-pane overlay with the same name; remove it with `remove("notes", pane)`
+  when the pane follows all panes again.
+- `ViewOptionChanged` has a `pane`: empty when the all-panes value changed, a
+  pane's key when only that pane's value did. `PanesChanged` is sent when panes come
+  and go, are renamed, or the student clicks into another pane
+  (`options->activePane()`).
+- `options->set(id, value)` changes every pane and clears the panes' own values;
+  `options->setInPane(id, value, pane)` changes one pane.
+
 **Worked examples:** the built-in [axes](../../plugins/axes/AxesPlugin.cpp)
 (two Flags) and [grid](../../plugins/grid/GridPlugin.cpp) (Flags, a Choice and a
 Length) plugins.
@@ -214,7 +239,7 @@ Length) plugins.
 ## Use the grid (desktop app only)
 
 The grid is a plugin too: `kh.grid`. It offers the grid to other plugins as the
-`kh.grid/1` service, described by its contract header `kh/grid/Grid.h`. A tool
+`kh.grid/2` service, described by its contract header `kh/grid/Grid.h`. A tool
 that lets the student place points with the mouse snaps them through it, so it
 obeys **View > Snap to grid** like everything else.
 
@@ -226,15 +251,19 @@ the grid up when your plugin starts:
 
 ctx.onStart([&ctx] {
     if (auto* grid = ctx.service<kh::grid::IGrid>()) {
-        kernel::Vec3 p = grid->snap(pointUnderMouse);  // unchanged when snapping is off
-        const auto g = grid->settings();               // visible, spacing (mm), snap, style
+        // The pane the point was picked in: a pane can have its own grid.
+        kernel::Vec3 p = grid->snap(pointUnderMouse, pane);  // unchanged when snapping is off there
+        const auto g = grid->settings(pane);                 // visible, spacing (mm), snap, style
     }
 });
 ctx.listen<kh::grid::GridChanged>([](const kh::grid::GridChanged& e) { /* e.grid.spacing */ });
 ```
 
 `kh_cli` doesn't load `kh.grid`, so the service is `nullptr` there. The student
-changes the grid with the View menu; other plugins only read it.
+changes the grid with the View menu and the View options panel; other plugins only
+read it. A pane's key comes from the view options (`options->activePane()` is the
+pane the student is working in). `GridChanged` has a `pane` too: empty when the
+all-panes grid changed.
 
 ## Draw in the viewer
 

@@ -199,7 +199,34 @@ menu's check marks follow, and Khan remembers it.
   the **Window** menu. Like any panel, you can dock it anywhere.
 - **Grid spacing** takes any size from 0.01 mm to 1000 mm, not just the menu's
   sizes. Type it and press Enter.
-- Coming soon: different options for each pane, like a grid in the top view only.
+
+### One pane only
+
+Usually a view option changes **every pane** of every viewer. Sometimes you want
+one pane to be different: a fine 2 mm grid in the 3D pane only, say, or no axis
+letters in the top view.
+
+- **Right-click in a pane** (click without dragging; a drag pans) for its **This
+  pane only** menu: the same options, with that pane's check marks. Changing one
+  there changes that pane alone.
+- Or, in the **View options** panel, pick the pane in **Show options for**. A value
+  the pane has of its own is in **bold**, with a round-arrow button that puts it
+  back to the all-panes value.
+- A pane with its own options shows a yellow **Own view options** strip at its top.
+  **Same as all panes** puts every option in that pane back.
+
+![Four panes: the top right one has its own finer grid and no axis letters](images/app-pane-options.png)
+
+Things to know:
+
+- **A change for all panes wins.** Changing an option from the View menu, or with
+  **All panes** in the panel, applies to every pane, including one that had its
+  own value for that option.
+- **New panes start like all the others.** Switching from 1 to 4 panes gives the
+  new panes the all-panes options. Going back to fewer panes forgets the own
+  options of the panes that close.
+- Khan remembers each pane's own options for next time.
+- The status bar's grid text shows the grid of the pane you clicked last.
 
 ## Undo and redo
 

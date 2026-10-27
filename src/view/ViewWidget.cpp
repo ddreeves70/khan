@@ -263,7 +263,8 @@ struct ViewWidget::Impl {
         fitPending = false;
     }
 
-    QString glInfo;  // the graphics card and OpenGL version, for failure details
+    QString glInfo;     // the graphics card and OpenGL version, for failure details
+    QPoint rightPress;  // where the right button went down, to tell a click from a drag
 
     // A failure's details, with the graphics card and OpenGL version when known.
     QString where(const QString& what) const {
@@ -573,6 +574,7 @@ void ViewWidget::mousePressEvent(QMouseEvent* event) {
     QOpenGLWidget::mousePressEvent(event);
     emit activated();
     auto& d = *impl_;
+    if (event->button() == Qt::RightButton) d.rightPress = event->position().toPoint();
     if (!d.view) return;
     d.clickAdds = event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier);
     const double ratio = devicePixelRatioF();
@@ -585,6 +587,11 @@ void ViewWidget::mousePressEvent(QMouseEvent* event) {
 void ViewWidget::mouseReleaseEvent(QMouseEvent* event) {
     QOpenGLWidget::mouseReleaseEvent(event);
     auto& d = *impl_;
+    // A right click that didn't move (much) asks for the menu; a right drag pans.
+    if (event->button() == Qt::RightButton &&
+        (event->position().toPoint() - d.rightPress).manhattanLength() < 4) {
+        emit menuRequested(event->globalPosition().toPoint());
+    }
     if (!d.view) return;
     const double ratio = devicePixelRatioF();
     const Graphic3d_Vec2i p(static_cast<int>(event->position().x() * ratio),

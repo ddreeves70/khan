@@ -107,20 +107,20 @@ TEST_CASE("a damaged saved value falls back to the first value", "[viewoptions]"
 TEST_CASE("Other... asks the student, and a refused answer is reported", "[viewoptions]") {
     Store s;
     REQUIRE(s.options.add(size()).empty());
-    s.options.ask("test.size");  // no way to ask (kh_cli): nothing happens
+    s.options.ask("test.size", {});  // no way to ask (kh_cli): nothing happens
     CHECK(s.options.number("test.size") == 10.0);
     double offered = 0;
     s.options.asker = [&](const OptionSpec&, double current) -> std::optional<double> {
         offered = current;
         return 12.5;
     };
-    s.options.ask("test.size");
+    s.options.ask("test.size", {});
     CHECK(offered == 10.0);
     CHECK(s.options.number("test.size") == 12.5);
     Diagnostics reported;
     s.options.report = [&](const Diagnostics& d) { reported = d; };
     s.options.asker = [](const OptionSpec&, double) -> std::optional<double> { return 0.0; };
-    s.options.ask("test.size");
+    s.options.ask("test.size", {});
     REQUIRE(reported.size() == 1);
     CHECK(s.options.number("test.size") == 12.5);
 }
@@ -184,4 +184,87 @@ TEST_CASE("addOption gives each option its View menu items", "[viewoptions]") {
     find("test.views.style.b").run();
     CHECK(find("test.views.style.b").checked());
     CHECK_FALSE(find("test.views.style.a").checked());
+}
+
+TEST_CASE("a pane can have its own value; a change for all panes clears it", "[viewoptions][panes]") {
+    Store s;
+    REQUIRE(s.options.add(size()).empty());
+    REQUIRE(s.options.add({.id = "test.on", .text = "On", .initial = true}).empty());
+    s.options.addPane({"v1.p1", "Viewer 1, left pane"});
+    s.options.addPane({"v1.p2", "Viewer 1, right pane"});
+    std::vector<std::string> heard;
+    auto sub = s.bus.subscribe<ViewOptionChanged>(
+        [&](const ViewOptionChanged& e) { heard.push_back(e.option + "@" + e.pane); });
+
+    REQUIRE(s.options.setInPane("test.size", 5.0, "v1.p1").empty());  // This pane only
+    CHECK(s.options.number("test.size", "v1.p1") == 5.0);
+    CHECK(s.options.number("test.size", "v1.p2") == 10.0);  // other panes follow all panes
+    CHECK(s.options.number("test.size") == 10.0);
+    CHECK(s.options.hasOwn("test.size", "v1.p1"));
+    CHECK_FALSE(s.options.hasOwn("test.size", "v1.p2"));
+    CHECK(s.options.ownOptions("v1.p1") == std::vector<std::string>{"test.size"});
+    CHECK(heard == std::vector<std::string>{"test.size@v1.p1"});
+
+    // A change for all panes really applies to all: the pane's own value goes.
+    heard.clear();
+    REQUIRE(s.options.set("test.size", 20.0).empty());
+    CHECK(s.options.number("test.size", "v1.p1") == 20.0);
+    CHECK_FALSE(s.options.hasOwn("test.size", "v1.p1"));
+    CHECK(heard == std::vector<std::string>{"test.size@v1.p1", "test.size@"});
+
+    // Even when the all-panes value was already that value.
+    REQUIRE(s.options.setInPane("test.on", false, "v1.p2").empty());
+    REQUIRE(s.options.set("test.on", true).empty());
+    CHECK(s.options.flag("test.on", "v1.p2"));
+
+    // Putting one option, or a whole pane, back.
+    REQUIRE(s.options.setInPane("test.size", 5.0, "v1.p2").empty());
+    REQUIRE(s.options.setInPane("test.on", false, "v1.p2").empty());
+    s.options.reset("test.size", "v1.p2");
+    CHECK(s.options.ownOptions("v1.p2") == std::vector<std::string>{"test.on"});
+    s.options.resetPane("v1.p2");
+    CHECK(s.options.ownOptions("v1.p2").empty());
+
+    // A value a pane can't take is refused, as for all panes.
+    CHECK(s.options.setInPane("test.size", 500.0, "v1.p1")[0].code == "viewoptions.value");
+    // A damaged saved pane value is ignored.
+    s.memory.write("plugins/kh.viewoptions/panes/v1.p1/test.size", "huge");
+    CHECK_FALSE(s.options.hasOwn("test.size", "v1.p1"));
+    CHECK(s.options.number("test.size", "v1.p1") == 20.0);
+}
+
+TEST_CASE("panes come and go; their own values are kept only when the window closes",
+          "[viewoptions][panes]") {
+    Store s;
+    REQUIRE(s.options.add(size()).empty());
+    int changes = 0;
+    auto sub = s.bus.subscribe<PanesChanged>([&](const PanesChanged&) { ++changes; });
+    s.options.addPane({"v1.p1", "Viewer 1"});
+    s.options.addPane({"v1.p2", "Viewer 1, right pane"});
+    s.options.addPane({"v1.p1", "Viewer 1, left pane"});  // renamed
+    REQUIRE(s.options.panes().size() == 2);
+    CHECK(s.options.panes()[0].name == "Viewer 1, left pane");
+    CHECK(s.options.activePane() == "v1.p1");  // the first pane
+    s.options.setActivePane("v1.p2");
+    CHECK(s.options.activePane() == "v1.p2");
+    CHECK(changes == 4);
+
+    REQUIRE(s.options.setInPane("test.size", 5.0, "v1.p1").empty());
+    REQUIRE(s.options.setInPane("test.size", 2.5, "v1.p2").empty());
+    s.options.removePane("v1.p2", true);  // back to one pane: gone for good
+    CHECK_FALSE(s.options.hasOwn("test.size", "v1.p2"));
+    CHECK(s.options.activePane() == "v1.p1");
+    s.options.removePane("v1.p1", false);  // the window closes: kept for next time
+    CHECK(s.options.panes().empty());
+    CHECK(s.options.hasOwn("test.size", "v1.p1"));
+
+    // Next time: the same pane is back with its own value, and "Other..." asks for that pane.
+    plugins::ViewOptionsService again(s.settings, s.bus);
+    REQUIRE(again.add(size()).empty());
+    again.addPane({"v1.p1", "Viewer 1"});
+    CHECK(again.number("test.size", "v1.p1") == 5.0);
+    again.asker = [](const OptionSpec&, double current) -> std::optional<double> { return current + 1; };
+    again.ask("test.size", "v1.p1");
+    CHECK(again.number("test.size", "v1.p1") == 6.0);
+    CHECK(again.number("test.size") == 10.0);
 }

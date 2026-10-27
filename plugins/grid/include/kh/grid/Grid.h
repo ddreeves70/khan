@@ -10,12 +10,13 @@
 /// @code
 /// ctx.onStart([&ctx] {
 ///     if (auto* grid = ctx.service<kh::grid::IGrid>()) {
-///         kh::kernel::Vec3 p = grid->snap(pointUnderMouse);  // unchanged when snapping is off
+///         kh::kernel::Vec3 p = grid->snap(pointUnderMouse, pane);  // that pane's grid
 ///     }
 /// });
 /// ctx.listen<kh::grid::GridChanged>([](const kh::grid::GridChanged& e) { /* e.grid.spacing */ });
 /// @endcode
 
+#include <string>
 #include <string_view>
 
 #include "kh/kernel/Types.h"
@@ -49,31 +50,48 @@ inline constexpr double kMaxSpacing = 1000.0;
 /// Sent by kh.grid when the grid's settings change.
 struct GridChanged {
     static constexpr std::string_view kType = "kh.grid.changed";  ///< Stable event type name.
-    GridSettings grid;                                            ///< The new settings.
+    GridSettings grid;  ///< The new settings (for `pane`, if it's set).
+    /// Empty: the all-panes grid changed. A pane's key: only that pane's own grid
+    /// changed ("This pane only" in the View options).
+    std::string pane;
 };
 
-/// The grid, as other plugins see it: its settings, and snapping.
+/// The grid, as other plugins see it: its settings, and snapping. A pane can
+/// have its own grid (a different spacing, say), so the pane-aware functions
+/// take the pane the student is working in.
 class IGrid {
 public:
-    /// The service's name and version.
-    static constexpr const char* kServiceName = "kh.grid/1";
+    /// The service's name and version. Version 2 added the pane-aware functions.
+    static constexpr const char* kServiceName = "kh.grid/2";
 
     /// Destroys the grid.
     virtual ~IGrid() = default;
 
-    /// Gives the grid's settings.
-    /// @return The current settings.
+    /// Gives the grid's settings for every pane.
+    /// @return The all-panes settings.
     virtual GridSettings settings() const = 0;
 
-    /// Snaps one coordinate to the nearest grid line.
+    /// Gives the grid's settings in one pane.
+    /// @param pane The pane's key (from the view options), or empty for every pane.
+    /// @return The pane's own settings where it has them, the all-panes ones otherwise.
+    virtual GridSettings settings(std::string_view pane) const = 0;
+
+    /// Snaps one coordinate to the nearest grid line, using the all-panes grid.
     /// @param value A coordinate, in mm.
     /// @return The nearest multiple of the spacing, in mm, or @p value unchanged when snapping is off.
     virtual double snap(double value) const = 0;
 
-    /// Snaps a point to the nearest grid crossing.
+    /// Snaps a point to the nearest grid crossing, using the all-panes grid.
     /// @param point A point, in mm.
     /// @return The nearest crossing, in mm, or @p point unchanged when snapping is off.
     virtual kernel::Vec3 snap(const kernel::Vec3& point) const = 0;
+
+    /// Snaps a point picked in a pane, to that pane's grid.
+    /// @param point A point, in mm.
+    /// @param pane The pane it was picked in.
+    /// @return The nearest crossing of that pane's grid, in mm, or @p point unchanged when its snapping is
+    /// off.
+    virtual kernel::Vec3 snap(const kernel::Vec3& point, std::string_view pane) const = 0;
 };
 
 }  // namespace kh::grid

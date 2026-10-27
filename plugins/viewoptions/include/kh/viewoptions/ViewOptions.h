@@ -69,9 +69,24 @@ struct OptionSpec {
 struct ViewOptionChanged {
     static constexpr std::string_view kType = "kh.viewoptions.changed";  ///< Stable event type name.
     std::string option;                                                  ///< The option's id.
+    /// Empty: the all-panes value changed (panes without their own value follow
+    /// it). A pane's key: only that pane's own value changed.
+    std::string pane;
 };
 
-/// The view options, as other plugins see them.
+/// A pane of a viewer, as the view options know it.
+struct PaneInfo {
+    std::string key;   ///< Stable while the pane exists, e.g. "viewer1.pane2".
+    std::string name;  ///< What the student sees, e.g. "Viewer 1, top right pane".
+};
+
+/// Sent when panes come or go, are renamed, or another pane becomes the active one.
+struct PanesChanged {
+    static constexpr std::string_view kType = "kh.viewoptions.panes_changed";  ///< Stable event type name.
+};
+
+/// The view options, as other plugins see them. Every option has an all-panes
+/// value, and a pane can have its own ("This pane only").
 class IViewOptions {
 public:
     /// The service's name and version.
@@ -94,46 +109,108 @@ public:
     /// @return The options.
     virtual std::vector<const OptionSpec*> options() const = 0;
 
-    /// Gives an option's value.
+    /// Gives an option's value in a pane: the pane's own value if it has one,
+    /// otherwise the all-panes value.
     /// @param id Its id.
+    /// @param pane A pane's key, or empty for the all-panes value.
     /// @return The value; its `initial` value if never changed or saved damaged; false if there's no such
     /// option.
-    virtual OptionValue value(std::string_view id) const = 0;
+    virtual OptionValue value(std::string_view id, std::string_view pane) const = 0;
 
-    /// Changes an option's value, for every pane. Sends ViewOptionChanged if it changed.
+    /// Changes an option's value for every pane, and clears the panes' own values
+    /// for it, so the change really applies everywhere. Sends ViewOptionChanged.
     /// @param id Its id.
     /// @param value The new value, of the option's kind (mm for a Length).
     /// @return A plain problem if the value is the wrong kind, outside the limits or not one of the choices.
     virtual Diagnostics set(std::string_view id, const OptionValue& value) = 0;
 
+    /// Changes an option's value in one pane only ("This pane only").
+    /// @param id Its id.
+    /// @param value The new value.
+    /// @param pane The pane's key.
+    /// @return A plain problem if the value can't be used, as for set().
+    virtual Diagnostics setInPane(std::string_view id, const OptionValue& value, std::string_view pane) = 0;
+
+    /// Checks whether a pane has its own value for an option.
+    /// @param id The option's id.
+    /// @param pane The pane's key.
+    /// @return True if the pane doesn't follow the all-panes value.
+    virtual bool hasOwn(std::string_view id, std::string_view pane) const = 0;
+
+    /// Lists the options a pane has its own values for.
+    /// @param pane The pane's key.
+    /// @return Their ids, in the order the options were added.
+    virtual std::vector<std::string> ownOptions(std::string_view pane) const = 0;
+
+    /// Puts one option in a pane back to the all-panes value.
+    /// @param id The option's id.
+    /// @param pane The pane's key.
+    virtual void reset(std::string_view id, std::string_view pane) = 0;
+
+    /// Puts every option in a pane back to the all-panes values ("Use the same as all panes").
+    /// @param pane The pane's key.
+    virtual void resetPane(std::string_view pane) = 0;
+
     /// Asks the student to type a value (the "Other..." menu item). Only in the
     /// desktop app; does nothing elsewhere.
     /// @param id A Length or Number option's id.
-    virtual void ask(std::string_view id) = 0;
+    /// @param pane Empty to set it for every pane; a pane's key for that pane only.
+    virtual void ask(std::string_view id, std::string_view pane) = 0;
+
+    /// Tells the view options a pane exists (a viewer does this). Call again to rename it.
+    /// @param pane Its key and name.
+    virtual void addPane(PaneInfo pane) = 0;
+
+    /// Tells the view options a pane is gone.
+    /// @param key Its key.
+    /// @param forget True if it was closed for good (fewer panes), so its own values
+    ///        are cleared; false if only the window is closing, so they're kept for next time.
+    virtual void removePane(std::string_view key, bool forget) = 0;
+
+    /// Lists the panes that exist, in the order they were added.
+    /// @return The panes.
+    virtual std::vector<PaneInfo> panes() const = 0;
+
+    /// Says which pane the student is working in (the last one clicked).
+    /// @param key Its key.
+    virtual void setActivePane(std::string_view key) = 0;
+
+    /// Gives the pane the student is working in.
+    /// @return Its key, or empty if there is none.
+    virtual std::string activePane() const = 0;
+
+    /// Shows a pane's "This pane only" menu (desktop app only).
+    /// @param pane The pane's key.
+    /// @param x Where, across the screen, in screen pixels.
+    /// @param y Where, down the screen, in screen pixels.
+    virtual void showPaneMenu(std::string_view pane, int x, int y) = 0;
 
     /// Gives a Flag option's value.
     /// @param id Its id.
+    /// @param pane A pane's key, or empty for the all-panes value.
     /// @return True if it's on.
-    bool flag(std::string_view id) const {
-        const auto v = value(id);
+    bool flag(std::string_view id, std::string_view pane = {}) const {
+        const auto v = value(id, pane);
         const auto* b = std::get_if<bool>(&v);
         return b && *b;
     }
 
     /// Gives a Length or Number option's value.
     /// @param id Its id.
+    /// @param pane A pane's key, or empty for the all-panes value.
     /// @return The number (mm for a Length), or 0.
-    double number(std::string_view id) const {
-        const auto v = value(id);
+    double number(std::string_view id, std::string_view pane = {}) const {
+        const auto v = value(id, pane);
         const auto* d = std::get_if<double>(&v);
         return d ? *d : 0.0;
     }
 
     /// Gives a Choice option's value.
     /// @param id Its id.
+    /// @param pane A pane's key, or empty for the all-panes value.
     /// @return The chosen item's `value`, or an empty string.
-    std::string choice(std::string_view id) const {
-        const auto v = value(id);
+    std::string choice(std::string_view id, std::string_view pane = {}) const {
+        const auto v = value(id, pane);
         const auto* s = std::get_if<std::string>(&v);
         return s ? *s : std::string();
     }
@@ -206,7 +283,7 @@ inline Diagnostics addOption(plugin::PluginContext& ctx, IViewOptions& options, 
                            .text = "Other...",
                            .menu = "View/" + option.text,
                            .tip = option.tip,
-                           .run = [o, id] { o->ask(id); },
+                           .run = [o, id] { o->ask(id, {}); },
                            .currentText =
                                [o, id, presets, unit] {
                                    const double v = o->number(id);
