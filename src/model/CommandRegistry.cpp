@@ -113,6 +113,18 @@ CommandRegistry makeBuiltin() {
               return std::make_unique<DeleteFeatureCommand>(argFeature(a, "feature"));
           });
 
+    r.add({"feature.duplicate",
+           "Duplicate step",
+           "Copies a step, and every step it uses, as new steps at the end of the design.",
+           {{"feature", ArgType::FeatureRef, "The step to copy.", true, {}}}},
+          [](const Document& doc, const Args& a) -> std::unique_ptr<Command> {
+              const FeatureId id = argFeature(a, "feature");
+              const auto* f = doc.find(id);
+              return std::make_unique<AddFeaturesCommand>(
+                  copySteps(doc, {id}), std::vector<Material>{},
+                  "Duplicate " + (f ? f->name() : std::string("step")));
+          });
+
     r.add({"feature.rename",
            "Rename step",
            "Gives a step a new name.",

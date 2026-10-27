@@ -1,4 +1,5 @@
 #include "kh/io/KhanFile.h"
+#include "kh/io/Steps.h"
 
 #include <zip.h>
 
@@ -541,6 +542,100 @@ OpenResult openFile(const std::filesystem::path& path) {
     }
     Bytes data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     return readBytes(data, name);
+}
+
+// ---------------------------------------------------------------------------
+// Steps as text (the clipboard)
+// ---------------------------------------------------------------------------
+
+namespace {
+constexpr const char* kStepsFormat = "khan-steps";
+}  // namespace
+
+std::string stepsToText(const Document& doc, const std::vector<FeatureId>& ids) {
+    // copySteps() finds every step they use, in design order; it gives them new
+    // ids, which is harmless here (stepsFromText() gives new ones again).
+    const auto steps = model::copySteps(doc, ids);
+    if (steps.empty()) return {};
+    json list = json::array();
+    std::vector<std::string> used;
+    for (const auto& f : steps) {
+        json j = featureToJson(*f);
+        if (f->suppressed()) j["suppressed"] = true;
+        list.push_back(j);
+        if (!f->material().empty()) used.push_back(f->material());
+    }
+    json materials = json::array();
+    for (const auto& m : doc.customMaterials()) {
+        if (std::find(used.begin(), used.end(), m.key) != used.end()) materials.push_back(materialToJson(m));
+    }
+    return dump(json{{"format", kStepsFormat}, {"version", 1}, {"steps", list}, {"materials", materials}});
+}
+
+bool looksLikeSteps(std::string_view text) {
+    return text.find(std::string("\"") + kStepsFormat + "\"") != std::string_view::npos &&
+           text.find_first_not_of(" \t\r\n") != std::string_view::npos &&
+           text[text.find_first_not_of(" \t\r\n")] == '{';
+}
+
+StepsResult stepsFromText(std::string_view text) {
+    StepsResult result;
+    auto fail = [&](std::string code, std::string message, std::string detail = {}) {
+        result.steps.clear();
+        result.materials.clear();
+        result.issues.push_back(problem(std::move(code), std::move(message), std::move(detail)));
+        return std::move(result);
+    };
+    const json j = json::parse(text, nullptr, false);
+    if (j.is_discarded() || !j.is_object() || j.value("format", "") != kStepsFormat) {
+        return fail("paste.not_steps",
+                    "What's on the clipboard isn't steps copied from Khan. Copy steps in "
+                    "the feature tree first (Edit > Copy), then paste.");
+    }
+    if (j.value("version", 0) > 1) {
+        return fail("paste.too_new", "These steps were copied from a newer Khan. Update Khan to paste them.");
+    }
+    const json steps = j.value("steps", json());
+    if (!steps.is_array() || steps.empty()) return fail("paste.not_steps", "There are no steps to paste.");
+
+    for (const auto& mj : j.value("materials", json::array())) {
+        if (auto m = materialFromJson(mj)) result.materials.push_back(*m);
+    }
+    std::vector<std::unique_ptr<Feature>> read;
+    std::vector<FeatureId> seen;
+    for (const auto& fj : steps) {
+        const auto id = fj.is_object() && fj.contains("id") && fj["id"].is_string()
+                            ? FeatureId::parse(fj["id"].get<std::string>())
+                            : std::nullopt;
+        if (!id)
+            return fail("paste.damaged", "The copied steps are damaged. Copy them again.",
+                        "a step has no id");
+        std::string why, unknownType;
+        auto f = featureFromJson(fj, *id, why, unknownType);
+        if (!f) {
+            if (!unknownType.empty()) {
+                return fail("paste.unknown_step",
+                            "One of the copied steps is a kind this Khan doesn't know (" + unknownType +
+                                "). It may need a newer Khan or a plugin.",
+                            why);
+            }
+            return fail("paste.damaged", "The copied steps are damaged. Copy them again.", why);
+        }
+        // Every input must be an earlier copied step: pasting never reaches into the design.
+        for (const auto& dep : f->dependencies()) {
+            if (std::find(seen.begin(), seen.end(), dep) == seen.end()) {
+                return fail("paste.damaged", "The copied steps are damaged. Copy them again.",
+                            "step " + f->name() + " uses a step that wasn't copied");
+            }
+        }
+        f->setSuppressed(fj.value("suppressed", false));
+        if (fj.contains("material") && fj["material"].is_string())
+            f->setMaterial(fj["material"].get<std::string>());
+        seen.push_back(*id);
+        read.push_back(std::move(f));
+    }
+    result.steps = model::freshIds(std::move(read));
+    return result;
 }
 
 }  // namespace kh::io

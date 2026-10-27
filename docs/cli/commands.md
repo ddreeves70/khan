@@ -14,6 +14,7 @@ All lengths are in millimeters (mm). Positions and sizes are written `x,y,z`:
 | [`feature.add_boolean`](#featureadd_boolean) | Joins two bodies, cuts one from another, or keeps their overlap |
 | [`feature.rename`](#featurerename) | Renames a step |
 | [`feature.delete`](#featuredelete) | Deletes a step |
+| [`feature.duplicate`](#featureduplicate) | Copies a step, and the steps it uses |
 | [`feature.set_material`](#featureset_material) | Picks what a body is made of |
 | [`material.define`](#materialdefine) | Adds a material of your own, or changes one |
 | [`material.delete`](#materialdelete) | Removes a material you added |
@@ -192,6 +193,35 @@ $ kh_cli demo demo.khan
 wrote demo.khan
 $ kh_cli run --open demo.khan feature.delete feature=Plate
 error [feature.in_use]: Plate is used by Tag. Delete or change Tag first.
+```
+
+## feature.duplicate
+
+Copies a step, and every step it uses, as new steps at the end of the design.
+The copies get new names (the next free number) and have the same sizes and
+positions, so they sit exactly on top of the originals until you change them.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `feature` | step name | yes | The step to copy |
+
+In the [demo tag](demo.md), `Tag` cuts `Hole` out of `Plate`, so duplicating
+`Tag` copies all three. The copied `Tag1` cuts `Hole1` out of `Plate1`; changing
+the copies never changes the originals.
+
+<!-- cli-example -->
+```console
+$ kh_cli demo demo.khan
+wrote demo.khan
+$ kh_cli run --open demo.khan --save demo.khan feature.duplicate feature=Tag
+Demo tag: 6 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+  Plate1       ok  volume 7200.00 mm^3
+  Hole1        ok  volume 117.81 mm^3
+  Tag1         ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote demo.khan
 ```
 
 ## feature.set_material

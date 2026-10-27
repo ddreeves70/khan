@@ -8,7 +8,7 @@ step's numbers in Properties. Everything you do can be undone.
 
 | # | Part | What it's for |
 | --- | --- | --- |
-| 1 | **Menus** | File (new, open, save), Edit (undo, redo, delete), Create (shapes), Combine (union, cut, intersect), View (the grid), Window (panels, layouts) |
+| 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, delete), Create (shapes), Combine (union, cut, intersect), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away |
 | 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built |
 | 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse or the view cube, and click a body to pick it |
@@ -114,6 +114,9 @@ Each row is one step: its name, its kind, and its status.
 - **Rename** a step by double-clicking its name, or pressing F2.
 - **Delete** a step with the Delete key, or right-click > Delete step. A step that
   another step uses can't be deleted until that step is.
+
+- **Duplicate** a step with Edit > Duplicate step (Ctrl+D). See
+  [Copying steps](#copying-steps).
 
 Picking two steps turns on **Combine**: union, cut or intersect. For a cut, pick
 the body to keep first.
@@ -227,6 +230,32 @@ Things to know:
   options of the panes that close.
 - Khan remembers each pane's own options for next time.
 - The status bar's grid text shows the grid of the pane you clicked last.
+
+## Copying steps
+
+Copying makes new steps with the same sizes and positions as the ones you picked.
+Copying a step also copies every step it uses, so a copied cut still has its
+hole: copying `Tag` (which cuts `Hole` out of `Plate`) gives `Plate1`, `Hole1`
+and `Tag1`. The copies are separate: changing one never changes the other.
+
+- **Edit > Duplicate step** (Ctrl+D) copies the picked step into the same design,
+  at the end of the feature tree.
+- **Edit > Copy** (Ctrl+C) copies the picked steps. **Edit > Paste** (Ctrl+V) adds
+  them to the end of the design that's open, which can be a different design, or
+  the same one. Paste works as often as you like, and every paste is one Undo.
+- A copied name that's taken gets the next free number: `Plate` becomes `Plate1`.
+- Materials of your own come along. If the design you paste into already has a
+  material with the same name, the steps use that one.
+
+Example: make a 20 mm box, pick it, press Ctrl+C, then File > New and Ctrl+V. The
+new design has `Box1`, 20 mm on each side.
+
+Tips:
+
+- The copies sit exactly on top of the originals, so the viewer looks the same.
+  Pick a copy and change its Position in Properties to move it.
+- What you copy is plain text, so you can paste it into a message or a file and
+  paste it back into Khan later.
 
 ## Undo and redo
 

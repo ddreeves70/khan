@@ -87,10 +87,10 @@ TEST_CASE("kh.modeling loads and its commands work", "[plugin][host]") {
     const auto& modeling = get(host, "kh.modeling");
     CHECK(modeling.state == PluginState::Loaded);
     CHECK(modeling.builtin);
-    CHECK(modeling.commands == std::vector<std::string>{"feature.add_boolean", "feature.add_box",
-                                                        "feature.add_cylinder", "feature.delete",
-                                                        "feature.rename", "feature.set_material",
-                                                        "material.define", "material.delete"});
+    CHECK(modeling.commands ==
+          std::vector<std::string>{"feature.add_boolean", "feature.add_box", "feature.add_cylinder",
+                                   "feature.delete", "feature.duplicate", "feature.rename",
+                                   "feature.set_material", "material.define", "material.delete"});
 
     const DocId doc = host.documents().add(std::make_unique<model::Document>());
     REQUIRE(host.documents().run(doc, "feature.add_box", {{"size", kernel::Vec3{2, 3, 4}}}).empty());
@@ -316,7 +316,8 @@ TEST_CASE("kh.modeling adds menu items that run its commands", "[plugin][host]")
         CHECK_FALSE(a.tip.empty());
     }
     CHECK(ids == std::vector<std::string>{"kh.modeling.box", "kh.modeling.cylinder", "kh.modeling.union",
-                                          "kh.modeling.cut", "kh.modeling.intersect", "kh.modeling.delete"});
+                                          "kh.modeling.cut", "kh.modeling.intersect", "kh.modeling.duplicate",
+                                          "kh.modeling.delete"});
     CHECK(get(host, "kh.modeling").actions == ids);
 }
 

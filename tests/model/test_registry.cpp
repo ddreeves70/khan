@@ -34,8 +34,9 @@ TEST_CASE("The built-in registry lists its commands sorted by name", "[model][re
     std::vector<std::string> names;
     for (const auto* c : cmds) names.push_back(c->name);
     REQUIRE(names == std::vector<std::string>{"feature.add_boolean", "feature.add_box",
-                                              "feature.add_cylinder", "feature.delete", "feature.rename",
-                                              "feature.set_material", "material.define", "material.delete"});
+                                              "feature.add_cylinder", "feature.delete", "feature.duplicate",
+                                              "feature.rename", "feature.set_material", "material.define",
+                                              "material.delete"});
     for (const auto* c : cmds) {
         REQUIRE_FALSE(c->label.empty());
         REQUIRE_FALSE(c->description.empty());

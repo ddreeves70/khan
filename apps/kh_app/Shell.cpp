@@ -7,6 +7,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QClipboard>
 #include <QCloseEvent>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -16,6 +17,7 @@
 #include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QScreen>
 #include <QSettings>
 #include <QStatusBar>
@@ -27,6 +29,8 @@
 #include "AppUi.h"
 #include "kh/core/Version.h"
 #include "kh/io/KhanFile.h"
+#include "kh/io/Steps.h"
+#include "kh/model/Commands.h"
 #include "kh/plugin/Events.h"
 
 namespace kh::app {
@@ -207,6 +211,17 @@ void Shell::buildMenus() {
     redo_->setObjectName(QStringLiteral("kh.shell.redo"));
     redo_->setShortcuts(
         {QKeySequence(QStringLiteral("Ctrl+Y")), QKeySequence(QStringLiteral("Ctrl+Shift+Z"))});
+    edit->addSeparator();
+    copy_ = edit->addAction(tr("Copy"), this, [this] { copySteps(); });
+    copy_->setObjectName(QStringLiteral("kh.shell.copy"));
+    copy_->setShortcut(QKeySequence::Copy);
+    copy_->setStatusTip(
+        tr("Copy the picked steps, and the steps they use, so you can paste them into any design."));
+    paste_ = edit->addAction(tr("Paste"), this, [this] { pasteSteps(); });
+    paste_->setObjectName(QStringLiteral("kh.shell.paste"));
+    paste_->setShortcut(QKeySequence::Paste);
+    paste_->setStatusTip(tr("Add the copied steps to the end of this design."));
+    connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this, [this] { refresh(); });
 
     toolbar_->addAction(newAct);
     toolbar_->addAction(openAct);
@@ -601,6 +616,77 @@ bool Shell::save() {
     return saveDesign(path).empty();
 }
 
+// ---------------------------------------------------------------------------
+// Copy and paste
+// ---------------------------------------------------------------------------
+
+namespace {
+
+constexpr auto kStepsMime = "application/x-khan-steps";
+
+QString clipboardSteps() {
+    const auto* data = QGuiApplication::clipboard()->mimeData();
+    if (!data) return {};
+    if (data->hasFormat(QString::fromLatin1(kStepsMime))) {
+        return QString::fromUtf8(data->data(QString::fromLatin1(kStepsMime)));
+    }
+    const QString text = data->text();
+    return io::looksLikeSteps(text.toStdString()) ? text : QString();
+}
+
+}  // namespace
+
+void Shell::copySteps() {
+    const auto& sel = host_.selection();
+    const auto* doc = host_.documents().find(activeDesign());
+    if (!doc || sel.doc() != activeDesign() || sel.features().empty()) {
+        showProblems({{"copy.nothing",
+                       Severity::Error,
+                       tr("Pick one or more steps in the feature tree, then copy.").toStdString(),
+                       {}}});
+        return;
+    }
+    const std::string text = io::stepsToText(*doc, sel.features());
+    auto* mime = new QMimeData;  // the clipboard owns it
+    mime->setData(QString::fromLatin1(kStepsMime), QByteArray::fromStdString(text));
+    mime->setText(QString::fromStdString(text));
+    QGuiApplication::clipboard()->setMimeData(mime);
+    const auto copied = io::stepsFromText(text).steps.size();
+    showMessage(copied == 1 ? tr("Copied 1 step.") : tr("Copied %1 steps.").arg(copied));
+}
+
+void Shell::pasteSteps() {
+    const DocId id = activeDesign();
+    if (!host_.documents().find(id)) return;
+    const QString text = clipboardSteps();
+    if (text.isEmpty()) {
+        showProblems({{"paste.not_steps",
+                       Severity::Error,
+                       tr("There are no steps to paste. Pick steps in the feature tree and copy them first.")
+                           .toStdString(),
+                       {}}});
+        return;
+    }
+    auto pasted = io::stepsFromText(text.toStdString());
+    if (!pasted.ok()) {
+        showProblems(pasted.issues);
+        return;
+    }
+    std::vector<FeatureId> ids;
+    for (const auto& f : pasted.steps) ids.push_back(f->id());
+    const std::string label =
+        ids.size() == 1 ? std::string("Paste 1 step") : "Paste " + std::to_string(ids.size()) + " steps";
+    auto problems =
+        host_.documents().execute(id, std::make_unique<model::AddFeaturesCommand>(
+                                          std::move(pasted.steps), std::move(pasted.materials), label));
+    if (!problems.empty()) {
+        showProblems(problems);
+        return;
+    }
+    host_.selection().set(id, ids);
+    showMessage(ids.size() == 1 ? tr("Pasted 1 step.") : tr("Pasted %1 steps.").arg(ids.size()));
+}
+
 void Shell::selectSteps(const QStringList& names) {
     const auto* doc = host_.documents().find(activeDesign());
     if (!doc) return;
@@ -628,6 +714,9 @@ void Shell::refresh() {
     undo_->setEnabled(doc && doc->canUndo());
     redo_->setEnabled(doc && doc->canRedo());
     export_->setEnabled(doc != nullptr);
+    copy_->setEnabled(doc && host_.selection().doc() == activeDesign() &&
+                      !host_.selection().features().empty());
+    paste_->setEnabled(doc && !clipboardSteps().isEmpty());
     undo_->setText(doc && doc->canUndo() ? tr("Undo %1").arg(qs(doc->undoLabel())) : tr("Undo"));
     redo_->setText(doc && doc->canRedo() ? tr("Redo %1").arg(qs(doc->redoLabel())) : tr("Redo"));
 

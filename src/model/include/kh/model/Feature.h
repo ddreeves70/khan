@@ -3,6 +3,7 @@
 /// @file
 /// Features: the steps in a design's history.
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -88,6 +89,22 @@ public:
     /// Lists the features whose results this one uses. They must come earlier in the document.
     /// @return The input features; empty for features that use no others.
     virtual std::vector<FeatureId> dependencies() const { return {}; }
+
+    /// Makes a copy with a new id, for duplicating and pasting. Everything else
+    /// (name, numbers, inputs, material, turned off) is copied as it is.
+    /// @param id The copy's id.
+    /// @return The copy.
+    std::unique_ptr<Feature> copyWithId(FeatureId id) const {
+        auto copy = clone();
+        copy->id_ = id;
+        return copy;
+    }
+
+    /// Points this feature's inputs at other features: an input found in @p map
+    /// is replaced by the id it maps to; others are left alone. Used when a set of
+    /// steps is copied, so the copies use each other, not the originals.
+    /// @param map Old input id to new input id.
+    virtual void remapInputs(const std::map<FeatureId, FeatureId>& map) { (void)map; }
 
     /// Builds this feature's shape. Must be deterministic and must not throw.
     /// @param kernel The geometry kernel to build with.
@@ -263,6 +280,10 @@ public:
     FeatureType type() const override { return FeatureType::Boolean; }
     std::unique_ptr<Feature> clone() const override { return std::make_unique<BooleanFeature>(*this); }
     std::vector<FeatureId> dependencies() const override { return {a_, b_}; }
+    void remapInputs(const std::map<FeatureId, FeatureId>& map) override {
+        if (auto it = map.find(a_); it != map.end()) a_ = it->second;
+        if (auto it = map.find(b_); it != map.end()) b_ = it->second;
+    }
     kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
 
 private:
