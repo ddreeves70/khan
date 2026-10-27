@@ -4,6 +4,7 @@
 /// One 3D view of a design: OCCT draws it inside a Qt widget.
 
 #include <QOpenGLWidget>
+#include <QPoint>
 #include <QString>
 
 #include <memory>
@@ -96,6 +97,11 @@ signals:
 
     /// The student clicked or focused this view (so it becomes the active pane).
     void activated();
+
+    /// The student clicked the right mouse button without dragging (a drag pans),
+    /// asking for the pane's menu.
+    /// @param global Where, on the screen.
+    void menuRequested(QPoint global);
 
     /// OpenGL couldn't start, so the view can't draw.
     /// @param why A plain sentence saying what went wrong and what to do.

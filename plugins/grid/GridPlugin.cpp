@@ -6,6 +6,7 @@
 #include <cmath>
 #include <locale>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 
@@ -44,17 +45,22 @@ std::string statusText(const GridSettings& g) {
            ", snap " + snap;
 }
 
-// The status-bar text, kept up to date by listening to the grid.
+// The status-bar text: the grid in the pane the student is working in.
 class GridLabel final : public QLabel {
 public:
-    GridLabel(plugin::EventBus& bus, const GridService& grid) {
-        setText(QString::fromStdString(statusText(grid.settings())));
-        sub_ = bus.subscribe<GridChanged>(
-            [this](const GridChanged& e) { setText(QString::fromStdString(statusText(e.grid))); });
+    GridLabel(plugin::EventBus& bus, const GridService& grid, const viewoptions::IViewOptions& options)
+        : grid_(grid), options_(options) {
+        update();
+        subs_.push_back(bus.subscribe<GridChanged>([this](const GridChanged&) { update(); }));
+        subs_.push_back(bus.subscribe<viewoptions::PanesChanged>([this](const auto&) { update(); }));
     }
 
 private:
-    plugin::Subscription sub_;
+    void update() { setText(QString::fromStdString(statusText(grid_.settings(options_.activePane())))); }
+
+    const GridService& grid_;
+    const viewoptions::IViewOptions& options_;
+    std::vector<plugin::Subscription> subs_;
 };
 
 void registerGrid(plugin::PluginContext& ctx) {
@@ -77,16 +83,32 @@ void registerGrid(plugin::PluginContext& ctx) {
     auto grid = std::make_shared<GridService>(*options, ctx.events());
     ctx.provide<grid::IGrid>(*grid);
 
-    // Drawing: one lattice overlay, redrawn whenever the grid changes.
+    // Drawing: one lattice overlay for every pane, plus one for each pane that
+    // has its own grid. Redrawn whenever the grid or the panes change.
     auto& overlays = ctx.overlays();
-    overlays.set("grid", gridOverlay(grid->settings()));
-    ctx.listen<GridChanged>(
-        [grid, &overlays](const GridChanged& e) { overlays.set("grid", gridOverlay(e.grid)); });
+    auto drawn = std::make_shared<std::set<std::string>>();  // panes with their own lattice
+    auto redraw = [grid, options, &overlays, drawn] {
+        overlays.set("grid", gridOverlay(grid->settings()));
+        std::set<std::string> now;
+        for (const auto& p : options->panes()) {
+            if (!grid->hasOwn(p.key)) continue;
+            overlays.set("grid", gridOverlay(grid->settings(p.key)), p.key);
+            now.insert(p.key);
+        }
+        for (const auto& pane : *drawn) {
+            if (!now.count(pane)) overlays.remove("grid", pane);
+        }
+        *drawn = std::move(now);
+    };
+    redraw();
+    ctx.listen<GridChanged>([redraw](const GridChanged&) { redraw(); });
+    ctx.listen<viewoptions::PanesChanged>([redraw](const viewoptions::PanesChanged&) { redraw(); });
 
     // The status bar, in the desktop app.
     if (auto* ui = ctx.service<ui::UiRegistry>()) {
         auto& bus = ctx.events();
-        ui->addStatusItem({"kh.grid.status", [grid, &bus] { return new GridLabel(bus, *grid); }});
+        ui->addStatusItem(
+            {"kh.grid.status", [grid, options, &bus] { return new GridLabel(bus, *grid, *options); }});
     }
 }
 
@@ -129,19 +151,33 @@ std::vector<viewoptions::OptionSpec> gridOptions() {
 }
 
 GridService::GridService(viewoptions::IViewOptions& options, plugin::EventBus& bus)
-    : options_(options), bus_(bus), settings_(read()) {
-    sub_ = bus.subscribe<viewoptions::ViewOptionChanged>([this](const viewoptions::ViewOptionChanged& e) {
-        if (e.option.rfind("kh.grid.", 0) == 0) reload();
-    });
+    : options_(options), bus_(bus), settings_(read({})) {
+    sub_ = bus.subscribe<viewoptions::ViewOptionChanged>(
+        [this](const viewoptions::ViewOptionChanged& e) { changed(e); });
 }
 
-GridSettings GridService::read() const {
+namespace {
+const char* const kGridOptions[] = {"kh.grid.show", "kh.grid.snap", "kh.grid.style", "kh.grid.spacing"};
+}  // namespace
+
+GridSettings GridService::read(std::string_view pane) const {
     GridSettings g;
-    g.visible = options_.flag("kh.grid.show");
-    g.snap = options_.flag("kh.grid.snap");
-    g.style = options_.choice("kh.grid.style") == "dots" ? GridStyle::Dots : GridStyle::Lines;
-    if (const double spacing = options_.number("kh.grid.spacing"); spacing > 0) g.spacing = spacing;
+    g.visible = options_.flag("kh.grid.show", pane);
+    g.snap = options_.flag("kh.grid.snap", pane);
+    g.style = options_.choice("kh.grid.style", pane) == "dots" ? GridStyle::Dots : GridStyle::Lines;
+    if (const double spacing = options_.number("kh.grid.spacing", pane); spacing > 0) g.spacing = spacing;
     return g;
+}
+
+GridSettings GridService::settings(std::string_view pane) const {
+    return pane.empty() ? settings_ : read(pane);
+}
+
+bool GridService::hasOwn(std::string_view pane) const {
+    for (const char* id : kGridOptions) {
+        if (options_.hasOwn(id, pane)) return true;
+    }
+    return false;
 }
 
 Diagnostics GridService::set(const GridSettings& next) {
@@ -154,7 +190,7 @@ Diagnostics GridService::set(const GridSettings& next) {
         options_.set("kh.grid.style", std::string(next.style == GridStyle::Dots ? "dots" : "lines"));
     }
     writing_ = false;
-    reload();
+    changed({"kh.grid.spacing", {}});
     return problems;
 }
 
@@ -164,12 +200,26 @@ Diagnostics GridService::setSpacing(double spacing) {
     return set(next);
 }
 
-void GridService::reload() {
-    if (writing_) return;
-    const auto next = read();
+void GridService::changed(const viewoptions::ViewOptionChanged& e) {
+    if (writing_ || e.option.rfind("kh.grid.", 0) != 0) return;
+    if (!e.pane.empty()) {
+        bus_.publish(GridChanged{read(e.pane), e.pane});
+        return;
+    }
+    const auto next = read({});
     if (next == settings_) return;
     settings_ = next;
-    bus_.publish(GridChanged{settings_});
+    bus_.publish(GridChanged{settings_, {}});
+}
+
+kernel::Vec3 GridService::snap(const kernel::Vec3& point, std::string_view pane) const {
+    const auto g = settings(pane);
+    if (!g.snap) return point;
+    auto one = [&](double v) {
+        const double snapped = std::round(v / g.spacing) * g.spacing;
+        return snapped == 0.0 ? 0.0 : snapped;  // no -0
+    };
+    return {one(point.x), one(point.y), one(point.z)};
 }
 
 double GridService::snap(double value) const {

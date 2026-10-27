@@ -72,3 +72,25 @@ TEST_CASE("a plugin's overlays are reachable from its context and removed if it 
     REQUIRE(host.overlays().all().size() == 1);
     CHECK(host.overlays().all()[0].id == "test.fine.guide");
 }
+
+TEST_CASE("an overlay for one pane is drawn there instead of the every-pane one", "[plugin][overlays]") {
+    EventBus bus;
+    OverlayList list(bus);
+    PluginOverlays grid(list, "test.grid");
+    grid.set("lines", line(10));
+    grid.set("lines", line(5), "v1.p2");  // the right pane's own
+    grid.set("marks", line(1), "v1.p2");  // only in the right pane
+    auto lengths = [&](const char* pane) {
+        std::vector<double> out;
+        for (const auto& o : list.forPane(pane)) out.push_back(o.points[1].x);
+        return out;
+    };
+    CHECK(lengths("v1.p1") == std::vector<double>{10});
+    CHECK(lengths("v1.p2") == std::vector<double>{5, 1});
+    CHECK(lengths("") == std::vector<double>{10});
+    CHECK(list.find("test.grid.lines", "v1.p2")->pane == "v1.p2");
+    grid.remove("lines", "v1.p2");
+    CHECK(lengths("v1.p2") == std::vector<double>{10, 1});
+    list.removeOwner("test.grid");  // every pane's
+    CHECK(list.all().empty());
+}

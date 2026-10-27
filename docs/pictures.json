@@ -635,10 +635,32 @@
         ]
       },
       "crop": [
-        1062,
+        1044,
         50,
-        218,
-        300
+        236,
+        320
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-pane-options.png",
+      "size": "1280x800",
+      "script": "tag",
+      "app": {
+        "open": "tag.khan",
+        "settings": {
+          "plugins/kh.viewoptions/panes/viewer1.pane2/kh.grid.spacing": "2",
+          "plugins/kh.viewoptions/panes/viewer1.pane2/kh.axes.labels": "false",
+          "plugins/kh.viewoptions/pane_keys": "viewer1.pane2"
+        },
+        "trigger": [
+          "kh.viewer.layout.fourpanes"
+        ]
+      },
+      "crop": [
+        264,
+        50,
+        672,
+        728
       ]
     },
     {

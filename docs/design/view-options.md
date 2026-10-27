@@ -146,6 +146,12 @@ The grid's status-bar text stays in `kh.grid` and shows the active pane's values
    when that plugin is in `requires`.
 2. Per-pane values: pane keys from the viewer, overlays for one pane, the
    right-click menu, panel scope, markers, saved with layouts, and `kh.grid/2`.
+   *Built Oct 27, 2026 (plugin API 10).* Differences from the plan: a pane's own
+   values are remembered with the app's settings (by pane key, like
+   "viewer1.pane2"), not in named layouts; the marker is a yellow "Own view
+   options" strip at the top of the pane with **Same as all panes**; and
+   `kh.grid/2` replaces `kh.grid/1` instead of sitting next to it, since nothing
+   outside Khan used it yet.
 
 Each step updates the plugin guide (a new "Add view options" section replacing
 the hand-made check-mark example for view settings) and the user guide.
