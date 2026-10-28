@@ -66,11 +66,11 @@ phases, asked for once Phase 0 was done (see [Copying and grouping steps](copy-a
 - A Move step that slides and turns a body (not on the roadmap before; Phase 2's
   mirror and patterns build on it).
 
-Phase 1 is next.
+Phase 1 started Oct 28, 2026.
 
 ### Phase 1: Sketcher
 
-- PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry.
+- PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry. (Solver built Oct 28, 2026: `kh_sketch`, `ISketchSolver`, PlaneGCS as a shared library; see [The sketcher](sketcher.md).)
 - Core constraints and driving dimensions; degrees-of-freedom coloring; conflict highlighting.
 - Auto-constraints while drawing, snapping, and closed-profile detection.
 - **Full B-spline support,** after lines, arcs and circles work (early Phase 2 if Phase 1 runs long). Spline constraints are where a solver most easily fails, so they come once the basic sketcher is solid:

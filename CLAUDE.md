@@ -14,7 +14,7 @@ cmake --preset dev
 cmake --build --preset dev
 ctest --preset dev
 
-# Linux with system packages (OCCT, Catch2, TBB, Qt 6, nlohmann-json and libzip from apt)
+# Linux with system packages (OCCT, Catch2, TBB, Qt 6, nlohmann-json, libzip and Eigen from apt)
 cmake --preset system
 cmake --build --preset system
 ctest --preset system
@@ -52,6 +52,8 @@ below it.
 | `kh_plugin` | Plugin host, manifests, event bus, open documents | `kh_model`, `kh_kernel`, `kh_core` |
 | `kh_io` | `.khan` files: save and open (zip + JSON) | `kh_model`, `kh_core`, libzip, nlohmann_json |
 | `kh_model` | Document, parameters, feature graph, commands, naming | `kh_kernel`, `kh_core` |
+| `kh_sketch_planegcs` | `ISketchSolver` on PlaneGCS | `kh_sketch`, `kh_planegcs` (LGPL, shared library, `third_party/planegcs`) |
+| `kh_sketch` | 2D sketch geometry, constraints, `ISketchSolver` interface | `kh_core` |
 | `kh_kernel_occt` | `IKernel` on OCCT | `kh_kernel`, OCCT |
 | `kh_kernel` | `IKernel` interface and value types | `kh_core` |
 | `kh_core` | Ids, units, diagnostics, version | standard library only |
@@ -59,7 +61,8 @@ below it.
 1. **Only `kh_kernel_occt` and `kh_view` may include OCCT headers**, and never in
    a public header (`kh/kernel_occt/OcctShape.h` only forward-declares `TopoDS_Shape`). Nothing
    in `kh_kernel` or `kh_model` may mention an OCCT type. Shapes cross the boundary
-   as `ShapeHandle`.
+   as `ShapeHandle`. Likewise, **only `kh_sketch_planegcs` may include PlaneGCS
+   headers**, never in a public header; sketches cross as `kh::sketch` values.
 2. **Only Commands change a Document.** UI, Python scripts, lessons and the AI
    assistant all go through the command stack, so undo and history always work.
 3. **No exceptions across library boundaries.** Report problems as `kh::Diagnostic`
