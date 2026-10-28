@@ -115,6 +115,25 @@ ctx.addAction({.id = "sam.notes.show_dates",
   whenever a setting changes, so the check mark is always right.
 - `currentText` (optional) gives the item's words the same way, for items like
   **Other (12.5 mm)...** whose words change.
+- `enabled` (optional) greys the item out whenever it returns `false`, so a
+  student can't pick something that can't work right now. Khan asks it at the
+  same times as `checked`. If it depends on something only your plugin knows
+  (like "a sketch is being edited"), send `plugin::ActionsChanged{}` with
+  `ctx.publish` when that changes, and Khan asks again:
+
+```cpp
+static bool recording = false;  // something only this plugin knows
+ctx.addAction({.id = "sam.notes.stop",
+               .text = "Stop recording",
+               .menu = "View",
+               .run = [&ctx] {
+                   recording = false;
+                   ctx.publish(plugin::ActionsChanged{});
+               },
+               .enabled = [] { return recording; }});
+```
+
+- An item with `enabled` that throws an exception is greyed out.
 - An item has a command *or* a `run` function, never both and never neither;
   Khan refuses the plugin otherwise.
 - Changes to designs still go through commands. A `run` function that wants to
@@ -391,6 +410,7 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `kh::grid::GridChanged` | The grid settings change (sent by `kh.grid`, desktop app) | `grid`: visible, spacing in mm, snap, style |
 | `OverlaysChanged` | An overlay is added, changed or removed | `id` |
 | `SettingChanged` | A plugin's setting changes | `plugin` (its id), `key` (the setting's name) |
+| `ActionsChanged` | A plugin says its menu items' `enabled`, `checked` or words may have changed | nothing |
 
 Things to know:
 

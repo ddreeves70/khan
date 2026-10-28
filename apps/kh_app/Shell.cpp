@@ -146,6 +146,8 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* 
     subs_.push_back(host_.events().subscribe<SelectionChanged>(later));
     subs_.push_back(
         host_.events().subscribe<SettingChanged>([this](const SettingChanged&) { refreshActions(); }));
+    subs_.push_back(
+        host_.events().subscribe<ActionsChanged>([this](const ActionsChanged&) { refreshActions(); }));
 
     // Start with an empty design, so Create works straight away.
     host_.documents().add(std::make_unique<model::Document>(model::DocKind::Part, "Untitled"));
@@ -395,7 +397,24 @@ void Shell::rebuildLayoutMenu() {
 // ---------------------------------------------------------------------------
 
 void Shell::refreshActions() {
+    const auto* doc = host_.documents().find(activeDesign());
+    const auto& sel = host_.selection();
     for (auto& [spec, a] : actions_) {
+        // Enabled: a design to change (or the plugin's own code), the steps it needs
+        // picked, and whatever the plugin says.
+        bool ok = doc != nullptr || static_cast<bool>(spec.run);
+        if (!spec.fromSelection.empty()) {
+            ok = ok && sel.doc() == activeDesign() && sel.features().size() == spec.fromSelection.size();
+        }
+        if (!spec.fromSelectionList.empty()) {
+            ok = ok && sel.doc() == activeDesign() && !sel.features().empty();
+        }
+        try {
+            if (ok && spec.enabled) ok = spec.enabled();
+        } catch (...) {
+            ok = false;  // a plugin's function failed: grey the item out
+        }
+        a->setEnabled(ok);
         try {
             if (spec.checked) a->setChecked(spec.checked());
             if (spec.currentText) a->setText(qs(spec.currentText()));
@@ -732,17 +751,6 @@ void Shell::refresh() {
     undo_->setText(doc && doc->canUndo() ? tr("Undo %1").arg(qs(doc->undoLabel())) : tr("Undo"));
     redo_->setText(doc && doc->canRedo() ? tr("Redo %1").arg(qs(doc->redoLabel())) : tr("Redo"));
 
-    const auto& sel = host_.selection();
-    for (auto& [spec, a] : actions_) {
-        bool ok = doc != nullptr || static_cast<bool>(spec.run);
-        if (!spec.fromSelection.empty()) {
-            ok = ok && sel.doc() == activeDesign() && sel.features().size() == spec.fromSelection.size();
-        }
-        if (!spec.fromSelectionList.empty()) {
-            ok = ok && sel.doc() == activeDesign() && !sel.features().empty();
-        }
-        a->setEnabled(ok);
-    }
     refreshActions();
 }
 

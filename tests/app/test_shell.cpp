@@ -70,6 +70,7 @@ void panelThenFail(plugin::PluginContext& ctx) {
 
 // A plugin with a setting, a check-mark item in a View submenu, and a status-bar
 // item, like the plugin guide's examples.
+bool tapeReady = false;  // something Khan can't see, for the "enabled" rule
 void units(plugin::PluginContext& ctx) {
     auto& settings = ctx.settings();
     ctx.addAction(
@@ -81,6 +82,16 @@ void units(plugin::PluginContext& ctx) {
          .checked = [&settings] { return settings.flag("inches"); },
          .currentText =
              [&settings] { return std::string(settings.flag("inches") ? "Inches (on)" : "Inches"); }});
+    ctx.addAction({.id = "test.units.measure",
+                   .text = "Measure",
+                   .menu = "View/Units",
+                   .run = [] {},
+                   .enabled = [] { return tapeReady; }});
+    ctx.addAction({.id = "test.units.broken_rule",
+                   .text = "Broken rule",
+                   .menu = "View/Units",
+                   .run = [] {},
+                   .enabled = []() -> bool { throw std::runtime_error("no tape"); }});
     ctx.addAction({.id = "test.units.oops", .text = "Oops", .menu = "View/Units", .run = [] {
                        throw std::runtime_error("no tape");
                    }});
@@ -661,15 +672,45 @@ TEST_CASE("Escape stops the shape being drawn, then stops editing", "[app][sketc
     CHECK(sketchAt(app, 0).sketch().entities.size() == 1);
 }
 
-TEST_CASE("Edit sketch needs a sketch picked, and stops if the sketch goes away", "[app][sketcher]") {
+TEST_CASE("Sketch menu items are grey when they can't be used", "[app][sketcher]") {
+    App app;
+    auto enabled = [&](const char* id) { return app.shell->action(id)->isEnabled(); };
+    auto toolsOn = [&] {
+        return enabled("kh.sketcher.line") && enabled("kh.sketcher.circle") && enabled("kh.sketcher.arc") &&
+               enabled("kh.sketcher.point");
+    };
+    auto toolsOff = [&] {
+        return !enabled("kh.sketcher.line") && !enabled("kh.sketcher.circle") &&
+               !enabled("kh.sketcher.arc") && !enabled("kh.sketcher.point");
+    };
+    // Nothing picked, not editing: only the New sketch items work.
+    CHECK(enabled("kh.sketcher.new_xy"));
+    CHECK_FALSE(enabled("kh.sketcher.edit"));
+    CHECK_FALSE(enabled("kh.sketcher.finish"));
+    CHECK(toolsOff());
+
+    app.click("kh.modeling.box");  // Box1 is picked: not a sketch
+    CHECK_FALSE(enabled("kh.sketcher.edit"));
+
+    app.click("kh.sketcher.new_xy");  // editing Sketch2
+    CHECK(enabled("kh.sketcher.finish"));
+    CHECK_FALSE(enabled("kh.sketcher.edit"));  // already editing
+    CHECK(toolsOn());
+
+    app.click("kh.sketcher.finish");
+    CHECK_FALSE(enabled("kh.sketcher.finish"));
+    CHECK(toolsOff());
+    app.pickRows({1});  // Sketch1
+    CHECK(enabled("kh.sketcher.edit"));
+    app.pickRows({0, 1});  // two steps
+    CHECK_FALSE(enabled("kh.sketcher.edit"));
+    app.pickRows({0});  // Box1
+    CHECK_FALSE(enabled("kh.sketcher.edit"));
+}
+
+TEST_CASE("Edit sketch draws in the picked sketch, and stops if the sketch goes away", "[app][sketcher]") {
     App app;
     app.click("kh.modeling.box");
-    app.click("kh.sketcher.edit");  // Box1 is picked: not a sketch
-    REQUIRE(app.shell->lastProblems().size() == 1);
-    CHECK(app.shell->lastProblems()[0].code == "sketch.pick");
-    app.click("kh.sketcher.circle");  // tools need a sketch being edited
-    CHECK(app.shell->lastProblems()[0].code == "sketch.not_editing");
-
     app.click("kh.sketcher.new_yz");
     auto* viewer = seenViewer;
     CHECK(viewer->tool() != nullptr);
@@ -677,6 +718,7 @@ TEST_CASE("Edit sketch needs a sketch picked, and stops if the sketch goes away"
     app.shell->undoAction()->trigger();  // the sketch is gone
     settle();
     CHECK(viewer->tool() == nullptr);
+    CHECK_FALSE(app.shell->action("kh.sketcher.finish")->isEnabled());
 
     app.pickRows({0});
     app.click("kh.sketcher.new_xy");
@@ -1275,6 +1317,22 @@ TEST_CASE("a plugin's status-bar item shows, and its setting lasts between runs"
     REQUIRE(label);
     CHECK(label->text() == QStringLiteral("in"));
     CHECK(app.shell->action("test.units.inches")->isChecked());
+}
+
+TEST_CASE("a plugin item is enabled by its own rule, and updates on ActionsChanged", "[app][settings]") {
+    tapeReady = false;
+    App app;
+    auto* a = app.shell->action("test.units.measure");
+    REQUIRE(a);
+    CHECK_FALSE(a->isEnabled());
+    tapeReady = true;
+    app.host.events().publish(plugin::ActionsChanged{});
+    CHECK(a->isEnabled());
+    tapeReady = false;
+    app.host.events().publish(plugin::ActionsChanged{});
+    CHECK_FALSE(a->isEnabled());
+    // A rule that throws just leaves the item grey.
+    CHECK_FALSE(app.shell->action("test.units.broken_rule")->isEnabled());
 }
 
 TEST_CASE("a plugin action that fails says so, without closing Khan", "[app][settings]") {

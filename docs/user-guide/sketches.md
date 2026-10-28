@@ -18,9 +18,11 @@ dimensions, and the solver makes it exact.
 1. **Sketch > New sketch on XY (the ground)** (Ctrl+Shift+K), or on XZ or YZ. Khan
    adds `Sketch1`, turns the view to look straight at its plane, and starts
    drawing lines. To draw in a sketch you already have, pick it in the feature
-   tree and use **Sketch > Edit sketch** (Ctrl+K).
+   tree and use **Sketch > Edit sketch** (Ctrl+K). It's grey unless exactly one
+   sketch is picked, and while you're already editing one.
 2. Pick a tool in **Sketch > Draw**, then click in the view. The status bar says
-   what to click next.
+   what to click next. The tools (and **Finish sketch**) are grey until you're
+   editing a sketch.
 
 | Tool | Click |
 | --- | --- |

@@ -31,8 +31,9 @@ class PluginContext;
 /// sketches: Sketch steps (model::SketchFeature), points on a sketch's plane as
 /// command arguments (model::ArgType::Vec2), the solved sketch in a rebuild
 /// result (model::FeatureResult::sketch), and the sketch solver given to
-/// PluginHost and DocumentList.
-inline constexpr int kPluginApiVersion = 13;
+/// PluginHost and DocumentList. Version 14 added menu items that are enabled
+/// only when the plugin says so (ActionSpec::enabled) and the ActionsChanged event.
+inline constexpr int kPluginApiVersion = 14;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

@@ -58,6 +58,11 @@ struct ActionSpec {
     /// If set, the item has a check mark, shown when this returns true. Khan asks
     /// when the menu opens and after every change (SettingChanged, design changes).
     std::function<bool()> checked{};
+    /// If set, the item is enabled only while this returns true (on top of the
+    /// rules for `fromSelection`), and greyed out otherwise. Khan asks when a menu
+    /// opens, after design, selection and setting changes, and when a plugin sends
+    /// ActionsChanged. Without it, an item that runs your code is always enabled.
+    std::function<bool()> enabled{};
     /// If set, the words on the item come from this instead of `text`, asked at
     /// the same times as `checked`, e.g. "Other (12.5 mm)...".
     std::function<std::string()> currentText{};

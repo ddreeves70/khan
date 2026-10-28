@@ -100,6 +100,7 @@ public:
         viewer->startTool(*this, toolPlane(step->plane()));
         draw();
         hint();
+        ctx_.publish(plugin::ActionsChanged{});  // Finish and the tools turn on, Edit turns off
     }
 
     void finish() {
@@ -109,7 +110,10 @@ public:
         pending_.clear();
         hover_.reset();
         draw();
-        if (was) message("Finished the sketch.");
+        if (was) {
+            message("Finished the sketch.");
+            ctx_.publish(plugin::ActionsChanged{});
+        }
     }
 
     void setTool(Tool tool) {
@@ -453,6 +457,16 @@ void registerSketcher(plugin::PluginContext& ctx) {
                              .menu = "Sketch",
                              .tip = "Start a sketch standing up, seen from the right, and draw in it.",
                              .run = [newSketch] { newSketch("yz"); }});
+    // The one sketch picked in the active design, if that's what's picked.
+    auto pickedSketch = [&ctx]() -> std::optional<FeatureId> {
+        const auto& sel = ctx.selection();
+        const DocId active = ctx.documents().active();
+        const auto* doc = ctx.documents().find(active);
+        if (!doc || sel.doc() != active || sel.features().size() != 1) return std::nullopt;
+        const auto* f = doc->find(sel.features()[0]);
+        if (!f || f->type() != model::FeatureType::Sketch) return std::nullopt;
+        return f->id();
+    };
     ctx.addAction(ActionSpec{
         .id = "kh.sketcher.edit",
         .text = "Edit sketch",
@@ -460,29 +474,25 @@ void registerSketcher(plugin::PluginContext& ctx) {
         .shortcut = "Ctrl+K",
         .tip = "Draw in the picked sketch.",
         .run =
-            [&ctx, sketcher] {
-                const auto& sel = ctx.selection();
-                const auto* doc = ctx.documents().find(ctx.documents().active());
-                const auto* f = doc && sel.doc() == ctx.documents().active() && sel.features().size() == 1
-                                    ? doc->find(sel.features()[0])
-                                    : nullptr;
-                if (!f || f->type() != model::FeatureType::Sketch) {
-                    if (auto* ui = ctx.service<ui::UiRegistry>())
-                        ui->showProblems({{"sketch.pick",
-                                           Severity::Error,
-                                           "Pick one sketch in the feature tree first, like "
-                                           "Sketch1.",
-                                           {}}});
-                    return;
+            [&ctx, sketcher, pickedSketch] {
+                if (const auto id = pickedSketch()) {
+                    sketcher->begin(*id);
+                } else if (auto* ui = ctx.service<ui::UiRegistry>()) {
+                    ui->showProblems({{"sketch.pick",
+                                       Severity::Error,
+                                       "Pick one sketch in the feature tree first, like "
+                                       "Sketch1.",
+                                       {}}});
                 }
-                sketcher->begin(f->id());
             },
-        .checked = [sketcher] { return sketcher->editing(); }});
+        // Only with one sketch picked, and not while already editing one.
+        .enabled = [sketcher, pickedSketch] { return !sketcher->editing() && pickedSketch().has_value(); }});
     ctx.addAction(ActionSpec{.id = "kh.sketcher.finish",
                              .text = "Finish sketch",
                              .menu = "Sketch",
                              .tip = "Stop drawing. Clicks in the viewer pick and turn the view again.",
-                             .run = [sketcher] { sketcher->finish(); }});
+                             .run = [sketcher] { sketcher->finish(); },
+                             .enabled = [sketcher] { return sketcher->editing(); }});
     struct ToolItem {
         const char* id;
         const char* text;
@@ -504,7 +514,8 @@ void registerSketcher(plugin::PluginContext& ctx) {
             .menu = "Sketch/Draw",
             .tip = t.tip,
             .run = [sketcher, tool] { sketcher->setTool(tool); },
-            .checked = [sketcher, tool] { return sketcher->editing() && sketcher->tool() == tool; }});
+            .checked = [sketcher, tool] { return sketcher->editing() && sketcher->tool() == tool; },
+            .enabled = [sketcher] { return sketcher->editing(); }});
     }
 
     // Redraw after every rebuild, and stop editing a sketch that went away.
