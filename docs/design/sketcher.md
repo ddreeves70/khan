@@ -86,9 +86,14 @@ tangency does. "Touching edges" plus "shared point" look like the same constrain
 twice at the solved shape, which made the degrees of freedom wrong. The student
 just adds Coincident and Tangent; the adapter picks the right form.
 
-**Same answer every time.** PlaneGCS keys some tables by memory address, so the
-tests check that the same sketch gives the same numbers, bit for bit, within one
-run and across separate runs.
+**Same answer every time.** PlaneGCS orders its unknowns by memory address (a
+`std::set<double*>`), and that order sets the order of its sums, so numbers
+scattered around memory could make the same sketch solve to answers that differ in
+the last bits. (They did on Windows, Oct 28, 2026.) The adapter keeps every number
+in one array, filled in a fixed order, so addresses rise in creation order on
+every computer, and it lists conflicting and repeated constraints in the sketch's
+order. The tests check that the same sketch gives the same numbers, bit for bit,
+after scattering the heap between solves.
 
 ## The Sketch step (step 2)
 

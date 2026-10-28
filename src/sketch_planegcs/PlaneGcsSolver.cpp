@@ -3,12 +3,12 @@
 #include <planegcs/GCS.h>
 
 #include <cmath>
-#include <deque>
 #include <exception>
 #include <memory>
 #include <numbers>
 #include <optional>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
@@ -30,20 +30,26 @@ struct Built {
     GCS::Arc arc;
 };
 
+// Every number lives in one array, filled in a fixed order, so the numbers' memory
+// addresses rise in the order they were made, on every computer. PlaneGCS orders
+// its unknowns by address (std::set<double*> in SubSystem::initialize), and that
+// order sets the order of its sums: with numbers scattered around memory, the same
+// sketch could solve to answers that differ in the last bits.
 class Builder {
 public:
+    // Room for every number the sketch can need; the array never grows, so the
+    // addresses PlaneGCS holds stay valid.
+    explicit Builder(std::size_t capacity) { numbers_.reserve(capacity); }
+
     // A number the solver may change.
     double* unknown(double value) {
-        numbers_.push_back(value);
-        unknowns_.push_back(&numbers_.back());
-        return &numbers_.back();
+        double* p = add(value);
+        unknowns_.push_back(p);
+        return p;
     }
 
     // A number the solver must keep (a dimension's value, a fixed position).
-    double* constant(double value) {
-        numbers_.push_back(value);
-        return &numbers_.back();
-    }
+    double* constant(double value) { return add(value); }
 
     GCS::Point point(Point2 p) {
         GCS::Point g;
@@ -55,7 +61,13 @@ public:
     GCS::VEC_pD& unknowns() { return unknowns_; }
 
 private:
-    std::deque<double> numbers_;
+    double* add(double value) {
+        if (numbers_.size() == numbers_.capacity()) throw std::logic_error("sketch number array is full");
+        numbers_.push_back(value);
+        return &numbers_.back();
+    }
+
+    std::vector<double> numbers_;
     GCS::VEC_pD unknowns_;
 };
 
@@ -95,7 +107,10 @@ std::optional<PointRef> jointOf(const Sketch& sketch, const EntityId& a, const E
 // It holds pointers into itself, so it's made once and never moved.
 class GcsModel {
 public:
-    GcsModel(const std::vector<Entity>& entities, const Sketch& sketch) : built(entities.size()) {
+    // At most 9 numbers per entity (an arc: center, radius, two angles, two ends)
+    // and 2 constants per constraint (a Fix's x and y).
+    GcsModel(const std::vector<Entity>& entities, const Sketch& sketch)
+        : builder(9 * entities.size() + 2 * sketch.constraints.size()), built(entities.size()) {
         Sketch whole{entities, sketch.constraints};
         auto& b = builder;
 
@@ -373,14 +388,14 @@ private:
         auto second = std::make_unique<GcsModel>(solved, sketch);
         second->sys.initSolution();
         result.freedom = second->sys.dofsNumber();
+        // In the sketch's order (PlaneGCS lists them in an order that depends on memory addresses).
         auto toIds = [&](const GCS::VEC_I& tags) {
             std::set<int> seen;
-            std::vector<ConstraintId> ids;
             for (int t : tags) {
-                if (t < 1 || t > static_cast<int>(sketch.constraints.size()) || !seen.insert(t).second)
-                    continue;
-                ids.push_back(sketch.constraints[static_cast<std::size_t>(t - 1)].id);
+                if (t >= 1 && t <= static_cast<int>(sketch.constraints.size())) seen.insert(t);
             }
+            std::vector<ConstraintId> ids;
+            for (int t : seen) ids.push_back(sketch.constraints[static_cast<std::size_t>(t - 1)].id);
             return ids;
         };
         GCS::VEC_I conflicting, redundant;
