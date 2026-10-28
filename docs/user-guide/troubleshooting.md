@@ -17,7 +17,8 @@ Untitled: 1 step
 ```
 
 Steps that use a failed step show `blocked`: fix the failed step first, and they
-build again.
+build again. A step is also `blocked` when it uses a step that's turned off
+(`off`): turn that step back on (Edit > Turn on), or change the blocked step.
 
 ## A command was typed wrong
 

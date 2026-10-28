@@ -45,6 +45,10 @@ struct ActionSpec {
     std::vector<std::string> fromSelection{};  ///< Arguments filled from the selected steps, in order.
                                                ///< The action is only enabled when exactly this many
                                                ///< steps are selected.
+    /// An argument filled with every selected step, in the order picked (an
+    /// ArgType::FeatureList argument). The action is enabled when one or more
+    /// steps are selected. Use this or `fromSelection`, not both.
+    std::string fromSelectionList{};
     std::string shortcut{};  ///< Keyboard shortcut, e.g. "Ctrl+B" or "Delete". May be empty.
     bool toolbar = false;    ///< True to also show it as a toolbar button.
     std::string tip{};       ///< One plain sentence shown when the mouse rests on it.

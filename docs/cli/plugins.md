@@ -47,6 +47,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.duplicate
            command feature.rename
            command feature.set_material
+           command feature.suppress
            command material.define
            command material.delete
            action  Create > Box  (feature.add_box)
@@ -55,6 +56,8 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            action  Combine > Cut  (feature.add_boolean)
            action  Combine > Intersect  (feature.add_boolean)
            action  Edit > Duplicate step  (feature.duplicate)
+           action  Edit > Turn off  (feature.suppress)
+           action  Edit > Turn on  (feature.suppress)
            action  Edit > Delete step  (feature.delete)
 ```
 
@@ -80,6 +83,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.duplicate
            command feature.rename
            command feature.set_material
+           command feature.suppress
            command material.define
            command material.delete
            action  Create > Box  (feature.add_box)
@@ -88,6 +92,8 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            action  Combine > Cut  (feature.add_boolean)
            action  Combine > Intersect  (feature.add_boolean)
            action  Edit > Duplicate step  (feature.duplicate)
+           action  Edit > Turn off  (feature.suppress)
+           action  Edit > Turn on  (feature.suppress)
            action  Edit > Delete step  (feature.delete)
 loaded   example.hello 1.0.0  Hello
            tier    tools
@@ -111,7 +117,7 @@ failed   test.badname 1.0.0  Test badname
 failed   test.noentry 1.0.0  Test noentry
            error [plugin.library_bad]: The Test noentry plugin's program file isn't a Khan plugin (it has no KH_PLUGIN_ENTRY). Ask its author for a fixed version. (...)
 failed   test.oldapi 1.0.0  Test oldapi
-           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 10). Get a version of the plugin made for this Khan. (...)
+           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 11). Get a version of the plugin made for this Khan. (...)
 ```
 
 Every reason and its fix is listed in the plugin guide's

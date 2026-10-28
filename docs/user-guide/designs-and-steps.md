@@ -62,7 +62,8 @@ is finished. A 3D printer prints the finished bodies.
 
 ## Changing a design
 
-Every change is a **command**: add a step, rename a step, delete a step. Commands
+Every change is a **command**: add a step, rename a step, turn a step off,
+delete a step. Commands
 are what the desktop app's buttons, scripts and the AI assistant run, and they
 are why undo works for everything.
 

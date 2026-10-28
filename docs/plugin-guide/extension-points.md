@@ -31,6 +31,7 @@ Argument types:
 | `Choice` | `std::string`, one of `choices` | `operation=cut` | `model::argText` |
 | `Vec3` | `kernel::Vec3`, in mm | `at=10,0,5` | `model::argVec3` |
 | `FeatureRef` | `FeatureId` of a step | `a=Box1` | `model::argFeature` |
+| `FeatureList` | `std::vector<FeatureId>`, one or more steps | `steps=Box1,Hole` | `model::argFeatures` |
 
 Khan checks the arguments before calling your factory: unknown names, missing
 required arguments, wrong types, choices and steps that don't exist all get a
@@ -68,6 +69,21 @@ ctx.addAction({.id = "kh.modeling.cut", .text = "Cut", .menu = "Combine",
                .fromSelection = {"a", "b"},
                .tip = "Cut the second selected body out of the first."});
 ```
+
+**All the selected steps.** For a command that works on any number of steps,
+give a `FeatureList` argument's name in `fromSelectionList`. Khan fills it with
+every selected step, in the order they were picked, and enables the item when one
+or more steps are selected. This is how **Edit > Turn off** works:
+
+```cpp
+ctx.addAction({.id = "kh.modeling.turn_off", .text = "Turn off", .menu = "Edit",
+               .command = "feature.suppress",
+               .args = {{"off", true}},
+               .fromSelectionList = "steps",
+               .tip = "Turn the picked steps off, so they aren't built. Nothing is deleted."});
+```
+
+Use `fromSelection` or `fromSelectionList`, not both.
 
 **Submenus.** A `/` in `menu` makes a submenu: `.menu = "View/Grid style"` puts
 the item in the **Grid style** submenu of **View**.

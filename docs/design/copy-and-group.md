@@ -1,7 +1,7 @@
 # Copying and grouping steps
 
-> **Draft.** Part 1 (copy, paste and duplicate) is built. The other parts are the
-> plan, in the order they'll be built.
+> **Draft.** Parts 1 and 2 (copy, paste and duplicate; turning steps off) are
+> built. The other parts are the plan, in the order they'll be built.
 
 Students want to reuse what they've made (another hole like this one, the same
 bracket in a new design) and to keep big feature trees tidy. This page covers
@@ -10,8 +10,8 @@ six asks, built in this order:
 | Part | What the student gets | Status |
 | --- | --- | --- |
 | 1. Duplicate, Copy and Paste | New steps with the same numbers, in this design or another one | Built |
-| 2. Turn steps off together | Turn off (suppress) several picked steps at once, and back on | Next |
-| 3. Folders in the feature tree | Put steps in a named folder that opens and closes | Planned |
+| 2. Turn steps off together | Turn off (suppress) several picked steps at once, and back on | Built |
+| 3. Folders in the feature tree | Put steps in a named folder that opens and closes | Next |
 | 4. Move, then linked copies | A Move step, then copies that follow their original | Planned |
 | 5. Groups that move together | Bodies grouped into a part you can place as one | Needs its own design |
 
@@ -59,15 +59,22 @@ copies are independent: changing one never changes the other.
 
 ## 2. Turn steps off together
 
-Steps can already be turned off (`suppressed` is saved in `.khan` files and
-shown as `off` in the feature tree), but nothing in the app or `kh_cli` changes
-it yet. Part 2 adds:
+Steps could already be off (`suppressed` is saved in `.khan` files and shown as
+`off` in the feature tree); now the student can change it.
 
-- `feature.suppress` with `feature` and `off` (true or false), and a
-  `SuppressFeaturesCommand` that changes several steps as one undo step.
-- Edit > Turn off and Edit > Turn on for the picked steps, and the same on the
-  feature tree's right-click menu.
-- A step that uses a step that's off is `blocked`, as today.
+- `kh_model`: `SuppressFeaturesCommand(ids, off)` turns several steps off or on
+  as **one** undo step. Steps already that way are left alone, and undo only
+  changes the ones it changed. If none would change, it says so
+  (`feature.already_off`, `feature.already_on`).
+- `feature.suppress` takes `steps` (a new argument type, `FeatureList`: one or
+  more steps, `steps=Box1,Hole` on the command line) and `off` (default true).
+- Plugin API 11: `ActionSpec::fromSelectionList` fills a `FeatureList` argument
+  with every selected step and enables the item when one or more are selected.
+  kh.modeling uses it for **Edit > Turn off** and **Edit > Turn on**. The feature
+  tree's right-click menu has the same item, for the picked steps (or just the
+  row clicked, if it isn't picked).
+- A step that uses a step that's off is `blocked`, with a message naming the step
+  to turn back on, as before.
 
 ## 3. Folders in the feature tree
 

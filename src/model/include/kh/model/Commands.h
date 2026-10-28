@@ -57,6 +57,30 @@ private:
     std::size_t index_ = 0;
 };
 
+/// Turns steps off (suppresses them) so they aren't built, or back on, as one
+/// undo step. A step that uses a step that's off is blocked until it's on again.
+///
+/// @code
+/// doc.execute(std::make_unique<SuppressFeaturesCommand>(std::vector<FeatureId>{holeId}, true));
+/// @endcode
+class SuppressFeaturesCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param ids The steps, in the order picked.
+    /// @param off True to turn them off, false to turn them back on.
+    SuppressFeaturesCommand(std::vector<FeatureId> ids, bool off);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    std::vector<FeatureId> ids_;
+    bool off_;
+    std::vector<FeatureId> changed_;  // the steps that weren't already that way
+    std::string label_;
+};
+
 /// Replaces a feature with an edited copy that has the same id and type.
 ///
 /// @code

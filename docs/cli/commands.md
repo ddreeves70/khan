@@ -16,6 +16,7 @@ All lengths are in millimeters (mm). Positions and sizes are written `x,y,z`:
 | [`feature.delete`](#featuredelete) | Deletes a step |
 | [`feature.duplicate`](#featureduplicate) | Copies a step, and the steps it uses |
 | [`feature.set_material`](#featureset_material) | Picks what a body is made of |
+| [`feature.suppress`](#featuresuppress) | Turns steps off, or back on |
 | [`material.define`](#materialdefine) | Adds a material of your own, or changes one |
 | [`material.delete`](#materialdelete) | Removes a material you added |
 
@@ -259,6 +260,55 @@ $ kh_cli demo tag.khan
 wrote tag.khan
 $ kh_cli run --open tag.khan feature.set_material feature=Plate material=gold
 error [material.unknown]: There is no material called gold. See the list with kh_cli materials, or add your own with material.define.
+```
+
+## feature.suppress
+
+Turns steps off, so they aren't built, or back on. Nothing is deleted: a step
+that's off keeps all its numbers. A step that uses a step that's off is
+`blocked` until that step is on again. Turning several steps off or on is one
+undo step.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `steps` | step names | yes | The steps, separated by commas, like `Box1,Hole` |
+| `off` | true or false | no | `true` (the default) turns them off; `false` turns them back on |
+
+In the [demo tag](demo.md), turning off `Hole` blocks `Tag`, which cuts it out of
+`Plate`. Because a step is blocked, `kh_cli` ends with exit code 1, but the design
+is still saved:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli demo demo.khan
+wrote demo.khan
+$ kh_cli run --open demo.khan --save demo.khan feature.suppress steps=Hole
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         off
+  Tag          blocked
+    error [feature.blocked]: This step uses Hole, which is turned off. Turn Hole back on, or change this step.
+wrote demo.khan
+```
+
+Turn it back on with `off=false`:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open demo.khan --save demo.khan feature.suppress steps=Hole off=false
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote demo.khan
+```
+
+Steps that are already that way can't be changed again:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open demo.khan feature.suppress steps=Plate,Hole off=false
+error [feature.already_on]: Those steps are already turned on.
 ```
 
 ## material.define
