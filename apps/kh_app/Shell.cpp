@@ -26,7 +26,9 @@
 #include <algorithm>
 #include <cctype>
 
+#include "AppIcons.h"
 #include "AppUi.h"
+#include "Icons.h"
 #include "kh/core/Version.h"
 #include "kh/io/KhanFile.h"
 #include "kh/io/Steps.h"
@@ -176,6 +178,8 @@ void Shell::buildMenus() {
     toolbar_ = addToolBar(tr("Tools"));
     toolbar_->setObjectName(QStringLiteral("kh.shell.toolbar"));
     toolbar_->setMovable(false);
+    toolbar_->setIconSize(QSize(24, 24));
+    toolbar_->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  // pictures, with words for new users
 
     auto* file = menuBar()->addMenu(tr("&File"));
     auto* newAct = file->addAction(tr("&New"), this, [this] { newDesign(); });
@@ -227,6 +231,11 @@ void Shell::buildMenus() {
     paste_->setStatusTip(tr("Add the copied steps to the end of this design."));
     connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this, [this] { refresh(); });
 
+    newAct->setIcon(svgIcon(icons::app::new_svg));
+    openAct->setIcon(svgIcon(icons::app::open_svg));
+    save_->setIcon(svgIcon(icons::app::save_svg));
+    undo_->setIcon(svgIcon(icons::app::undo_svg));
+    redo_->setIcon(svgIcon(icons::app::redo_svg));
     toolbar_->addAction(newAct);
     toolbar_->addAction(openAct);
     toolbar_->addAction(save_);
@@ -269,6 +278,7 @@ void Shell::buildMenus() {
         a->setStatusTip(qs(spec.tip));
         if (!spec.shortcut.empty()) a->setShortcut(QKeySequence(qs(spec.shortcut)));
         a->setCheckable(static_cast<bool>(spec.checked));
+        a->setIcon(svgIcon(spec.icon));
         connect(a, &QAction::triggered, this, [this, spec] { runAction(spec); });
         QAction* button = nullptr;
         if (spec.toolbar) {
@@ -279,6 +289,7 @@ void Shell::buildMenus() {
             button->setToolTip(qs(spec.tip));
             button->setStatusTip(qs(spec.tip));
             button->setCheckable(a->isCheckable());
+            button->setIcon(a->icon());
             connect(button, &QAction::triggered, this, [this, spec] { runAction(spec); });
         }
         actions_.push_back({spec, a, button});

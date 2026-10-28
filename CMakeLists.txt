@@ -26,6 +26,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(KhTarget)
 include(KhPlugin)
+include(KhEmbed)
 
 # ---------------------------------------------------------------------------
 # Dependencies
@@ -42,7 +43,7 @@ find_package(libzip CONFIG REQUIRED)
 find_package(Eigen3 3.3 CONFIG REQUIRED)
 
 if(KH_BUILD_APP)
-  find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets OpenGLWidgets)
+  find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets OpenGLWidgets Svg)
   set(CMAKE_AUTOMOC ON)
   include(KhAds)
 endif()

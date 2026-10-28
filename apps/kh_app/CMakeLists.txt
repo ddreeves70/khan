@@ -5,14 +5,18 @@ qt_add_library(kh_app_core STATIC
   AppSettings.h
   AppUi.cpp
   AppUi.h
+  Icons.cpp
+  Icons.h
   Shell.cpp
   Shell.h
 )
 target_include_directories(kh_app_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(kh_app_core PUBLIC
-  Qt6::Widgets ads::qtadvanceddocking-qt6
+  Qt6::Widgets Qt6::Svg ads::qtadvanceddocking-qt6
   kh::core kh::kernel kh::model kh::io kh::plugin kh::ui)
 kh_set_warnings(kh_app_core)
+kh_embed_files(kh_app_core HEADER AppIcons.h NAMESPACE kh::icons::app
+  FILES icons/new.svg icons/open.svg icons/save.svg icons/undo.svg icons/redo.svg)
 
 qt_add_executable(kh_app main.cpp)
 target_link_libraries(kh_app PRIVATE

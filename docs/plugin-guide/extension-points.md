@@ -92,6 +92,30 @@ words are too long for a button, give shorter ones in `buttonText`: the
 sketcher's **New sketch on XY (the ground)** is just **New sketch** on the
 toolbar.
 
+**Icons.** Give a button a picture with `icon`: SVG text drawn in a 24 by 24
+box. Khan shows it on the button (with the words under it) and next to the menu
+item, and greys it out with the item. Write `currentColor` for lines that should
+be dark on a light theme and light on a dark one. Text that isn't SVG Khan can draw
+just leaves the button with words.
+
+```cpp
+ctx.addAction({.id = "sam.cube.cube", .text = "Cube", .menu = "Create",
+               .command = "sam.cube.add_cube", .args = {{"size", 30.0}},
+               .toolbar = true,
+               .icon = R"(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <rect x="4" y="4" width="16" height="16" fill="#78ade9"
+                                  stroke="currentColor" stroke-width="1.5"/>
+                          </svg>)",
+               .tip = "Add a 30 mm cube."});
+```
+
+To match Khan's own icons: lines 1.5 wide in `currentColor`, with round ends;
+solids in light blue `#b4d3f7`, blue `#78ade9` and dark blue `#3f7fcf`; sketch
+lines in `#1e6fe0`; green `#2e9e4f` for adding or finishing. Khan's own are in
+`plugins/modeling/icons/` and `plugins/sketcher/icons/`. A built-in plugin keeps
+each icon in its own `.svg` file and builds it in with `kh_embed_files()` (see
+`cmake/KhEmbed.cmake`).
+
 **Toolbar modes.** Some work needs its own buttons, and the usual ones only get in
 the way. While a sketch is being edited, the toolbar shows only Line, Circle,
 Arc, Point and Finish sketch. To do this, give your buttons a `toolbarMode`, and

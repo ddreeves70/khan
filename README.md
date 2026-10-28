@@ -75,7 +75,7 @@ Same steps with your platform's compiler and Ninja: set `VCPKG_ROOT` and `QT_DIR
 ### Linux with system packages (Ubuntu 24.04)
 
 ```bash
-sudo apt install cmake ninja-build g++ catch2 qt6-base-dev qt6-base-private-dev libxcb1-dev libtbb-dev \
+sudo apt install cmake ninja-build g++ catch2 qt6-base-dev qt6-base-private-dev qt6-svg-dev libxcb1-dev libtbb-dev \
   libocct-foundation-dev libocct-modeling-data-dev libocct-modeling-algorithms-dev \
   libocct-data-exchange-dev libocct-visualization-dev nlohmann-json3-dev libzip-dev libeigen3-dev \
   zipcmp zipmerge ziptool xvfb

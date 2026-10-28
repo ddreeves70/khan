@@ -13,6 +13,7 @@
 #include <variant>
 #include <vector>
 
+#include "SketcherIcons.h"
 #include "kh/grid/Grid.h"
 #include "kh/model/Commands.h"
 #include "kh/plugin/Events.h"
@@ -452,6 +453,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
                              .shortcut = "Ctrl+Shift+K",
                              .toolbar = true,
                              .buttonText = "New sketch",
+                             .icon = std::string(icons::sketcher::new_sketch_svg),
                              .tip = "Start a sketch lying flat, seen from the top, and draw in it.",
                              .run = [newSketch] { newSketch("xy"); }});
     ctx.addAction(ActionSpec{.id = "kh.sketcher.new_xz",
@@ -480,6 +482,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
         .menu = "Sketch",
         .shortcut = "Ctrl+K",
         .toolbar = true,
+        .icon = std::string(icons::sketcher::edit_sketch_svg),
         .tip = "Draw in the picked sketch.",
         .run =
             [&ctx, sketcher, pickedSketch] {
@@ -500,6 +503,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
                              .menu = "Sketch",
                              .toolbar = true,
                              .toolbarMode = std::string(kEditingMode),
+                             .icon = std::string(icons::sketcher::finish_sketch_svg),
                              .tip = "Stop drawing. Clicks in the viewer pick and turn the view again.",
                              .run = [sketcher] { sketcher->finish(); },
                              .enabled = [sketcher] { return sketcher->editing(); }});
@@ -508,15 +512,19 @@ void registerSketcher(plugin::PluginContext& ctx) {
         const char* text;
         Tool tool;
         const char* tip;
+        std::string_view icon;
     };
     for (const auto& t :
          {ToolItem{"kh.sketcher.line", "Line", Tool::Line,
-                   "Draw lines: click where each one starts and ends. They join up as you go."},
+                   "Draw lines: click where each one starts and ends. They join up as you go.",
+                   icons::sketcher::line_svg},
           ToolItem{"kh.sketcher.circle", "Circle", Tool::Circle,
-                   "Draw a circle: click its center, then its edge."},
+                   "Draw a circle: click its center, then its edge.", icons::sketcher::circle_svg},
           ToolItem{"kh.sketcher.arc", "Arc", Tool::Arc,
-                   "Draw an arc: click the center, where it starts, then where it ends."},
-          ToolItem{"kh.sketcher.point", "Point", Tool::Point, "Draw a point: click where it goes."}}) {
+                   "Draw an arc: click the center, where it starts, then where it ends.",
+                   icons::sketcher::arc_svg},
+          ToolItem{"kh.sketcher.point", "Point", Tool::Point, "Draw a point: click where it goes.",
+                   icons::sketcher::point_svg}}) {
         const Tool tool = t.tool;
         ctx.addAction(ActionSpec{
             .id = t.id,
@@ -524,6 +532,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
             .menu = "Sketch/Draw",
             .toolbar = true,
             .toolbarMode = std::string(kEditingMode),
+            .icon = std::string(t.icon),
             .tip = t.tip,
             .run = [sketcher, tool] { sketcher->setTool(tool); },
             .checked = [sketcher, tool] { return sketcher->editing() && sketcher->tool() == tool; },

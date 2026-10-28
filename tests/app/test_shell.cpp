@@ -12,6 +12,7 @@
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QGuiApplication>
+#include <QImage>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -19,6 +20,7 @@
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QPalette>
+#include <QPixmap>
 #include <QSettings>
 #include <QStatusBar>
 #include <QTemporaryDir>
@@ -32,6 +34,7 @@
 
 #include "AppSettings.h"
 #include "AppUi.h"
+#include "Icons.h"
 #include "Shell.h"
 #include "kh/grid/Grid.h"
 #include "kh/kernel_occt/OcctKernel.h"
@@ -225,6 +228,44 @@ TEST_CASE("Khan's own plugins follow the rules: no warnings, and each has a tier
         CHECK_FALSE(p.manifest.tier.empty());
     }
     CHECK(builtins == 8);
+}
+
+TEST_CASE("every toolbar button has a picture", "[app][icons]") {
+    App app;
+    auto* toolbar = app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar"));
+    REQUIRE(toolbar);
+    CHECK(toolbar->toolButtonStyle() == Qt::ToolButtonTextUnderIcon);  // words too, for new users
+    int buttons = 0;
+    for (auto* a : toolbar->actions()) {
+        if (a->isSeparator()) continue;
+        ++buttons;
+        INFO(a->text().toStdString());
+        CHECK_FALSE(a->icon().isNull());
+        CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
+    }
+    CHECK(buttons == 5 + 6 + 2 + 5);  // Khan's own, kh.modeling, kh.sketcher, sketch-editing
+    // The menu item shows the same picture as its button.
+    CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
+}
+
+TEST_CASE("an SVG icon follows the theme's text color, and greys out when disabled", "[app][icons]") {
+    const char* svg = R"(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">)"
+                      R"(<rect width="24" height="24" fill="currentColor"/></svg>)";
+    const QIcon icon = app::svgIcon(svg);
+    REQUIRE_FALSE(icon.isNull());
+    const QColor text = QApplication::palette().color(QPalette::ButtonText);
+    const QImage on = icon.pixmap(24, 24).toImage();
+    CHECK(QColor(on.pixel(12, 12)).name() == text.name());
+    CHECK(qAlpha(on.pixel(12, 12)) == 255);
+    const QImage off = icon.pixmap(QSize(24, 24), QIcon::Disabled).toImage();
+    CHECK(off.pixel(12, 12) != on.pixel(12, 12));
+    // Sharp on a high-DPI screen: drawn at twice the pixels, not stretched.
+    const QPixmap hi = icon.pixmap(QSize(24, 24), 2.0);
+    CHECK(hi.width() == 48);
+    CHECK(hi.devicePixelRatio() == 2.0);
+
+    CHECK(app::svgIcon("").isNull());               // no picture: words only
+    CHECK(app::svgIcon("not a picture").isNull());  // not SVG: words only, no crash
 }
 
 TEST_CASE("Create > Box adds a step, selects it, and shows its numbers", "[app]") {

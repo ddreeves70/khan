@@ -85,6 +85,8 @@ below it.
 - New libraries use `kh_add_library()` from `cmake/KhTarget.cmake`.
 - Prefer value types and `std::unique_ptr` ownership; no raw `new`/`delete`.
 - Lengths are millimeters, angles radians, inside the code.
+- Toolbar icons are SVG files in `<lib or plugin>/icons/`, built in with
+  `kh_embed_files()` (`cmake/KhEmbed.cmake`); the style is in the plugin guide, under "Icons".
 
 ## API documentation
 

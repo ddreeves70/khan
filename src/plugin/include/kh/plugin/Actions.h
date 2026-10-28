@@ -59,6 +59,11 @@ struct ActionSpec {
     /// "kh.sketcher.editing": shown only while that mode is on. The menu item is
     /// always there either way.
     std::string toolbarMode{};
+    /// A picture for the toolbar button and menu item: SVG text, drawn in a 24 by 24
+    /// box (`viewBox="0 0 24 24"`). Write `currentColor` for lines that should follow
+    /// the theme (dark on a light theme, light on a dark one). Empty, or text that
+    /// isn't SVG Khan can draw: words only. See "Icons" in the plugin guide.
+    std::string icon{};
     std::string tip{};  ///< One plain sentence shown when the mouse rests on it.
     /// Runs the plugin's own code instead of a command, for things that aren't
     /// changes to a design (a setting, a dialog). Give either `command` or `run`.
