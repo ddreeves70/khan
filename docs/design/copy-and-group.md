@@ -1,7 +1,7 @@
 # Copying and grouping steps
 
-> **Draft.** Parts 1 and 2 (copy, paste and duplicate; turning steps off) are
-> built. The other parts are the plan, in the order they'll be built.
+> **Draft.** Parts 1 to 3 (copy, paste and duplicate; turning steps off;
+> folders) are built. The other parts are the plan, in the order they'll be built.
 
 Students want to reuse what they've made (another hole like this one, the same
 bracket in a new design) and to keep big feature trees tidy. This page covers
@@ -11,8 +11,8 @@ six asks, built in this order:
 | --- | --- | --- |
 | 1. Duplicate, Copy and Paste | New steps with the same numbers, in this design or another one | Built |
 | 2. Turn steps off together | Turn off (suppress) several picked steps at once, and back on | Built |
-| 3. Folders in the feature tree | Put steps in a named folder that opens and closes | Next |
-| 4. Move, then linked copies | A Move step, then copies that follow their original | Planned |
+| 3. Folders in the feature tree | Put steps in a named folder that opens and closes | Built |
+| 4. Move, then linked copies | A Move step, then copies that follow their original | Next |
 | 5. Groups that move together | Bodies grouped into a part you can place as one | Needs its own design |
 
 Copy between designs is part 1: the clipboard works across designs.
@@ -78,12 +78,36 @@ Steps could already be off (`suppressed` is saved in `.khan` files and shown as
 
 ## 3. Folders in the feature tree
 
-A folder is a named, persistent object (`FolderId`) holding a run of steps next
-to each other in the tree. It's for tidiness only: it doesn't change what gets
-built. Folders are saved in the `.khan` file, changed only by commands (add,
-rename, move steps in and out, delete folder but keep its steps), and turning a
-folder off turns its steps off (part 2). Because this changes the file format,
-it gets its own reviewed pull request.
+A folder is a named, persistent object (`FolderId`) holding steps that are next to
+each other in the tree. It's for tidiness only: it never changes what gets built.
+
+- `kh_model`: `Folder {id, name, steps}`. `AddFolderCommand`, `RenameFolderCommand`
+  and `DeleteFolderCommand` (which keeps the steps) are the only ways to change
+  folders. `Document::folders()` lists them in tree order, each with only the
+  steps still in the design; a folder whose steps were all deleted isn't listed
+  (and comes back when undo brings a step back). So deleting a step never has to
+  touch folders, and undo stays simple.
+- `folder.add` (steps, name), `folder.rename` (folder, name) and `folder.delete`
+  (folder) are registry commands. A new argument type, `FolderRef`, names a folder
+  (by name on the command line). Plugin API 12.
+- File: an optional `folders.json` (see [the file format](../file-format.md#foldersjson)),
+  read after the steps through `folder.add`, so the same checks run. Designs
+  without folders save byte for byte as before, and the schema stays 1: an older
+  Khan opens the steps and drops the folders.
+- Feature tree: a folder row (kind "Folder") with its steps under it. Picking the
+  row picks its steps, so Turn off works on a folder; a folder shows `off` when
+  all its steps are. Right-click a folder for Rename folder, Turn off or on, and
+  Remove folder. Whether a folder is open is remembered while Khan runs, not
+  saved.
+
+**Choices.**
+
+- *Steps next to each other only.* A folder is a stretch of the tree, so it
+  always shows steps in build order. Moving steps up and down (reordering) comes
+  later; when it does, it has to keep folders together.
+- *One level.* Folders can't hold folders yet. `folders.json` can grow a `parent`
+  key later without breaking older files.
+- *Not copied.* Copy and Paste copy steps, not folders.
 
 ## 4. Move, then linked copies
 

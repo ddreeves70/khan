@@ -13,7 +13,7 @@ These pages describe how Khan is designed: what it will do, how the code is orga
 | [Architecture](architecture.md) | Goals, the Fusion capability map, system layers, the geometry kernel, every major area (sketcher, modeling, assemblies, drawings, CAM, simulation), the plugin architecture, file formats and risks |
 | [Shared concepts between plugins](plugin-contracts.md) | How a plugin adds something other plugins share (the grid, snapping) without changing Khan's base: contracts, two-phase startup, dependencies and warnings |
 | [View options](view-options.md) | One shared service for what the viewer shows (grid, axes, and later more): options declared as data, one View menu and panel, and different values per pane when you ask for them |
-| [Copying and grouping steps](copy-and-group.md) | Duplicate, copy and paste, and turning steps off together (built), then folders in the feature tree, a Move step and linked copies, and groups that move together |
+| [Copying and grouping steps](copy-and-group.md) | Duplicate, copy and paste, turning steps off together, and folders in the feature tree (built), then a Move step and linked copies, and groups that move together |
 | [UI screens](ui-screens.md) | Mockups of the main window, split views, two monitors and the Plugin manager, with a numbered breakdown of each |
 | [Design model](design-model.md) | The module map, the core domain classes, key C++ interfaces, the `.khan` file format, regeneration and naming |
 | [Class model](class-model.md) | UML class diagrams for the document, features and naming, sketches, the kernel layer, assemblies, and the shell and plugins |

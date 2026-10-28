@@ -17,6 +17,9 @@ All lengths are in millimeters (mm). Positions and sizes are written `x,y,z`:
 | [`feature.duplicate`](#featureduplicate) | Copies a step, and the steps it uses |
 | [`feature.set_material`](#featureset_material) | Picks what a body is made of |
 | [`feature.suppress`](#featuresuppress) | Turns steps off, or back on |
+| [`folder.add`](#folderadd) | Puts steps in a folder in the feature tree |
+| [`folder.rename`](#folderrename) | Renames a folder |
+| [`folder.delete`](#folderdelete) | Removes a folder, keeping its steps |
 | [`material.define`](#materialdefine) | Adds a material of your own, or changes one |
 | [`material.delete`](#materialdelete) | Removes a material you added |
 
@@ -309,6 +312,88 @@ Steps that are already that way can't be changed again:
 ```console
 $ kh_cli run --open demo.khan feature.suppress steps=Plate,Hole off=false
 error [feature.already_on]: Those steps are already turned on.
+```
+
+## folder.add
+
+Puts steps into a folder, to keep the feature tree tidy. A folder never changes
+what's built. The steps must be next to each other in the tree, and a step can
+only be in one folder. `kh_cli` shows a folder's name with a `/` after it, and its
+steps indented under it.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `steps` | step names | yes | The steps, separated by commas, like `Plate,Hole` |
+| `name` | text | no | The folder's name. Default `Folder1`, `Folder2`, ... No two folders may share a name |
+
+<!-- cli-example -->
+```console
+$ kh_cli demo demo.khan
+wrote demo.khan
+$ kh_cli run --open demo.khan --save demo.khan folder.add steps=Plate,Hole name=Parts
+Demo tag: 3 steps
+  Parts/
+    Plate      ok  volume 7200.00 mm^3
+    Hole       ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote demo.khan
+```
+
+Steps with another step between them can't share a folder:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli demo demo.khan
+wrote demo.khan
+$ kh_cli run --open demo.khan folder.add steps=Plate,Tag
+error [folder.not_together]: Only steps next to each other in the feature tree can go in one folder. Pick steps with no other steps between them.
+```
+
+## folder.rename
+
+Gives a folder a new name.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `folder` | folder name | yes | The folder to rename |
+| `name` | text | yes | Its new name. No other folder may have it |
+
+<!-- cli-example -->
+```console
+$ kh_cli demo demo.khan
+wrote demo.khan
+$ kh_cli run --open demo.khan --save demo.khan folder.add steps=Plate,Hole
+Demo tag: 3 steps
+  Folder1/
+    Plate      ok  volume 7200.00 mm^3
+    Hole       ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote demo.khan
+$ kh_cli run --open demo.khan --save demo.khan folder.rename folder=Folder1 name=Parts
+Demo tag: 3 steps
+  Parts/
+    Plate      ok  volume 7200.00 mm^3
+    Hole       ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote demo.khan
+```
+
+## folder.delete
+
+Removes a folder. Its steps stay, back at the top of the tree.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `folder` | folder name | yes | The folder to remove |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open demo.khan --save demo.khan folder.delete folder=Parts
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote demo.khan
 ```
 
 ## material.define

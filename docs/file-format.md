@@ -15,6 +15,7 @@ tag.khan
 ├── manifest.json                    what this file is and which Khan wrote it
 ├── timeline.json                    the steps, in order
 ├── materials.json                   the design's own materials (only if it has any)
+├── folders.json                     the feature tree's folders (only if it has any)
 └── features/
     ├── 926bde46-....json            one file per step
     ├── f153a811-....json
@@ -130,6 +131,35 @@ Only a design that added materials of its own has this file:
 Materials are added before the steps, through the same command a student uses
 (`material.define`), so the same checks run.
 
+### folders.json
+
+Only a design with folders in its feature tree has this file:
+
+```json
+{
+  "folders": [
+    {
+      "id": "3c1f7e2a-9b4d-4e8a-a1f2-6d5c4b3a2918",
+      "name": "Tag parts",
+      "steps": [
+        "926bde46-9c5b-403a-bc25-c01e5cf11ce3",
+        "f153a811-ba41-4895-ab27-886a6ca3871e"
+      ]
+    }
+  ]
+}
+```
+
+| Key | Meaning |
+| --- | --- |
+| `id` | The folder's UUID. |
+| `name` | Its name. No two folders share a name. |
+| `steps` | Its steps' ids, in design order. They are next to each other in `timeline.json`, and no step is in two folders. |
+
+Folders only arrange the feature tree; they never change what's built. They are
+added after the steps, through the same command a student uses (`folder.add`),
+so the same checks run.
+
 ## Same design, same bytes
 
 Saving a design that hasn't changed gives exactly the same file, so Git shows no
@@ -144,7 +174,7 @@ work:
 ## Opening a file
 
 Khan reads `manifest.json`, then `materials.json` if it's there, then
-`timeline.json`, then each step. Each step is
+`timeline.json`, then each step, then `folders.json` if it's there. Each step is
 added through the normal add-step command, so the same checks run as when a student
 builds the design. The opened design has no undo history and no unsaved changes.
 
@@ -156,7 +186,7 @@ If something is wrong, Khan opens nothing and explains why:
 | `file.not_khan` | Not a zip, no `manifest.json`, or `format` isn't `"khan"`. |
 | `file.too_new` | `schema` is higher than this Khan reads. The message says to update Khan. |
 | `file.unknown_step` | A step's `type` is one this Khan doesn't know (maybe from a plugin). |
-| `file.damaged` | Anything else: bad JSON, a missing step file, a missing number, an input that doesn't exist, a material without its id, name, density or color. |
+| `file.damaged` | Anything else: bad JSON, a missing step file, a missing number, an input that doesn't exist, a material without its id, name, density or color, a folder whose steps aren't next to each other. |
 | `file.cant_write` | (Saving) The folder is missing, read-only or full. |
 
 Saving writes `<name>.saving` first and then renames it over the old file, so a
@@ -167,7 +197,8 @@ failed save never damages the last good copy.
 - Adding a step type, or an optional key that older Khan can ignore, keeps schema 1.
   Materials were added this way (Oct 2026): an older Khan opens a design with
   materials, shows every body as plain geometry, and drops the materials if it
-  saves the file again.
+  saves the file again. Folders were added the same way: an older Khan shows the
+  steps without folders, and drops the folders if it saves the file again.
 - Anything an older Khan would read wrongly bumps `schema` (in
   `src/core/include/kh/core/Version.h`) and adds a migration from the old schema.
 - `tests/files/` holds files saved with each schema. They are checked in and never

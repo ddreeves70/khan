@@ -8,7 +8,7 @@ step's numbers in Properties. Everything you do can be undone.
 
 | # | Part | What it's for |
 | --- | --- | --- |
-| 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, delete), Create (shapes), Combine (union, cut, intersect), View (the grid), Window (panels, layouts) |
+| 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, folders, delete), Create (shapes), Combine (union, cut, intersect), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away |
 | 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built |
 | 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse or the view cube, and click a body to pick it |
@@ -119,6 +119,7 @@ Each row is one step: its name, its kind, and its status.
   that's off isn't built, but it isn't deleted: its numbers are kept, and Edit >
   Turn on (or right-click > Turn on) brings it back. Every picked step changes
   at once, as one Undo. A step that uses a step that's off shows `blocked`.
+- **Put steps in a folder** with Edit > New folder. See [Folders](#folders).
 - **Duplicate** a step with Edit > Duplicate step (Ctrl+D). See
   [Copying steps](#copying-steps).
 
@@ -234,6 +235,35 @@ Things to know:
   options of the panes that close.
 - Khan remembers each pane's own options for next time.
 - The status bar's grid text shows the grid of the pane you clicked last.
+
+## Folders
+
+A folder holds steps that are next to each other in the feature tree, so a long
+tree is easier to read. Folders only keep the tree tidy: they never change what's
+built.
+
+![The Tag parts folder is picked, so Plate and Hole are picked too; the Spare folder's steps are all off](images/app-folders.png)
+
+- **Make one:** pick the steps (Ctrl-click or Shift-click), then Edit > New folder,
+  or right-click > New folder. It's called `Folder1`, `Folder2`, ...
+- **Rename it:** double-click its name, or press F2.
+- **Open and close it** with the arrow next to its name.
+- **Pick the folder** to pick all its steps. Then Edit > Turn off turns them all off.
+- **Right-click a folder** for Rename folder, Turn off (or Turn on), and Remove
+  folder. Removing a folder keeps its steps.
+
+The **Status** of a folder is a problem inside it (`failed` or `blocked`), or
+`off` if all its steps are off.
+
+Example: in the keychain tag, pick `Plate` and `Hole`, then Edit > New folder, and
+rename it `Tag parts`. `Tag` stays outside, under the folder.
+
+Tips:
+
+- Only steps with no other steps between them can share a folder, and a step can
+  be in only one folder.
+- New steps go at the end of the tree, outside any folder.
+- Deleting all of a folder's steps removes the folder too. Undo brings both back.
 
 ## Copying steps
 

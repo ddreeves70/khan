@@ -26,8 +26,9 @@ class PluginContext;
 /// added overlays for one pane (Overlay::pane, PluginOverlays::forPane()).
 /// Version 11 added command arguments that take several steps
 /// (model::ArgType::FeatureList) and actions that use every selected step
-/// (ActionSpec::fromSelectionList).
-inline constexpr int kPluginApiVersion = 11;
+/// (ActionSpec::fromSelectionList). Version 12 added folders: command
+/// arguments that name a folder (model::ArgType::FolderRef).
+inline constexpr int kPluginApiVersion = 12;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

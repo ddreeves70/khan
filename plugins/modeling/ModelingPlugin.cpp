@@ -89,6 +89,12 @@ void registerModeling(plugin::PluginContext& ctx) {
                              .args = {{"off", false}},
                              .fromSelectionList = "steps",
                              .tip = "Turn the picked steps back on."});
+    ctx.addAction(ActionSpec{.id = "kh.modeling.new_folder",
+                             .text = "New folder",
+                             .menu = "Edit",
+                             .command = "folder.add",
+                             .fromSelectionList = "steps",
+                             .tip = "Put the picked steps in a folder, to keep the feature tree tidy."});
     ctx.addAction(ActionSpec{.id = "kh.modeling.delete",
                              .text = "Delete step",
                              .menu = "Edit",

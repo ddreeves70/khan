@@ -125,6 +125,8 @@ struct ConfigTag {};
 struct InstanceTag {};
 /// Tag for kh::MaterialId.
 struct MaterialTag {};
+/// Tag for kh::FolderId.
+struct FolderTag {};
 
 /// Identifies a document (a part or an assembly).
 using DocId = Id<DocTag>;
@@ -138,6 +140,8 @@ using ParamId = Id<ParamTag>;
 using ConfigId = Id<ConfigTag>;
 /// Identifies a component instance in an assembly.
 using InstanceId = Id<InstanceTag>;
+/// Identifies a folder in a design's feature tree.
+using FolderId = Id<FolderTag>;
 /// Identifies a material a design added (a custom material).
 using MaterialId = Id<MaterialTag>;
 

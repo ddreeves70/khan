@@ -47,6 +47,10 @@ std::vector<Material>& DocumentEditor::materials() {
     return doc_.materials_;
 }
 
+std::vector<Folder>& DocumentEditor::folders() {
+    return doc_.folders_;
+}
+
 // ---------------------------------------------------------------------------
 // RebuildReport
 // ---------------------------------------------------------------------------
@@ -109,11 +113,69 @@ std::string Document::uniqueName(const std::string& base) const {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Folders
+// ---------------------------------------------------------------------------
+
+void Document::updateFolders() {
+    // Each folder with only the steps still here, in design order; then the
+    // folders in the order of their first step.
+    std::vector<std::pair<std::size_t, Folder>> listed;
+    for (const auto& folder : folders_) {
+        std::vector<std::pair<std::size_t, FeatureId>> here;
+        for (const auto& id : folder.steps) {
+            if (auto at = indexOf(id)) here.emplace_back(*at, id);
+        }
+        if (here.empty()) continue;
+        std::sort(here.begin(), here.end());
+        Folder shown{folder.id, folder.name, {}};
+        for (const auto& [at, id] : here) shown.steps.push_back(id);
+        listed.emplace_back(here.front().first, std::move(shown));
+    }
+    std::stable_sort(listed.begin(), listed.end(),
+                     [](const auto& a, const auto& b) { return a.first < b.first; });
+    shown_.clear();
+    for (auto& [at, folder] : listed) shown_.push_back(std::move(folder));
+}
+
+std::vector<Folder> Document::folders() const {
+    return shown_;
+}
+
+const Folder* Document::findFolder(const FolderId& id) const {
+    for (const auto& f : shown_) {
+        if (f.id == id) return &f;
+    }
+    return nullptr;
+}
+
+const Folder* Document::findFolder(std::string_view name) const {
+    for (const auto& f : shown_) {
+        if (f.name == name) return &f;
+    }
+    return nullptr;
+}
+
+FolderId Document::folderOf(const FeatureId& id) const {
+    for (const auto& f : shown_) {
+        if (std::find(f.steps.begin(), f.steps.end(), id) != f.steps.end()) return f.id;
+    }
+    return {};
+}
+
+std::string Document::uniqueFolderName(const std::string& base) const {
+    for (int n = 1;; ++n) {
+        std::string candidate = base + std::to_string(n);
+        if (!findFolder(std::string_view(candidate))) return candidate;
+    }
+}
+
 Diagnostics Document::execute(std::unique_ptr<Command> command) {
     if (!command) return {{"command.missing", Severity::Error, "There was nothing to do.", {}}};
 
     DocumentEditor editor(*this);
     auto issues = command->apply(editor);
+    updateFolders();
     if (!issues.empty()) return issues;  // contract: the document is unchanged
 
     undone_.clear();
@@ -131,6 +193,7 @@ bool Document::undo() {
     if (done_.empty()) return false;
     DocumentEditor editor(*this);
     done_.back().command->revert(editor);
+    updateFolders();
     undone_.push_back(std::move(done_.back()));
     done_.pop_back();
     return true;
@@ -140,6 +203,7 @@ bool Document::redo() {
     if (undone_.empty()) return false;
     DocumentEditor editor(*this);
     auto issues = undone_.back().command->apply(editor);
+    updateFolders();
     if (!issues.empty()) return false;  // should not happen: it applied cleanly before
     done_.push_back(std::move(undone_.back()));
     undone_.pop_back();

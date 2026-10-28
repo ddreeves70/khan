@@ -151,6 +151,13 @@ std::optional<model::ArgValue> parseArg(const model::ArgSpec& spec, const std::s
             if (auto id = FeatureId::parse(text)) return *id;
             why = spec.name + " must be the name of a step in the design, like Box1";
             return std::nullopt;
+        case ArgType::FolderRef:
+            if (const auto* folder = doc.findFolder(std::string_view(text))) return folder->id;
+            if (auto id = FolderId::parse(text)) return *id;
+            why = spec.name +
+                  " must be the name of a folder in the design, like Folder1 (there's no folder called " +
+                  text + ")";
+            return std::nullopt;
         case ArgType::FeatureList: {
             auto byName = [&](const std::string& name) -> std::optional<FeatureId> {
                 for (std::size_t i = 0; i < doc.featureCount(); ++i) {
@@ -201,6 +208,8 @@ const char* typeName(model::ArgType t) {
             return "step name";
         case model::ArgType::FeatureList:
             return "step names";
+        case model::ArgType::FolderRef:
+            return "folder name";
         case model::ArgType::Choice:
             return "choice";
     }
@@ -391,7 +400,10 @@ int runCommand(int argc, char** argv) {
     for (std::size_t i = 0; i < design.featureCount(); ++i) {
         const auto& f = design.featureAt(i);
         const auto* r = report->result(f.id());
-        std::printf("  %-12s %s", f.name().c_str(), statusName(r->status));
+        // A folder's name comes before its first step, and its steps are indented.
+        const auto* folder = design.findFolder(design.folderOf(f.id()));
+        if (folder && folder->steps.front() == f.id()) std::printf("  %s/\n", folder->name.c_str());
+        std::printf(folder ? "    %-10s %s" : "  %-12s %s", f.name().c_str(), statusName(r->status));
         if (r->status == model::FeatureStatus::Ok) {
             const auto& material = design.materialOf(f.id());
             const auto mass = model::bodyMass(*kernel, r->shape, material);
