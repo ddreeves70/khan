@@ -468,3 +468,120 @@ void SuppressFeaturesCommand::revert(DocumentEditor& editor) {
 }
 
 }  // namespace kh::model
+
+namespace kh::model {
+
+// ---------------------------------------------------------------------------
+// Folders
+// ---------------------------------------------------------------------------
+
+namespace {
+
+std::vector<Folder>::iterator rawFolder(std::vector<Folder>& folders, const FolderId& id) {
+    return std::find_if(folders.begin(), folders.end(), [&](const Folder& f) { return f.id == id; });
+}
+
+}  // namespace
+
+AddFolderCommand::AddFolderCommand(std::vector<FeatureId> steps, std::string name, FolderId id)
+    : steps_(std::move(steps)), askedName_(std::move(name)), id_(id) {}
+
+std::string AddFolderCommand::label() const {
+    return "New folder " + name_;
+}
+
+Diagnostics AddFolderCommand::apply(DocumentEditor& editor) {
+    const auto& doc = editor.document();
+    if (steps_.empty()) return {error("folder.nothing", "Pick the steps to put in the folder.")};
+    std::vector<std::pair<std::size_t, FeatureId>> at;
+    for (const auto& id : steps_) {
+        const auto index = doc.indexOf(id);
+        if (!index) return {error("feature.not_found", "That step isn't in the design anymore.")};
+        if (const auto in = doc.folderOf(id); !in.isNil()) {
+            return {error("folder.step_taken", doc.find(id)->name() + " is already in the folder " +
+                                                   doc.findFolder(in)->name +
+                                                   ". A step can only be in one folder.")};
+        }
+        if (std::none_of(at.begin(), at.end(), [&](const auto& p) { return p.second == id; })) {
+            at.emplace_back(*index, id);
+        }
+    }
+    std::sort(at.begin(), at.end());
+    for (std::size_t i = 1; i < at.size(); ++i) {
+        if (at[i].first != at[i - 1].first + 1) {
+            return {
+                error("folder.not_together",
+                      "Only steps next to each other in the feature tree can go in one folder. Pick steps "
+                      "with no other steps between them.")};
+        }
+    }
+    if (doc.findFolder(id_)) return {error("folder.duplicate", "That folder is already in the design.")};
+    name_ = askedName_.empty() ? doc.uniqueFolderName("Folder") : askedName_;
+    if (doc.findFolder(std::string_view(name_))) {
+        return {error("folder.name_taken",
+                      "Another folder is already called " + name_ + ". Pick a different name.")};
+    }
+    Folder folder{id_, name_, {}};
+    for (const auto& [index, id] : at) folder.steps.push_back(id);
+    editor.folders().push_back(std::move(folder));
+    return {};
+}
+
+void AddFolderCommand::revert(DocumentEditor& editor) {
+    auto& folders = editor.folders();
+    if (auto it = rawFolder(folders, id_); it != folders.end()) folders.erase(it);
+}
+
+RenameFolderCommand::RenameFolderCommand(FolderId id, std::string name)
+    : id_(id), newName_(std::move(name)) {}
+
+std::string RenameFolderCommand::label() const {
+    return "Rename folder " + oldName_ + " to " + newName_;
+}
+
+Diagnostics RenameFolderCommand::apply(DocumentEditor& editor) {
+    const auto& doc = editor.document();
+    auto& folders = editor.folders();
+    auto it = rawFolder(folders, id_);
+    if (!doc.findFolder(id_) || it == folders.end()) {
+        return {error("folder.not_found", "That folder isn't in the design anymore.")};
+    }
+    if (newName_.empty()) return {error("folder.name_empty", "Give this folder a name.")};
+    if (const auto* other = doc.findFolder(std::string_view(newName_)); other && other->id != id_) {
+        return {error("folder.name_taken",
+                      "Another folder is already called " + newName_ + ". Pick a different name.")};
+    }
+    oldName_ = it->name;
+    it->name = newName_;
+    return {};
+}
+
+void RenameFolderCommand::revert(DocumentEditor& editor) {
+    auto& folders = editor.folders();
+    if (auto it = rawFolder(folders, id_); it != folders.end()) it->name = oldName_;
+}
+
+DeleteFolderCommand::DeleteFolderCommand(FolderId id) : id_(id) {}
+
+std::string DeleteFolderCommand::label() const {
+    return "Remove folder " + removed_.name;
+}
+
+Diagnostics DeleteFolderCommand::apply(DocumentEditor& editor) {
+    auto& folders = editor.folders();
+    auto it = rawFolder(folders, id_);
+    if (!editor.document().findFolder(id_) || it == folders.end()) {
+        return {error("folder.not_found", "That folder isn't in the design anymore.")};
+    }
+    index_ = static_cast<std::size_t>(it - folders.begin());
+    removed_ = *it;
+    folders.erase(it);
+    return {};
+}
+
+void DeleteFolderCommand::revert(DocumentEditor& editor) {
+    auto& folders = editor.folders();
+    folders.insert(folders.begin() + static_cast<std::ptrdiff_t>(std::min(index_, folders.size())), removed_);
+}
+
+}  // namespace kh::model

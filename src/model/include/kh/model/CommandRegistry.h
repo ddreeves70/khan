@@ -31,11 +31,12 @@ enum class ArgType {
     FeatureRef,   ///< A FeatureId of a feature in the document.
     Choice,       ///< A std::string, one of ArgSpec::choices.
     FeatureList,  ///< A std::vector<FeatureId>: one or more steps in the document, in order.
+    FolderRef,    ///< A FolderId of a folder in the document.
 };
 
 /// One argument value. Which alternative is allowed depends on the ArgSpec's ArgType.
-using ArgValue =
-    std::variant<double, std::int64_t, bool, std::string, kernel::Vec3, FeatureId, std::vector<FeatureId>>;
+using ArgValue = std::variant<double, std::int64_t, bool, std::string, kernel::Vec3, FeatureId,
+                              std::vector<FeatureId>, FolderId>;
 
 /// Arguments for one command, by argument name.
 using Args = std::map<std::string, ArgValue>;
@@ -157,6 +158,12 @@ FeatureId argFeature(const Args& args, const std::string& name);
 /// @param name The argument name.
 /// @return The feature ids, in order; empty if the argument is absent.
 std::vector<FeatureId> argFeatures(const Args& args, const std::string& name);
+
+/// Reads a folder argument, for use in a CommandFactory.
+/// @param args The checked arguments.
+/// @param name The argument name.
+/// @return The folder id, or a nil id if the argument is absent.
+FolderId argFolder(const Args& args, const std::string& name);
 
 /// Reads a true-or-false argument, for use in a CommandFactory.
 /// @param args The checked arguments.

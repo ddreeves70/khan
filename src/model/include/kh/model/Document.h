@@ -16,6 +16,7 @@
 #include "kh/kernel/IKernel.h"
 #include "kh/model/Command.h"
 #include "kh/model/Feature.h"
+#include "kh/model/Folder.h"
 #include "kh/model/Material.h"
 
 namespace kh::model {
@@ -160,6 +161,32 @@ public:
     ///         the body has the default material.
     FeatureId materialSource(const FeatureId& id) const;
 
+    /// Lists the design's folders, in the order they appear in the feature tree.
+    /// Each folder lists only the steps still in the design; a folder whose steps
+    /// are all gone (deleted, until undo brings them back) isn't listed.
+    /// @return The folders.
+    std::vector<Folder> folders() const;
+
+    /// Finds a folder by id.
+    /// @param id The folder.
+    /// @return It, as folders() lists it, or nullptr if it isn't listed there.
+    const Folder* findFolder(const FolderId& id) const;
+
+    /// Finds a folder by name (exact).
+    /// @param name For example "Holes".
+    /// @return It, as folders() lists it, or nullptr if there's none by that name.
+    const Folder* findFolder(std::string_view name) const;
+
+    /// Finds the folder a step is in.
+    /// @param id The step.
+    /// @return The folder's id, or a nil id if the step isn't in one.
+    FolderId folderOf(const FeatureId& id) const;
+
+    /// Makes a name that no folder uses yet.
+    /// @param base The start of the name, e.g. "Folder".
+    /// @return The first free name of "Folder1", "Folder2", ...
+    std::string uniqueFolderName(const std::string& base) const;
+
     /// Makes a name that no feature uses yet.
     /// @param base The start of the name, e.g. "Box".
     /// @return The first free name of "Box1", "Box2", ...
@@ -233,6 +260,9 @@ private:
     std::string name_;
     std::vector<std::unique_ptr<Feature>> features_;
     std::vector<Material> materials_;  // the design's own materials
+    std::vector<Folder> folders_;      // as the commands left them; folders() hides deleted steps
+    std::vector<Folder> shown_;        // folders(), kept so findFolder() can hand out pointers
+    void updateFolders();              // recomputes shown_ after every change
 
     std::vector<Entry> done_;
     std::vector<Entry> undone_;

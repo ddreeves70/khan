@@ -24,6 +24,8 @@
 //   manifest.json        format, schema, app version, units, document id/kind/name, file list
 //   timeline.json        feature order and suppressed flags
 //   features/<id>.json   one file per feature: id, type, name, inputs, params
+//   materials.json       the design's own materials (only if it has any)
+//   folders.json         the feature tree's folders (only if it has any)
 //
 // Lengths are millimeters. JSON is written with sorted keys and two-space indents,
 // and every zip entry gets the same fixed timestamp, so saving the same design
@@ -306,6 +308,17 @@ Diagnostics writeBytes(const Document& doc, Bytes& out) {
         entries.emplace_back(featurePath(f.id()), dump(featureToJson(f)));
         files.push_back(featurePath(f.id()));
     }
+    if (const auto folders = doc.folders(); !folders.empty()) {
+        // Only designs with folders get this file, so other designs save exactly as before.
+        json list = json::array();
+        for (const auto& folder : folders) {
+            json steps = json::array();
+            for (const auto& id : folder.steps) steps.push_back(id.toString());
+            list.push_back({{"id", folder.id.toString()}, {"name", folder.name}, {"steps", steps}});
+        }
+        entries.emplace_back("folders.json", dump(json{{"folders", list}}));
+        files.push_back("folders.json");
+    }
     const json manifest{
         {"format", "khan"},
         {"schema", kFileSchemaVersion},
@@ -520,6 +533,35 @@ OpenResult readBytes(const Bytes& data, std::string_view displayName) {
         if (!issues.empty()) {
             return fail(damaged(displayName, "step " + name + ": " + issues.front().code));
         }
+    }
+
+    // Folders, after the steps they hold, through the same command a student uses.
+    // (A design without folders has no folders.json.)
+    if (const auto folders = readJson("folders.json"); folders) {
+        const json list = folders->value("folders", json());
+        if (!list.is_array()) return fail(damaged(displayName, "folders.json has no folder list"));
+        for (const auto& fj : list) {
+            const auto id = fj.is_object() ? FolderId::parse(fj.value("id", "")) : std::nullopt;
+            const json steps = fj.is_object() ? fj.value("steps", json()) : json();
+            if (!id || !fj.contains("name") || !fj["name"].is_string() || !steps.is_array()) {
+                return fail(
+                    damaged(displayName, "a folder in folders.json is missing its id, name or steps"));
+            }
+            std::vector<FeatureId> ids;
+            for (const auto& s : steps) {
+                const auto step = s.is_string() ? FeatureId::parse(s.get<std::string>()) : std::nullopt;
+                if (!step) return fail(damaged(displayName, "a folder lists a step without a valid id"));
+                ids.push_back(*step);
+            }
+            const std::string name = fj["name"].get<std::string>();
+            if (auto issues =
+                    doc->execute(std::make_unique<model::AddFolderCommand>(std::move(ids), name, *id));
+                !issues.empty()) {
+                return fail(damaged(displayName, "folder " + name + ": " + issues.front().code));
+            }
+        }
+    } else if (why.rfind("missing", 0) != 0) {
+        return fail(damaged(displayName, why));  // there, but not readable
     }
 
     doc->clearHistory();  // opening a file is not an undoable step

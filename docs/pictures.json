@@ -754,6 +754,30 @@
         344,
         330
       ]
+    },
+    {
+      "out": "docs/user-guide/images/app-folders.png",
+      "size": "1280x800",
+      "commands": [
+        "demo f.khan",
+        "run --open f.khan --save f.khan folder.add steps=Plate,Hole name='Tag parts'",
+        "run --open f.khan --save f.khan feature.duplicate feature=Tag",
+        "run --open f.khan --save f.khan feature.suppress steps=Plate1,Hole1,Tag1",
+        "run --open f.khan --save f.khan folder.add steps=Plate1,Hole1,Tag1 name=Spare"
+      ],
+      "app": {
+        "open": "f.khan",
+        "select": [
+          "Plate",
+          "Hole"
+        ]
+      },
+      "crop": [
+        0,
+        50,
+        262,
+        170
+      ]
     }
   ]
 }

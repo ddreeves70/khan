@@ -10,6 +10,7 @@
 #include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
 #include "kh/model/Feature.h"
+#include "kh/model/Folder.h"
 #include "kh/model/Material.h"
 
 namespace kh::model {
@@ -50,6 +51,11 @@ public:
     /// Gives the design's own materials to change in place.
     /// @return The list (see Document::customMaterials()).
     std::vector<Material>& materials();
+
+    /// Gives the design's folders to change in place, as commands left them
+    /// (with steps that were deleted still listed; see Document::folders()).
+    /// @return The list.
+    std::vector<Folder>& folders();
 
 private:
     friend class Document;

@@ -368,6 +368,77 @@ TEST_CASE("Edit > Turn off and Turn on change every picked step, as one undo", "
     CHECK(app.doc().featureCount() == 3);
 }
 
+TEST_CASE("Edit > New folder puts the picked steps in a folder in the tree", "[app][folders]") {
+    App app;
+    app.click("kh.modeling.box");
+    app.click("kh.modeling.cylinder");
+    app.click("kh.modeling.box");
+    app.pickRows({0, 1});
+    app.click("kh.modeling.new_folder");
+    REQUIRE(app.doc().folders().size() == 1);
+    CHECK(app.doc().folders()[0].name == "Folder1");
+
+    // The tree: Folder1 (with Box1 and Cylinder1 under it), then Box2.
+    REQUIRE(app.tree()->topLevelItemCount() == 2);
+    auto* folder = app.tree()->topLevelItem(0);
+    CHECK(folder->text(0) == QStringLiteral("Folder1"));
+    CHECK(folder->text(1) == QStringLiteral("Folder"));
+    REQUIRE(folder->childCount() == 2);
+    CHECK(folder->child(0)->text(0) == QStringLiteral("Box1"));
+    CHECK(folder->child(1)->text(0) == QStringLiteral("Cylinder1"));
+    CHECK(folder->isExpanded());
+    CHECK(app.tree()->topLevelItem(1)->text(0) == QStringLiteral("Box2"));
+
+    // Picking the folder row picks its steps.
+    app.tree()->clearSelection();
+    folder->setSelected(true);
+    settle();
+    CHECK(app.host.selection().features() ==
+          std::vector<FeatureId>{app.doc().featureAt(0).id(), app.doc().featureAt(1).id()});
+    CHECK(app.tree()->topLevelItem(0)->child(0)->isSelected());
+
+    // Turning the folder's steps off shows the folder as off.
+    app.click("kh.modeling.turn_off");
+    CHECK(app.tree()->topLevelItem(0)->text(2) == QStringLiteral("off"));
+
+    // Renaming the folder row renames the folder.
+    app.tree()->topLevelItem(0)->setText(0, QStringLiteral("Base"));
+    settle();
+    CHECK(app.doc().folders()[0].name == "Base");
+    CHECK(app.shell->undoAction()->text() == QStringLiteral("Undo Rename folder Folder1 to Base"));
+
+    // Undo three times: rename, turn off, then the folder itself.
+    for (int i = 0; i < 3; ++i) app.shell->undoAction()->trigger();
+    settle();
+    CHECK(app.doc().folders().empty());
+    CHECK(app.tree()->topLevelItemCount() == 3);
+}
+
+TEST_CASE("a closed folder stays closed when the tree is rebuilt", "[app][folders]") {
+    App app;
+    app.click("kh.modeling.box");
+    app.click("kh.modeling.box");
+    app.pickRows({0});
+    app.click("kh.modeling.new_folder");
+    app.tree()->topLevelItem(0)->setExpanded(false);
+    settle();
+    app.click("kh.modeling.box");  // changes the design, so the tree is rebuilt
+    CHECK(app.tree()->topLevelItem(0)->text(0) == QStringLiteral("Folder1"));
+    CHECK_FALSE(app.tree()->topLevelItem(0)->isExpanded());
+}
+
+TEST_CASE("steps that aren't next to each other can't share a folder", "[app][folders]") {
+    App app;
+    app.click("kh.modeling.box");
+    app.click("kh.modeling.box");
+    app.click("kh.modeling.box");
+    app.pickRows({0, 2});
+    app.click("kh.modeling.new_folder");
+    CHECK(app.doc().folders().empty());
+    REQUIRE(app.shell->lastProblems().size() == 1);
+    CHECK(app.shell->lastProblems()[0].code == "folder.not_together");
+}
+
 TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {
     App app;
     QGuiApplication::clipboard()->setText(QStringLiteral("just some words"));

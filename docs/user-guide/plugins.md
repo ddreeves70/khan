@@ -19,6 +19,9 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.rename
            command feature.set_material
            command feature.suppress
+           command folder.add
+           command folder.delete
+           command folder.rename
            command material.define
            command material.delete
            action  Create > Box  (feature.add_box)
@@ -29,6 +32,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            action  Edit > Duplicate step  (feature.duplicate)
            action  Edit > Turn off  (feature.suppress)
            action  Edit > Turn on  (feature.suppress)
+           action  Edit > New folder  (folder.add)
            action  Edit > Delete step  (feature.delete)
 ```
 

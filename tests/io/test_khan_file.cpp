@@ -500,3 +500,88 @@ TEST_CASE("copying a step that isn't in the design gives no text", "[io][copy]")
     auto doc = makeDesign();
     CHECK(io::stepsToText(*doc, {FeatureId::generate()}).empty());
 }
+
+// ---------------------------------------------------------------------------
+// Folders
+// ---------------------------------------------------------------------------
+
+TEST_CASE("folders survive saving and opening", "[io][folders]") {
+    auto doc = makeDesign();
+    const auto plate = doc->featureAt(0).id();
+    const auto hole = doc->featureAt(1).id();
+    REQUIRE(
+        doc->execute(std::make_unique<model::AddFolderCommand>(std::vector<FeatureId>{plate, hole}, "Parts"))
+            .empty());
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+    auto opened = io::readBytes(bytes, "tag.khan");
+    REQUIRE(opened.ok());
+    CHECK(opened.document->folders() == doc->folders());  // same id, name and steps
+    CHECK_FALSE(opened.document->canUndo());              // loading folders isn't an undoable step
+
+    io::Bytes again;
+    REQUIRE(io::writeBytes(*opened.document, again).empty());
+    CHECK(again == bytes);
+}
+
+TEST_CASE("a design without folders saves exactly as before", "[io][folders]") {
+    auto doc = makeDesign();
+    io::Bytes before;
+    REQUIRE(io::writeBytes(*doc, before).empty());
+    REQUIRE(doc->execute(std::make_unique<model::AddFolderCommand>(
+                             std::vector<FeatureId>{doc->featureAt(0).id()}, "Parts"))
+                .empty());
+    REQUIRE(doc->undo());
+    io::Bytes after;
+    REQUIRE(io::writeBytes(*doc, after).empty());
+    CHECK(after == before);
+}
+
+TEST_CASE("a damaged folders file is refused with a plain message", "[io][folders]") {
+    auto doc = makeDesign();
+    io::Bytes good;
+    REQUIRE(io::writeBytes(*doc, good).empty());
+    auto withFolders = [&](const std::string& text) {
+        // Copy every entry of the good file, and add folders.json.
+        std::map<std::string, std::string> entries;
+        zip_error_t err;
+        zip_error_init(&err);
+        zip_source_t* src = zip_source_buffer_create(good.data(), good.size(), 0, &err);
+        zip_t* za = zip_open_from_source(src, ZIP_RDONLY, &err);
+        for (zip_int64_t i = 0; i < zip_get_num_entries(za, 0); ++i) {
+            const char* name = zip_get_name(za, static_cast<zip_uint64_t>(i), 0);
+            zip_stat_t st;
+            zip_stat_index(za, static_cast<zip_uint64_t>(i), 0, &st);
+            std::string data(st.size, '\0');
+            zip_file_t* zf = zip_fopen_index(za, static_cast<zip_uint64_t>(i), 0);
+            zip_fread(zf, data.data(), st.size);
+            zip_fclose(zf);
+            entries[name] = data;
+        }
+        zip_close(za);
+        entries["folders.json"] = text;
+        return io::readBytes(makeZip(entries), "tag.khan");
+    };
+    const std::string plate = doc->featureAt(0).id().toString();
+    const std::string tag = doc->featureAt(2).id().toString();
+    const std::string folderId = FolderId::generate().toString();
+
+    auto ok = withFolders(R"({"folders":[{"id":")" + folderId + R"(","name":"Base","steps":[")" + plate +
+                          R"("]}]})");
+    REQUIRE(ok.ok());
+    REQUIRE(ok.document->folders().size() == 1);
+    CHECK(ok.document->folders()[0].name == "Base");
+
+    for (const std::string& bad :
+         {std::string(R"({"folders":3})"), std::string(R"({"folders":[{"name":"Base","steps":[]}]})"),
+          R"({"folders":[{"id":")" + folderId + R"(","name":"Base","steps":["nope"]}]})",
+          // Plate and Tag aren't next to each other.
+          R"({"folders":[{"id":")" + folderId + R"(","name":"Base","steps":[")" + plate + R"(",")" + tag +
+              R"("]}]})",
+          std::string("not json")}) {
+        auto r = withFolders(bad);
+        CHECK_FALSE(r.ok());
+        REQUIRE(r.issues.size() == 1);
+        CHECK(r.issues[0].code == "file.damaged");
+    }
+}

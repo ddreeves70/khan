@@ -114,7 +114,10 @@ int openDesign(int argc, char** argv) {
     for (std::size_t i = 0; i < doc.featureCount(); ++i) {
         const auto& f = doc.featureAt(i);
         const auto* r = report.result(f.id());
-        std::printf("  %-12s %s", f.name().c_str(), statusName(r->status));
+        // A folder's name comes before its first step, and its steps are indented.
+        const auto* folder = doc.findFolder(doc.folderOf(f.id()));
+        if (folder && folder->steps.front() == f.id()) std::printf("  %s/\n", folder->name.c_str());
+        std::printf(folder ? "    %-10s %s" : "  %-12s %s", f.name().c_str(), statusName(r->status));
         if (r->status == kh::model::FeatureStatus::Ok) {
             const auto& material = doc.materialOf(f.id());
             const auto mass = kh::model::bodyMass(*kernel, r->shape, material);

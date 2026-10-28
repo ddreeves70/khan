@@ -30,6 +30,8 @@ const char* typeName(ArgType t) {
             return "a step in the design";
         case ArgType::FeatureList:
             return "one or more steps in the design";
+        case ArgType::FolderRef:
+            return "a folder in the design";
         case ArgType::Choice:
             return "one of the listed choices";
     }
@@ -53,6 +55,8 @@ bool matches(ArgType t, const ArgValue& v) {
             return std::holds_alternative<FeatureId>(v);
         case ArgType::FeatureList:
             return std::holds_alternative<std::vector<FeatureId>>(v);
+        case ArgType::FolderRef:
+            return std::holds_alternative<FolderId>(v);
     }
     return false;
 }
@@ -146,6 +150,37 @@ CommandRegistry makeBuiltin() {
           [](const Document&, const Args& a) -> std::unique_ptr<Command> {
               return std::make_unique<SuppressFeaturesCommand>(argFeatures(a, "steps"),
                                                                argBool(a, "off", true));
+          });
+
+    r.add({"folder.add",
+           "New folder",
+           "Puts steps that are next to each other in the feature tree into a folder. Folders only keep the "
+           "tree tidy; they don't change what's built.",
+           {{"steps",
+             ArgType::FeatureList,
+             "The steps, as names separated by commas, like Hole,Slot.",
+             true,
+             {}},
+            {"name", ArgType::Text, "The folder's name. Default Folder1, Folder2, ...", false, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<AddFolderCommand>(argFeatures(a, "steps"), argText(a, "name"));
+          });
+
+    r.add({"folder.rename",
+           "Rename folder",
+           "Gives a folder a new name.",
+           {{"folder", ArgType::FolderRef, "The folder to rename.", true, {}},
+            {"name", ArgType::Text, "Its new name. No other folder may have it.", true, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<RenameFolderCommand>(argFolder(a, "folder"), argText(a, "name"));
+          });
+
+    r.add({"folder.delete",
+           "Remove folder",
+           "Removes a folder but keeps its steps.",
+           {{"folder", ArgType::FolderRef, "The folder to remove.", true, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<DeleteFolderCommand>(argFolder(a, "folder"));
           });
 
     r.add({"feature.rename",
@@ -267,6 +302,10 @@ CreateResult CommandRegistry::create(std::string_view name, const Args& args, co
             result.issues.push_back(
                 error("command.arg_feature", argName + " points to a step that isn't in the design."));
         }
+        if (spec->type == ArgType::FolderRef && !doc.findFolder(std::get<FolderId>(value))) {
+            result.issues.push_back(
+                error("command.arg_folder", argName + " points to a folder that isn't in the design."));
+        }
         if (spec->type == ArgType::FeatureList) {
             const auto& ids = std::get<std::vector<FeatureId>>(value);
             if (ids.empty()) {
@@ -329,6 +368,13 @@ std::vector<FeatureId> argFeatures(const Args& args, const std::string& name) {
     if (it == args.end()) return {};
     if (const auto* ids = std::get_if<std::vector<FeatureId>>(&it->second)) return *ids;
     if (const auto* id = std::get_if<FeatureId>(&it->second)) return {*id};
+    return {};
+}
+
+FolderId argFolder(const Args& args, const std::string& name) {
+    auto it = args.find(name);
+    if (it == args.end()) return {};
+    if (const auto* id = std::get_if<FolderId>(&it->second)) return *id;
     return {};
 }
 

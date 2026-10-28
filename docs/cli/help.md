@@ -26,6 +26,9 @@ Commands for kh_cli run:
   feature.rename           Rename step
   feature.set_material     Set material
   feature.suppress         Turn steps off or on
+  folder.add               New folder
+  folder.delete            Remove folder
+  folder.rename            Rename folder
   material.define          Define material
   material.delete          Delete material
 Run "kh_cli help <command>" to see a command's settings.

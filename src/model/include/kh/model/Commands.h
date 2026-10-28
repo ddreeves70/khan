@@ -81,6 +81,70 @@ private:
     std::string label_;
 };
 
+/// Puts steps that are next to each other in the feature tree into a new folder.
+///
+/// @code
+/// doc.execute(std::make_unique<AddFolderCommand>(std::vector<FeatureId>{holeId, slotId}, "Holes"));
+/// @endcode
+class AddFolderCommand final : public Command {
+public:
+    /// Prepares the new folder.
+    /// @param steps Its steps, in any order. They must be next to each other in
+    ///        the design and not in another folder.
+    /// @param name Its name; empty for the next free "Folder1", "Folder2", ...
+    /// @param id Its id; a new one unless given (opening a file gives the saved one).
+    AddFolderCommand(std::vector<FeatureId> steps, std::string name, FolderId id = FolderId::generate());
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+    /// Gives the folder's id, which stays the same across undo and redo.
+    /// @return The id.
+    const FolderId& id() const { return id_; }
+
+private:
+    std::vector<FeatureId> steps_;
+    std::string askedName_;
+    std::string name_;
+    FolderId id_;
+};
+
+/// Renames a folder. Its steps stay as they are.
+class RenameFolderCommand final : public Command {
+public:
+    /// Prepares the rename.
+    /// @param id The folder.
+    /// @param name Its new name. No other folder may have it.
+    RenameFolderCommand(FolderId id, std::string name);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    FolderId id_;
+    std::string newName_;
+    std::string oldName_;
+};
+
+/// Removes a folder but keeps its steps, which go back to the top of the tree.
+class DeleteFolderCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param id The folder.
+    explicit DeleteFolderCommand(FolderId id);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    FolderId id_;
+    Folder removed_;
+    std::size_t index_ = 0;
+};
+
 /// Replaces a feature with an edited copy that has the same id and type.
 ///
 /// @code
