@@ -68,6 +68,14 @@ void registerModeling(plugin::PluginContext& ctx) {
                                  .toolbar = true,
                                  .tip = c.tip});
     }
+    ctx.addAction(ActionSpec{.id = "kh.modeling.move",
+                             .text = "Move",
+                             .menu = "Modify",
+                             .command = "feature.add_move",
+                             .fromSelection = {"body"},
+                             .shortcut = "Ctrl+M",
+                             .toolbar = true,
+                             .tip = "Move or turn the picked body. Then type how far in Properties."});
     ctx.addAction(ActionSpec{.id = "kh.modeling.duplicate",
                              .text = "Duplicate step",
                              .menu = "Edit",

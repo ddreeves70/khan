@@ -1,0 +1,29 @@
+{
+  "name": "invalid-move-axis",
+  "description": "Turning about an axis of 0, 0, 0 must fail with a plain message, not crash.",
+  "steps": [
+    {
+      "id": "block",
+      "op": "box",
+      "size": [
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "moved",
+      "op": "move",
+      "body": "block",
+      "turn": 45,
+      "axis": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "expect": {
+    "error": "kernel.move.axis"
+  }
+}

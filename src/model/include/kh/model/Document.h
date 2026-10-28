@@ -149,7 +149,8 @@ public:
 
     /// Works out what a step's body is made of: the material picked for it; if
     /// none, the material of the body it was made from (the first body, A, of a
-    /// union, cut or intersect), and so on back; and if none was picked anywhere,
+    /// union, cut or intersect, or the body a Move moves), and so on back; and if
+    /// none was picked anywhere,
     /// defaultMaterial() (PLA). A key that names no material counts as none.
     /// @param id The step.
     /// @return The material. For a step not in the design, defaultMaterial().

@@ -1,0 +1,52 @@
+{
+  "name": "move-turn-then-slide",
+  "description": "A 10 x 20 x 30 mm box turned 90 degrees about the x axis, then slid 5 mm along x. Turning comes first: y and z become -z and y (bounds y -30..0, z 0..20), then x shifts to 5..15. If the slide came first the bounds would differ.",
+  "steps": [
+    {
+      "id": "block",
+      "op": "box",
+      "size": [
+        10,
+        20,
+        30
+      ]
+    },
+    {
+      "id": "moved",
+      "op": "move",
+      "body": "block",
+      "turn": 90,
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "by": [
+        5,
+        0,
+        0
+      ]
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 6000.0,
+    "area": 2200.0,
+    "bounds": [
+      [
+        5.0,
+        -30.0,
+        0.0
+      ],
+      [
+        15.0,
+        0.0,
+        20.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 6,
+    "edges": 12,
+    "vertices": 8
+  }
+}

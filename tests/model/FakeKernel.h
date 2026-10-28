@@ -43,6 +43,11 @@ public:
         return fail();
     }
 
+    kernel::OpResult transform(const kernel::ShapeHandle& s, const kernel::Motion&) override {
+        ++calls;
+        return make(volumeOf(s));  // moving never changes the volume
+    }
+
     kernel::Box3 bounds(const kernel::ShapeHandle&) const override { return {}; }
     kernel::MassProps massProps(const kernel::ShapeHandle& s) const override {
         kernel::MassProps m;

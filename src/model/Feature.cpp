@@ -46,4 +46,23 @@ kernel::OpResult BooleanFeature::execute(kernel::IKernel& kernel, const ResultLo
     return kernel.boolean(op_, *sa, *sb);
 }
 
+MoveFeature::MoveFeature(std::string name, FeatureId body, kernel::Motion motion)
+    : MoveFeature(FeatureId::generate(), std::move(name), body, motion) {}
+
+MoveFeature::MoveFeature(FeatureId id, std::string name, FeatureId body, kernel::Motion motion)
+    : Feature(id, std::move(name)), body_(body), motion_(motion) {}
+
+kernel::OpResult MoveFeature::execute(kernel::IKernel& kernel, const ResultLookup& earlier) const {
+    const auto* s = earlier.shapeOf(body_);
+    if (!s) {
+        kernel::OpResult r;
+        r.issues.push_back({"feature.input_missing",
+                            Severity::Error,
+                            "This step uses another step that is missing or has a problem.",
+                            {}});
+        return r;
+    }
+    return kernel.transform(*s, motion_);
+}
+
 }  // namespace kh::model

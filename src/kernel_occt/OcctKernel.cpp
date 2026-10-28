@@ -5,6 +5,7 @@
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
@@ -27,8 +28,11 @@
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
+#include <gp_Ax1.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Pnt.hxx>
+#include <gp_Trsf.hxx>
+#include <gp_Vec.hxx>
 
 #include <mutex>
 #include <string>
@@ -113,6 +117,34 @@ public:
             return {wrap(mk.Shape()), {}};
         } catch (const Standard_Failure& e) {
             return failed("kernel.cylinder.failed", "The cylinder could not be created.", describe(e));
+        }
+    }
+
+    OpResult transform(const ShapeHandle& shape, const Motion& motion) override {
+        const TopoDS_Shape* s = unwrap(shape);
+        if (!s) return failed("kernel.move.input", "Move needs a valid body.");
+        const Vec3& a = motion.axis;
+        if (motion.angle != 0 && a.x * a.x + a.y * a.y + a.z * a.z < 1e-18) {
+            return failed(
+                "kernel.move.axis",
+                "The axis to turn about can't be 0, 0, 0. Give it a direction, like 0, 0, 1 to turn "
+                "around an up-and-down line.");
+        }
+        try {
+            gp_Trsf turn;
+            if (motion.angle != 0) {
+                turn.SetRotation(
+                    gp_Ax1(gp_Pnt(motion.center.x, motion.center.y, motion.center.z), gp_Dir(a.x, a.y, a.z)),
+                    motion.angle);
+            }
+            gp_Trsf slide;
+            slide.SetTranslation(gp_Vec(motion.offset.x, motion.offset.y, motion.offset.z));
+            // Copy the geometry, so the result has no hidden placement (cleaner meshes and files).
+            BRepBuilderAPI_Transform mk(*s, slide * turn, Standard_True);
+            if (!mk.IsDone()) return failed("kernel.move.failed", "The body could not be moved.");
+            return {wrap(mk.Shape()), {}};
+        } catch (const Standard_Failure& e) {
+            return failed("kernel.move.failed", "The body could not be moved.", describe(e));
         }
     }
 
