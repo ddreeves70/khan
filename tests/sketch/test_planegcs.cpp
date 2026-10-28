@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <numbers>
 
 #include "SketchHelpers.h"
@@ -263,6 +264,12 @@ TEST_CASE("solving the same sketch twice gives exactly the same numbers", "[sket
     r.b.constrain(K::Length, {}, {r.bottom}, 40);
     r.b.constrain(K::Angle, {}, {r.bottom, r.b.line(1, 1, 20, 9)}, 0.4);
     const auto a = makePlaneGcsSolver()->solve(r.b.sketch);
+    // Scatter the heap, so the second solve's numbers live at different, unordered
+    // addresses (as they do on Windows). The answer must not depend on them.
+    std::vector<std::unique_ptr<char[]>> clutter;
+    for (int i = 0; i < 400; ++i)
+        clutter.push_back(std::make_unique<char[]>(static_cast<std::size_t>(16 + (i * 7919) % 1500)));
+    for (std::size_t i = 0; i < clutter.size(); i += 2) clutter[i].reset();
     const auto c = makePlaneGcsSolver()->solve(r.b.sketch);
     REQUIRE(a.ok());
     REQUIRE(c.ok());
