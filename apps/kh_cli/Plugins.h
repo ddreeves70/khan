@@ -1,5 +1,9 @@
 #pragma once
 
+#include <string>
+
+#include "kh/sketch/Sketch.h"
+
 namespace kh::cli {
 
 // kh_cli plugins [--plugins <folder>]...
@@ -15,5 +19,8 @@ int runCommand(int argc, char** argv);
 // kh_cli help [--plugins <folder>]... [<command>]
 // Lists every command that `run` can run, or describes one command and its settings.
 int help(int argc, char** argv);
+
+// One line about a solved sketch, like "4 lines, 8 constraints, fully constrained".
+std::string sketchSummary(const sketch::Sketch& sketch, int freedom);
 
 }  // namespace kh::cli

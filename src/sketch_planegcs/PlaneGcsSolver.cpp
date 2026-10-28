@@ -76,7 +76,7 @@ std::string names(const Sketch& sketch, const std::vector<ConstraintId>& ids) {
     for (const auto& id : ids) {
         const auto* c = sketch.find(id);
         if (!c) continue;
-        out += (out.empty() ? "" : ", ") + std::string(kindName(c->kind));
+        out += (out.empty() ? "" : ", ") + (c->name.empty() ? std::string(kindName(c->kind)) : c->name);
     }
     return out;
 }

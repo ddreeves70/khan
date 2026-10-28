@@ -2,10 +2,12 @@
 
 Opens a saved design, rebuilds it, and prints every step with its volume, and
 each finished body's mass and material. It can
-also export the finished shape for 3D printing or another CAD program.
+also export the finished shape for 3D printing or another CAD program, or list a
+sketch as the solver left it.
 
 ```text
 kh_cli open <file.khan> [--export <out.stl|out.step> [--step <name>]]
+kh_cli open <file.khan> --sketch <name>
 ```
 
 | Option | Meaning |
@@ -14,12 +16,13 @@ kh_cli open <file.khan> [--export <out.stl|out.step> [--step <name>]]
 | `--export <out.stl>` | Write the finished shape as an STL mesh, for slicers and 3D printing |
 | `--export <out.step>` | Write the finished shape as a STEP file, for other CAD programs (`.stp` works too) |
 | `--step <name>` | Export the shape of this step instead, even if later steps use it |
+| `--sketch <name>` | Also list this sketch: each line, circle, arc and point where the solver put it (mm, angles in degrees), then each constraint |
 
 Each step shows one of these:
 
 | Word | Meaning |
 | --- | --- |
-| `ok` | The step built. Its volume is shown; a finished body also shows its mass and [material](../user-guide/materials.md) |
+| `ok` | The step built. Its volume is shown; a finished body also shows its mass and [material](../user-guide/materials.md). A [sketch](../user-guide/sketches.md) shows what's in it and how free it still is |
 | `failed` | The step couldn't be built. The line under it says why |
 | `blocked` | The step uses another step that failed or is turned off |
 | `off` | The step is turned off (suppressed) |
@@ -85,6 +88,36 @@ two: 2 steps
   Box2         ok  volume 125.00 mm^3  mass 0.15 g (PLA)
 error: this design has 2 finished bodies, and export writes one. Combine them with feature.add_boolean, or pick one with --step <name>.
 ```
+
+## A sketch, solved
+
+A sketch is a flat drawing that the solver makes exact (see
+[Sketches](../user-guide/sketches.md)). `--sketch` lists it as solved:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save disc.khan feature.add_sketch
+disc: 1 step
+  Sketch1      ok  empty
+wrote disc.khan
+$ kh_cli run --open disc.khan --save disc.khan sketch.add_circle sketch=Sketch1 center=1,2 radius=3
+disc: 1 step
+  Sketch1      ok  1 circle, 0 constraints, free to move 3 ways
+wrote disc.khan
+$ kh_cli run --open disc.khan --save disc.khan sketch.constrain sketch=Sketch1 kind=diameter on=Circle1 value=10
+disc: 1 step
+  Sketch1      ok  1 circle, 1 constraint, free to move 2 ways
+wrote disc.khan
+$ kh_cli open disc.khan --sketch Sketch1
+disc: 1 step
+  Sketch1      ok  1 circle, 1 constraint, free to move 2 ways
+Sketch1 (XY plane): free to move 2 ways
+  Circle1        circle  center 1.00, 2.00  radius 5.00
+  Diameter1      diameter            Circle1  10.00 mm
+```
+
+A sketch whose constraints conflict is listed as drawn, with `(conflicts)` after
+the constraints that fight.
 
 ## Files that can't be opened
 

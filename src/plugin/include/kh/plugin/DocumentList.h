@@ -38,7 +38,9 @@ public:
     /// @param commands The commands run() can find by name. Must outlive the list.
     /// @param kernel The kernel used to rebuild designs after each change; null
     ///        means designs are not rebuilt and RebuildFinished is not sent.
-    DocumentList(EventBus& bus, const model::CommandRegistry& commands, kernel::IKernel* kernel = nullptr);
+    /// @param solver The solver for Sketch steps; null means Sketch steps fail to rebuild.
+    DocumentList(EventBus& bus, const model::CommandRegistry& commands, kernel::IKernel* kernel = nullptr,
+                 sketch::ISketchSolver* solver = nullptr);
 
     /// Closes every design.
     ~DocumentList();
@@ -126,6 +128,7 @@ private:
     EventBus& bus_;
     const model::CommandRegistry& commands_;
     kernel::IKernel* kernel_;
+    sketch::ISketchSolver* solver_;
     std::vector<DocId> order_;
     std::map<DocId, Entry> docs_;
     DocId active_;

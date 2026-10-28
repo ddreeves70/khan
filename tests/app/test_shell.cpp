@@ -42,6 +42,7 @@
 #include "kh/plugins/Properties.h"
 #include "kh/plugins/ViewOptions.h"
 #include "kh/plugins/Viewer.h"
+#include "kh/sketch_planegcs/PlaneGcsSolver.h"
 #include "kh/ui/UiRegistry.h"
 #include "kh/view/FlatView.h"
 
@@ -116,9 +117,10 @@ struct App {
     QTemporaryDir dir;
     QSettings settings{dir.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat};
     std::unique_ptr<kernel::IKernel> kernel = kernel::makeOcctKernel();
+    std::unique_ptr<sketch::ISketchSolver> solver = sketch::makePlaneGcsSolver();
     app::AppSettings pluginSettings{settings};
     app::AppUi ui;
-    plugin::PluginHost host{kernel.get()};
+    plugin::PluginHost host{kernel.get(), solver.get()};
     std::unique_ptr<app::Shell> shell;
 
     App() {
@@ -465,6 +467,46 @@ TEST_CASE("Modify > Move adds a Move step, and Properties changes how far", "[ap
     CHECK(dynamic_cast<const model::MoveFeature&>(app.doc().featureAt(1)).motion().angle ==
           Approx(std::numbers::pi / 2));
     CHECK(app.tree()->topLevelItem(1)->text(2) == QStringLiteral("ok"));
+}
+
+TEST_CASE("a sketch shows in the tree, and Properties shows how free it still is", "[app][sketch]") {
+    App app;
+    auto& docs = app.host.documents();
+    const auto doc = app.shell->activeDesign();
+    REQUIRE(docs.run(doc, "feature.add_sketch", {}).empty());
+    const auto sketchId = app.doc().featureAt(0).id();
+    auto sk = [&](std::string_view name, model::Args args) {
+        args["sketch"] = sketchId;
+        return docs.run(doc, name, args);
+    };
+    REQUIRE(sk("sketch.add_line", {{"from", sketch::Point2{0, 0}}, {"to", sketch::Point2{30, 2}}}).empty());
+    REQUIRE(sk("sketch.add_circle", {{"center", sketch::Point2{15, 10}}, {"radius", 4.0}}).empty());
+    REQUIRE(
+        sk("sketch.constrain", {{"kind", std::string("horizontal")}, {"on", std::string("Line1")}}).empty());
+    settle();
+    CHECK(app.tree()->topLevelItem(0)->text(1) == QStringLiteral("Sketch"));
+    CHECK(app.tree()->topLevelItem(0)->text(2) == QStringLiteral("ok"));
+    app.pickRows({0});
+    CHECK(app.field<QLabel>("plane")->text().startsWith(QStringLiteral("XY")));
+    CHECK(app.field<QLabel>("drawn")->text() == QStringLiteral("1 line(s), 1 circle(s)"));
+    CHECK(app.field<QLabel>("constraints")->text() == QStringLiteral("1"));
+    CHECK(app.field<QLabel>("freedom")->text() ==
+          QStringLiteral("6"));                     // a horizontal line (3) and a circle (3)
+    CHECK_FALSE(app.field<QComboBox>("material"));  // a sketch isn't a body
+
+    REQUIRE(
+        sk("sketch.constrain", {{"kind", std::string("fix")}, {"on", std::string("Line1.start")}}).empty());
+    REQUIRE(sk("sketch.constrain",
+               {{"kind", std::string("length")}, {"on", std::string("Line1")}, {"value", 30.0}})
+                .empty());
+    REQUIRE(sk("sketch.constrain",
+               {{"kind", std::string("radius")}, {"on", std::string("Circle1")}, {"value", 4.0}})
+                .empty());
+    REQUIRE(sk("sketch.constrain",
+               {{"kind", std::string("midpoint")}, {"on", std::string("Circle1.center,Line1")}})
+                .empty());
+    settle();
+    CHECK(app.field<QLabel>("freedom")->text() == QStringLiteral("0: fully constrained"));
 }
 
 TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {

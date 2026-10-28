@@ -51,6 +51,8 @@ const char* kindName(const model::Feature& f) {
         }
         case model::FeatureType::Move:
             return "Move";
+        case model::FeatureType::Sketch:
+            return "Sketch";
     }
     return "Step";
 }

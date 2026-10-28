@@ -27,8 +27,12 @@ class PluginContext;
 /// Version 11 added command arguments that take several steps
 /// (model::ArgType::FeatureList) and actions that use every selected step
 /// (ActionSpec::fromSelectionList). Version 12 added folders: command
-/// arguments that name a folder (model::ArgType::FolderRef).
-inline constexpr int kPluginApiVersion = 12;
+/// arguments that name a folder (model::ArgType::FolderRef). Version 13 added
+/// sketches: Sketch steps (model::SketchFeature), points on a sketch's plane as
+/// command arguments (model::ArgType::Vec2), the solved sketch in a rebuild
+/// result (model::FeatureResult::sketch), and the sketch solver given to
+/// PluginHost and DocumentList.
+inline constexpr int kPluginApiVersion = 13;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

@@ -4,6 +4,7 @@
 /// The built-in commands that change features.
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -144,6 +145,47 @@ private:
     Folder removed_;
     std::size_t index_ = 0;
 };
+
+/// Changes a Sketch step's entities or constraints, as one undo step.
+///
+/// The change is a function that edits a copy of the sketch. It runs once; redo
+/// puts back the same result, so new ids stay the same. The result must pass
+/// sketch::check(), or nothing changes.
+///
+/// @code
+/// doc.execute(std::make_unique<EditSketchCommand>(sketchId, [](sketch::Sketch& s, std::string& label) {
+///     s.entities.push_back({EntityId::generate(), "Line1", sketch::LineShape{{0, 0}, {40, 0}}, false});
+///     label = "Add Line1";
+///     return Diagnostics{};
+/// }));
+/// @endcode
+class EditSketchCommand final : public Command {
+public:
+    /// Edits a copy of the sketch and sets the label for Edit > Undo.
+    using Change = std::function<Diagnostics(sketch::Sketch& sketch, std::string& label)>;
+
+    /// Prepares the change.
+    /// @param sketch The Sketch step.
+    /// @param change What to change. It returns problems, in plain words, if it can't.
+    EditSketchCommand(FeatureId sketch, Change change);
+
+    std::string label() const override { return label_; }
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    FeatureId id_;
+    Change change_;
+    std::string label_;
+    std::optional<sketch::Sketch> before_;
+    std::optional<sketch::Sketch> after_;
+};
+
+/// Makes a name no entity or constraint in a sketch has yet.
+/// @param sketch The sketch.
+/// @param base The start of the name, e.g. "Line".
+/// @return The first free name of "Line1", "Line2", ...
+std::string uniqueSketchName(const sketch::Sketch& sketch, const std::string& base);
 
 /// Replaces a feature with an edited copy that has the same id and type.
 ///

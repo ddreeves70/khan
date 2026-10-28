@@ -62,7 +62,8 @@ const FeatureResult* RebuildReport::result(const FeatureId& id) const {
 
 const kernel::ShapeHandle* RebuildReport::shapeOf(const FeatureId& id) const {
     const auto* r = result(id);
-    return (r && r->status == FeatureStatus::Ok) ? &r->shape : nullptr;
+    // A sketch comes out Ok with no shape: it isn't a body.
+    return (r && r->status == FeatureStatus::Ok && r->shape.valid()) ? &r->shape : nullptr;
 }
 
 bool RebuildReport::ok() const {
@@ -240,7 +241,7 @@ bool Document::isModified() const {
     return currentSerial() != savedSerial_;
 }
 
-RebuildReport Document::regenerate(kernel::IKernel& kernel) const {
+RebuildReport Document::regenerate(kernel::IKernel& kernel, sketch::ISketchSolver* solver) const {
     RebuildReport report;
     std::set<FeatureId> usedAsInput;
 
@@ -258,6 +259,9 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel) const {
                 const Feature* d = find(dep);
                 if (!d) {
                     blocker = "This step uses a step that no longer exists. Change or delete this step.";
+                } else if (d->type() == FeatureType::Sketch) {
+                    blocker = "This step uses " + d->name() +
+                              ", which is a sketch, not a body. Pick a body instead.";
                 } else if (d->suppressed()) {
                     blocker = "This step uses " + d->name() + ", which is turned off. Turn " + d->name() +
                               " back on, or change this step.";
@@ -268,6 +272,19 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel) const {
             if (blocker) {
                 r.status = FeatureStatus::Blocked;
                 r.issues.push_back({"feature.blocked", Severity::Error, *blocker, {}});
+            } else if (f->type() == FeatureType::Sketch) {
+                // Sketches are solved, not built: no shape, and not a body.
+                if (!solver) {
+                    r.status = FeatureStatus::Failed;
+                    r.issues.push_back(
+                        {"sketch.no_solver", Severity::Error, "This copy of Khan can't solve sketches.", {}});
+                } else {
+                    auto solved = std::make_shared<sketch::SolveResult>(
+                        solver->solve(static_cast<const SketchFeature&>(*f).sketch()));
+                    r.status = solved->ok() ? FeatureStatus::Ok : FeatureStatus::Failed;
+                    r.issues = solved->issues;
+                    r.sketch = std::move(solved);
+                }
             } else {
                 auto op = f->execute(kernel, report);
                 r.status = op.ok() ? FeatureStatus::Ok : FeatureStatus::Failed;

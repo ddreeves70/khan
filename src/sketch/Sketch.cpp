@@ -81,6 +81,20 @@ const Constraint* Sketch::find(const ConstraintId& id) const {
     return nullptr;
 }
 
+const Entity* Sketch::findEntity(std::string_view name) const {
+    for (const auto& e : entities) {
+        if (e.name == name) return &e;
+    }
+    return nullptr;
+}
+
+const Constraint* Sketch::findConstraint(std::string_view name) const {
+    for (const auto& c : constraints) {
+        if (c.name == name) return &c;
+    }
+    return nullptr;
+}
+
 std::string_view kindName(ConstraintKind kind) {
     switch (kind) {
         case ConstraintKind::Fix:
@@ -121,6 +135,98 @@ std::string_view kindName(ConstraintKind kind) {
             return "Angle";
     }
     return "Constraint";
+}
+
+const std::vector<ConstraintKind>& allKinds() {
+    static const std::vector<ConstraintKind> kinds{ConstraintKind::Fix,
+                                                   ConstraintKind::Coincident,
+                                                   ConstraintKind::Horizontal,
+                                                   ConstraintKind::Vertical,
+                                                   ConstraintKind::Parallel,
+                                                   ConstraintKind::Perpendicular,
+                                                   ConstraintKind::Equal,
+                                                   ConstraintKind::PointOnLine,
+                                                   ConstraintKind::PointOnCircle,
+                                                   ConstraintKind::Midpoint,
+                                                   ConstraintKind::Tangent,
+                                                   ConstraintKind::Distance,
+                                                   ConstraintKind::Length,
+                                                   ConstraintKind::HorizontalDistance,
+                                                   ConstraintKind::VerticalDistance,
+                                                   ConstraintKind::Radius,
+                                                   ConstraintKind::Diameter,
+                                                   ConstraintKind::Angle};
+    return kinds;
+}
+
+std::string_view kindKey(ConstraintKind kind) {
+    switch (kind) {
+        case ConstraintKind::Fix:
+            return "fix";
+        case ConstraintKind::Coincident:
+            return "coincident";
+        case ConstraintKind::Horizontal:
+            return "horizontal";
+        case ConstraintKind::Vertical:
+            return "vertical";
+        case ConstraintKind::Parallel:
+            return "parallel";
+        case ConstraintKind::Perpendicular:
+            return "perpendicular";
+        case ConstraintKind::Equal:
+            return "equal";
+        case ConstraintKind::PointOnLine:
+            return "point_on_line";
+        case ConstraintKind::PointOnCircle:
+            return "point_on_circle";
+        case ConstraintKind::Midpoint:
+            return "midpoint";
+        case ConstraintKind::Tangent:
+            return "tangent";
+        case ConstraintKind::Distance:
+            return "distance";
+        case ConstraintKind::Length:
+            return "length";
+        case ConstraintKind::HorizontalDistance:
+            return "horizontal_distance";
+        case ConstraintKind::VerticalDistance:
+            return "vertical_distance";
+        case ConstraintKind::Radius:
+            return "radius";
+        case ConstraintKind::Diameter:
+            return "diameter";
+        case ConstraintKind::Angle:
+            return "angle";
+    }
+    return "";
+}
+
+std::optional<ConstraintKind> kindFromKey(std::string_view key) {
+    for (auto k : allKinds()) {
+        if (kindKey(k) == key) return k;
+    }
+    return std::nullopt;
+}
+
+std::string_view roleKey(PointRole role) {
+    switch (role) {
+        case PointRole::Self:
+            return "";
+        case PointRole::Start:
+            return "start";
+        case PointRole::End:
+            return "end";
+        case PointRole::Center:
+            return "center";
+    }
+    return "";
+}
+
+std::optional<PointRole> roleFromKey(std::string_view key) {
+    for (auto r : {PointRole::Self, PointRole::Start, PointRole::End, PointRole::Center}) {
+        if (roleKey(r) == key) return r;
+    }
+    return std::nullopt;
 }
 
 bool isDimension(ConstraintKind kind) {
@@ -197,6 +303,17 @@ Diagnostics check(const Sketch& sketch) {
             }
         }
     }
+
+    // Names are how students and kh_cli point at things, so no two may match.
+    std::set<std::string> names;
+    auto nameOnce = [&](const std::string& name) {
+        if (!name.empty() && !names.insert(name).second) {
+            out.push_back(problem("sketch.duplicate_name",
+                                  "Two things in the sketch are called " + name + ". Rename one of them."));
+        }
+    };
+    for (const auto& e : sketch.entities) nameOnce(e.name);
+    for (const auto& c : sketch.constraints) nameOnce(c.name);
 
     std::set<ConstraintId> constraintIds;
     for (const auto& c : sketch.constraints) {

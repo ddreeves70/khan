@@ -17,6 +17,7 @@
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/plugin/PluginHost.h"
 #include "kh/plugins/Modeling.h"
+#include "kh/sketch_planegcs/PlaneGcsSolver.h"
 
 namespace kh::cli {
 
@@ -144,6 +145,15 @@ std::optional<model::ArgValue> parseArg(const model::ArgSpec& spec, const std::s
             why = spec.name + " must be three numbers in mm, like 10,20,30";
             return std::nullopt;
         }
+        case ArgType::Vec2: {
+            const auto c = text.find(',');
+            if (c != std::string::npos) {
+                auto x = toNumber(text.substr(0, c)), y = toNumber(text.substr(c + 1));
+                if (x && y) return sketch::Point2{*x, *y};
+            }
+            why = spec.name + " must be two numbers in mm, like 10,20";
+            return std::nullopt;
+        }
         case ArgType::FeatureRef:
             for (std::size_t i = 0; i < doc.featureCount(); ++i) {
                 if (doc.featureAt(i).name() == text) return doc.featureAt(i).id();
@@ -204,6 +214,8 @@ const char* typeName(model::ArgType t) {
             return "text";
         case model::ArgType::Vec3:
             return "x,y,z";
+        case model::ArgType::Vec2:
+            return "x,y";
         case model::ArgType::FeatureRef:
             return "step name";
         case model::ArgType::FeatureList:
@@ -324,7 +336,8 @@ int runCommand(int argc, char** argv) {
     };
     std::vector<std::string_view> args(argv + 2, argv + argc);
     auto kernel = kernel::makeOcctKernel();
-    plugin::PluginHost host(kernel.get());
+    auto solver = sketch::makePlaneGcsSolver();
+    plugin::PluginHost host(kernel.get(), solver.get());
     if (!loadPlugins(host, args)) return 2;
     const auto openPath = takeOption(args, "--open");
     const auto savePath = takeOption(args, "--save");
@@ -404,7 +417,11 @@ int runCommand(int argc, char** argv) {
         const auto* folder = design.findFolder(design.folderOf(f.id()));
         if (folder && folder->steps.front() == f.id()) std::printf("  %s/\n", folder->name.c_str());
         std::printf(folder ? "    %-10s %s" : "  %-12s %s", f.name().c_str(), statusName(r->status));
-        if (r->status == model::FeatureStatus::Ok) {
+        if (r->sketch && r->status == model::FeatureStatus::Ok) {
+            std::printf("  %s", sketchSummary(static_cast<const model::SketchFeature&>(f).sketch(),
+                                              r->sketch->freedom)
+                                    .c_str());
+        } else if (r->status == model::FeatureStatus::Ok) {
             const auto& material = design.materialOf(f.id());
             const auto mass = model::bodyMass(*kernel, r->shape, material);
             std::printf("  volume %.2f mm^3", mass.volume);
@@ -439,6 +456,29 @@ int runCommand(int argc, char** argv) {
         std::printf("wrote %s\n", savePath->c_str());
     }
     return report->ok() ? 0 : 1;
+}
+
+std::string sketchSummary(const sketch::Sketch& sketch, int freedom) {
+    int points = 0, lines = 0, circles = 0, arcs = 0;
+    for (const auto& e : sketch.entities) {
+        points += std::holds_alternative<sketch::PointShape>(e.shape) ? 1 : 0;
+        lines += std::holds_alternative<sketch::LineShape>(e.shape) ? 1 : 0;
+        circles += std::holds_alternative<sketch::CircleShape>(e.shape) ? 1 : 0;
+        arcs += std::holds_alternative<sketch::ArcShape>(e.shape) ? 1 : 0;
+    }
+    auto count = [](int n, const char* one, const char* many) {
+        return std::to_string(n) + " " + (n == 1 ? one : many);
+    };
+    std::string out;
+    auto add = [&](const std::string& part) { out += (out.empty() ? "" : ", ") + part; };
+    if (lines) add(count(lines, "line", "lines"));
+    if (circles) add(count(circles, "circle", "circles"));
+    if (arcs) add(count(arcs, "arc", "arcs"));
+    if (points) add(count(points, "point", "points"));
+    if (out.empty()) return "empty";
+    add(count(static_cast<int>(sketch.constraints.size()), "constraint", "constraints"));
+    add(freedom == 0 ? std::string("fully constrained") : "free to move " + count(freedom, "way", "ways"));
+    return out;
 }
 
 }  // namespace kh::cli

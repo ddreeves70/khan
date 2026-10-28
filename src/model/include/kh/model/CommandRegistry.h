@@ -16,6 +16,7 @@
 #include "kh/core/Id.h"
 #include "kh/kernel/Types.h"
 #include "kh/model/Command.h"
+#include "kh/sketch/Sketch.h"
 
 namespace kh::model {
 
@@ -32,11 +33,12 @@ enum class ArgType {
     Choice,       ///< A std::string, one of ArgSpec::choices.
     FeatureList,  ///< A std::vector<FeatureId>: one or more steps in the document, in order.
     FolderRef,    ///< A FolderId of a folder in the document.
+    Vec2,         ///< A sketch::Point2: a point on a sketch's plane, in millimeters.
 };
 
 /// One argument value. Which alternative is allowed depends on the ArgSpec's ArgType.
 using ArgValue = std::variant<double, std::int64_t, bool, std::string, kernel::Vec3, FeatureId,
-                              std::vector<FeatureId>, FolderId>;
+                              std::vector<FeatureId>, FolderId, sketch::Point2>;
 
 /// Arguments for one command, by argument name.
 using Args = std::map<std::string, ArgValue>;
@@ -146,6 +148,13 @@ std::string argText(const Args& args, const std::string& name, const std::string
 /// @param fallback Returned if the argument is absent.
 /// @return The value (mm).
 kernel::Vec3 argVec3(const Args& args, const std::string& name, const kernel::Vec3& fallback = {});
+
+/// Reads a Vec2 argument (a point on a sketch's plane), for use in a CommandFactory.
+/// @param args The checked arguments.
+/// @param name The argument name.
+/// @param fallback Returned if the argument is absent.
+/// @return The value (mm).
+sketch::Point2 argVec2(const Args& args, const std::string& name, const sketch::Point2& fallback = {});
 
 /// Reads a feature argument, for use in a CommandFactory.
 /// @param args The checked arguments.

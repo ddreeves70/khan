@@ -27,6 +27,12 @@ An "app" recipe takes a screenshot of the desktop app instead (pass --kh-app):
                                 "trigger": ["kh.viewer.layout.fourpanes"], "flat": false},
      "crop": [x, y, width, height], "callouts": [{"at": [x, y], "n": 1}]}   both optional
 
+A "sketch" recipe draws a sketch twice, side by side: as it was drawn (from the
+.khan file) and as the solver left it (from `kh_cli open --sketch`):
+
+    {"out": "docs/user-guide/images/sketch-rectangle.png", "commands": [...],
+     "sketch": {"file": "r.khan", "name": "Sketch1"}, "size": "720x300"}
+
 "trigger" clicks menu items and buttons by object name before the picture is
 taken. The 3D viewer needs OpenGL: on Linux the app runs on a virtual screen
 (xvfb-run, with Mesa's software OpenGL); elsewhere it opens on your screen for a
@@ -77,6 +83,107 @@ def mark_up(png, crop, callouts):
         ax.text(cx, cy, str(c["n"]), color="white", fontsize=11, fontweight="bold", ha="center", va="center",
                 zorder=4)
     fig.savefig(str(png), dpi=100)
+    plt.close(fig)
+
+
+def read_drawn(khan, name):
+    """The entities of a sketch as drawn: [(name, kind, numbers, construction)], from the .khan zip."""
+    import zipfile
+
+    with zipfile.ZipFile(khan) as z:
+        for entry in z.namelist():
+            if not entry.startswith("features/"):
+                continue
+            step = json.loads(z.read(entry))
+            if step.get("type") == "Sketch" and step.get("name") == name:
+                out = []
+                for e in step["params"]["entities"]:
+                    t = e["type"]
+                    if t == "point":
+                        nums = e["at"]
+                    elif t == "line":
+                        nums = e["start"] + e["end"]
+                    elif t == "circle":
+                        nums = e["center"] + [e["radius"]]
+                    else:
+                        import math
+
+                        nums = e["center"] + [e["radius"], math.degrees(e["start_angle"]),
+                                              math.degrees(e["end_angle"])]
+                    out.append((e["name"], t, nums, e.get("construction", False)))
+                return out
+    sys.exit(f"{khan}: no sketch called {name}")
+
+
+def read_solved(text):
+    """Parses `kh_cli open --sketch` output: (state line, [(name, kind, numbers, construction)])."""
+    import re
+
+    state = ""
+    entities = []
+    for line in text.splitlines():
+        if " plane): " in line:
+            state = line.split(" plane): ", 1)[1]
+            continue
+        m = re.match(r"\s+(\S+)\s+(point|line|circle|arc)\s+(.*)$", line)
+        if not m:
+            continue
+        nums = [float(x) for x in re.findall(r"-?\d+\.\d+", m.group(3))]
+        entities.append((m.group(1), m.group(2), nums, "(construction)" in line))
+    return state, entities
+
+
+def draw_sketch(out, panels, size):
+    """Draws sketches side by side: panels is [(title, entities)]."""
+    import math
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Arc, Circle
+
+    w, h = size
+    fig, axes = plt.subplots(1, len(panels), figsize=(w / 100, h / 100), dpi=100)
+    xs, ys = [], []
+    for _, entities in panels:
+        for _, kind, n, _ in entities:
+            if kind == "point":
+                xs += [n[0]]; ys += [n[1]]
+            elif kind == "line":
+                xs += [n[0], n[2]]; ys += [n[1], n[3]]
+            else:
+                xs += [n[0] - n[2], n[0] + n[2]]; ys += [n[1] - n[2], n[1] + n[2]]
+    pad = 0.15 * max(max(xs) - min(xs), max(ys) - min(ys), 1)
+    for ax, (title, entities) in zip(axes, panels):
+        ax.set_aspect("equal")
+        ax.set_xlim(min(xs) - pad, max(xs) + pad)
+        ax.set_ylim(min(ys) - pad, max(ys) + pad)
+        ax.grid(True, color="#d8dee4", linewidth=0.6)
+        ax.set_axisbelow(True)
+        ax.tick_params(labelsize=7, colors="#57606a")
+        ax.set_title(title, fontsize=10, color="#1f2328")
+        for name, kind, n, construction in entities:
+            color = "#8c959f" if construction else "#0969da"
+            style = (0, (4, 3)) if construction else "solid"
+            if kind == "point":
+                ax.plot([n[0]], [n[1]], "o", color=color, markersize=4)
+                at = (n[0], n[1])
+            elif kind == "line":
+                ax.plot([n[0], n[2]], [n[1], n[3]], color=color, linewidth=2, linestyle=style)
+                ax.plot([n[0], n[2]], [n[1], n[3]], "o", color="#1f2328", markersize=3)
+                at = ((n[0] + n[2]) / 2, (n[1] + n[3]) / 2)
+            elif kind == "circle":
+                ax.add_patch(Circle((n[0], n[1]), n[2], fill=False, color=color, linewidth=2, linestyle=style))
+                at = (n[0], n[1] + n[2])
+            else:
+                ax.add_patch(Arc((n[0], n[1]), 2 * n[2], 2 * n[2], theta1=n[3], theta2=n[4], color=color,
+                                 linewidth=2, linestyle=style))
+                mid = math.radians((n[3] + n[4]) / 2)
+                at = (n[0] + n[2] * math.cos(mid), n[1] + n[2] * math.sin(mid))
+            ax.annotate(name, at, textcoords="offset points", xytext=(4, 4), fontsize=7, color="#57606a")
+    fig.tight_layout()
+    fig.savefig(str(out), dpi=100)
     plt.close(fig)
 
 
@@ -141,6 +248,17 @@ def main():
                 if proc.returncode != 0 or not out.exists():
                     sys.exit(f"{out.name}: kh_app failed:\n{proc.stdout.decode()}")
                 mark_up(out, recipe.get("crop"), recipe.get("callouts", []))
+                print(f"wrote {out.relative_to(repo)}")
+                continue
+            if "sketch" in recipe:
+                sk = recipe["sketch"]
+                proc = subprocess.run([kh_cli, "open", sk["file"], "--sketch", sk["name"]], cwd=tmp,
+                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                state, solved = read_solved(proc.stdout.decode())
+                drawn = read_drawn(Path(tmp) / sk["file"], sk["name"])
+                w, h = (int(v) for v in recipe.get("size", "720x300").split("x"))
+                out.parent.mkdir(parents=True, exist_ok=True)
+                draw_sketch(out, [("As drawn", drawn), (f"Solved: {state}", solved)], (w, h))
                 print(f"wrote {out.relative_to(repo)}")
                 continue
             bodies = []

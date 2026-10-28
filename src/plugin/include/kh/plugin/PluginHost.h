@@ -65,7 +65,7 @@ struct PluginInfo {
 /// load, so Khan always starts. Plugins stay loaded until the host is destroyed.
 ///
 /// @code
-/// PluginHost host(kernel.get());
+/// PluginHost host(kernel.get(), solver.get());
 /// host.addBuiltin(kh::plugins::modelingPlugin());
 /// host.addFolder(userPluginFolder);
 /// host.loadAll();
@@ -78,7 +78,9 @@ public:
     /// Makes a host with no plugins.
     /// @param kernel The kernel used to rebuild open designs; may be null (no rebuilds).
     ///        Must outlive the host.
-    explicit PluginHost(kernel::IKernel* kernel = nullptr);
+    /// @param solver The solver for Sketch steps; may be null (sketches then fail to
+    ///        rebuild with a plain message). Must outlive the host.
+    explicit PluginHost(kernel::IKernel* kernel = nullptr, sketch::ISketchSolver* solver = nullptr);
 
     /// Closes every design, disconnects every listener, then unloads the plugins.
     ~PluginHost();
