@@ -9,6 +9,7 @@
 #include <numbers>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -34,6 +35,8 @@ constexpr const char* kManifest = R"({
 })";
 
 constexpr double kPi = std::numbers::pi;
+// The toolbar mode while a sketch is being edited: only the sketch buttons show.
+constexpr std::string_view kEditingMode = "kh.sketcher.editing";
 constexpr double kSnapPixels = 8;  // how close the mouse must be to a point to snap to it
 
 QString qs(const std::string& s) {
@@ -100,7 +103,8 @@ public:
         viewer->startTool(*this, toolPlane(step->plane()));
         draw();
         hint();
-        ctx_.publish(plugin::ActionsChanged{});  // Finish and the tools turn on, Edit turns off
+        ctx_.setToolbarMode(std::string(kEditingMode));  // the toolbar shows the sketch buttons
+        ctx_.publish(plugin::ActionsChanged{});          // Finish and the tools turn on, Edit turns off
     }
 
     void finish() {
@@ -112,6 +116,7 @@ public:
         draw();
         if (was) {
             message("Finished the sketch.");
+            ctx_.setToolbarMode({});  // back to the usual toolbar
             ctx_.publish(plugin::ActionsChanged{});
         }
     }
@@ -445,6 +450,8 @@ void registerSketcher(plugin::PluginContext& ctx) {
                              .text = "New sketch on XY (the ground)",
                              .menu = "Sketch",
                              .shortcut = "Ctrl+Shift+K",
+                             .toolbar = true,
+                             .buttonText = "New sketch",
                              .tip = "Start a sketch lying flat, seen from the top, and draw in it.",
                              .run = [newSketch] { newSketch("xy"); }});
     ctx.addAction(ActionSpec{.id = "kh.sketcher.new_xz",
@@ -472,6 +479,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
         .text = "Edit sketch",
         .menu = "Sketch",
         .shortcut = "Ctrl+K",
+        .toolbar = true,
         .tip = "Draw in the picked sketch.",
         .run =
             [&ctx, sketcher, pickedSketch] {
@@ -490,6 +498,8 @@ void registerSketcher(plugin::PluginContext& ctx) {
     ctx.addAction(ActionSpec{.id = "kh.sketcher.finish",
                              .text = "Finish sketch",
                              .menu = "Sketch",
+                             .toolbar = true,
+                             .toolbarMode = std::string(kEditingMode),
                              .tip = "Stop drawing. Clicks in the viewer pick and turn the view again.",
                              .run = [sketcher] { sketcher->finish(); },
                              .enabled = [sketcher] { return sketcher->editing(); }});
@@ -512,6 +522,8 @@ void registerSketcher(plugin::PluginContext& ctx) {
             .id = t.id,
             .text = t.text,
             .menu = "Sketch/Draw",
+            .toolbar = true,
+            .toolbarMode = std::string(kEditingMode),
             .tip = t.tip,
             .run = [sketcher, tool] { sketcher->setTool(tool); },
             .checked = [sketcher, tool] { return sketcher->editing() && sketcher->tool() == tool; },

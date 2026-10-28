@@ -63,4 +63,17 @@ endif()
 if(KH_BUILD_TESTS)
   add_test(NAME app.smoke COMMAND kh_app --smoke-test --settings ${CMAKE_CURRENT_BINARY_DIR}/smoke-settings.ini)
   set_tests_properties(app.smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+  # --trigger waits for menu items to catch up: Box picks the new box, so
+  # Duplicate step (which needs a step picked) can be clicked straight after.
+  add_test(NAME app.trigger_after_change
+           COMMAND kh_app --trigger kh.modeling.box,kh.modeling.duplicate --smoke-test
+                   --settings ${CMAKE_CURRENT_BINARY_DIR}/trigger-settings.ini)
+  # ... and refuses a greyed-out item instead of quietly doing nothing.
+  add_test(NAME app.trigger_greyed_out
+           COMMAND kh_app --trigger kh.modeling.cut --smoke-test
+                   --settings ${CMAKE_CURRENT_BINARY_DIR}/trigger-settings.ini)
+  set_tests_properties(app.trigger_after_change app.trigger_greyed_out PROPERTIES ENVIRONMENT
+                       "QT_QPA_PLATFORM=offscreen")
+  set_tests_properties(app.trigger_greyed_out PROPERTIES PASS_REGULAR_EXPRESSION
+                       "kh.modeling.cut is greyed out")
 endif()

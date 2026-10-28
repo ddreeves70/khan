@@ -271,7 +271,8 @@ app's Plugin manager; the desktop app also writes them to its log.
 | `plugin.undeclared_dependency` | You use a service or listen to an event from a plugin that isn't in your `requires` or `uses` | Add it to `uses` |
 | `plugin.early_lookup` | You asked for another plugin's service while registering, and that plugin isn't in your `requires` | Ask in `onStart`, or list it in `requires` (then Khan always loads it first) |
 | `plugin.service_taken` | Another plugin already offers that service name. Khan keeps theirs | Pick a name starting with your plugin id |
-| `plugin.event_name` | You sent an event whose name doesn't start with your plugin id | Rename the event's `kType` |
+| `plugin.event_name` | You sent an event whose name doesn't start with your plugin id (Khan's `ActionsChanged` is fine to send) | Rename the event's `kType` |
+| `plugin.toolbar_mode_name` | You turned on a toolbar mode whose name doesn't start with your plugin id | Rename the mode, like `sam.paint.painting` |
 | `plugin.old_contract` | You use a service version that has a newer one, or that its plugin marked as going away (`ctx.provide(service, true)`) | Move to the newer version |
 | `plugin.tier_order` | You use a plugin in a higher tier (see [Tiers](manifest.md#tiers)) | Move what you share into a lower plugin, or listen to its events instead |
 | `plugin.tier_conflict` | A tier you add can't be added; Khan ignores it | Read the message: it says why |

@@ -22,7 +22,9 @@ dimensions, and the solver makes it exact.
    sketch is picked, and while you're already editing one.
 2. Pick a tool in **Sketch > Draw**, then click in the view. The status bar says
    what to click next. The tools (and **Finish sketch**) are grey until you're
-   editing a sketch.
+   editing a sketch. While you edit, the toolbar changes to just the sketch
+   buttons (**Finish sketch**, **Line**, **Circle**, **Arc**, **Point**); when you
+   finish, the 3D buttons (**Box**, **Cylinder** and the rest) come back.
 
 | Tool | Click |
 | --- | --- |

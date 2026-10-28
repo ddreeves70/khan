@@ -87,6 +87,34 @@ ctx.addAction({.id = "kh.modeling.turn_off", .text = "Turn off", .menu = "Edit",
 
 Use `fromSelection` or `fromSelectionList`, not both.
 
+**Toolbar buttons.** `.toolbar = true` also puts the item on the toolbar. If its
+words are too long for a button, give shorter ones in `buttonText`: the
+sketcher's **New sketch on XY (the ground)** is just **New sketch** on the
+toolbar.
+
+**Toolbar modes.** Some work needs its own buttons, and the usual ones only get in
+the way. While a sketch is being edited, the toolbar shows only Line, Circle,
+Arc, Point and Finish sketch. To do this, give your buttons a `toolbarMode`, and
+switch to that mode with `ctx.setToolbarMode()` while the work goes on:
+
+```cpp
+ctx.addAction({.id = "sam.paint.brush", .text = "Brush", .menu = "Paint",
+               .toolbar = true,
+               .toolbarMode = "sam.paint.painting",  // shown only in this mode
+               .run = [] { /* pick the brush */ }});
+// When painting starts:
+ctx.setToolbarMode("sam.paint.painting");
+// When it stops:
+ctx.setToolbarMode("");  // back to the usual toolbar
+```
+
+- Buttons without a `toolbarMode` show only when no mode is on. Khan's own New,
+  Open, Save, Undo and Redo always show.
+- Only one mode is on at a time. Khan sends `ToolbarModeChanged` when it switches.
+- Mode names start with your plugin id and a dot, like event names; otherwise
+  Khan warns.
+- The menus don't change: every item stays in its menu, in every mode.
+
 **Submenus.** A `/` in `menu` makes a submenu: `.menu = "View/Grid style"` puts
 the item in the **Grid style** submenu of **View**.
 
@@ -116,7 +144,8 @@ ctx.addAction({.id = "sam.notes.show_dates",
 - `currentText` (optional) gives the item's words the same way, for items like
   **Other (12.5 mm)...** whose words change.
 - `enabled` (optional) greys the item out whenever it returns `false`, so a
-  student can't pick something that can't work right now. Khan asks it at the
+  student can't pick something that can't work right now. Its toolbar button
+  greys out too. Khan asks it at the
   same times as `checked`. If it depends on something only your plugin knows
   (like "a sketch is being edited"), send `plugin::ActionsChanged{}` with
   `ctx.publish` when that changes, and Khan asks again:
@@ -410,6 +439,7 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `kh::grid::GridChanged` | The grid settings change (sent by `kh.grid`, desktop app) | `grid`: visible, spacing in mm, snap, style |
 | `OverlaysChanged` | An overlay is added, changed or removed | `id` |
 | `SettingChanged` | A plugin's setting changes | `plugin` (its id), `key` (the setting's name) |
+| `ToolbarModeChanged` | A plugin switches the toolbar mode (see Toolbar modes, above) | `mode` (empty for the usual toolbar) |
 | `ActionsChanged` | A plugin says its menu items' `enabled`, `checked` or words may have changed | nothing |
 
 Things to know:

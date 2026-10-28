@@ -157,6 +157,12 @@ int main(int argc, char** argv) {
                 std::fprintf(stderr, "There is no menu item or button called %s.\n", qPrintable(name));
                 return 1;
             }
+            QApplication::processEvents();  // so menu items have caught up with --open and --select
+            if (!action->isEnabled()) {
+                std::fprintf(stderr, "%s is greyed out, so it can't be clicked. Pick what it needs first.\n",
+                             qPrintable(name));
+                return 1;
+            }
             action->trigger();
             QApplication::processEvents();
         }

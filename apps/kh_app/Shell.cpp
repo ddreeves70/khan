@@ -148,6 +148,8 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* 
         host_.events().subscribe<SettingChanged>([this](const SettingChanged&) { refreshActions(); }));
     subs_.push_back(
         host_.events().subscribe<ActionsChanged>([this](const ActionsChanged&) { refreshActions(); }));
+    subs_.push_back(host_.events().subscribe<ToolbarModeChanged>(
+        [this](const ToolbarModeChanged&) { refreshActions(); }));
 
     // Start with an empty design, so Create works straight away.
     host_.documents().add(std::make_unique<model::Document>(model::DocKind::Part, "Untitled"));
@@ -268,12 +270,18 @@ void Shell::buildMenus() {
         if (!spec.shortcut.empty()) a->setShortcut(QKeySequence(qs(spec.shortcut)));
         a->setCheckable(static_cast<bool>(spec.checked));
         connect(a, &QAction::triggered, this, [this, spec] { runAction(spec); });
+        QAction* button = nullptr;
         if (spec.toolbar) {
             if (!toolbarSeparator) toolbar_->addSeparator();
             toolbarSeparator = true;
-            toolbar_->addAction(a);
+            button = toolbar_->addAction(qs(spec.buttonText.empty() ? spec.text : spec.buttonText));
+            button->setObjectName(qs(spec.id + ".button"));
+            button->setToolTip(qs(spec.tip));
+            button->setStatusTip(qs(spec.tip));
+            button->setCheckable(a->isCheckable());
+            connect(button, &QAction::triggered, this, [this, spec] { runAction(spec); });
         }
-        actions_.emplace_back(spec, a);
+        actions_.push_back({spec, a, button});
     }
 
     menuBar()->addMenu(viewMenu_);  // after the plugins' own menus
@@ -399,7 +407,8 @@ void Shell::rebuildLayoutMenu() {
 void Shell::refreshActions() {
     const auto* doc = host_.documents().find(activeDesign());
     const auto& sel = host_.selection();
-    for (auto& [spec, a] : actions_) {
+    const auto& mode = host_.toolbarMode();
+    for (auto& [spec, a, button] : actions_) {
         // Enabled: a design to change (or the plugin's own code), the steps it needs
         // picked, and whatever the plugin says.
         bool ok = doc != nullptr || static_cast<bool>(spec.run);
@@ -420,6 +429,12 @@ void Shell::refreshActions() {
             if (spec.currentText) a->setText(qs(spec.currentText()));
         } catch (...) {
             // A plugin's check-mark function failed: leave the item as it was.
+        }
+        if (button) {
+            button->setEnabled(ok);
+            button->setChecked(a->isChecked());
+            if (spec.currentText && spec.buttonText.empty()) button->setText(a->text());
+            button->setVisible(spec.toolbarMode == mode);
         }
     }
 }
@@ -488,8 +503,15 @@ void Shell::runAction(const plugin::ActionSpec& spec) {
 }
 
 QAction* Shell::action(const std::string& id) const {
-    for (const auto& [spec, a] : actions_) {
-        if (spec.id == id) return a;
+    for (const auto& p : actions_) {
+        if (p.spec.id == id) return p.item;
+    }
+    return nullptr;
+}
+
+QAction* Shell::button(const std::string& id) const {
+    for (const auto& p : actions_) {
+        if (p.spec.id == id) return p.button;
     }
     return nullptr;
 }

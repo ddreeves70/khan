@@ -165,6 +165,10 @@ public:
     /// @return The document list.
     DocumentList& documents() { return documents_; }
 
+    /// Gives the toolbar mode that is on (see PluginContext::setToolbarMode()).
+    /// @return The mode, or empty for the usual toolbar.
+    const std::string& toolbarMode() const;
+
     /// Lists problems that happened while plugins reacted to events.
     /// @return The problems, oldest first.
     const Diagnostics& eventProblems() const { return eventProblems_; }

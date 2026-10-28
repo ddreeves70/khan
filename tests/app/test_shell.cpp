@@ -708,6 +708,42 @@ TEST_CASE("Sketch menu items are grey when they can't be used", "[app][sketcher]
     CHECK_FALSE(enabled("kh.sketcher.edit"));
 }
 
+TEST_CASE("the toolbar shows sketch buttons while editing, and 3D buttons otherwise", "[app][sketcher]") {
+    App app;
+    auto shown = [&](const char* id) {
+        auto* b = app.shell->button(id);
+        REQUIRE(b);
+        return b->isVisible();
+    };
+    const char* sketchButtons[] = {"kh.sketcher.finish", "kh.sketcher.line", "kh.sketcher.circle",
+                                   "kh.sketcher.arc", "kh.sketcher.point"};
+    const char* usualButtons[] = {"kh.modeling.box", "kh.modeling.cylinder", "kh.modeling.move",
+                                  "kh.sketcher.new_xy", "kh.sketcher.edit"};
+    for (const char* id : usualButtons) CHECK(shown(id));
+    for (const char* id : sketchButtons) CHECK_FALSE(shown(id));
+    CHECK(app.shell->button("kh.sketcher.new_xy")->text() == QStringLiteral("New sketch"));
+    CHECK(app.shell->button("kh.sketcher.new_xz") == nullptr);  // menu only
+
+    app.click("kh.sketcher.new_xy");
+    for (const char* id : usualButtons) CHECK_FALSE(shown(id));
+    for (const char* id : sketchButtons) CHECK(shown(id));
+    CHECK(app.shell->undoAction()->isVisible());               // Khan's own buttons stay
+    CHECK(app.shell->action("kh.modeling.box")->isVisible());  // and the menus keep every item
+
+    // A button does what its menu item does, and shows the same check mark.
+    app.shell->button("kh.sketcher.circle")->trigger();
+    settle();
+    CHECK(app.shell->button("kh.sketcher.circle")->isChecked());
+    CHECK(app.shell->action("kh.sketcher.circle")->isChecked());
+    CHECK_FALSE(app.shell->button("kh.sketcher.line")->isChecked());
+
+    app.shell->button("kh.sketcher.finish")->trigger();
+    settle();
+    for (const char* id : usualButtons) CHECK(shown(id));
+    for (const char* id : sketchButtons) CHECK_FALSE(shown(id));
+    CHECK(app.host.find("kh.sketcher")->issues.empty());  // sending ActionsChanged is allowed
+}
+
 TEST_CASE("Edit sketch draws in the picked sketch, and stops if the sketch goes away", "[app][sketcher]") {
     App app;
     app.click("kh.modeling.box");

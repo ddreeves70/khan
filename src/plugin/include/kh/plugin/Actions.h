@@ -51,7 +51,15 @@ struct ActionSpec {
     std::string fromSelectionList{};
     std::string shortcut{};  ///< Keyboard shortcut, e.g. "Ctrl+B" or "Delete". May be empty.
     bool toolbar = false;    ///< True to also show it as a toolbar button.
-    std::string tip{};       ///< One plain sentence shown when the mouse rests on it.
+    /// Shorter words for the toolbar button, e.g. "Sketch" for "New sketch on XY
+    /// (the ground)". Empty means the button uses `text`.
+    std::string buttonText{};
+    /// Which toolbar mode the button belongs to (see PluginContext::setToolbarMode()).
+    /// Empty: the usual toolbar, shown when no mode is on. A mode name, e.g.
+    /// "kh.sketcher.editing": shown only while that mode is on. The menu item is
+    /// always there either way.
+    std::string toolbarMode{};
+    std::string tip{};  ///< One plain sentence shown when the mouse rests on it.
     /// Runs the plugin's own code instead of a command, for things that aren't
     /// changes to a design (a setting, a dialog). Give either `command` or `run`.
     std::function<void()> run{};
