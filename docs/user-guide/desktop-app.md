@@ -287,7 +287,8 @@ new design has `Box1`, 20 mm on each side.
 Tips:
 
 - The copies sit exactly on top of the originals, so the viewer looks the same.
-  Pick a copy and change its Position in Properties to move it.
+  Pick a copy and use Modify > Move to put it somewhere else (see
+  [Moving bodies](moving.md)).
 - What you copy is plain text, so you can paste it into a message or a file and
   paste it back into Khan later.
 

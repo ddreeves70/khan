@@ -8,6 +8,7 @@ add_executable(kh_tests
   model/test_copy.cpp
   model/test_suppress.cpp
   model/test_folders.cpp
+  model/test_move.cpp
   io/test_khan_file.cpp
   plugin/test_event_bus.cpp
   plugin/test_manifest.cpp

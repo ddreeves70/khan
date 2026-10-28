@@ -585,3 +585,39 @@ TEST_CASE("a damaged folders file is refused with a plain message", "[io][folder
         CHECK(r.issues[0].code == "file.damaged");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Move steps
+// ---------------------------------------------------------------------------
+
+TEST_CASE("a Move step survives saving and opening, with its turn in radians", "[io][move]") {
+    auto doc = makeDesign();
+    const auto tag = doc->featureAt(2).id();
+    kernel::Motion m{{10, 20, 5}, {30, 15, 0}, {0, 0, 1}, 0.5};
+    auto move = std::make_unique<model::MoveFeature>("Move1", tag, m);
+    const auto id = move->id();
+    REQUIRE(doc->execute(std::make_unique<model::AddFeatureCommand>(std::move(move))).empty());
+
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+    auto opened = io::readBytes(bytes, "tag.khan");
+    REQUIRE(opened.ok());
+    const auto* back = dynamic_cast<const model::MoveFeature*>(opened.document->find(id));
+    REQUIRE(back);
+    CHECK(back->body() == tag);
+    CHECK(back->motion().offset.y == 20.0);
+    CHECK(back->motion().center.x == 30.0);
+    CHECK(back->motion().axis.z == 1.0);
+    CHECK(back->motion().angle == 0.5);
+
+    io::Bytes again;
+    REQUIRE(io::writeBytes(*opened.document, again).empty());
+    CHECK(again == bytes);
+
+    // Copy and paste keep it too.
+    auto pasted = io::stepsFromText(io::stepsToText(*doc, {id}));
+    REQUIRE(pasted.steps.size() == 4);  // Plate, Hole, Tag, Move1
+    const auto& copy = dynamic_cast<const model::MoveFeature&>(*pasted.steps[3]);
+    CHECK(copy.body() == pasted.steps[2]->id());
+    CHECK(copy.motion().angle == 0.5);
+}

@@ -40,7 +40,8 @@ deterministic).
 ```
 
 - **Steps:** `box` (`corner`, `size`), `cylinder` (`base`, `axis`, `radius`, `height`),
-  and `union`, `cut`, `intersect` (`a`, `b` are earlier step ids). Lengths are in mm.
+  `union`, `cut`, `intersect` (`a`, `b` are earlier step ids), and `move` (`body`, an
+  earlier step id; `by`, `turn` in degrees, `axis`, `about`). Lengths are in mm.
 - **`result`:** which step to measure; defaults to the last step.
 - **`expect`:** only the keys present are checked. Use `"error": "<code>"` for cases that
   must fail with a specific diagnostic.

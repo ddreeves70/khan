@@ -83,6 +83,15 @@ public:
     /// @return No diagnostics on success; otherwise why the file could not be written.
     virtual Diagnostics exportFile(const ShapeHandle& shape, ExportFormat format,
                                    const std::filesystem::path& path) const = 0;
+
+    // Added after Phase 0. New operations go at the end, so plugins built
+    // against an earlier IKernel keep working.
+
+    /// Moves and turns a copy of a shape. The shape itself isn't changed.
+    /// @param shape The shape to move.
+    /// @param motion The turn (radians, about a line in mm), then the slide (mm).
+    /// @return The moved shape, or diagnostics if the axis is 0, 0, 0 while turning.
+    virtual OpResult transform(const ShapeHandle& shape, const Motion& motion) = 0;
 };
 
 }  // namespace kh::kernel

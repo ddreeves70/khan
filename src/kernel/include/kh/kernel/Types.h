@@ -24,6 +24,15 @@ struct Vec3 {
 /// A 3D point, in millimeters. Same type as Vec3; the name says how it is used.
 using Point3 = Vec3;
 
+/// A rigid move: first turn by `angle` about the line through `center` along
+/// `axis`, then slide by `offset`. Shapes keep their size and shape.
+struct Motion {
+    Vec3 offset{};       ///< How far to slide, along x, y and z (mm).
+    Point3 center{};     ///< A point on the line to turn about (mm).
+    Vec3 axis{0, 0, 1};  ///< The direction of that line; any length except zero when `angle` isn't 0.
+    double angle = 0;    ///< How far to turn (radians), counterclockwise looking down `axis` toward `center`.
+};
+
 /// An axis-aligned bounding box, in millimeters.
 struct Box3 {
     Point3 min;  ///< Corner with the smallest x, y and z.

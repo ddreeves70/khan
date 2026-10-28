@@ -17,6 +17,7 @@ works in either.
 | --- | --- |
 | Boxes, cylinders, union, cut, intersect | Sketches, extrude, revolve |
 | Name, rename and delete steps; undo and redo | |
+| Move and turn bodies; copy, paste and duplicate steps; turn steps off; folders | |
 | The desktop app: 3D viewer with 1, 2 or 4 panes, feature tree, Properties, layouts | |
 | Materials: mass, weight, material cost and color | |
 | Save and open `.khan` designs | |
@@ -30,10 +31,11 @@ works in either.
 3. [Designs and steps](designs-and-steps.md): how a Khan design works.
 4. [Shapes](shapes.md): boxes and cylinders, and where they go.
 5. [Combining bodies](combining.md): union, cut and intersect.
-6. [Materials](materials.md): what a body is made of, its mass, weight and cost.
-7. [Files](files.md): saving, opening, and exporting for 3D printing.
-8. [Plugins](plugins.md): adding features to Khan.
-9. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
+6. [Moving bodies](moving.md): slide and turn a body.
+7. [Materials](materials.md): what a body is made of, its mass, weight and cost.
+8. [Files](files.md): saving, opening, and exporting for 3D printing.
+9. [Plugins](plugins.md): adding features to Khan.
+10. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
 
 ## Other guides
 

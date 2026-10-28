@@ -77,6 +77,7 @@ Every step has `id`, `type` and `name`. Steps that use other steps list them und
 | `Box` | none | `corner` [x, y, z] mm, `size` [x, y, z] mm |
 | `Cylinder` | none | `base` [x, y, z] mm, `axis` [x, y, z] direction, `radius` mm, `height` mm |
 | `Boolean` | `a`, `b`: step ids | `operation`: `"union"`, `"cut"` or `"intersect"` |
+| `Move` | `body`: step id | `offset` [x, y, z] mm, `center` [x, y, z] mm, `axis` [x, y, z] direction, `angle` radians. Turns by `angle` about the line through `center` along `axis`, then slides by `offset` |
 
 ```json
 {

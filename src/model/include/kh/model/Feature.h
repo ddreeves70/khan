@@ -19,6 +19,7 @@ enum class FeatureType {
     Box,       ///< A BoxFeature.
     Cylinder,  ///< A CylinderFeature.
     Boolean,   ///< A BooleanFeature.
+    Move,      ///< A MoveFeature.
 };
 
 /// Gives a feature access to the results of features before it during a rebuild.
@@ -290,6 +291,51 @@ private:
     kernel::BoolOp op_;
     FeatureId a_;
     FeatureId b_;
+};
+
+/// Moves and turns the body made by an earlier step. The body keeps its size and
+/// shape; the earlier step's body is used up, like the bodies a Boolean combines.
+///
+/// The turn comes first (about the line through `center` along `axis`), then the
+/// slide by `offset`.
+class MoveFeature final : public Feature {
+public:
+    /// Makes a Move step with a new id.
+    /// @param name The name shown in the feature tree.
+    /// @param body The step whose body is moved.
+    /// @param motion How far to turn (radians) and slide (mm).
+    MoveFeature(std::string name, FeatureId body, kernel::Motion motion);
+
+    /// Makes a Move step with a given id, for loading a saved design.
+    /// @param id The id it was saved with.
+    /// @param name The name shown in the feature tree.
+    /// @param body The step whose body is moved.
+    /// @param motion How far to turn (radians) and slide (mm).
+    MoveFeature(FeatureId id, std::string name, FeatureId body, kernel::Motion motion);
+
+    /// Gives the step whose body is moved.
+    /// @return Its id.
+    const FeatureId& body() const { return body_; }
+
+    /// Gives how far the body is turned and slid.
+    /// @return The motion (angle in radians, lengths in mm).
+    const kernel::Motion& motion() const { return motion_; }
+
+    /// Changes how far the body is turned and slid.
+    /// @param m The new motion (angle in radians, lengths in mm).
+    void setMotion(const kernel::Motion& m) { motion_ = m; }
+
+    FeatureType type() const override { return FeatureType::Move; }
+    std::unique_ptr<Feature> clone() const override { return std::make_unique<MoveFeature>(*this); }
+    std::vector<FeatureId> dependencies() const override { return {body_}; }
+    void remapInputs(const std::map<FeatureId, FeatureId>& map) override {
+        if (auto it = map.find(body_); it != map.end()) body_ = it->second;
+    }
+    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+
+private:
+    FeatureId body_;
+    kernel::Motion motion_;
 };
 
 }  // namespace kh::model

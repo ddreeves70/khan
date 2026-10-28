@@ -778,6 +778,30 @@
         262,
         170
       ]
+    },
+    {
+      "out": "docs/user-guide/images/app-move.png",
+      "size": "1280x800",
+      "commands": [
+        "demo m.khan",
+        "run --open m.khan --save m.khan feature.add_move body=Tag by=0,40,0 turn=30 about=30,15,0"
+      ],
+      "app": {
+        "open": "m.khan",
+        "select": [
+          "Move1"
+        ],
+        "trigger": [
+          "kh.viewer.view.top",
+          "kh.viewer.fit"
+        ]
+      },
+      "crop": [
+        262,
+        50,
+        1018,
+        660
+      ]
     }
   ]
 }

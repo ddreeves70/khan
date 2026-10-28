@@ -188,6 +188,16 @@ json featureToJson(const Feature& f) {
             j["params"] = {{"operation", opName(b.op())}};
             break;
         }
+        case FeatureType::Move: {
+            const auto& m = static_cast<const model::MoveFeature&>(f);
+            j["type"] = "Move";
+            j["inputs"] = {{"body", m.body().toString()}};
+            j["params"] = {{"offset", vec3(m.motion().offset)},
+                           {"center", vec3(m.motion().center)},
+                           {"axis", vec3(m.motion().axis)},
+                           {"angle", m.motion().angle}};
+            break;
+        }
     }
     return j;
 }
@@ -240,6 +250,22 @@ std::unique_ptr<Feature> featureFromJson(const json& j, const FeatureId& id, std
         if (!a) return bad("input a");
         if (!b) return bad("input b");
         return std::make_unique<model::BooleanFeature>(id, name, *op, *a, *b);
+    }
+    if (type == "Move") {
+        const auto body = inputs.contains("body") && inputs["body"].is_string()
+                              ? FeatureId::parse(inputs["body"].get<std::string>())
+                              : std::nullopt;
+        const auto offset = readVec3(params.value("offset", json()));
+        const auto center = readVec3(params.value("center", json()));
+        const auto axis = readVec3(params.value("axis", json()));
+        const auto angle = readNumber(params.value("angle", json()));
+        if (!body) return bad("input body");
+        if (!offset) return bad("offset");
+        if (!center) return bad("center");
+        if (!axis) return bad("axis");
+        if (!angle) return bad("angle");
+        return std::make_unique<model::MoveFeature>(id, name, *body,
+                                                    kernel::Motion{*offset, *center, *axis, *angle});
     }
     unknownType = type;
     why = "step " + name + " has unknown type " + type;

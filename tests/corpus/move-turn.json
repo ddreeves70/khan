@@ -1,0 +1,59 @@
+{
+  "name": "move-turn",
+  "description": "The keychain tag turned 90 degrees about the z axis through the origin: x and y swap (x becomes -y), so the bounds go from 0..60 x 0..30 to -30..0 x 0..60. Volume and topology don't change.",
+  "steps": [
+    {
+      "id": "plate",
+      "op": "box",
+      "size": [
+        60,
+        30,
+        4
+      ]
+    },
+    {
+      "id": "hole",
+      "op": "cylinder",
+      "base": [
+        9,
+        15,
+        -1
+      ],
+      "radius": 2.5,
+      "height": 6
+    },
+    {
+      "id": "tag",
+      "op": "cut",
+      "a": "plate",
+      "b": "hole"
+    },
+    {
+      "id": "turned",
+      "op": "move",
+      "body": "tag",
+      "turn": 90
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 7121.460184,
+    "area": 4343.561945,
+    "bounds": [
+      [
+        -30.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        60.0,
+        4.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 7,
+    "edges": 15,
+    "vertices": 10
+  }
+}

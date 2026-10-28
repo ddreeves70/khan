@@ -16,6 +16,7 @@
 
 #include <functional>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -290,6 +291,67 @@ private:
                 });
                 break;
             }
+            case model::FeatureType::Move: {
+                auto* body = new QLabel(form_);
+                body->setObjectName(QStringLiteral("body"));
+                form->addRow(tr("Body"), body);
+                updaters_.push_back([this, body](const model::Feature& g) {
+                    const auto* design = ctx_.documents().find(ctx_.selection().doc());
+                    const auto* s =
+                        design ? design->find(static_cast<const model::MoveFeature&>(g).body()) : nullptr;
+                    body->setText(s ? QString::fromStdString(s->name()) : tr("(missing)"));
+                });
+                auto motion = [](const model::Feature& g) {
+                    return static_cast<const model::MoveFeature&>(g).motion();
+                };
+                auto setMotion = [](model::Feature& g, auto change) {
+                    auto& m = static_cast<model::MoveFeature&>(g);
+                    auto value = m.motion();
+                    change(value);
+                    m.setMotion(value);
+                };
+                addVec3(
+                    form, QStringLiteral("offset"), tr("Move"), false,
+                    [motion](const model::Feature& g) { return motion(g).offset; },
+                    [setMotion](model::Feature& g, kernel::Vec3 v) {
+                        setMotion(g, [v](kernel::Motion& m) { m.offset = v; });
+                    });
+                // Turn: degrees for the student, radians inside.
+                auto* turn = new QDoubleSpinBox(form_);
+                turn->setObjectName(QStringLiteral("turn"));
+                turn->setDecimals(2);
+                turn->setRange(-360.0, 360.0);
+                turn->setSuffix(QStringLiteral("°"));
+                turn->setKeyboardTracking(false);
+                turn->setToolTip(
+                    tr("How far to turn the body before moving it, in degrees. Positive turns "
+                       "counterclockwise, looking down the axis."));
+                form->addRow(tr("Turn"), turn);
+                connect(turn, &QDoubleSpinBox::valueChanged, this, [this, setMotion](double degrees) {
+                    edit(QStringLiteral("turn"), [setMotion, degrees](model::Feature& g) {
+                        setMotion(g, [degrees](kernel::Motion& m) {
+                            m.angle = degrees * std::numbers::pi / 180.0;
+                        });
+                    });
+                });
+                updaters_.push_back([turn, motion](const model::Feature& g) {
+                    turn->setValue(motion(g).angle * 180.0 / std::numbers::pi);
+                });
+                addVec3(
+                    form, QStringLiteral("axis"), tr("Axis"), false,
+                    [motion](const model::Feature& g) { return motion(g).axis; },
+                    [setMotion](model::Feature& g, kernel::Vec3 v) {
+                        setMotion(g, [v](kernel::Motion& m) { m.axis = v; });
+                    },
+                    QString());
+                addVec3(
+                    form, QStringLiteral("center"), tr("Center"), false,
+                    [motion](const model::Feature& g) { return motion(g).center; },
+                    [setMotion](model::Feature& g, kernel::Vec3 v) {
+                        setMotion(g, [v](kernel::Motion& m) { m.center = v; });
+                    });
+                break;
+            }
         }
         addMaterial(form);
     }
@@ -337,8 +399,8 @@ private:
             if (!doc) return;
             // The first item: what the body gets when nothing is picked for it.
             QString inherited = tr("Default: %1").arg(qs(model::defaultMaterial().name));
-            if (g.type() == model::FeatureType::Boolean) {
-                const auto& a = static_cast<const model::BooleanFeature&>(g).a();
+            if (const auto inputs = g.dependencies(); !inputs.empty()) {
+                const auto& a = inputs.front();  // a Boolean's A, a Move's body
                 if (const auto* first = doc->find(a)) {
                     inherited = tr("Same as %1: %2").arg(qs(first->name()), qs(doc->materialOf(a).name));
                 }

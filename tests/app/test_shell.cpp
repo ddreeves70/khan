@@ -26,6 +26,7 @@
 
 #include <cstring>
 #include <memory>
+#include <numbers>
 
 #include "AppSettings.h"
 #include "AppUi.h"
@@ -437,6 +438,33 @@ TEST_CASE("steps that aren't next to each other can't share a folder", "[app][fo
     CHECK(app.doc().folders().empty());
     REQUIRE(app.shell->lastProblems().size() == 1);
     CHECK(app.shell->lastProblems()[0].code == "folder.not_together");
+}
+
+TEST_CASE("Modify > Move adds a Move step, and Properties changes how far", "[app][move]") {
+    App app;
+    CHECK_FALSE(app.shell->action("kh.modeling.move")->isEnabled());  // nothing picked
+    app.click("kh.modeling.box");                                     // Box1 is picked
+    app.click("kh.modeling.move");
+    REQUIRE(app.doc().featureCount() == 2);
+    const auto& move = dynamic_cast<const model::MoveFeature&>(app.doc().featureAt(1));
+    CHECK(move.name() == "Move1");
+    CHECK(move.body() == app.doc().featureAt(0).id());
+    CHECK(app.tree()->topLevelItem(1)->text(1) == QStringLiteral("Move"));
+    // The new step is picked, so Properties shows its fields.
+    CHECK(app.field<QLabel>("body")->text() == QStringLiteral("Box1"));
+    auto* x = app.field<QDoubleSpinBox>("offset.x");
+    REQUIRE(x);
+    x->setValue(30);
+    settle();
+    CHECK(dynamic_cast<const model::MoveFeature&>(app.doc().featureAt(1)).motion().offset.x == 30.0);
+    auto* turn = app.field<QDoubleSpinBox>("turn");
+    REQUIRE(turn);
+    CHECK(turn->suffix() == QStringLiteral("°"));
+    turn->setValue(90);
+    settle();
+    CHECK(dynamic_cast<const model::MoveFeature&>(app.doc().featureAt(1)).motion().angle ==
+          Approx(std::numbers::pi / 2));
+    CHECK(app.tree()->topLevelItem(1)->text(2) == QStringLiteral("ok"));
 }
 
 TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {

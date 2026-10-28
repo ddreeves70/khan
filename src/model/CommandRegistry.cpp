@@ -1,6 +1,7 @@
 #include "kh/model/CommandRegistry.h"
 
 #include <algorithm>
+#include <numbers>
 #include <utility>
 
 #include "kh/model/Commands.h"
@@ -111,6 +112,30 @@ CommandRegistry makeBuiltin() {
             const std::string base = opName == "union" ? "Union" : opName == "cut" ? "Cut" : "Intersect";
             return std::make_unique<AddFeatureCommand>(std::make_unique<BooleanFeature>(
                 argText(a, "name", doc.uniqueName(base)), op, argFeature(a, "a"), argFeature(a, "b")));
+        });
+
+    r.add(
+        {"feature.add_move",
+         "Move body",
+         "Turns a body about a line, then slides it. The body keeps its size and shape.",
+         {{"body", ArgType::FeatureRef, "The step whose body is moved.", true, {}},
+          {"by", ArgType::Vec3, "How far to slide it along x, y and z, in mm. Default 0, 0, 0.", false, {}},
+          {"turn", ArgType::Number, "How far to turn it first, in degrees. Default 0.", false, {}},
+          {"axis",
+           ArgType::Vec3,
+           "The direction of the line it turns about. Default 0, 0, 1 (up).",
+           false,
+           {}},
+          {"about", ArgType::Vec3, "A point on the line it turns about, in mm. Default 0, 0, 0.", false, {}},
+          {"name", ArgType::Text, "Step name. Default Move1, Move2, ...", false, {}}}},
+        [](const Document& doc, const Args& a) -> std::unique_ptr<Command> {
+            kernel::Motion m;
+            m.offset = argVec3(a, "by");
+            m.angle = argNumber(a, "turn") * std::numbers::pi / 180.0;  // degrees in, radians inside
+            m.axis = argVec3(a, "axis", {0, 0, 1});
+            m.center = argVec3(a, "about");
+            return std::make_unique<AddFeatureCommand>(std::make_unique<MoveFeature>(
+                argText(a, "name", doc.uniqueName("Move")), argFeature(a, "body"), m));
         });
 
     r.add({"feature.delete",

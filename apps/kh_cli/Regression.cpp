@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <fstream>
 #include <map>
+#include <numbers>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -65,6 +66,13 @@ Outcome build(IKernel& k, const json& c) {
                                               : kernel::BoolOp::Intersect;
             r = k.boolean(boolOp, shapes.at(step.at("a").get<std::string>()),
                           shapes.at(step.at("b").get<std::string>()));
+        } else if (op == "move") {
+            kernel::Motion m;
+            m.offset = vec3(step.value("by", json::array({0, 0, 0})));
+            m.angle = step.value("turn", 0.0) * std::numbers::pi / 180.0;  // degrees in the file
+            m.axis = vec3(step.value("axis", json::array({0, 0, 1})));
+            m.center = vec3(step.value("about", json::array({0, 0, 0})));
+            r = k.transform(shapes.at(step.at("body").get<std::string>()), m);
         } else {
             out.errorStep = id;
             out.errorCode = "regress.unknown_op";

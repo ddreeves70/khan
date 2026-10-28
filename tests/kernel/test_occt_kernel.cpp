@@ -88,3 +88,102 @@ TEST_CASE("Tessellation and STL export produce output", "[kernel][occt]") {
     REQUIRE(std::filesystem::file_size(path) > 0);
     std::filesystem::remove(path);
 }
+
+// ---------------------------------------------------------------------------
+// Moving (transform)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Moving keeps volume, area, topology and validity, and shifts the bounds", "[kernel][occt][move]") {
+    auto k = makeOcctKernel();
+    auto box = k->makeBox({0, 0, 0}, 60, 30, 4);
+    auto hole = k->makeCylinder({9, 15, -1}, {0, 0, 1}, 2.5, 6);
+    auto tag = k->boolean(BoolOp::Cut, box.shape, hole.shape);
+    REQUIRE(tag.ok());
+
+    Motion m;
+    m.offset = {10, -20, 5};
+    auto moved = k->transform(tag.shape, m);
+    REQUIRE(moved.ok());
+    CHECK(k->validate(moved.shape).empty());
+    CHECK(k->massProps(moved.shape).volume == Approx(k->massProps(tag.shape).volume).epsilon(1e-9));
+    CHECK(k->massProps(moved.shape).area == Approx(k->massProps(tag.shape).area).epsilon(1e-9));
+    const auto t0 = k->topology(tag.shape);
+    const auto t1 = k->topology(moved.shape);
+    CHECK(t1.faces == t0.faces);
+    CHECK(t1.edges == t0.edges);
+    CHECK(t1.vertices == t0.vertices);
+    const auto b = k->bounds(moved.shape);
+    CHECK(b.min.x == Approx(10.0).margin(1e-6));
+    CHECK(b.min.y == Approx(-20.0).margin(1e-6));
+    CHECK(b.max.z == Approx(9.0).margin(1e-6));
+    // The original isn't changed.
+    CHECK(k->bounds(tag.shape).min.x == Approx(0.0).margin(1e-6));
+}
+
+TEST_CASE("Turning happens about the given line, before the slide", "[kernel][occt][move]") {
+    auto k = makeOcctKernel();
+    auto box = k->makeBox({0, 0, 0}, 10, 20, 30);
+    Motion m;
+    m.angle = std::numbers::pi / 2;  // 90 degrees
+    m.axis = {0, 0, 1};
+    m.center = {10, 0, 0};  // turn about the box's corner at x = 10
+    m.offset = {0, 0, 7};
+    auto moved = k->transform(box.shape, m);
+    REQUIRE(moved.ok());
+    // About the line x = 10, y = 0: (x, y) -> (10 - y, x - 10). The box spans
+    // x 0..10, y 0..20, so it ends up at x -10..10, y -10..0, then z 7..37.
+    const auto b = k->bounds(moved.shape);
+    CHECK(b.min.x == Approx(-10.0).margin(1e-6));
+    CHECK(b.max.x == Approx(10.0).margin(1e-6));
+    CHECK(b.min.y == Approx(-10.0).margin(1e-6));
+    CHECK(b.max.y == Approx(0.0).margin(1e-6));
+    CHECK(b.min.z == Approx(7.0).margin(1e-6));
+    CHECK(k->massProps(moved.shape).volume == Approx(6000.0).epsilon(1e-9));
+    CHECK(k->validate(moved.shape).empty());
+}
+
+TEST_CASE("Moving the same way twice gives the same shape", "[kernel][occt][move]") {
+    auto k = makeOcctKernel();
+    auto cyl = k->makeCylinder({0, 0, 0}, {0, 0, 1}, 5, 10);
+    Motion m{{3, 4, 5}, {1, 2, 3}, {1, 1, 0}, 0.7};
+    auto a = k->transform(cyl.shape, m);
+    auto b = k->transform(cyl.shape, m);
+    REQUIRE(a.ok());
+    REQUIRE(b.ok());
+    const auto ba = k->bounds(a.shape);
+    const auto bb = k->bounds(b.shape);
+    CHECK(ba.min.x == bb.min.x);
+    CHECK(ba.max.z == bb.max.z);
+    CHECK(k->massProps(a.shape).volume == k->massProps(b.shape).volume);
+}
+
+TEST_CASE("Turning about an axis of 0, 0, 0 gets a plain message; not turning needs no axis",
+          "[kernel][occt][move]") {
+    auto k = makeOcctKernel();
+    auto box = k->makeBox({0, 0, 0}, 10, 10, 10);
+    Motion m;
+    m.axis = {0, 0, 0};
+    m.angle = 0.5;
+    auto bad = k->transform(box.shape, m);
+    REQUIRE_FALSE(bad.ok());
+    CHECK(bad.issues[0].code == "kernel.move.axis");
+    CHECK(bad.issues[0].detail.empty());
+
+    m.angle = 0;  // only sliding: the axis doesn't matter
+    m.offset = {1, 0, 0};
+    CHECK(k->transform(box.shape, m).ok());
+
+    CHECK(k->transform(ShapeHandle{}, Motion{}).issues.at(0).code == "kernel.move.input");
+}
+
+TEST_CASE("A moved shape exports and meshes", "[kernel][occt][move]") {
+    auto k = makeOcctKernel();
+    auto box = k->makeBox({0, 0, 0}, 10, 10, 10);
+    Motion m;
+    m.angle = 0.3;
+    m.axis = {1, 2, 3};
+    auto moved = k->transform(box.shape, m);
+    REQUIRE(moved.ok());
+    const auto mesh = k->tessellate(moved.shape, MeshQuality{});
+    CHECK(mesh.triangles.size() == 12);
+}

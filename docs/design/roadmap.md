@@ -57,6 +57,17 @@ Each phase ends with a build you can try and a written exit check.
 - Plugin developer guide v0, in `docs/plugin-guide/` and published with the API reference: a Hello plugin tutorial, the manifest format and the extension points built so far. From here on, every pull request that changes the plugin API updates the guide (a CLAUDE.md rule).
 - **Exit:** create a box, undo, save, reopen, export STL on all three OSes, with the box tool and the viewer loaded as plugins, and the guide's Hello plugin adding a working command. The checklist, with the tests that cover it and the steps to check by hand: [Phase 0 exit check](phase0-exit.md). **Done Oct 27, 2026:** checked on Windows, macOS and Linux.
 
+**Pulled forward after Phase 0 (Oct 27 to 28, 2026):** a few small pieces of later
+phases, asked for once Phase 0 was done (see [Copying and grouping steps](copy-and-group.md)):
+
+- Turning steps off, several at once, as one undo (from Phase 2's timeline "suppress").
+- Folders in the feature tree (from the timeline "groups" in the architecture).
+- Duplicate, Copy and Paste steps, between designs too (not on the roadmap before).
+- A Move step that slides and turns a body (not on the roadmap before; Phase 2's
+  mirror and patterns build on it).
+
+Phase 1 is next.
+
 ### Phase 1: Sketcher
 
 - PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry.
@@ -78,6 +89,7 @@ Each phase ends with a build you can try and a written exit check.
 - Parameter table with expressions and units.
 - Feature graph with incremental recompute; timeline bar with rollback, edit, suppress.
 - Features: extrude (new/join/cut), revolve, fillet, chamfer, hole, shell, mirror, linear and circular pattern, construction planes.
+- Linked copies: a copy that follows its original when it changes (a Move that keeps its input), built with the patterns.
 - Topological naming v1 (history-based names plus geometric fallback); ambiguous references flagged, never guessed.
 - Geometry regression corpus started: every bug becomes a test model.
 - **Exit:** 20 reference parts (brackets, enclosures, knobs, mounts) model cleanly, and changing an upstream sketch dimension breaks none of them.
@@ -93,6 +105,7 @@ Each phase ends with a build you can try and a written exit check.
 ### Phase 4: v0.2 Assemblies and drawings
 
 - Multi-component documents, joints (rigid, revolute, slider), interference check, exploded view.
+- Groups of bodies that move together, as parts placed in an assembly (needs its own design page first).
 - Drawings: base/projected/section views, dimensions, BOM, PDF and DXF export.
 - More features: sweep, loft, draft, rib, thread.
 - **Gate:** a multi-part project goes from model to printed drawing.

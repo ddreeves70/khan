@@ -12,6 +12,7 @@ All lengths are in millimeters (mm). Positions and sizes are written `x,y,z`:
 | [`feature.add_box`](#featureadd_box) | Adds a box |
 | [`feature.add_cylinder`](#featureadd_cylinder) | Adds a cylinder |
 | [`feature.add_boolean`](#featureadd_boolean) | Joins two bodies, cuts one from another, or keeps their overlap |
+| [`feature.add_move`](#featureadd_move) | Slides and turns a body |
 | [`feature.rename`](#featurerename) | Renames a step |
 | [`feature.delete`](#featuredelete) | Deletes a step |
 | [`feature.duplicate`](#featureduplicate) | Copies a step, and the steps it uses |
@@ -136,6 +137,48 @@ parts: 3 steps
 
 The Boolean step uses up `a` and `b`: they stay in the design (you can still
 change them), but only the combined body is a finished body.
+
+## feature.add_move
+
+Turns a body about a line, then slides it. The body keeps its size and shape, and
+the step it moves is used up, like the bodies a Boolean combines. See
+[Moving bodies](../user-guide/moving.md).
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `body` | step name | yes | The step whose body is moved |
+| `by` | x,y,z (mm) | no | How far to slide it. Default `0,0,0` |
+| `turn` | number (degrees) | no | How far to turn it first, counterclockwise looking down the axis. Default `0` |
+| `axis` | x,y,z | no | The direction of the line it turns about. Default `0,0,1` (up) |
+| `about` | x,y,z (mm) | no | A point on that line. Default `0,0,0` |
+| `name` | text | no | Step name. Default `Move1`, `Move2`, ... |
+
+<!-- cli-example -->
+```console
+$ kh_cli demo demo.khan
+wrote demo.khan
+$ kh_cli run --open demo.khan --save demo.khan feature.add_move body=Tag by=10,0,0 turn=90 about=30,15,0
+Demo tag: 4 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3
+  Move1        ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote demo.khan
+```
+
+Turning about an axis of `0,0,0` fails, with a message saying how to fix it:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open demo.khan feature.add_move body=Move1 turn=45 axis=0,0,0
+Demo tag: 5 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3
+  Move1        ok  volume 7121.46 mm^3
+  Move2        failed
+    error [kernel.move.axis]: The axis to turn about can't be 0, 0, 0. Give it a direction, like 0, 0, 1 to turn around an up-and-down line.
+```
 
 ## feature.rename
 

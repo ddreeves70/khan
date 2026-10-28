@@ -47,7 +47,10 @@ const char* kindName(const model::Feature& f) {
                 case kernel::BoolOp::Intersect:
                     return "Intersect";
             }
+            break;
         }
+        case model::FeatureType::Move:
+            return "Move";
     }
     return "Step";
 }

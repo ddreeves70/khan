@@ -308,8 +308,10 @@ FeatureId Document::materialSource(const FeatureId& id) const {
     const Feature* f = find(id);
     for (std::size_t steps = 0; f && steps <= features_.size(); ++steps) {
         if (!f->material().empty() && findMaterial(f->material())) return f->id();
-        if (f->type() != FeatureType::Boolean) break;
-        f = find(static_cast<const BooleanFeature&>(*f).a());
+        // A body made from others (a Boolean's A, a Move's body) is made of what its first input is.
+        const auto inputs = f->dependencies();
+        if (inputs.empty()) break;
+        f = find(inputs.front());
     }
     return {};
 }
