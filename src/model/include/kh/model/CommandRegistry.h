@@ -23,17 +23,19 @@ class Document;
 
 /// The type of a command argument.
 enum class ArgType {
-    Number,      ///< A double (an integer is accepted too).
-    Integer,     ///< A std::int64_t.
-    Bool,        ///< A bool.
-    Text,        ///< A std::string.
-    Vec3,        ///< A kernel::Vec3, in millimeters.
-    FeatureRef,  ///< A FeatureId of a feature in the document.
-    Choice,      ///< A std::string, one of ArgSpec::choices.
+    Number,       ///< A double (an integer is accepted too).
+    Integer,      ///< A std::int64_t.
+    Bool,         ///< A bool.
+    Text,         ///< A std::string.
+    Vec3,         ///< A kernel::Vec3, in millimeters.
+    FeatureRef,   ///< A FeatureId of a feature in the document.
+    Choice,       ///< A std::string, one of ArgSpec::choices.
+    FeatureList,  ///< A std::vector<FeatureId>: one or more steps in the document, in order.
 };
 
 /// One argument value. Which alternative is allowed depends on the ArgSpec's ArgType.
-using ArgValue = std::variant<double, std::int64_t, bool, std::string, kernel::Vec3, FeatureId>;
+using ArgValue =
+    std::variant<double, std::int64_t, bool, std::string, kernel::Vec3, FeatureId, std::vector<FeatureId>>;
 
 /// Arguments for one command, by argument name.
 using Args = std::map<std::string, ArgValue>;
@@ -149,5 +151,18 @@ kernel::Vec3 argVec3(const Args& args, const std::string& name, const kernel::Ve
 /// @param name The argument name.
 /// @return The feature id, or a nil id if the argument is absent.
 FeatureId argFeature(const Args& args, const std::string& name);
+
+/// Reads a list-of-steps argument, for use in a CommandFactory.
+/// @param args The checked arguments.
+/// @param name The argument name.
+/// @return The feature ids, in order; empty if the argument is absent.
+std::vector<FeatureId> argFeatures(const Args& args, const std::string& name);
+
+/// Reads a true-or-false argument, for use in a CommandFactory.
+/// @param args The checked arguments.
+/// @param name The argument name.
+/// @param fallback Returned if the argument is absent.
+/// @return The value.
+bool argBool(const Args& args, const std::string& name, bool fallback);
 
 }  // namespace kh::model

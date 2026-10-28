@@ -419,3 +419,52 @@ void AddFeaturesCommand::revertMaterials(DocumentEditor& editor) {
 }
 
 }  // namespace kh::model
+
+namespace kh::model {
+
+// ---------------------------------------------------------------------------
+// Turning steps off and on
+// ---------------------------------------------------------------------------
+
+SuppressFeaturesCommand::SuppressFeaturesCommand(std::vector<FeatureId> ids, bool off)
+    : ids_(std::move(ids)), off_(off) {}
+
+std::string SuppressFeaturesCommand::label() const {
+    return label_;
+}
+
+Diagnostics SuppressFeaturesCommand::apply(DocumentEditor& editor) {
+    const auto& doc = editor.document();
+    if (ids_.empty()) {
+        return {
+            error("feature.nothing", off_ ? "Pick the steps to turn off." : "Pick the steps to turn on.")};
+    }
+    for (const auto& id : ids_) {
+        if (!doc.find(id)) return {error("feature.not_found", "That step isn't in the design anymore.")};
+    }
+    changed_.clear();
+    for (const auto& id : ids_) {
+        Feature* f = editor.find(id);
+        if (f->suppressed() != off_ && std::find(changed_.begin(), changed_.end(), id) == changed_.end()) {
+            changed_.push_back(id);
+        }
+    }
+    if (changed_.empty()) {
+        const std::string what = ids_.size() == 1 ? doc.find(ids_[0])->name() + " is" : "Those steps are";
+        return {error(off_ ? "feature.already_off" : "feature.already_on",
+                      what + (off_ ? " already turned off." : " already turned on."))};
+    }
+    for (const auto& id : changed_) editor.find(id)->setSuppressed(off_);
+    const std::string verb = off_ ? "Turn off " : "Turn on ";
+    label_ = verb + (changed_.size() == 1 ? doc.find(changed_[0])->name()
+                                          : std::to_string(changed_.size()) + " steps");
+    return {};
+}
+
+void SuppressFeaturesCommand::revert(DocumentEditor& editor) {
+    for (const auto& id : changed_) {
+        if (Feature* f = editor.find(id)) f->setSuppressed(!off_);
+    }
+}
+
+}  // namespace kh::model

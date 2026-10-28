@@ -24,7 +24,10 @@ class PluginContext;
 /// overlays (words drawn in the viewers). Version 9 added panels that start
 /// closed (PanelSpec::startHidden) and UiRegistry::showPanel(). Version 10
 /// added overlays for one pane (Overlay::pane, PluginOverlays::forPane()).
-inline constexpr int kPluginApiVersion = 10;
+/// Version 11 added command arguments that take several steps
+/// (model::ArgType::FeatureList) and actions that use every selected step
+/// (ActionSpec::fromSelectionList).
+inline constexpr int kPluginApiVersion = 11;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

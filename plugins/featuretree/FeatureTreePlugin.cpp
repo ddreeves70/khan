@@ -197,6 +197,19 @@ private:
         if (!item) return;
         QMenu m(this);
         m.addAction(tr("Rename"), this, [this, item] { tree_->editItem(item, 0); });
+        // Turn off or on: the picked steps if this row is one of them, otherwise just this row.
+        const auto clicked = idOf(item);
+        std::vector<FeatureId> steps = picked_;
+        if (std::find(steps.begin(), steps.end(), clicked) == steps.end()) steps = {clicked};
+        const auto* design = ctx_.documents().find(ctx_.documents().active());
+        const auto* f = design ? design->find(clicked) : nullptr;
+        const bool off = !(f && f->suppressed());
+        const QString what = steps.size() == 1 ? QString() : tr(" %1 steps").arg(steps.size());
+        m.addAction(off ? tr("Turn off%1").arg(what) : tr("Turn on%1").arg(what), this, [this, steps, off] {
+            auto problems = ctx_.documents().run(ctx_.documents().active(), "feature.suppress",
+                                                 {{"steps", steps}, {"off", off}});
+            if (!problems.empty()) ui_.showProblems(problems);
+        });
         m.addAction(tr("Delete step"), this, [this, item] {
             auto problems =
                 ctx_.documents().run(ctx_.documents().active(), "feature.delete", {{"feature", idOf(item)}});

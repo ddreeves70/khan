@@ -151,6 +151,32 @@ std::optional<model::ArgValue> parseArg(const model::ArgSpec& spec, const std::s
             if (auto id = FeatureId::parse(text)) return *id;
             why = spec.name + " must be the name of a step in the design, like Box1";
             return std::nullopt;
+        case ArgType::FeatureList: {
+            auto byName = [&](const std::string& name) -> std::optional<FeatureId> {
+                for (std::size_t i = 0; i < doc.featureCount(); ++i) {
+                    if (doc.featureAt(i).name() == name) return doc.featureAt(i).id();
+                }
+                return FeatureId::parse(name);
+            };
+            if (auto one = byName(text)) return std::vector<FeatureId>{*one};  // a name with a comma in it
+            std::vector<FeatureId> ids;
+            std::size_t from = 0;
+            for (;;) {
+                const auto comma = text.find(',', from);
+                const std::string name =
+                    text.substr(from, comma == std::string::npos ? std::string::npos : comma - from);
+                auto id = byName(name);
+                if (!id) {
+                    why = spec.name +
+                          " must be names of steps in the design, separated by commas, like Box1,Hole" +
+                          (name.empty() ? std::string() : " (there's no step called " + name + ")");
+                    return std::nullopt;
+                }
+                ids.push_back(*id);
+                if (comma == std::string::npos) return ids;
+                from = comma + 1;
+            }
+        }
     }
     return std::nullopt;
 }
@@ -173,6 +199,8 @@ const char* typeName(model::ArgType t) {
             return "x,y,z";
         case model::ArgType::FeatureRef:
             return "step name";
+        case model::ArgType::FeatureList:
+            return "step names";
         case model::ArgType::Choice:
             return "choice";
     }

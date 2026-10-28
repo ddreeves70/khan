@@ -6,6 +6,7 @@ add_executable(kh_tests
   model/test_registry.cpp
   model/test_materials.cpp
   model/test_copy.cpp
+  model/test_suppress.cpp
   io/test_khan_file.cpp
   plugin/test_event_bus.cpp
   plugin/test_manifest.cpp

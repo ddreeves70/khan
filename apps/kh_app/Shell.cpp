@@ -443,6 +443,18 @@ void Shell::runAction(const plugin::ActionSpec& spec) {
         }
         for (std::size_t i = 0; i < picked.size(); ++i) args[spec.fromSelection[i]] = picked[i];
     }
+    if (!spec.fromSelectionList.empty()) {
+        if (picked.empty() || host_.selection().doc() != doc) {
+            showProblems({{"action.selection",
+                           Severity::Error,
+                           tr("%1 needs one or more steps picked in the feature tree.")
+                               .arg(qs(spec.text))
+                               .toStdString(),
+                           {}}});
+            return;
+        }
+        args[spec.fromSelectionList] = picked;
+    }
     const auto before = docs.find(doc)->featureCount();
     auto problems = docs.run(doc, spec.command, args);
     if (!problems.empty()) {
@@ -725,6 +737,9 @@ void Shell::refresh() {
         bool ok = doc != nullptr || static_cast<bool>(spec.run);
         if (!spec.fromSelection.empty()) {
             ok = ok && sel.doc() == activeDesign() && sel.features().size() == spec.fromSelection.size();
+        }
+        if (!spec.fromSelectionList.empty()) {
+            ok = ok && sel.doc() == activeDesign() && !sel.features().empty();
         }
         a->setEnabled(ok);
     }

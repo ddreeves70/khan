@@ -28,6 +28,8 @@ const char* typeName(ArgType t) {
             return "three numbers (x, y, z)";
         case ArgType::FeatureRef:
             return "a step in the design";
+        case ArgType::FeatureList:
+            return "one or more steps in the design";
         case ArgType::Choice:
             return "one of the listed choices";
     }
@@ -49,6 +51,8 @@ bool matches(ArgType t, const ArgValue& v) {
             return std::holds_alternative<kernel::Vec3>(v);
         case ArgType::FeatureRef:
             return std::holds_alternative<FeatureId>(v);
+        case ArgType::FeatureList:
+            return std::holds_alternative<std::vector<FeatureId>>(v);
     }
     return false;
 }
@@ -123,6 +127,25 @@ CommandRegistry makeBuiltin() {
               return std::make_unique<AddFeaturesCommand>(
                   copySteps(doc, {id}), std::vector<Material>{},
                   "Duplicate " + (f ? f->name() : std::string("step")));
+          });
+
+    r.add({"feature.suppress",
+           "Turn steps off or on",
+           "Turns steps off, so they aren't built, or back on. Steps that use a step that's off are blocked "
+           "until it's on again.",
+           {{"steps",
+             ArgType::FeatureList,
+             "The steps, as names separated by commas, like Box1,Hole.",
+             true,
+             {}},
+            {"off",
+             ArgType::Bool,
+             "true to turn them off, false to turn them back on. Default true.",
+             false,
+             {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<SuppressFeaturesCommand>(argFeatures(a, "steps"),
+                                                               argBool(a, "off", true));
           });
 
     r.add({"feature.rename",
@@ -244,6 +267,16 @@ CreateResult CommandRegistry::create(std::string_view name, const Args& args, co
             result.issues.push_back(
                 error("command.arg_feature", argName + " points to a step that isn't in the design."));
         }
+        if (spec->type == ArgType::FeatureList) {
+            const auto& ids = std::get<std::vector<FeatureId>>(value);
+            if (ids.empty()) {
+                result.issues.push_back(error("command.arg_feature", argName + " needs at least one step."));
+            } else if (std::any_of(ids.begin(), ids.end(),
+                                   [&](const FeatureId& id) { return !doc.find(id); })) {
+                result.issues.push_back(
+                    error("command.arg_feature", argName + " points to a step that isn't in the design."));
+            }
+        }
     }
     for (const auto& spec : info.args) {
         if (spec.required && !args.count(spec.name)) {
@@ -289,6 +322,21 @@ FeatureId argFeature(const Args& args, const std::string& name) {
     if (it == args.end()) return {};
     if (const auto* id = std::get_if<FeatureId>(&it->second)) return *id;
     return {};
+}
+
+std::vector<FeatureId> argFeatures(const Args& args, const std::string& name) {
+    auto it = args.find(name);
+    if (it == args.end()) return {};
+    if (const auto* ids = std::get_if<std::vector<FeatureId>>(&it->second)) return *ids;
+    if (const auto* id = std::get_if<FeatureId>(&it->second)) return {*id};
+    return {};
+}
+
+bool argBool(const Args& args, const std::string& name, bool fallback) {
+    auto it = args.find(name);
+    if (it == args.end()) return fallback;
+    if (const auto* b = std::get_if<bool>(&it->second)) return *b;
+    return fallback;
 }
 
 }  // namespace kh::model

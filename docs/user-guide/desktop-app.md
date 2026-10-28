@@ -8,7 +8,7 @@ step's numbers in Properties. Everything you do can be undone.
 
 | # | Part | What it's for |
 | --- | --- | --- |
-| 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, delete), Create (shapes), Combine (union, cut, intersect), View (the grid), Window (panels, layouts) |
+| 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, delete), Create (shapes), Combine (union, cut, intersect), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away |
 | 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built |
 | 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse or the view cube, and click a body to pick it |
@@ -115,6 +115,10 @@ Each row is one step: its name, its kind, and its status.
 - **Delete** a step with the Delete key, or right-click > Delete step. A step that
   another step uses can't be deleted until that step is.
 
+- **Turn off** steps with Edit > Turn off, or right-click > Turn off. A step
+  that's off isn't built, but it isn't deleted: its numbers are kept, and Edit >
+  Turn on (or right-click > Turn on) brings it back. Every picked step changes
+  at once, as one Undo. A step that uses a step that's off shows `blocked`.
 - **Duplicate** a step with Edit > Duplicate step (Ctrl+D). See
   [Copying steps](#copying-steps).
 

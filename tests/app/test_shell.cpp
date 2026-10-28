@@ -331,6 +331,43 @@ TEST_CASE("Copy and Paste put steps into another design", "[app][copy]") {
     CHECK(app.doc().featureAt(1).id() != app.doc().featureAt(0).id());
 }
 
+TEST_CASE("Edit > Turn off and Turn on change every picked step, as one undo", "[app][suppress]") {
+    App app;
+    app.click("kh.modeling.box");
+    app.click("kh.modeling.cylinder");
+    app.click("kh.modeling.box");
+    app.tree()->clearSelection();
+    settle();
+    CHECK_FALSE(app.shell->action("kh.modeling.turn_off")->isEnabled());  // nothing picked
+    app.pickRows({0, 2});
+    app.click("kh.modeling.turn_off");
+    CHECK(app.doc().featureAt(0).suppressed());
+    CHECK_FALSE(app.doc().featureAt(1).suppressed());
+    CHECK(app.doc().featureAt(2).suppressed());
+    CHECK(app.tree()->topLevelItem(0)->text(2) == QStringLiteral("off"));
+    CHECK(app.tree()->topLevelItem(2)->text(2) == QStringLiteral("off"));
+    CHECK(app.tree()->topLevelItem(1)->text(2) == QStringLiteral("ok"));
+    CHECK(app.shell->undoAction()->text() == QStringLiteral("Undo Turn off 2 steps"));
+
+    app.click("kh.modeling.turn_off");  // again: they're already off
+    REQUIRE(app.shell->lastProblems().size() == 1);
+    CHECK(app.shell->lastProblems()[0].code == "feature.already_off");
+
+    app.pickRows({0});
+    app.click("kh.modeling.turn_on");
+    CHECK_FALSE(app.doc().featureAt(0).suppressed());
+    CHECK(app.doc().featureAt(2).suppressed());
+
+    app.shell->undoAction()->trigger();
+    settle();
+    CHECK(app.doc().featureAt(0).suppressed());
+    app.shell->undoAction()->trigger();
+    settle();
+    CHECK_FALSE(app.doc().featureAt(0).suppressed());
+    CHECK_FALSE(app.doc().featureAt(2).suppressed());
+    CHECK(app.doc().featureCount() == 3);
+}
+
 TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {
     App app;
     QGuiApplication::clipboard()->setText(QStringLiteral("just some words"));
