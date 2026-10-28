@@ -10,4 +10,5 @@ kh_add_library(kh_model
   DEPS
     kh::core
     kh::kernel
+    kh::sketch
 )

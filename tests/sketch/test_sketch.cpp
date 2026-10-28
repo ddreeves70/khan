@@ -40,7 +40,7 @@ TEST_CASE("error() measures how far each constraint is from true", "[sketch]") {
     auto err = [&](ConstraintKind k, std::vector<PointRef> pts, std::vector<EntityId> ents, double v = 0,
                    Point2 at = {}) {
         return error(b.sketch,
-                     Constraint{ConstraintId::generate(), k, std::move(pts), std::move(ents), v, at});
+                     Constraint{ConstraintId::generate(), {}, k, std::move(pts), std::move(ents), v, at});
     };
     CHECK(err(ConstraintKind::Horizontal, {}, {l1}) == Approx(3));
     CHECK(err(ConstraintKind::Vertical, {}, {l2}) == Approx(10));
@@ -77,7 +77,7 @@ TEST_CASE("Tangent circles count as touching from outside or inside", "[sketch]"
     const auto outside = b.circle(14, 0, 4);
     auto tangent = [&](EntityId a, EntityId c) {
         return error(b.sketch,
-                     Constraint{ConstraintId::generate(), ConstraintKind::Tangent, {}, {a, c}, 0, {}});
+                     Constraint{ConstraintId::generate(), {}, ConstraintKind::Tangent, {}, {a, c}, 0, {}});
     };
     CHECK(tangent(big, inside) == Approx(0).margin(1e-12));
     CHECK(tangent(big, outside) == Approx(0).margin(1e-12));

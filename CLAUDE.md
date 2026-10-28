@@ -51,7 +51,7 @@ below it.
 | `kh_ui` | Qt side of the plugin API: panels | `kh_plugin`, Qt |
 | `kh_plugin` | Plugin host, manifests, event bus, open documents | `kh_model`, `kh_kernel`, `kh_core` |
 | `kh_io` | `.khan` files: save and open (zip + JSON) | `kh_model`, `kh_core`, libzip, nlohmann_json |
-| `kh_model` | Document, parameters, feature graph, commands, naming | `kh_kernel`, `kh_core` |
+| `kh_model` | Document, parameters, feature graph, commands, naming, Sketch steps | `kh_sketch`, `kh_kernel`, `kh_core` (a sketch solver is passed in, like the kernel) |
 | `kh_sketch_planegcs` | `ISketchSolver` on PlaneGCS | `kh_sketch`, `kh_planegcs` (LGPL, shared library, `third_party/planegcs`) |
 | `kh_sketch` | 2D sketch geometry, constraints, `ISketchSolver` interface | `kh_core` |
 | `kh_kernel_occt` | `IKernel` on OCCT | `kh_kernel`, OCCT |

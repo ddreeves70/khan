@@ -10,6 +10,7 @@
 
 #include "kh/core/Id.h"
 #include "kh/kernel/IKernel.h"
+#include "kh/sketch/Sketch.h"
 
 /// Documents, features, commands and undo.
 namespace kh::model {
@@ -20,6 +21,7 @@ enum class FeatureType {
     Cylinder,  ///< A CylinderFeature.
     Boolean,   ///< A BooleanFeature.
     Move,      ///< A MoveFeature.
+    Sketch,    ///< A SketchFeature.
 };
 
 /// Gives a feature access to the results of features before it during a rebuild.
@@ -336,6 +338,59 @@ public:
 private:
     FeatureId body_;
     kernel::Motion motion_;
+};
+
+/// The flat plane a sketch is drawn on.
+enum class SketchPlane {
+    XY,  ///< The ground: sketch x is x, sketch y is y. Seen from above (Top).
+    XZ,  ///< Standing up, facing the front: sketch x is x, sketch y is z. Seen from the Front.
+    YZ,  ///< Standing up, facing the right: sketch x is y, sketch y is z. Seen from the Right.
+};
+
+/// A sketch: points, lines, circles and arcs on a plane, with constraints and
+/// dimensions. It isn't a body; its rebuild result is the solved sketch
+/// (FeatureResult::sketch). Later steps (extrude) turn its closed shapes into bodies.
+///
+/// The sketch keeps the geometry as the student drew it; every rebuild solves it
+/// from there.
+class SketchFeature final : public Feature {
+public:
+    /// Makes an empty sketch step with a new id.
+    /// @param name The name shown in the feature tree.
+    /// @param plane The plane it's drawn on.
+    SketchFeature(std::string name, SketchPlane plane);
+
+    /// Makes a sketch step with a given id, for loading a saved design.
+    /// @param id The id it was saved with.
+    /// @param name The name shown in the feature tree.
+    /// @param plane The plane it's drawn on.
+    /// @param sketch Its entities and constraints.
+    SketchFeature(FeatureId id, std::string name, SketchPlane plane, sketch::Sketch sketch);
+
+    /// Gives the plane it's drawn on.
+    /// @return The plane.
+    SketchPlane plane() const { return plane_; }
+
+    /// Gives its entities and constraints, as drawn (not solved).
+    /// @return The sketch.
+    const sketch::Sketch& sketch() const { return sketch_; }
+
+    /// Replaces its entities and constraints. Use on a copy, or from a Command.
+    /// @param s The new sketch.
+    void setSketch(sketch::Sketch s) { sketch_ = std::move(s); }
+
+    FeatureType type() const override { return FeatureType::Sketch; }
+    std::unique_ptr<Feature> clone() const override { return std::make_unique<SketchFeature>(*this); }
+    /// A sketch isn't built by the kernel: Document::regenerate() solves it with
+    /// the sketch solver instead. This returns an error if it's called.
+    /// @param kernel Not used.
+    /// @param earlier Not used.
+    /// @return An error.
+    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+
+private:
+    SketchPlane plane_;
+    sketch::Sketch sketch_;
 };
 
 }  // namespace kh::model

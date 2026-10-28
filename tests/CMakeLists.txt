@@ -9,6 +9,7 @@ add_executable(kh_tests
   model/test_suppress.cpp
   model/test_folders.cpp
   model/test_move.cpp
+  model/test_sketch_step.cpp
   io/test_khan_file.cpp
   plugin/test_event_bus.cpp
   plugin/test_manifest.cpp
@@ -21,7 +22,13 @@ add_executable(kh_tests
   plugin/test_tiers.cpp
 )
 target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model kh::io libzip::zip
-  kh::plugin kh::plugin_modeling)
+  kh::plugin kh::plugin_modeling kh::sketch_planegcs)
+if(WIN32)
+  # kh_planegcs is a DLL: Windows finds it next to the .exe.
+  add_custom_command(TARGET kh_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:kh_tests> $<TARGET_FILE_DIR:kh_tests>
+    COMMAND_EXPAND_LISTS)
+endif()
 
 # The sketch library and the PlaneGCS solver. PlaneGCS is a shared library
 # (LGPL), so on Windows its DLL is copied next to the test program.
@@ -129,7 +136,8 @@ if(TARGET kh_app_core)
   add_executable(kh_app_tests app/main.cpp app/test_shell.cpp app/test_grid_plugin.cpp app/test_axes.cpp
   app/test_view_options.cpp)
   target_link_libraries(kh_app_tests PRIVATE Catch2::Catch2 kh_app_core kh::kernel_occt kh::view
-    kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewoptions kh::plugin_axes kh::plugin_grid kh::plugin_viewer)
+    kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewoptions kh::plugin_axes kh::plugin_grid kh::plugin_viewer
+    kh::sketch_planegcs)
   kh_set_warnings(kh_app_tests)
   if(WIN32)
     # Qt's DLLs and plugins (including the offscreen platform) and ADS, next to the .exe.

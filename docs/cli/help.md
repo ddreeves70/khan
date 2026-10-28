@@ -22,6 +22,7 @@ Commands for kh_cli run:
   feature.add_box          Add box
   feature.add_cylinder     Add cylinder
   feature.add_move         Move body
+  feature.add_sketch       Add sketch
   feature.delete           Delete step
   feature.duplicate        Duplicate step
   feature.rename           Rename step
@@ -32,6 +33,13 @@ Commands for kh_cli run:
   folder.rename            Rename folder
   material.define          Define material
   material.delete          Delete material
+  sketch.add_arc           Add arc
+  sketch.add_circle        Add circle
+  sketch.add_line          Add line
+  sketch.add_point         Add point
+  sketch.constrain         Add constraint
+  sketch.delete            Delete from sketch
+  sketch.set_value         Change dimension
 Run "kh_cli help <command>" to see a command's settings.
 ```
 

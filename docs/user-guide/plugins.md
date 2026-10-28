@@ -15,6 +15,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.add_box
            command feature.add_cylinder
            command feature.add_move
+           command feature.add_sketch
            command feature.delete
            command feature.duplicate
            command feature.rename
@@ -25,6 +26,13 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command folder.rename
            command material.define
            command material.delete
+           command sketch.add_arc
+           command sketch.add_circle
+           command sketch.add_line
+           command sketch.add_point
+           command sketch.constrain
+           command sketch.delete
+           command sketch.set_value
            action  Create > Box  (feature.add_box)
            action  Create > Cylinder  (feature.add_cylinder)
            action  Combine > Union  (feature.add_boolean)

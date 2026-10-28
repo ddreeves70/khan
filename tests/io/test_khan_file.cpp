@@ -621,3 +621,119 @@ TEST_CASE("a Move step survives saving and opening, with its turn in radians", "
     CHECK(copy.body() == pasted.steps[2]->id());
     CHECK(copy.motion().angle == 0.5);
 }
+
+// ---------------------------------------------------------------------------
+// Sketch steps
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// A sketch with every kind of entity and constraint, and a construction line.
+sketch::Sketch everyKind() {
+    using namespace kh::sketch;
+    Sketch s;
+    auto add = [&](std::string name, Shape shape, bool construction = false) {
+        s.entities.push_back({EntityId::generate(), std::move(name), shape, construction});
+        return s.entities.back().id;
+    };
+    const auto p = add("Point1", PointShape{{1, 2}});
+    const auto l1 = add("Line1", LineShape{{0, 0}, {40, 0}});
+    const auto l2 = add("Line2", LineShape{{0, 0}, {0, 20}}, true);
+    const auto c = add("Circle1", CircleShape{{20, 10}, 5});
+    const auto a = add("Arc1", ArcShape{{40, 10}, 10, -1.5707963, 1.5707963});
+    auto con = [&](std::string name, ConstraintKind k, std::vector<PointRef> pts, std::vector<EntityId> ents,
+                   double v = 0, Point2 at = {}) {
+        s.constraints.push_back(
+            {ConstraintId::generate(), std::move(name), k, std::move(pts), std::move(ents), v, at});
+    };
+    using K = ConstraintKind;
+    con("Fix1", K::Fix, {{l1, PointRole::Start}}, {}, 0, {0, 0});
+    con("Coincident1", K::Coincident, {{l1, PointRole::Start}, {l2, PointRole::Start}}, {});
+    con("Horizontal1", K::Horizontal, {}, {l1});
+    con("Vertical1", K::Vertical, {}, {l2});
+    con("Parallel1", K::Parallel, {}, {l1, l2});
+    con("Perpendicular1", K::Perpendicular, {}, {l1, l2});
+    con("Equal1", K::Equal, {}, {c, a});
+    con("PointOnLine1", K::PointOnLine, {{p, PointRole::Self}}, {l1});
+    con("PointOnCircle1", K::PointOnCircle, {{p, PointRole::Self}}, {c});
+    con("Midpoint1", K::Midpoint, {{p, PointRole::Self}}, {l1});
+    con("Tangent1", K::Tangent, {}, {l1, a});
+    con("Distance1", K::Distance, {{p, PointRole::Self}, {c, PointRole::Center}}, {}, 12.5);
+    con("Length1", K::Length, {}, {l1}, 40);
+    con("HorizontalDistance1", K::HorizontalDistance, {{l1, PointRole::Start}, {a, PointRole::Center}}, {},
+        -3);
+    con("VerticalDistance1", K::VerticalDistance, {{l1, PointRole::Start}, {a, PointRole::End}}, {}, 20);
+    con("Radius1", K::Radius, {}, {c}, 5);
+    con("Diameter1", K::Diameter, {}, {a}, 20);
+    con("Angle1", K::Angle, {}, {l1, l2}, 1.5707963);
+    return s;
+}
+
+bool sameSketch(const sketch::Sketch& a, const sketch::Sketch& b) {
+    if (a.entities.size() != b.entities.size() || a.constraints.size() != b.constraints.size()) return false;
+    for (std::size_t i = 0; i < a.entities.size(); ++i) {
+        const auto& x = a.entities[i];
+        const auto& y = b.entities[i];
+        if (x.id != y.id || x.name != y.name || x.construction != y.construction ||
+            x.shape.index() != y.shape.index())
+            return false;
+    }
+    for (std::size_t i = 0; i < a.constraints.size(); ++i) {
+        const auto& x = a.constraints[i];
+        const auto& y = b.constraints[i];
+        if (x.id != y.id || x.name != y.name || x.kind != y.kind || x.value != y.value || x.at.x != y.at.x ||
+            x.entities != y.entities || x.points.size() != y.points.size())
+            return false;
+        for (std::size_t j = 0; j < x.points.size(); ++j) {
+            if (x.points[j].entity != y.points[j].entity || x.points[j].role != y.points[j].role)
+                return false;
+        }
+    }
+    return true;
+}
+
+}  // namespace
+
+TEST_CASE("a sketch with every kind of entity and constraint survives saving and opening", "[io][sketch]") {
+    REQUIRE(sketch::check(everyKind()).empty());
+    model::Document doc(model::DocKind::Part, "Plate");
+    auto step = std::make_unique<model::SketchFeature>(FeatureId::generate(), "Sketch1",
+                                                       model::SketchPlane::YZ, everyKind());
+    const auto id = step->id();
+    REQUIRE(doc.execute(std::make_unique<model::AddFeatureCommand>(std::move(step))).empty());
+
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(doc, bytes).empty());
+    auto opened = io::readBytes(bytes, "plate.khan");
+    REQUIRE(opened.ok());
+    const auto* back = dynamic_cast<const model::SketchFeature*>(opened.document->find(id));
+    REQUIRE(back);
+    CHECK(back->plane() == model::SketchPlane::YZ);
+    CHECK(sameSketch(back->sketch(), static_cast<const model::SketchFeature&>(*doc.find(id)).sketch()));
+    const auto& arc = std::get<sketch::ArcShape>(back->sketch().entities[4].shape);
+    CHECK(arc.radius == 10);
+    CHECK(arc.startAngle == -1.5707963);
+    CHECK(back->sketch().entities[2].construction);
+
+    io::Bytes again;
+    REQUIRE(io::writeBytes(*opened.document, again).empty());
+    CHECK(again == bytes);
+}
+
+TEST_CASE("a damaged sketch is refused with a plain message", "[io][sketch]") {
+    // A constraint that points at an entity that isn't in the sketch.
+    sketch::Sketch s = everyKind();
+    s.constraints[2].entities[0] = EntityId::generate();
+    model::Document doc(model::DocKind::Part, "Plate");
+    REQUIRE(doc.execute(std::make_unique<model::AddFeatureCommand>(std::make_unique<model::SketchFeature>(
+                            FeatureId::generate(), "Sketch1", model::SketchPlane::XY, s)))
+                .empty());
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(doc, bytes).empty());
+    auto opened = io::readBytes(bytes, "plate.khan");
+    REQUIRE_FALSE(opened.ok());
+    REQUIRE(opened.issues.size() == 1);
+    CHECK(opened.issues[0].code == "file.damaged");
+    CHECK(opened.issues[0].detail.find("Horizontal uses something that isn't in the sketch") !=
+          std::string::npos);
+}

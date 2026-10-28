@@ -291,6 +291,63 @@ private:
                 });
                 break;
             }
+            case model::FeatureType::Sketch: {
+                auto* plane = new QLabel(form_);
+                plane->setObjectName(QStringLiteral("plane"));
+                form->addRow(tr("Plane"), plane);
+                auto* drawn = new QLabel(form_);
+                drawn->setObjectName(QStringLiteral("drawn"));
+                drawn->setWordWrap(true);
+                form->addRow(tr("Drawn"), drawn);
+                auto* constraints = new QLabel(form_);
+                constraints->setObjectName(QStringLiteral("constraints"));
+                form->addRow(tr("Constraints"), constraints);
+                auto* freedom = new QLabel(form_);
+                freedom->setObjectName(QStringLiteral("freedom"));
+                freedom->setWordWrap(true);
+                freedom->setToolTip(
+                    tr("How many ways the drawing can still move or change size. Add "
+                       "constraints and dimensions until it's 0: fully constrained."));
+                form->addRow(tr("Free to move"), freedom);
+                updaters_.push_back([this, plane, drawn, constraints, freedom](const model::Feature& g) {
+                    const auto& sk = static_cast<const model::SketchFeature&>(g);
+                    switch (sk.plane()) {
+                        case model::SketchPlane::XY:
+                            plane->setText(tr("XY (the ground, seen from the top)"));
+                            break;
+                        case model::SketchPlane::XZ:
+                            plane->setText(tr("XZ (standing, seen from the front)"));
+                            break;
+                        case model::SketchPlane::YZ:
+                            plane->setText(tr("YZ (standing, seen from the right)"));
+                            break;
+                    }
+                    int points = 0, lines = 0, circles = 0, arcs = 0;
+                    for (const auto& e : sk.sketch().entities) {
+                        points += std::holds_alternative<sketch::PointShape>(e.shape) ? 1 : 0;
+                        lines += std::holds_alternative<sketch::LineShape>(e.shape) ? 1 : 0;
+                        circles += std::holds_alternative<sketch::CircleShape>(e.shape) ? 1 : 0;
+                        arcs += std::holds_alternative<sketch::ArcShape>(e.shape) ? 1 : 0;
+                    }
+                    QStringList parts;
+                    if (lines) parts << tr("%n line(s)", nullptr, lines);
+                    if (circles) parts << tr("%n circle(s)", nullptr, circles);
+                    if (arcs) parts << tr("%n arc(s)", nullptr, arcs);
+                    if (points) parts << tr("%n point(s)", nullptr, points);
+                    drawn->setText(parts.isEmpty() ? tr("nothing yet") : parts.join(QStringLiteral(", ")));
+                    constraints->setText(QString::number(sk.sketch().constraints.size()));
+                    const auto* report = ctx_.documents().lastRebuild(ctx_.selection().doc());
+                    const auto* r = report ? report->result(g.id()) : nullptr;
+                    if (!r || !r->sketch || r->sketch->freedom < 0) {
+                        freedom->setText(tr("unknown: the sketch didn't solve"));
+                    } else if (r->sketch->freedom == 0) {
+                        freedom->setText(tr("0: fully constrained"));
+                    } else {
+                        freedom->setText(QString::number(r->sketch->freedom));
+                    }
+                });
+                break;
+            }
             case model::FeatureType::Move: {
                 auto* body = new QLabel(form_);
                 body->setObjectName(QStringLiteral("body"));
@@ -353,7 +410,7 @@ private:
                 break;
             }
         }
-        addMaterial(form);
+        if (f.type() != model::FeatureType::Sketch) addMaterial(form);  // a sketch isn't a body
     }
 
     const model::Document* design() const { return ctx_.documents().find(ctx_.selection().doc()); }

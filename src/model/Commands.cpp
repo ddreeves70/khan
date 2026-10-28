@@ -585,3 +585,47 @@ void DeleteFolderCommand::revert(DocumentEditor& editor) {
 }
 
 }  // namespace kh::model
+
+namespace kh::model {
+
+// ---------------------------------------------------------------------------
+// Editing sketches
+// ---------------------------------------------------------------------------
+
+std::string uniqueSketchName(const sketch::Sketch& sketch, const std::string& base) {
+    for (int n = 1;; ++n) {
+        std::string candidate = base + std::to_string(n);
+        if (!sketch.findEntity(candidate) && !sketch.findConstraint(candidate)) return candidate;
+    }
+}
+
+EditSketchCommand::EditSketchCommand(FeatureId sketch, Change change)
+    : id_(sketch), change_(std::move(change)) {}
+
+Diagnostics EditSketchCommand::apply(DocumentEditor& editor) {
+    Feature* f = editor.find(id_);
+    if (!f) return {error("feature.not_found", "That step isn't in the design anymore.")};
+    if (f->type() != FeatureType::Sketch) {
+        return {error("sketch.not_sketch", f->name() + " isn't a sketch. Pick a sketch, like Sketch1.")};
+    }
+    auto& step = static_cast<SketchFeature&>(*f);
+    if (!after_) {
+        sketch::Sketch edited = step.sketch();
+        std::string label;
+        if (auto problems = change_(edited, label); !problems.empty()) return problems;
+        if (auto problems = sketch::check(edited); !problems.empty()) return problems;
+        label_ = label.empty() ? "Change " + step.name() : label;
+        after_ = std::move(edited);
+    }
+    before_ = step.sketch();
+    step.setSketch(*after_);
+    return {};
+}
+
+void EditSketchCommand::revert(DocumentEditor& editor) {
+    if (Feature* f = editor.find(id_); f && f->type() == FeatureType::Sketch && before_) {
+        static_cast<SketchFeature&>(*f).setSketch(*before_);
+    }
+}
+
+}  // namespace kh::model

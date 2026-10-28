@@ -77,6 +77,7 @@ Every step has `id`, `type` and `name`. Steps that use other steps list them und
 | `Box` | none | `corner` [x, y, z] mm, `size` [x, y, z] mm |
 | `Cylinder` | none | `base` [x, y, z] mm, `axis` [x, y, z] direction, `radius` mm, `height` mm |
 | `Boolean` | `a`, `b`: step ids | `operation`: `"union"`, `"cut"` or `"intersect"` |
+| `Sketch` | none | `plane`: `"xy"`, `"xz"` or `"yz"`; `entities` and `constraints` (below) |
 | `Move` | `body`: step id | `offset` [x, y, z] mm, `center` [x, y, z] mm, `axis` [x, y, z] direction, `angle` radians. Turns by `angle` about the line through `center` along `axis`, then slides by `offset` |
 
 ```json
@@ -93,6 +94,38 @@ Every step has `id`, `type` and `name`. Steps that use other steps list them und
 ```
 
 A step's inputs must come before it in the timeline.
+
+A `Sketch` step keeps what was drawn, not the solved positions: Khan solves it
+again every time it opens or rebuilds the design.
+
+- Each entity has `id`, `name` (like `"Line1"`), `type` and its numbers (mm,
+  angles in radians), and `"construction": true` if it's helper geometry:
+  `point` (`at` [x, y]), `line` (`start`, `end`), `circle` (`center`, `radius`),
+  `arc` (`center`, `radius`, `start_angle`, `end_angle`, counterclockwise).
+- Each constraint has `id`, `name` (like `"Length1"`), `kind` (`"horizontal"`,
+  `"point_on_line"`, ... as `sketch.constrain` spells them), `points` (each an
+  `entity` id and a `role`: `"start"`, `"end"`, `"center"`, or none for a point),
+  `entities` (ids), `value` for dimensions (mm, or radians for `angle`), and
+  `at` [x, y] for `fix`.
+
+```json
+{
+  "id": "38e7e201-4f01-4d9a-b39e-be083cdc1d15",
+  "name": "Sketch1",
+  "params": {
+    "constraints": [
+      { "entities": ["bee5fd67-8e65-4251-954d-2d8741b05c01"], "id": "2e306830-39b8-49c1-8656-45f9405a1fc9",
+        "kind": "length", "name": "Length1", "value": 40.0 }
+    ],
+    "entities": [
+      { "end": [38.0, 2.0], "id": "bee5fd67-8e65-4251-954d-2d8741b05c01", "name": "Line1",
+        "start": [0.0, 0.0], "type": "line" }
+    ],
+    "plane": "xy"
+  },
+  "type": "Sketch"
+}
+```
 
 A step can also have `"material"`: the key of the material picked for its body,
 either a built-in material's key (like `"pla"` or `"aluminum_6061"`, listed in

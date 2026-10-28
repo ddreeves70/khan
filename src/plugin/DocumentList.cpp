@@ -18,8 +18,9 @@ Diagnostic notOpen() {
 
 }  // namespace
 
-DocumentList::DocumentList(EventBus& bus, const model::CommandRegistry& commands, kernel::IKernel* kernel)
-    : bus_(bus), commands_(commands), kernel_(kernel) {}
+DocumentList::DocumentList(EventBus& bus, const model::CommandRegistry& commands, kernel::IKernel* kernel,
+                           sketch::ISketchSolver* solver)
+    : bus_(bus), commands_(commands), kernel_(kernel), solver_(solver) {}
 
 DocumentList::~DocumentList() = default;
 
@@ -130,7 +131,7 @@ void DocumentList::changed(Entry& e, ChangeKind kind, std::string label) {
 
 void DocumentList::rebuild(Entry& e) {
     if (!kernel_) return;
-    e.rebuild = e.doc->regenerate(*kernel_);
+    e.rebuild = e.doc->regenerate(*kernel_, solver_);
     bus_.publish(RebuildFinished{e.doc->id(), e.rebuild->ok()});
 }
 

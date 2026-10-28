@@ -21,6 +21,11 @@ All lengths are in millimeters (mm). Positions and sizes are written `x,y,z`:
 | [`folder.add`](#folderadd) | Puts steps in a folder in the feature tree |
 | [`folder.rename`](#folderrename) | Renames a folder |
 | [`folder.delete`](#folderdelete) | Removes a folder, keeping its steps |
+| [`feature.add_sketch`](#featureadd_sketch) | Adds an empty sketch on a plane |
+| [`sketch.add_point`](#sketchadd_point), [`sketch.add_line`](#sketchadd_line), [`sketch.add_circle`](#sketchadd_circle), [`sketch.add_arc`](#sketchadd_arc) | Draw in a sketch |
+| [`sketch.constrain`](#sketchconstrain) | Adds a constraint or dimension to a sketch |
+| [`sketch.set_value`](#sketchset_value) | Changes a dimension |
+| [`sketch.delete`](#sketchdelete) | Deletes something from a sketch |
 | [`material.define`](#materialdefine) | Adds a material of your own, or changes one |
 | [`material.delete`](#materialdelete) | Removes a material you added |
 
@@ -437,6 +442,177 @@ Demo tag: 3 steps
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
 wrote demo.khan
+```
+
+## feature.add_sketch
+
+Adds an empty sketch: a flat drawing on a plane. Draw in it with the `sketch.`
+commands below; see [Sketches](../user-guide/sketches.md). A sketch isn't a body:
+it has no volume, and it's solved again every time the design rebuilds.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `plane` | `xy`, `xz` or `yz` | no | `xy` (the ground, the default), `xz` (standing, facing the front) or `yz` (standing, facing the right) |
+| `name` | text | no | Step name. Default `Sketch1`, `Sketch2`, ... |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save s.khan feature.add_sketch plane=xz
+s: 1 step
+  Sketch1      ok  empty
+wrote s.khan
+```
+
+## sketch.add_point
+
+Adds a point.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `at` | x,y (mm) | yes | Where |
+| `construction` | true or false | no | `true` for helper geometry. Default `false` |
+| `name` | text | no | Its name. Default `Point1`, `Point2`, ... |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open s.khan --save s.khan sketch.add_point sketch=Sketch1 at=5,5
+s: 1 step
+  Sketch1      ok  1 point, 0 constraints, free to move 2 ways
+wrote s.khan
+```
+
+## sketch.add_line
+
+Adds a straight line. Its points are `.start` and `.end`.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `from` | x,y (mm) | yes | Its first end |
+| `to` | x,y (mm) | yes | Its second end |
+| `construction` | true or false | no | `true` for helper geometry. Default `false` |
+| `name` | text | no | Its name. Default `Line1`, `Line2`, ... |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open s.khan --save s.khan sketch.add_line sketch=Sketch1 from=0,0 to=40,0
+s: 1 step
+  Sketch1      ok  1 line, 1 point, 0 constraints, free to move 6 ways
+wrote s.khan
+```
+
+## sketch.add_circle
+
+Adds a circle. Its point is `.center`.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `center` | x,y (mm) | yes | Its center |
+| `radius` | number (mm) | yes | Its radius |
+| `construction` | true or false | no | `true` for helper geometry. Default `false` |
+| `name` | text | no | Its name. Default `Circle1`, `Circle2`, ... |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open s.khan --save s.khan sketch.add_circle sketch=Sketch1 center=20,10 radius=4
+s: 1 step
+  Sketch1      ok  1 line, 1 circle, 1 point, 0 constraints, free to move 9 ways
+wrote s.khan
+```
+
+## sketch.add_arc
+
+Adds an arc: part of a circle, going counterclockwise from `start` to `end`. Its
+points are `.start`, `.end` and `.center`.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `center` | x,y (mm) | yes | The center of its circle |
+| `radius` | number (mm) | yes | Its radius |
+| `start` | number (degrees) | no | Where it starts: 0 points right, 90 up. Default `0` |
+| `end` | number (degrees) | no | Where it ends. Default `90` |
+| `construction` | true or false | no | `true` for helper geometry. Default `false` |
+| `name` | text | no | Its name. Default `Arc1`, `Arc2`, ... |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open s.khan --save s.khan sketch.add_arc sketch=Sketch1 center=40,10 radius=10 start=-90 end=90
+s: 1 step
+  Sketch1      ok  1 line, 1 circle, 1 arc, 1 point, 0 constraints, free to move 14 ways
+wrote s.khan
+```
+
+## sketch.constrain
+
+Adds a constraint (`kind=horizontal`, `tangent`, ...) or a dimension
+(`kind=length`, `radius`, ...). The [Sketches](../user-guide/sketches.md#constraints-and-dimensions)
+page lists every kind and what it needs.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `kind` | `fix`, `coincident`, `horizontal`, `vertical`, `parallel`, `perpendicular`, `equal`, `point_on_line`, `point_on_circle`, `midpoint`, `tangent`, `distance`, `length`, `horizontal_distance`, `vertical_distance`, `radius`, `diameter`, `angle` | yes | What to keep true |
+| `on` | text | yes | What it's on, separated by commas: `Line1`, or points like `Line1.end`, `Circle1.center`, `Point1` |
+| `value` | number | for dimensions | mm, or degrees for `angle` |
+| `name` | text | no | Its name. Default like `Horizontal1`, `Length1` |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open s.khan --save s.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Arc1.start
+s: 1 step
+  Sketch1      ok  1 line, 1 circle, 1 arc, 1 point, 1 constraint, free to move 12 ways
+wrote s.khan
+$ kh_cli run --open s.khan --save s.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40
+s: 1 step
+  Sketch1      ok  1 line, 1 circle, 1 arc, 1 point, 2 constraints, free to move 11 ways
+wrote s.khan
+```
+
+Points need to say which point; lines and circles don't:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open s.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1,Arc1
+error [sketch.on]: Line1 isn't a single point: say which of its points, like Line1.start or Line1.end.
+```
+
+## sketch.set_value
+
+Changes a dimension's number.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `constraint` | text | yes | The dimension, like `Length1` |
+| `value` | number | yes | Its new number: mm, or degrees for an angle |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open s.khan --save s.khan sketch.set_value sketch=Sketch1 constraint=Length1 value=30
+s: 1 step
+  Sketch1      ok  1 line, 1 circle, 1 arc, 1 point, 2 constraints, free to move 11 ways
+wrote s.khan
+```
+
+## sketch.delete
+
+Deletes a line, circle, arc or point, and every constraint on it; or one
+constraint.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `item` | text | yes | What to delete, like `Line1` or `Length1` |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open s.khan --save s.khan sketch.delete sketch=Sketch1 item=Line1
+s: 1 step
+  Sketch1      ok  1 circle, 1 arc, 1 point, 0 constraints, free to move 10 ways
+wrote s.khan
 ```
 
 ## material.define

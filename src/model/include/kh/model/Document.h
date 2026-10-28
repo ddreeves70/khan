@@ -18,6 +18,7 @@
 #include "kh/model/Feature.h"
 #include "kh/model/Folder.h"
 #include "kh/model/Material.h"
+#include "kh/sketch/Solver.h"
 
 namespace kh::model {
 
@@ -40,6 +41,9 @@ struct FeatureResult {
     FeatureStatus status = FeatureStatus::Ok;  ///< How it came out.
     kernel::ShapeHandle shape;                 ///< The shape; empty unless status is Ok.
     Diagnostics issues;                        ///< Why it failed or is blocked.
+    /// For a Sketch step: what the solver gave back (the solved geometry, the
+    /// degrees of freedom, conflicting and repeated constraints). Null otherwise.
+    std::shared_ptr<const sketch::SolveResult> sketch;
 };
 
 /// The outcome of rebuilding a document: one result per feature, in document order.
@@ -243,8 +247,9 @@ public:
     /// Suppressed features are skipped. A feature whose input has no shape is
     /// Blocked and never reaches the kernel. The document itself is not changed.
     /// @param kernel The geometry kernel to build with.
+    /// @param solver The sketch solver for Sketch steps. Without one, Sketch steps fail.
     /// @return One result per feature, plus the finished bodies.
-    RebuildReport regenerate(kernel::IKernel& kernel) const;
+    RebuildReport regenerate(kernel::IKernel& kernel, sketch::ISketchSolver* solver = nullptr) const;
 
 private:
     friend class DocumentEditor;

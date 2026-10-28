@@ -1,6 +1,6 @@
 # The sketcher (Phase 1)
 
-> **Draft.** Step 1 (the solver) is built. The rest is the plan, in the order it
+> **Draft.** Steps 1 (the solver) and 2 (the Sketch step) are built. The rest is the plan, in the order it
 > will be built. See the [roadmap](roadmap.md#phase-1-sketcher) for Phase 1's exit
 > check.
 
@@ -15,8 +15,8 @@ revolve).
 | Step | What | Status |
 | --- | --- | --- |
 | 1. Solver | `kh_sketch` (sketch values, `ISketchSolver`), PlaneGCS as its own shared library, `kh_sketch_planegcs` | Built |
-| 2. Sketch step | A `Sketch` step in the design: on a plane (XY, XZ, YZ), its entities and constraints, saved in the `.khan` file, changed only by commands (add line, add constraint, set dimension, ...), solved on rebuild | Next |
-| 3. Drawing in the app | Edit a sketch in the viewer: draw lines, arcs and circles with the mouse, snap to the grid and to points, pick and drag | |
+| 2. Sketch step | A `Sketch` step in the design: on a plane (XY, XZ, YZ), its entities and constraints, saved in the `.khan` file, changed only by commands (add line, add constraint, set dimension, ...), solved on rebuild | Built |
+| 3. Drawing in the app | Edit a sketch in the viewer: draw lines, arcs and circles with the mouse, snap to the grid and to points, pick and drag | Next |
 | 4. Constraints in the app | Add constraints and dimensions from a toolbar and by typing numbers; show them on the drawing; degrees of freedom shown by color (free blue, fixed black); conflicts highlighted with a plain message | |
 | 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | |
 | 6. Extrude | Profiles become solids (Phase 2 starts properly here) | |
@@ -89,6 +89,31 @@ just adds Coincident and Tangent; the adapter picks the right form.
 **Same answer every time.** PlaneGCS keys some tables by memory address, so the
 tests check that the same sketch gives the same numbers, bit for bit, within one
 run and across separate runs.
+
+## The Sketch step (step 2)
+
+- `kh_model`: `SketchFeature` (`FeatureType::Sketch`) holds a plane and a
+  `sketch::Sketch` **as drawn**. `Document::regenerate(kernel, solver)` solves it
+  and puts the answer in `FeatureResult::sketch`. A sketch has no shape, so it's
+  never a body; a Boolean that uses one is blocked with "a sketch, not a body".
+  Without a solver, a sketch fails with a plain message.
+- The solver is passed in like the kernel: `PluginHost(kernel, solver)` and
+  `DocumentList`; `kh_cli` and `kh_app` make a PlaneGCS solver.
+- Commands (all through `EditSketchCommand`, one undo step each, same ids on redo):
+  `feature.add_sketch`, `sketch.add_point`, `sketch.add_line`,
+  `sketch.add_circle`, `sketch.add_arc`, `sketch.constrain` (with `on=Line1.end,Arc1`
+  references), `sketch.set_value`, `sketch.delete`. Angles are typed in degrees.
+  Every edited sketch must pass `check()`.
+- **Names.** Entities and constraints have names (`Line1`, `Length1`), unique in
+  their sketch, so students and `kh_cli` can point at them; ids stay the
+  references inside the file.
+- **Not solved into the file.** The step keeps what was drawn, and every rebuild
+  solves from there. The app will store solved positions back (with a command)
+  once dragging exists, so the next solve starts from where things are.
+- `kh_cli open --sketch` lists a solved sketch; `make_images.py` draws "as drawn"
+  next to "solved" for the guide.
+- File: a new step type, `"Sketch"` (schema 1). Plugin API 13 (`ArgType::Vec2`,
+  `FeatureResult::sketch`, the solver parameter).
 
 ## Choices
 

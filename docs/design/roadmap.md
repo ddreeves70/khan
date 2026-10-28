@@ -70,7 +70,7 @@ Phase 1 started Oct 28, 2026.
 
 ### Phase 1: Sketcher
 
-- PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry. (Solver built Oct 28, 2026: `kh_sketch`, `ISketchSolver`, PlaneGCS as a shared library; see [The sketcher](sketcher.md).)
+- PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry. (Solver built Oct 28, 2026: `kh_sketch`, `ISketchSolver`, PlaneGCS as a shared library. Sketch steps with commands, saved in files and solved on rebuild: built Oct 28, 2026. See [The sketcher](sketcher.md).)
 - Core constraints and driving dimensions; degrees-of-freedom coloring; conflict highlighting.
 - Auto-constraints while drawing, snapping, and closed-profile detection.
 - **Full B-spline support,** after lines, arcs and circles work (early Phase 2 if Phase 1 runs long). Spline constraints are where a solver most easily fails, so they come once the basic sketcher is solid:

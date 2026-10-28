@@ -33,6 +33,7 @@ Argument types:
 | `FeatureRef` | `FeatureId` of a step | `a=Box1` | `model::argFeature` |
 | `FeatureList` | `std::vector<FeatureId>`, one or more steps | `steps=Box1,Hole` | `model::argFeatures` |
 | `FolderRef` | `FolderId` of a folder in the feature tree | `folder=Holes` | `model::argFolder` |
+| `Vec2` | `sketch::Point2`, a point on a sketch's plane, in mm | `at=10,5` | `model::argVec2` |
 
 Khan checks the arguments before calling your factory: unknown names, missing
 required arguments, wrong types, choices and steps that don't exist all get a

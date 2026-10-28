@@ -19,14 +19,14 @@ struct SketchBuilder {
     }
 
     EntityId add(Shape shape) {
-        Entity e{EntityId::generate(), shape, false};
+        Entity e{EntityId::generate(), {}, shape, false};
         sketch.entities.push_back(e);
         return e.id;
     }
 
     ConstraintId constrain(ConstraintKind kind, std::vector<PointRef> points, std::vector<EntityId> entities,
                            double value = 0, Point2 at = {}) {
-        Constraint c{ConstraintId::generate(), kind, std::move(points), std::move(entities), value, at};
+        Constraint c{ConstraintId::generate(), {}, kind, std::move(points), std::move(entities), value, at};
         sketch.constraints.push_back(c);
         return c.id;
     }

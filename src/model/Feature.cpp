@@ -65,4 +65,19 @@ kernel::OpResult MoveFeature::execute(kernel::IKernel& kernel, const ResultLooku
     return kernel.transform(*s, motion_);
 }
 
+SketchFeature::SketchFeature(std::string name, SketchPlane plane)
+    : SketchFeature(FeatureId::generate(), std::move(name), plane, {}) {}
+
+SketchFeature::SketchFeature(FeatureId id, std::string name, SketchPlane plane, sketch::Sketch sketch)
+    : Feature(id, std::move(name)), plane_(plane), sketch_(std::move(sketch)) {}
+
+kernel::OpResult SketchFeature::execute(kernel::IKernel&, const ResultLookup&) const {
+    kernel::OpResult r;
+    r.issues.push_back({"sketch.no_solver",
+                        Severity::Error,
+                        "Sketches are solved by the sketch solver, not the kernel.",
+                        {}});
+    return r;
+}
+
 }  // namespace kh::model

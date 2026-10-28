@@ -17,6 +17,28 @@
     "parts": [
       "run --save p.khan feature.add_box size=30,30,10",
       "run --open p.khan --save p.khan feature.add_cylinder base=30,15,0 radius=10 height=20"
+    ],
+    "plate-sketch": [
+      "run --save plate.khan feature.add_sketch",
+      "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,0 to=37,2",
+      "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=37,2 to=39,19",
+      "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=39,19 to=-2,22",
+      "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=-2,22 to=0,0",
+      "run --open plate.khan --save plate.khan sketch.add_circle sketch=Sketch1 center=12,8 radius=3",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line3",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line2",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line4",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=4",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Circle1.center value=10",
+      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical_distance on=Line1.start,Circle1.center value=10"
     ]
   },
   "pictures": [
@@ -802,6 +824,15 @@
         1018,
         660
       ]
+    },
+    {
+      "out": "docs/user-guide/images/sketch-plate.png",
+      "size": "760x300",
+      "script": "plate-sketch",
+      "sketch": {
+        "file": "plate.khan",
+        "name": "Sketch1"
+      }
     }
   ]
 }

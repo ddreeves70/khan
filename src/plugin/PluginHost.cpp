@@ -299,8 +299,8 @@ std::string libraryFileName(std::string_view library) {
 #endif
 }
 
-PluginHost::PluginHost(kernel::IKernel* kernel)
-    : documents_(bus_, registry_, kernel),
+PluginHost::PluginHost(kernel::IKernel* kernel, sketch::ISketchSolver* solver)
+    : documents_(bus_, registry_, kernel, solver),
       selection_(bus_, documents_),
       shared_(std::make_unique<detail::HostShared>()) {
     bus_.setErrorHandler([this](const Diagnostic& d) { eventProblems_.push_back(d); });

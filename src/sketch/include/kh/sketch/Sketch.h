@@ -53,6 +53,7 @@ using Shape = std::variant<PointShape, LineShape, CircleShape, ArcShape>;
 /// One thing drawn in a sketch.
 struct Entity {
     EntityId id{};              ///< Never changes, even when it's moved or resized.
+    std::string name{};         ///< What the student sees and types, e.g. "Line1". Unique in its sketch.
     Shape shape{};              ///< What it is and where.
     bool construction = false;  ///< True for helper geometry that isn't part of a profile.
 };
@@ -96,7 +97,8 @@ enum class ConstraintKind {
 
 /// One constraint or dimension.
 struct Constraint {
-    ConstraintId id{};                                 ///< Never changes.
+    ConstraintId id{};   ///< Never changes.
+    std::string name{};  ///< What the student sees and types, e.g. "Length1". Unique in its sketch.
     ConstraintKind kind = ConstraintKind::Coincident;  ///< What it keeps true.
     std::vector<PointRef> points{};                    ///< The points it uses (see ConstraintKind).
     std::vector<EntityId> entities{};                  ///< The entities it uses (see ConstraintKind).
@@ -118,12 +120,47 @@ struct Sketch {
     /// @param id Its id.
     /// @return It, or nullptr.
     const Constraint* find(const ConstraintId& id) const;
+
+    /// Finds an entity by name.
+    /// @param name For example "Line1".
+    /// @return It, or nullptr.
+    const Entity* findEntity(std::string_view name) const;
+
+    /// Finds a constraint by name.
+    /// @param name For example "Length1".
+    /// @return It, or nullptr.
+    const Constraint* findConstraint(std::string_view name) const;
 };
 
 /// Gives a constraint kind's name as the student sees it, e.g. "Horizontal".
 /// @param kind The kind.
 /// @return The name.
 std::string_view kindName(ConstraintKind kind);
+
+/// Gives a constraint kind's key, as files and kh_cli spell it, e.g. "point_on_line".
+/// Keys never change.
+/// @param kind The kind.
+/// @return The key.
+std::string_view kindKey(ConstraintKind kind);
+
+/// Finds a constraint kind from its key.
+/// @param key For example "horizontal" or "point_on_line".
+/// @return The kind, or nothing if no kind has that key.
+std::optional<ConstraintKind> kindFromKey(std::string_view key);
+
+/// Every constraint kind, in the order ConstraintKind lists them.
+/// @return The kinds.
+const std::vector<ConstraintKind>& allKinds();
+
+/// Gives a point role's key, as files and kh_cli spell it: "", "start", "end" or "center".
+/// @param role The role.
+/// @return The key ("" for Self).
+std::string_view roleKey(PointRole role);
+
+/// Finds a point role from its key.
+/// @param key "", "start", "end" or "center".
+/// @return The role, or nothing if no role has that key.
+std::optional<PointRole> roleFromKey(std::string_view key);
 
 /// Checks whether a kind is a dimension (it has a `value`).
 /// @param kind The kind.

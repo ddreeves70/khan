@@ -137,6 +137,194 @@ std::optional<double> readNumber(const json& j) {
     return std::isfinite(d) ? std::optional<double>(d) : std::nullopt;
 }
 
+json vec2(const sketch::Point2& p) {
+    return json::array({p.x, p.y});
+}
+
+std::optional<sketch::Point2> readVec2(const json& j) {
+    if (!j.is_array() || j.size() != 2) return std::nullopt;
+    for (const auto& c : j) {
+        if (!c.is_number() || !std::isfinite(c.get<double>())) return std::nullopt;
+    }
+    return sketch::Point2{j[0].get<double>(), j[1].get<double>()};
+}
+
+const char* planeName(model::SketchPlane p) {
+    switch (p) {
+        case model::SketchPlane::XY:
+            return "xy";
+        case model::SketchPlane::XZ:
+            return "xz";
+        case model::SketchPlane::YZ:
+            return "yz";
+    }
+    return "xy";
+}
+
+std::optional<model::SketchPlane> readPlane(const json& j) {
+    if (!j.is_string()) return std::nullopt;
+    const auto s = j.get<std::string>();
+    if (s == "xy") return model::SketchPlane::XY;
+    if (s == "xz") return model::SketchPlane::XZ;
+    if (s == "yz") return model::SketchPlane::YZ;
+    return std::nullopt;
+}
+
+json sketchToJson(const sketch::Sketch& s) {
+    json entities = json::array();
+    for (const auto& e : s.entities) {
+        json j{{"id", e.id.toString()}, {"name", e.name}};
+        if (e.construction) j["construction"] = true;  // left out when false
+        std::visit(
+            [&j](const auto& shape) {
+                using S = std::decay_t<decltype(shape)>;
+                if constexpr (std::is_same_v<S, sketch::PointShape>) {
+                    j["type"] = "point";
+                    j["at"] = vec2(shape.at);
+                } else if constexpr (std::is_same_v<S, sketch::LineShape>) {
+                    j["type"] = "line";
+                    j["start"] = vec2(shape.start);
+                    j["end"] = vec2(shape.end);
+                } else if constexpr (std::is_same_v<S, sketch::CircleShape>) {
+                    j["type"] = "circle";
+                    j["center"] = vec2(shape.center);
+                    j["radius"] = shape.radius;
+                } else {
+                    j["type"] = "arc";
+                    j["center"] = vec2(shape.center);
+                    j["radius"] = shape.radius;
+                    j["start_angle"] = shape.startAngle;
+                    j["end_angle"] = shape.endAngle;
+                }
+            },
+            e.shape);
+        entities.push_back(j);
+    }
+    json constraints = json::array();
+    for (const auto& c : s.constraints) {
+        json j{{"id", c.id.toString()}, {"name", c.name}, {"kind", std::string(sketch::kindKey(c.kind))}};
+        if (!c.points.empty()) {
+            json points = json::array();
+            for (const auto& p : c.points) {
+                json pj{{"entity", p.entity.toString()}};
+                if (p.role != sketch::PointRole::Self) pj["role"] = std::string(sketch::roleKey(p.role));
+                points.push_back(pj);
+            }
+            j["points"] = points;
+        }
+        if (!c.entities.empty()) {
+            json ids = json::array();
+            for (const auto& id : c.entities) ids.push_back(id.toString());
+            j["entities"] = ids;
+        }
+        if (sketch::isDimension(c.kind)) j["value"] = c.value;
+        if (c.kind == sketch::ConstraintKind::Fix) j["at"] = vec2(c.at);
+        constraints.push_back(j);
+    }
+    return {{"entities", entities}, {"constraints", constraints}};
+}
+
+// Reads a sketch; on failure sets `why` and returns nothing.
+std::optional<sketch::Sketch> sketchFromJson(const json& j, std::string& why) {
+    sketch::Sketch s;
+    const json entities = j.value("entities", json::array());
+    const json constraints = j.value("constraints", json::array());
+    if (!entities.is_array() || !constraints.is_array()) {
+        why = "sketch has no entity or constraint list";
+        return std::nullopt;
+    }
+    for (const auto& ej : entities) {
+        const auto id = ej.is_object() ? EntityId::parse(ej.value("id", "")) : std::nullopt;
+        if (!id || !ej.contains("name") || !ej["name"].is_string() || !ej.contains("type") ||
+            !ej["type"].is_string()) {
+            why = "a sketch entity is missing its id, name or type";
+            return std::nullopt;
+        }
+        sketch::Entity e{*id, ej["name"].get<std::string>(), {}, ej.value("construction", false)};
+        const auto type = ej["type"].get<std::string>();
+        auto bad = [&](const char* what) {
+            why = "sketch entity " + e.name + ": bad or missing " + what;
+            return std::nullopt;
+        };
+        if (type == "point") {
+            const auto at = readVec2(ej.value("at", json()));
+            if (!at) return bad("at");
+            e.shape = sketch::PointShape{*at};
+        } else if (type == "line") {
+            const auto a = readVec2(ej.value("start", json()));
+            const auto b = readVec2(ej.value("end", json()));
+            if (!a || !b) return bad("start or end");
+            e.shape = sketch::LineShape{*a, *b};
+        } else if (type == "circle" || type == "arc") {
+            const auto c = readVec2(ej.value("center", json()));
+            const auto r = readNumber(ej.value("radius", json()));
+            if (!c || !r) return bad("center or radius");
+            if (type == "circle") {
+                e.shape = sketch::CircleShape{*c, *r};
+            } else {
+                const auto a0 = readNumber(ej.value("start_angle", json()));
+                const auto a1 = readNumber(ej.value("end_angle", json()));
+                if (!a0 || !a1) return bad("start_angle or end_angle");
+                e.shape = sketch::ArcShape{*c, *r, *a0, *a1};
+            }
+        } else {
+            return bad("type");
+        }
+        s.entities.push_back(std::move(e));
+    }
+    for (const auto& cj : constraints) {
+        const auto id = cj.is_object() ? ConstraintId::parse(cj.value("id", "")) : std::nullopt;
+        const auto kind = cj.is_object() && cj.contains("kind") && cj["kind"].is_string()
+                              ? sketch::kindFromKey(cj["kind"].get<std::string>())
+                              : std::nullopt;
+        if (!id || !kind || !cj.contains("name") || !cj["name"].is_string()) {
+            why = "a sketch constraint is missing its id, name or kind";
+            return std::nullopt;
+        }
+        sketch::Constraint c{*id, cj["name"].get<std::string>(), *kind, {}, {}, 0, {}};
+        for (const auto& pj : cj.value("points", json::array())) {
+            const auto entity = pj.is_object() ? EntityId::parse(pj.value("entity", "")) : std::nullopt;
+            const auto role = pj.is_object() ? sketch::roleFromKey(pj.value("role", "")) : std::nullopt;
+            if (!entity || !role) {
+                why = "sketch constraint " + c.name + ": bad point";
+                return std::nullopt;
+            }
+            c.points.push_back({*entity, *role});
+        }
+        for (const auto& ij : cj.value("entities", json::array())) {
+            const auto entity = ij.is_string() ? EntityId::parse(ij.get<std::string>()) : std::nullopt;
+            if (!entity) {
+                why = "sketch constraint " + c.name + ": bad entity id";
+                return std::nullopt;
+            }
+            c.entities.push_back(*entity);
+        }
+        if (sketch::isDimension(c.kind)) {
+            const auto v = readNumber(cj.value("value", json()));
+            if (!v) {
+                why = "sketch constraint " + c.name + ": bad or missing value";
+                return std::nullopt;
+            }
+            c.value = *v;
+        }
+        if (c.kind == sketch::ConstraintKind::Fix) {
+            const auto at = readVec2(cj.value("at", json()));
+            if (!at) {
+                why = "sketch constraint " + c.name + ": bad or missing at";
+                return std::nullopt;
+            }
+            c.at = *at;
+        }
+        s.constraints.push_back(std::move(c));
+    }
+    // Every reference must point at something in the sketch, with the right kinds.
+    if (const auto problems = sketch::check(s); !problems.empty()) {
+        why = "sketch: " + problems.front().message;
+        return std::nullopt;
+    }
+    return s;
+}
+
 const char* kindName(model::DocKind k) {
     return k == model::DocKind::Assembly ? "assembly" : "part";
 }
@@ -186,6 +374,13 @@ json featureToJson(const Feature& f) {
             j["type"] = "Boolean";
             j["inputs"] = {{"a", b.a().toString()}, {"b", b.b().toString()}};
             j["params"] = {{"operation", opName(b.op())}};
+            break;
+        }
+        case FeatureType::Sketch: {
+            const auto& sk = static_cast<const model::SketchFeature&>(f);
+            j["type"] = "Sketch";
+            j["params"] = sketchToJson(sk.sketch());
+            j["params"]["plane"] = planeName(sk.plane());
             break;
         }
         case FeatureType::Move: {
@@ -250,6 +445,16 @@ std::unique_ptr<Feature> featureFromJson(const json& j, const FeatureId& id, std
         if (!a) return bad("input a");
         if (!b) return bad("input b");
         return std::make_unique<model::BooleanFeature>(id, name, *op, *a, *b);
+    }
+    if (type == "Sketch") {
+        const auto plane = readPlane(params.value("plane", json()));
+        if (!plane) return bad("plane");
+        auto s = sketchFromJson(params, why);
+        if (!s) {
+            why = "step " + name + ": " + why;
+            return nullptr;
+        }
+        return std::make_unique<model::SketchFeature>(id, name, *plane, std::move(*s));
     }
     if (type == "Move") {
         const auto body = inputs.contains("body") && inputs["body"].is_string()

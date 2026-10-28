@@ -39,6 +39,7 @@
 #include "kh/plugins/Properties.h"
 #include "kh/plugins/ViewOptions.h"
 #include "kh/plugins/Viewer.h"
+#include "kh/sketch_planegcs/PlaneGcsSolver.h"
 #include "kh/view/Graphics.h"
 
 namespace {
@@ -103,8 +104,9 @@ int main(int argc, char** argv) {
     // Plugins: the built-in ones, then folders of outside plugins: "plugins" next
     // to the program, and the user's own plugin folder.
     auto kernel = kh::kernel::makeOcctKernel();
+    auto solver = kh::sketch::makePlaneGcsSolver();
     kh::app::AppUi ui;
-    kh::plugin::PluginHost host(kernel.get());
+    kh::plugin::PluginHost host(kernel.get(), solver.get());
     host.provide<kh::ui::UiRegistry>(ui);
     host.addBuiltin(kh::plugins::modelingPlugin());
     host.addBuiltin(kh::plugins::featureTreePlugin());

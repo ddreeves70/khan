@@ -1,6 +1,7 @@
 #include "kh/model/CommandRegistry.h"
 
 #include <algorithm>
+#include <cctype>
 #include <numbers>
 #include <utility>
 
@@ -27,6 +28,8 @@ const char* typeName(ArgType t) {
             return "text";
         case ArgType::Vec3:
             return "three numbers (x, y, z)";
+        case ArgType::Vec2:
+            return "two numbers (x, y)";
         case ArgType::FeatureRef:
             return "a step in the design";
         case ArgType::FeatureList:
@@ -52,6 +55,8 @@ bool matches(ArgType t, const ArgValue& v) {
             return std::holds_alternative<std::string>(v);
         case ArgType::Vec3:
             return std::holds_alternative<kernel::Vec3>(v);
+        case ArgType::Vec2:
+            return std::holds_alternative<sketch::Point2>(v);
         case ArgType::FeatureRef:
             return std::holds_alternative<FeatureId>(v);
         case ArgType::FeatureList:
@@ -66,6 +71,140 @@ std::string joined(const std::vector<std::string>& items) {
     std::string out;
     for (const auto& s : items) out += (out.empty() ? "" : ", ") + s;
     return out;
+}
+
+// ---------------------------------------------------------------------------
+// Sketch commands: helpers
+// ---------------------------------------------------------------------------
+
+constexpr double kDegrees = std::numbers::pi / 180.0;
+
+// What a constraint kind needs, in order: 'P' a point, 'E' an entity; and an example.
+struct Needs {
+    const char* slots;
+    const char* what;
+    const char* example;
+};
+
+Needs needsOf(sketch::ConstraintKind k) {
+    using K = sketch::ConstraintKind;
+    switch (k) {
+        case K::Fix:
+            return {"P", "one point", "Line1.start"};
+        case K::Coincident:
+            return {"PP", "two points", "Line1.end,Line2.start"};
+        case K::Horizontal:
+        case K::Vertical:
+        case K::Length:
+            return {"E", "one line", "Line1"};
+        case K::Parallel:
+        case K::Perpendicular:
+        case K::Angle:
+            return {"EE", "two lines", "Line1,Line2"};
+        case K::Equal:
+            return {"EE", "two lines, or two circles or arcs", "Line1,Line2"};
+        case K::PointOnLine:
+            return {"PE", "a point and a line", "Point1,Line1"};
+        case K::PointOnCircle:
+            return {"PE", "a point and a circle or arc", "Line1.end,Circle1"};
+        case K::Midpoint:
+            return {"PE", "a point and a line", "Point1,Line1"};
+        case K::Tangent:
+            return {"EE", "a line and a circle or arc, or two circles or arcs", "Line1,Arc1"};
+        case K::Distance:
+        case K::HorizontalDistance:
+        case K::VerticalDistance:
+            return {"PP", "two points", "Line1.start,Line1.end"};
+        case K::Radius:
+        case K::Diameter:
+            return {"E", "one circle or arc", "Circle1"};
+    }
+    return {"", "", ""};
+}
+
+Diagnostic sketchProblem(std::string code, std::string message) {
+    return {std::move(code), Severity::Error, std::move(message), {}};
+}
+
+// Reads "Line1.end,Line2.start" or "Line1,Arc1" into a constraint's points and entities.
+Diagnostics readOn(const sketch::Sketch& s, sketch::Constraint& c, const std::string& on) {
+    const Needs needs = needsOf(c.kind);
+    const std::string kind(sketch::kindName(c.kind));
+    const std::string like = kind + " needs " + needs.what + ", like on=" + needs.example + ".";
+    std::vector<std::string> items;
+    std::size_t from = 0;
+    while (true) {
+        const auto comma = on.find(',', from);
+        items.push_back(on.substr(from, comma == std::string::npos ? std::string::npos : comma - from));
+        if (comma == std::string::npos) break;
+        from = comma + 1;
+    }
+    const std::string_view slots = needs.slots;
+    if (on.empty() || items.size() != slots.size()) return {sketchProblem("sketch.on", like)};
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        const auto& item = items[i];
+        const auto dot = item.rfind('.');
+        const std::string name = dot == std::string::npos ? item : item.substr(0, dot);
+        const std::string roleText = dot == std::string::npos ? std::string() : item.substr(dot + 1);
+        const sketch::Entity* e = s.findEntity(name);
+        if (!e) {
+            return {
+                sketchProblem("sketch.on", "There's nothing called " + name + " in this sketch. " + like)};
+        }
+        const auto role = sketch::roleFromKey(roleText);
+        if (!role) {
+            return {
+                sketchProblem("sketch.on", item + " isn't a point: use .start, .end or .center. " + like)};
+        }
+        if (slots[i] == 'E') {
+            if (*role != sketch::PointRole::Self) {
+                return {
+                    sketchProblem("sketch.on", "Use " + name + " here, without ." + roleText + ". " + like)};
+            }
+            c.entities.push_back(e->id);
+        } else {
+            if (*role == sketch::PointRole::Self && !std::holds_alternative<sketch::PointShape>(e->shape)) {
+                return {sketchProblem("sketch.on",
+                                      name + " isn't a single point: say which of its points, like " + name +
+                                          ".start or " + name + ".end.")};
+            }
+            c.points.push_back({e->id, *role});
+        }
+    }
+    return {};
+}
+
+// A constraint's default name: "Horizontal distance" becomes "HorizontalDistance1".
+std::string constraintBase(sketch::ConstraintKind k) {
+    std::string base;
+    bool upper = true;
+    for (char ch : sketch::kindName(k)) {
+        if (ch == ' ') {
+            upper = true;
+            continue;
+        }
+        base += upper ? static_cast<char>(std::toupper(static_cast<unsigned char>(ch))) : ch;
+        upper = false;
+    }
+    return base;
+}
+
+// Adds an entity to a sketch, named and checked, as an EditSketchCommand.
+std::unique_ptr<Command> addEntity(FeatureId sketchId, sketch::Shape shape, bool construction,
+                                   std::string name, std::string base) {
+    const EntityId id = EntityId::generate();
+    return std::make_unique<EditSketchCommand>(
+        sketchId,
+        [id, shape, construction, name, base](sketch::Sketch& s, std::string& label) -> Diagnostics {
+            const std::string chosen = name.empty() ? uniqueSketchName(s, base) : name;
+            if (s.findEntity(chosen) || s.findConstraint(chosen)) {
+                return {sketchProblem("sketch.name_taken", "Something in this sketch is already called " +
+                                                               chosen + ". Pick a different name.")};
+            }
+            s.entities.push_back({id, chosen, shape, construction});
+            label = "Add " + chosen;
+            return {};
+        });
 }
 
 CommandRegistry makeBuiltin() {
@@ -206,6 +345,205 @@ CommandRegistry makeBuiltin() {
            {{"folder", ArgType::FolderRef, "The folder to remove.", true, {}}}},
           [](const Document&, const Args& a) -> std::unique_ptr<Command> {
               return std::make_unique<DeleteFolderCommand>(argFolder(a, "folder"));
+          });
+
+    // --- Sketches ------------------------------------------------------------
+
+    r.add({"feature.add_sketch",
+           "Add sketch",
+           "Adds an empty sketch on a plane. Draw in it with sketch.add_line and the other sketch commands.",
+           {{"plane",
+             ArgType::Choice,
+             "xy (the ground), xz (standing, facing the front) or yz (standing, facing "
+             "the right). Default xy.",
+             false,
+             {"xy", "xz", "yz"}},
+            {"name", ArgType::Text, "Step name. Default Sketch1, Sketch2, ...", false, {}}}},
+          [](const Document& doc, const Args& a) -> std::unique_ptr<Command> {
+              const auto p = argText(a, "plane", "xy");
+              const auto plane = p == "xz" ? SketchPlane::XZ : p == "yz" ? SketchPlane::YZ : SketchPlane::XY;
+              return std::make_unique<AddFeatureCommand>(
+                  std::make_unique<SketchFeature>(argText(a, "name", doc.uniqueName("Sketch")), plane));
+          });
+
+    const ArgSpec sketchArg{"sketch", ArgType::FeatureRef, "The sketch, like Sketch1.", true, {}};
+    const ArgSpec constructionArg{"construction",
+                                  ArgType::Bool,
+                                  "true for helper geometry that isn't part of the shape. Default false.",
+                                  false,
+                                  {}};
+
+    r.add({"sketch.add_point",
+           "Add point",
+           "Adds a point to a sketch.",
+           {sketchArg,
+            {"at", ArgType::Vec2, "Where, in mm on the sketch's plane, like 10,5.", true, {}},
+            constructionArg,
+            {"name", ArgType::Text, "Its name. Default Point1, Point2, ...", false, {}}}},
+          [](const Document&, const Args& a) {
+              return addEntity(argFeature(a, "sketch"), sketch::PointShape{argVec2(a, "at")},
+                               argBool(a, "construction", false), argText(a, "name"), "Point");
+          });
+
+    r.add({"sketch.add_line",
+           "Add line",
+           "Adds a straight line to a sketch.",
+           {sketchArg,
+            {"from", ArgType::Vec2, "Its first end, in mm, like 0,0.", true, {}},
+            {"to", ArgType::Vec2, "Its second end, in mm, like 40,0.", true, {}},
+            constructionArg,
+            {"name", ArgType::Text, "Its name. Default Line1, Line2, ...", false, {}}}},
+          [](const Document&, const Args& a) {
+              return addEntity(argFeature(a, "sketch"),
+                               sketch::LineShape{argVec2(a, "from"), argVec2(a, "to")},
+                               argBool(a, "construction", false), argText(a, "name"), "Line");
+          });
+
+    r.add({"sketch.add_circle",
+           "Add circle",
+           "Adds a circle to a sketch.",
+           {sketchArg,
+            {"center", ArgType::Vec2, "Its center, in mm, like 20,10.", true, {}},
+            {"radius", ArgType::Number, "Its radius, in mm.", true, {}},
+            constructionArg,
+            {"name", ArgType::Text, "Its name. Default Circle1, Circle2, ...", false, {}}}},
+          [](const Document&, const Args& a) {
+              return addEntity(argFeature(a, "sketch"),
+                               sketch::CircleShape{argVec2(a, "center"), argNumber(a, "radius")},
+                               argBool(a, "construction", false), argText(a, "name"), "Circle");
+          });
+
+    r.add({"sketch.add_arc",
+           "Add arc",
+           "Adds an arc (part of a circle) to a sketch. It goes counterclockwise from start to end.",
+           {sketchArg,
+            {"center", ArgType::Vec2, "The center of its circle, in mm.", true, {}},
+            {"radius", ArgType::Number, "Its radius, in mm.", true, {}},
+            {"start",
+             ArgType::Number,
+             "Where it starts, in degrees: 0 points right, 90 up. Default 0.",
+             false,
+             {}},
+            {"end",
+             ArgType::Number,
+             "Where it ends, in degrees, counterclockwise from the start. Default 90.",
+             false,
+             {}},
+            constructionArg,
+            {"name", ArgType::Text, "Its name. Default Arc1, Arc2, ...", false, {}}}},
+          [](const Document&, const Args& a) {
+              return addEntity(
+                  argFeature(a, "sketch"),
+                  sketch::ArcShape{argVec2(a, "center"), argNumber(a, "radius"),
+                                   argNumber(a, "start", 0) * kDegrees, argNumber(a, "end", 90) * kDegrees},
+                  argBool(a, "construction", false), argText(a, "name"), "Arc");
+          });
+
+    std::vector<std::string> kinds;
+    for (auto k : sketch::allKinds()) kinds.emplace_back(sketch::kindKey(k));
+    r.add(
+        {"sketch.constrain",
+         "Add constraint",
+         "Adds a constraint (horizontal, tangent, ...) or a dimension (length, radius, ...) to a sketch. The "
+         "sketch is solved again when the design rebuilds.",
+         {sketchArg,
+          {"kind", ArgType::Choice, "What to keep true.", true, kinds},
+          {"on",
+           ArgType::Text,
+           "What it's on, separated by commas: lines and circles by name (Line1), points as Line1.start, "
+           "Line1.end or Arc1.center.",
+           true,
+           {}},
+          {"value", ArgType::Number, "For dimensions: mm, or degrees for an angle.", false, {}},
+          {"name", ArgType::Text, "Its name. Default like Horizontal1 or Length1.", false, {}}}},
+        [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+            const auto kind = *sketch::kindFromKey(argText(a, "kind"));
+            const std::string on = argText(a, "on");
+            const bool hasValue = a.count("value") > 0;
+            const double value = argNumber(a, "value");
+            const std::string name = argText(a, "name");
+            const ConstraintId id = ConstraintId::generate();
+            return std::make_unique<EditSketchCommand>(
+                argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                    sketch::Constraint c{id, {}, kind, {}, {}, 0, {}};
+                    if (auto problems = readOn(s, c, on); !problems.empty()) return problems;
+                    const std::string kindText(sketch::kindName(kind));
+                    if (sketch::isDimension(kind)) {
+                        if (!hasValue) {
+                            return {sketchProblem(
+                                "sketch.value",
+                                kindText + " needs a value, like value=" +
+                                    (kind == sketch::ConstraintKind::Angle ? "90 (degrees)." : "40 (mm)."))};
+                        }
+                        c.value = kind == sketch::ConstraintKind::Angle ? value * kDegrees : value;
+                    } else if (hasValue) {
+                        return {sketchProblem("sketch.value", kindText + " has no number. Leave out value.")};
+                    }
+                    if (kind == sketch::ConstraintKind::Fix) c.at = *sketch::pointOf(s, c.points[0]);
+                    c.name = name.empty() ? uniqueSketchName(s, constraintBase(kind)) : name;
+                    if (s.findEntity(c.name) || s.findConstraint(c.name)) {
+                        return {
+                            sketchProblem("sketch.name_taken", "Something in this sketch is already called " +
+                                                                   c.name + ". Pick a different name.")};
+                    }
+                    s.constraints.push_back(c);
+                    label = "Add " + c.name;
+                    return {};
+                });
+        });
+
+    r.add({"sketch.set_value",
+           "Change dimension",
+           "Changes a dimension's number. The sketch is solved again when the design rebuilds.",
+           {sketchArg,
+            {"constraint", ArgType::Text, "The dimension, like Length1.", true, {}},
+            {"value", ArgType::Number, "Its new number: mm, or degrees for an angle.", true, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              const std::string name = argText(a, "constraint");
+              const double value = argNumber(a, "value");
+              return std::make_unique<EditSketchCommand>(
+                  argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                      auto it = std::find_if(s.constraints.begin(), s.constraints.end(),
+                                             [&](const sketch::Constraint& c) { return c.name == name; });
+                      if (it == s.constraints.end()) {
+                          return {sketchProblem("sketch.not_found",
+                                                "There's no constraint called " + name + " in this sketch.")};
+                      }
+                      if (!sketch::isDimension(it->kind)) {
+                          return {sketchProblem("sketch.value", name + " has no number to change.")};
+                      }
+                      it->value = it->kind == sketch::ConstraintKind::Angle ? value * kDegrees : value;
+                      label = "Change " + name;
+                      return {};
+                  });
+          });
+
+    r.add({"sketch.delete",
+           "Delete from sketch",
+           "Deletes a line, circle, arc or point (and the constraints on it), or a constraint.",
+           {sketchArg, {"item", ArgType::Text, "What to delete, like Line1 or Length1.", true, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              const std::string name = argText(a, "item");
+              return std::make_unique<EditSketchCommand>(
+                  argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                      if (const auto* e = s.findEntity(name)) {
+                          const EntityId id = e->id;
+                          std::erase_if(s.constraints, [&](const sketch::Constraint& c) {
+                              return std::ranges::find(c.entities, id) != c.entities.end() ||
+                                     std::ranges::any_of(c.points,
+                                                         [&](const auto& p) { return p.entity == id; });
+                          });
+                          std::erase_if(s.entities, [&](const sketch::Entity& x) { return x.id == id; });
+                      } else if (s.findConstraint(name)) {
+                          std::erase_if(s.constraints,
+                                        [&](const sketch::Constraint& c) { return c.name == name; });
+                      } else {
+                          return {sketchProblem("sketch.not_found",
+                                                "There's nothing called " + name + " in this sketch.")};
+                      }
+                      label = "Delete " + name;
+                      return {};
+                  });
           });
 
     r.add({"feature.rename",
@@ -378,6 +716,13 @@ kernel::Vec3 argVec3(const Args& args, const std::string& name, const kernel::Ve
     auto it = args.find(name);
     if (it == args.end()) return fallback;
     if (const auto* v = std::get_if<kernel::Vec3>(&it->second)) return *v;
+    return fallback;
+}
+
+sketch::Point2 argVec2(const Args& args, const std::string& name, const sketch::Point2& fallback) {
+    auto it = args.find(name);
+    if (it == args.end()) return fallback;
+    if (const auto* v = std::get_if<sketch::Point2>(&it->second)) return *v;
     return fallback;
 }
 
