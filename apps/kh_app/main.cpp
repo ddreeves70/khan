@@ -37,6 +37,7 @@
 #include "kh/plugins/Grid.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/Properties.h"
+#include "kh/plugins/Sketcher.h"
 #include "kh/plugins/ViewOptions.h"
 #include "kh/plugins/Viewer.h"
 #include "kh/sketch_planegcs/PlaneGcsSolver.h"
@@ -115,6 +116,7 @@ int main(int argc, char** argv) {
     host.addBuiltin(kh::plugins::axesPlugin());
     host.addBuiltin(kh::plugins::gridPlugin());
     host.addBuiltin(kh::plugins::viewerPlugin());
+    host.addBuiltin(kh::plugins::sketcherPlugin());
     host.addFolder((QCoreApplication::applicationDirPath() + QStringLiteral("/plugins")).toStdWString());
     host.addFolder(
         (QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/plugins"))
@@ -153,6 +155,12 @@ int main(int argc, char** argv) {
             auto* action = shell.findChild<QAction*>(name);
             if (!action) {
                 std::fprintf(stderr, "There is no menu item or button called %s.\n", qPrintable(name));
+                return 1;
+            }
+            QApplication::processEvents();  // so menu items have caught up with --open and --select
+            if (!action->isEnabled()) {
+                std::fprintf(stderr, "%s is greyed out, so it can't be clicked. Pick what it needs first.\n",
+                             qPrintable(name));
                 return 1;
             }
             action->trigger();

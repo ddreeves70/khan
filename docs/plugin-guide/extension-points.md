@@ -87,6 +87,58 @@ ctx.addAction({.id = "kh.modeling.turn_off", .text = "Turn off", .menu = "Edit",
 
 Use `fromSelection` or `fromSelectionList`, not both.
 
+**Toolbar buttons.** `.toolbar = true` also puts the item on the toolbar. If its
+words are too long for a button, give shorter ones in `buttonText`: the
+sketcher's **New sketch on XY (the ground)** is just **New sketch** on the
+toolbar.
+
+**Icons.** Give a button a picture with `icon`: SVG text drawn in a 24 by 24
+box. Khan shows it on the button (with the words under it) and next to the menu
+item, and greys it out with the item. Write `currentColor` for lines that should
+be dark on a light theme and light on a dark one. Text that isn't SVG Khan can draw
+just leaves the button with words.
+
+```cpp
+ctx.addAction({.id = "sam.cube.cube", .text = "Cube", .menu = "Create",
+               .command = "sam.cube.add_cube", .args = {{"size", 30.0}},
+               .toolbar = true,
+               .icon = R"(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <rect x="4" y="4" width="16" height="16" fill="#78ade9"
+                                  stroke="currentColor" stroke-width="1.5"/>
+                          </svg>)",
+               .tip = "Add a 30 mm cube."});
+```
+
+To match Khan's own icons: lines 1.5 wide in `currentColor`, with round ends;
+solids in light blue `#b4d3f7`, blue `#78ade9` and dark blue `#3f7fcf`; sketch
+lines in `#1e6fe0`; green `#2e9e4f` for adding or finishing. Khan's own are in
+`plugins/modeling/icons/` and `plugins/sketcher/icons/`. A built-in plugin keeps
+each icon in its own `.svg` file and builds it in with `kh_embed_files()` (see
+`cmake/KhEmbed.cmake`).
+
+**Toolbar modes.** Some work needs its own buttons, and the usual ones only get in
+the way. While a sketch is being edited, the toolbar shows only Line, Circle,
+Arc, Point and Finish sketch. To do this, give your buttons a `toolbarMode`, and
+switch to that mode with `ctx.setToolbarMode()` while the work goes on:
+
+```cpp
+ctx.addAction({.id = "sam.paint.brush", .text = "Brush", .menu = "Paint",
+               .toolbar = true,
+               .toolbarMode = "sam.paint.painting",  // shown only in this mode
+               .run = [] { /* pick the brush */ }});
+// When painting starts:
+ctx.setToolbarMode("sam.paint.painting");
+// When it stops:
+ctx.setToolbarMode("");  // back to the usual toolbar
+```
+
+- Buttons without a `toolbarMode` show only when no mode is on. Khan's own New,
+  Open, Save, Undo and Redo always show.
+- Only one mode is on at a time. Khan sends `ToolbarModeChanged` when it switches.
+- Mode names start with your plugin id and a dot, like event names; otherwise
+  Khan warns.
+- The menus don't change: every item stays in its menu, in every mode.
+
 **Submenus.** A `/` in `menu` makes a submenu: `.menu = "View/Grid style"` puts
 the item in the **Grid style** submenu of **View**.
 
@@ -115,6 +167,26 @@ ctx.addAction({.id = "sam.notes.show_dates",
   whenever a setting changes, so the check mark is always right.
 - `currentText` (optional) gives the item's words the same way, for items like
   **Other (12.5 mm)...** whose words change.
+- `enabled` (optional) greys the item out whenever it returns `false`, so a
+  student can't pick something that can't work right now. Its toolbar button
+  greys out too. Khan asks it at the
+  same times as `checked`. If it depends on something only your plugin knows
+  (like "a sketch is being edited"), send `plugin::ActionsChanged{}` with
+  `ctx.publish` when that changes, and Khan asks again:
+
+```cpp
+static bool recording = false;  // something only this plugin knows
+ctx.addAction({.id = "sam.notes.stop",
+               .text = "Stop recording",
+               .menu = "View",
+               .run = [&ctx] {
+                   recording = false;
+                   ctx.publish(plugin::ActionsChanged{});
+               },
+               .enabled = [] { return recording; }});
+```
+
+- An item with `enabled` that throws an exception is greyed out.
 - An item has a command *or* a `run` function, never both and never neither;
   Khan refuses the plugin otherwise.
 - Changes to designs still go through commands. A `run` function that wants to
@@ -283,6 +355,52 @@ read it. A pane's key comes from the view options (`options->activePane()` is th
 pane the student is working in). `GridChanged` has a `pane` too: empty when the
 all-panes grid changed.
 
+## Draw with the mouse (desktop app only)
+
+A **view tool** lets the student draw with the mouse on a plane, the way the
+sketcher's Line and Circle tools do. The viewer (`kh.viewer`) offers it as the
+`kh.viewer/1` service, described by its contract header `kh/viewer/Viewer.h`.
+While your tool runs, a left click in any pane tells you the point on the plane
+(in mm) instead of turning the view or picking; moving the mouse tells you too, so
+you can draw a preview with an overlay. Panning and zooming still work, and Escape
+calls `cancelled()`.
+
+List `kh.viewer` in `uses` (or `requires`), then start your tool when the student
+asks for it, for example from a menu item:
+
+```cpp
+#include "kh/viewer/Viewer.h"
+
+struct DotTool final : kh::viewer::IViewTool {
+    kh::plugin::PluginContext& ctx;
+    explicit DotTool(kh::plugin::PluginContext& c) : ctx(c) {}
+    void moved(const kh::viewer::ToolPoint&) override {}
+    void clicked(const kh::viewer::ToolPoint& p) override {
+        // p.at is the point in mm; p.pixel is how many mm one screen pixel covers there,
+        // for "close enough"; p.pane is the pane, for the grid: snap with grid->snap(p.at, p.pane).
+        kh::plugin::Overlay dot{.shape = kh::plugin::OverlayShape::Points, .points = {p.at}, .size = 8};
+        ctx.overlays().set("dot", dot);
+    }
+    void cancelled() override {  // Escape
+        if (auto* viewer = ctx.service<kh::viewer::IViewer>()) viewer->stopTool(*this);
+    }
+};
+
+auto tool = std::make_shared<DotTool>(ctx);
+ctx.addAction({.id = "sam.dots.place", .text = "Place a dot", .menu = "Tools",
+               .run = [&ctx, tool] {
+                   auto* viewer = ctx.service<kh::viewer::IViewer>();
+                   if (!viewer) return;
+                   const kh::viewer::ToolPlane ground{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};  // XY
+                   viewer->face(ground);              // look straight down at it
+                   viewer->startTool(*tool, ground);  // clicks now come to the tool
+               }});
+```
+
+One tool runs at a time: starting yours stops the one that was running. Stop it
+with `stopTool()` when you're done, so clicks pick and turn the view again.
+`kh_cli` has no viewers, so nothing calls your tool there.
+
 ## Draw in the viewer
 
 An **overlay** is something every viewer draws over the design: lines, dots, or
@@ -345,6 +463,8 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `kh::grid::GridChanged` | The grid settings change (sent by `kh.grid`, desktop app) | `grid`: visible, spacing in mm, snap, style |
 | `OverlaysChanged` | An overlay is added, changed or removed | `id` |
 | `SettingChanged` | A plugin's setting changes | `plugin` (its id), `key` (the setting's name) |
+| `ToolbarModeChanged` | A plugin switches the toolbar mode (see Toolbar modes, above) | `mode` (empty for the usual toolbar) |
+| `ActionsChanged` | A plugin says its menu items' `enabled`, `checked` or words may have changed | nothing |
 
 Things to know:
 

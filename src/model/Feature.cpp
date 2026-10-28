@@ -80,4 +80,28 @@ kernel::OpResult SketchFeature::execute(kernel::IKernel&, const ResultLookup&) c
     return r;
 }
 
+PlaneAxes planeAxes(SketchPlane plane) {
+    switch (plane) {
+        case SketchPlane::XY:
+            return {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};
+        case SketchPlane::XZ:
+            return {{0, 0, 0}, {1, 0, 0}, {0, 0, 1}};
+        case SketchPlane::YZ:
+            return {{0, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    }
+    return {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};
+}
+
+kernel::Vec3 toDesign(SketchPlane plane, const sketch::Point2& p) {
+    const auto a = planeAxes(plane);
+    return {a.origin.x + p.x * a.x.x + p.y * a.y.x, a.origin.y + p.x * a.x.y + p.y * a.y.y,
+            a.origin.z + p.x * a.x.z + p.y * a.y.z};
+}
+
+sketch::Point2 toSketch(SketchPlane plane, const kernel::Vec3& p) {
+    const auto a = planeAxes(plane);
+    const kernel::Vec3 d{p.x - a.origin.x, p.y - a.origin.y, p.z - a.origin.z};
+    return {d.x * a.x.x + d.y * a.x.y + d.z * a.x.z, d.x * a.y.x + d.y * a.y.y + d.z * a.y.z};
+}
+
 }  // namespace kh::model

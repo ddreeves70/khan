@@ -96,6 +96,15 @@ void sendBadlyNamedEvent(PluginContext& ctx) {
     ctx.onStart([&ctx] { ctx.publish(RulerReady{}); });  // test.ruler.ready, but this is test.liar
 }
 
+void sendActionsChanged(PluginContext& ctx) {
+    ctx.publish(ActionsChanged{});
+}
+
+PluginContext* drawCtx = nullptr;
+void keepContext(PluginContext& ctx) {
+    drawCtx = &ctx;
+}
+
 void slow(PluginContext& ctx) {
     ctx.onStart([] { std::this_thread::sleep_for(std::chrono::milliseconds(40)); });
 }
@@ -251,6 +260,37 @@ TEST_CASE("an event named after another plugin is warned about", "[plugin][shari
     const auto& liar = get(host, "test.liar");
     CHECK(codes(liar) == std::vector<std::string>{"plugin.event_name"});
     CHECK(liar.issues[0].message.find("test.liar.something") != std::string::npos);
+}
+
+TEST_CASE("any plugin may send ActionsChanged without a warning", "[plugin][sharing]") {
+    PluginHost host;
+    host.addBuiltin({manifest("test.menu"), &sendActionsChanged});
+    host.loadAll();
+    CHECK(get(host, "test.menu").issues.empty());
+}
+
+TEST_CASE("a plugin switches the toolbar mode, and other plugins hear about it", "[plugin][sharing]") {
+    PluginHost host;
+    std::vector<std::string> heard;
+    auto sub = host.events().subscribe<ToolbarModeChanged>(
+        [&heard](const ToolbarModeChanged& e) { heard.push_back(e.mode); });
+    drawCtx = nullptr;
+    host.addBuiltin({manifest("test.draw"), &keepContext});
+    host.loadAll();
+    REQUIRE(drawCtx);
+    auto* saved = drawCtx;
+    CHECK(host.toolbarMode().empty());
+    saved->setToolbarMode("test.draw.editing");
+    CHECK(host.toolbarMode() == "test.draw.editing");
+    CHECK(saved->toolbarMode() == "test.draw.editing");
+    saved->setToolbarMode("test.draw.editing");  // already on: no second event
+    saved->setToolbarMode("");
+    CHECK(heard == std::vector<std::string>{"test.draw.editing", ""});
+    CHECK(get(host, "test.draw").issues.empty());
+
+    saved->setToolbarMode("editing");  // not named after the plugin
+    CHECK(codes(get(host, "test.draw")) == std::vector<std::string>{"plugin.toolbar_mode_name"});
+    CHECK(get(host, "test.draw").issues[0].message.find("test.draw.something") != std::string::npos);
 }
 
 TEST_CASE("a slow plugin is warned about, with a limit the program sets", "[plugin][sharing]") {

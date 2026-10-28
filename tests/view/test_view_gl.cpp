@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QElapsedTimer>
 #include <QImage>
+#include <QKeyEvent>
 #include <QMouseEvent>
 
 #include <cmath>
@@ -231,4 +232,62 @@ TEST_CASE("dragging with the left button orbits, with the right button pans", "[
     CHECK(std::abs(turned.toEye.x - before.toEye.x) > 0.05);  // orbiting does
     CHECK(turned.up.z > 0.5);                                 // and Z stays up
     CHECK(f.view.content().selected.empty());                 // a drag isn't a click
+}
+
+TEST_CASE("drawing mode: clicks report points on the plane, and the left button doesn't orbit",
+          "[view][gl][draw]") {
+    Fixture f;
+    f.view.setContent({{{f.boxId, f.box, false}}, {}});
+    f.view.lookAlong({{0, 0, 1}, {0, 1, 0}});  // straight down at the ground, y up the screen
+    settle(f.view);
+    f.view.setDrawingPlane(DrawingPlane{{0, 0, 0}, {0, 0, 1}});
+    std::vector<PlanePoint> clicks;
+    int moves = 0;
+    QObject::connect(&f.view, &ViewWidget::planeClicked, [&](const PlanePoint& p) { clicks.push_back(p); });
+    QObject::connect(&f.view, &ViewWidget::planeMoved, [&](const PlanePoint&) { ++moves; });
+    auto send = [&](QEvent::Type type, QPoint at, Qt::MouseButton button, Qt::MouseButtons held) {
+        QMouseEvent e(type, QPointF(at), f.view.mapToGlobal(QPointF(at)), button, held, Qt::NoModifier);
+        QApplication::sendEvent(&f.view, &e);
+        settle(f.view);
+    };
+    auto click = [&](QPoint at) {
+        send(QEvent::MouseMove, at, Qt::NoButton, Qt::NoButton);
+        send(QEvent::MouseButtonPress, at, Qt::LeftButton, Qt::LeftButton);
+        send(QEvent::MouseButtonRelease, at, Qt::LeftButton, Qt::NoButton);
+    };
+    const auto before = f.view.camera();
+    click({200, 150});
+    click({300, 150});  // 100 pixels to the right
+    click({200, 50});   // 100 pixels up
+    REQUIRE(clicks.size() == 3);
+    CHECK(moves >= 3);
+    for (const auto& p : clicks) {
+        CHECK(p.at.z == Approx(0).margin(1e-6));  // on the plane
+        CHECK(p.pixel > 0);
+    }
+    // Looking straight down with y up the screen: right is +x, up the screen is +y,
+    // and 100 pixels are 100 times the size of one.
+    CHECK(clicks[1].at.x - clicks[0].at.x == Approx(100 * clicks[0].pixel).epsilon(0.02));
+    CHECK(clicks[1].at.y == Approx(clicks[0].at.y).margin(clicks[0].pixel));
+    CHECK(clicks[2].at.y - clicks[0].at.y == Approx(100 * clicks[0].pixel).epsilon(0.02));
+    CHECK(f.view.content().selected.empty());  // clicks draw, they don't pick
+
+    // A left drag doesn't orbit while drawing.
+    send(QEvent::MouseButtonPress, {200, 150}, Qt::LeftButton, Qt::LeftButton);
+    for (int i = 1; i <= 5; ++i)
+        send(QEvent::MouseMove, QPoint(200 + 20 * i, 150), Qt::LeftButton, Qt::LeftButton);
+    send(QEvent::MouseButtonRelease, {300, 150}, Qt::LeftButton, Qt::NoButton);
+    const auto after = f.view.camera();
+    CHECK(after.toEye.z == Approx(before.toEye.z).margin(1e-9));
+    CHECK(clicks.size() == 3);  // and a drag isn't a click
+
+    // Escape is sent to the tool; after drawing stops, clicks pick again.
+    bool cancelled = false;
+    QObject::connect(&f.view, &ViewWidget::planeCancelled, [&] { cancelled = true; });
+    QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    QApplication::sendEvent(&f.view, &esc);
+    CHECK(cancelled);
+    f.view.setDrawingPlane(std::nullopt);
+    click({200, 150});
+    CHECK(clicks.size() == 3);
 }

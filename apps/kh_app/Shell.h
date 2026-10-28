@@ -69,6 +69,8 @@ public:
 
     // Plugin actions by id, e.g. "kh.modeling.box"; nullptr if there is none.
     QAction* action(const std::string& id) const;
+    // A plugin action's toolbar button; nullptr if it has none.
+    QAction* button(const std::string& id) const;
     QAction* undoAction() const { return undo_; }
     QAction* redoAction() const { return redo_; }
     QAction* copyAction() const { return copy_; }
@@ -127,7 +129,12 @@ private:
     QAction* paste_ = nullptr;
     QAction* save_ = nullptr;
     QAction* export_ = nullptr;
-    std::vector<std::pair<plugin::ActionSpec, QAction*>> actions_;
+    struct PluginItem {
+        plugin::ActionSpec spec;
+        QAction* item = nullptr;    // in its menu
+        QAction* button = nullptr;  // on the toolbar; separate so it can hide in other toolbar modes
+    };
+    std::vector<PluginItem> actions_;
     std::map<DocId, std::filesystem::path> paths_;
     QByteArray defaultLayout_;
     Diagnostics lastProblems_;

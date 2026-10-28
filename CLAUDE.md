@@ -46,7 +46,7 @@ below it.
 | Library | Purpose | May depend on |
 | --- | --- | --- |
 | `kh_app`, `kh_cli` | Applications (`kh_app` docks panels with Qt ADS, see `cmake/KhAds.cmake`) | anything below |
-| Built-in plugins (`plugins/`) | `kh.modeling`, `kh.viewoptions`, `kh.featuretree`, `kh.properties`, `kh.axes`, `kh.grid`, `kh.viewer` | `kh_plugin`, anything below it |
+| Built-in plugins (`plugins/`) | `kh.modeling`, `kh.viewoptions`, `kh.featuretree`, `kh.properties`, `kh.axes`, `kh.grid`, `kh.viewer`, `kh.sketcher` | `kh_plugin`, anything below it |
 | `kh_view` | Qt + OCCT 3D view, and its flat fallback | `kh_kernel_occt`, `kh_kernel`, `kh_core`, Qt, OCCT |
 | `kh_ui` | Qt side of the plugin API: panels | `kh_plugin`, Qt |
 | `kh_plugin` | Plugin host, manifests, event bus, open documents | `kh_model`, `kh_kernel`, `kh_core` |
@@ -85,6 +85,8 @@ below it.
 - New libraries use `kh_add_library()` from `cmake/KhTarget.cmake`.
 - Prefer value types and `std::unique_ptr` ownership; no raw `new`/`delete`.
 - Lengths are millimeters, angles radians, inside the code.
+- Toolbar icons are SVG files in `<lib or plugin>/icons/`, built in with
+  `kh_embed_files()` (`cmake/KhEmbed.cmake`); the style is in the plugin guide, under "Icons".
 
 ## API documentation
 

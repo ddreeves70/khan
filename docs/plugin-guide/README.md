@@ -68,7 +68,7 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
 | Tiers, and tiers a plugin adds | Works: [plugin.json](manifest.md#tiers) |
 | Panels in the desktop app | Works: the feature tree, Properties and the viewer are plugins |
 | Sharing services and events between plugins | Works: [Share something](sharing.md) |
-| 3D view tools | Coming with the sketcher (Phase 1) |
+| Drawing with the mouse in the viewers (view tools), from the `kh.viewer` plugin | Works in the desktop app: [Draw with the mouse](extension-points.md#draw-with-the-mouse-desktop-app-only) |
 | New kinds of steps (feature types), file formats | Coming later |
 | Building a plugin without the Khan source (an SDK) | Coming later |
 | Python plugins | Coming later |

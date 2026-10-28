@@ -178,4 +178,18 @@ std::vector<FeatureId> mergePick(const std::vector<FeatureId>& before, const std
     return out;
 }
 
+std::optional<kernel::Vec3> rayHitsPlane(const kernel::Vec3& from, const kernel::Vec3& direction,
+                                         const DrawingPlane& plane) {
+    const auto& n = plane.normal;
+    const double along = direction.x * n.x + direction.y * n.y + direction.z * n.z;
+    const double len =
+        std::sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z) *
+        std::sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
+    if (len == 0 || std::abs(along) < 1e-9 * len) return std::nullopt;  // edge-on: no single point
+    const double t = ((plane.origin.x - from.x) * n.x + (plane.origin.y - from.y) * n.y +
+                      (plane.origin.z - from.z) * n.z) /
+                     along;
+    return kernel::Vec3{from.x + t * direction.x, from.y + t * direction.y, from.z + t * direction.z};
+}
+
 }  // namespace kh::view

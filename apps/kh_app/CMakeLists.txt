@@ -5,19 +5,23 @@ qt_add_library(kh_app_core STATIC
   AppSettings.h
   AppUi.cpp
   AppUi.h
+  Icons.cpp
+  Icons.h
   Shell.cpp
   Shell.h
 )
 target_include_directories(kh_app_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(kh_app_core PUBLIC
-  Qt6::Widgets ads::qtadvanceddocking-qt6
+  Qt6::Widgets Qt6::Svg ads::qtadvanceddocking-qt6
   kh::core kh::kernel kh::model kh::io kh::plugin kh::ui)
 kh_set_warnings(kh_app_core)
+kh_embed_files(kh_app_core HEADER AppIcons.h NAMESPACE kh::icons::app
+  FILES icons/new.svg icons/open.svg icons/save.svg icons/undo.svg icons/redo.svg)
 
 qt_add_executable(kh_app main.cpp)
 target_link_libraries(kh_app PRIVATE
   kh_app_core kh::kernel_occt kh::view kh::sketch_planegcs
-  kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewoptions kh::plugin_axes kh::plugin_grid kh::plugin_viewer)
+  kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewoptions kh::plugin_axes kh::plugin_grid kh::plugin_viewer kh::plugin_sketcher)
 kh_set_warnings(kh_app)
 
 set_target_properties(kh_app PROPERTIES
@@ -63,4 +67,17 @@ endif()
 if(KH_BUILD_TESTS)
   add_test(NAME app.smoke COMMAND kh_app --smoke-test --settings ${CMAKE_CURRENT_BINARY_DIR}/smoke-settings.ini)
   set_tests_properties(app.smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+  # --trigger waits for menu items to catch up: Box picks the new box, so
+  # Duplicate step (which needs a step picked) can be clicked straight after.
+  add_test(NAME app.trigger_after_change
+           COMMAND kh_app --trigger kh.modeling.box,kh.modeling.duplicate --smoke-test
+                   --settings ${CMAKE_CURRENT_BINARY_DIR}/trigger-settings.ini)
+  # ... and refuses a greyed-out item instead of quietly doing nothing.
+  add_test(NAME app.trigger_greyed_out
+           COMMAND kh_app --trigger kh.modeling.cut --smoke-test
+                   --settings ${CMAKE_CURRENT_BINARY_DIR}/trigger-settings.ini)
+  set_tests_properties(app.trigger_after_change app.trigger_greyed_out PROPERTIES ENVIRONMENT
+                       "QT_QPA_PLATFORM=offscreen")
+  set_tests_properties(app.trigger_greyed_out PROPERTIES PASS_REGULAR_EXPRESSION
+                       "kh.modeling.cut is greyed out")
 endif()

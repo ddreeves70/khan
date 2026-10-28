@@ -51,13 +51,31 @@ struct ActionSpec {
     std::string fromSelectionList{};
     std::string shortcut{};  ///< Keyboard shortcut, e.g. "Ctrl+B" or "Delete". May be empty.
     bool toolbar = false;    ///< True to also show it as a toolbar button.
-    std::string tip{};       ///< One plain sentence shown when the mouse rests on it.
+    /// Shorter words for the toolbar button, e.g. "Sketch" for "New sketch on XY
+    /// (the ground)". Empty means the button uses `text`.
+    std::string buttonText{};
+    /// Which toolbar mode the button belongs to (see PluginContext::setToolbarMode()).
+    /// Empty: the usual toolbar, shown when no mode is on. A mode name, e.g.
+    /// "kh.sketcher.editing": shown only while that mode is on. The menu item is
+    /// always there either way.
+    std::string toolbarMode{};
+    /// A picture for the toolbar button and menu item: SVG text, drawn in a 24 by 24
+    /// box (`viewBox="0 0 24 24"`). Write `currentColor` for lines that should follow
+    /// the theme (dark on a light theme, light on a dark one). Empty, or text that
+    /// isn't SVG Khan can draw: words only. See "Icons" in the plugin guide.
+    std::string icon{};
+    std::string tip{};  ///< One plain sentence shown when the mouse rests on it.
     /// Runs the plugin's own code instead of a command, for things that aren't
     /// changes to a design (a setting, a dialog). Give either `command` or `run`.
     std::function<void()> run{};
     /// If set, the item has a check mark, shown when this returns true. Khan asks
     /// when the menu opens and after every change (SettingChanged, design changes).
     std::function<bool()> checked{};
+    /// If set, the item is enabled only while this returns true (on top of the
+    /// rules for `fromSelection`), and greyed out otherwise. Khan asks when a menu
+    /// opens, after design, selection and setting changes, and when a plugin sends
+    /// ActionsChanged. Without it, an item that runs your code is always enabled.
+    std::function<bool()> enabled{};
     /// If set, the words on the item come from this instead of `text`, asked at
     /// the same times as `checked`, e.g. "Other (12.5 mm)...".
     std::function<std::string()> currentText{};

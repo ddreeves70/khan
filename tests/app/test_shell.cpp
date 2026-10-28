@@ -12,11 +12,15 @@
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QGuiApplication>
+#include <QImage>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMouseEvent>
 #include <QPalette>
+#include <QPixmap>
 #include <QSettings>
 #include <QStatusBar>
 #include <QTemporaryDir>
@@ -30,6 +34,7 @@
 
 #include "AppSettings.h"
 #include "AppUi.h"
+#include "Icons.h"
 #include "Shell.h"
 #include "kh/grid/Grid.h"
 #include "kh/kernel_occt/OcctKernel.h"
@@ -40,11 +45,13 @@
 #include "kh/plugins/Grid.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/Properties.h"
+#include "kh/plugins/Sketcher.h"
 #include "kh/plugins/ViewOptions.h"
 #include "kh/plugins/Viewer.h"
 #include "kh/sketch_planegcs/PlaneGcsSolver.h"
 #include "kh/ui/UiRegistry.h"
 #include "kh/view/FlatView.h"
+#include "kh/viewer/Viewer.h"
 
 using namespace kh;
 using Catch::Approx;
@@ -66,6 +73,7 @@ void panelThenFail(plugin::PluginContext& ctx) {
 
 // A plugin with a setting, a check-mark item in a View submenu, and a status-bar
 // item, like the plugin guide's examples.
+bool tapeReady = false;  // something Khan can't see, for the "enabled" rule
 void units(plugin::PluginContext& ctx) {
     auto& settings = ctx.settings();
     ctx.addAction(
@@ -77,6 +85,16 @@ void units(plugin::PluginContext& ctx) {
          .checked = [&settings] { return settings.flag("inches"); },
          .currentText =
              [&settings] { return std::string(settings.flag("inches") ? "Inches (on)" : "Inches"); }});
+    ctx.addAction({.id = "test.units.measure",
+                   .text = "Measure",
+                   .menu = "View/Units",
+                   .run = [] {},
+                   .enabled = [] { return tapeReady; }});
+    ctx.addAction({.id = "test.units.broken_rule",
+                   .text = "Broken rule",
+                   .menu = "View/Units",
+                   .run = [] {},
+                   .enabled = []() -> bool { throw std::runtime_error("no tape"); }});
     ctx.addAction({.id = "test.units.oops", .text = "Oops", .menu = "View/Units", .run = [] {
                        throw std::runtime_error("no tape");
                    }});
@@ -91,10 +109,12 @@ void units(plugin::PluginContext& ctx) {
 // A plugin that uses the grid through its contract, like a sketcher would.
 const grid::IGrid* seenGrid = nullptr;
 viewoptions::IViewOptions* seenOptions = nullptr;
+viewer::IViewer* seenViewer = nullptr;
 void gridClient(plugin::PluginContext& ctx) {
     ctx.onStart([&ctx] {
         seenGrid = ctx.service<grid::IGrid>();
         seenOptions = ctx.service<viewoptions::IViewOptions>();
+        seenViewer = ctx.service<viewer::IViewer>();
     });
 }
 
@@ -133,11 +153,12 @@ struct App {
         host.addBuiltin(plugins::axesPlugin());
         host.addBuiltin(plugins::gridPlugin());
         host.addBuiltin(plugins::viewerPlugin());
+        host.addBuiltin(plugins::sketcherPlugin());
         host.addBuiltin({R"({"id":"test.broken","name":"Broken","version":"1","apiVersion":)" +
                              std::to_string(plugin::kPluginApiVersion) + "}",
                          &panelThenFail});
         host.addBuiltin(
-            {R"({"id":"test.gridclient","name":"Grid client","version":"1","uses":["kh.grid","kh.viewoptions"],"apiVersion":)" +
+            {R"({"id":"test.gridclient","name":"Grid client","version":"1","uses":["kh.grid","kh.viewoptions","kh.viewer"],"apiVersion":)" +
                  std::to_string(plugin::kPluginApiVersion) + "}",
              &gridClient});
         host.addBuiltin({R"({"id":"test.units","name":"Units","version":"1","apiVersion":)" +
@@ -206,7 +227,45 @@ TEST_CASE("Khan's own plugins follow the rules: no warnings, and each has a tier
         CHECK(p.issues.empty());  // as strict as kh_cli plugins --strict
         CHECK_FALSE(p.manifest.tier.empty());
     }
-    CHECK(builtins == 7);
+    CHECK(builtins == 8);
+}
+
+TEST_CASE("every toolbar button has a picture", "[app][icons]") {
+    App app;
+    auto* toolbar = app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar"));
+    REQUIRE(toolbar);
+    CHECK(toolbar->toolButtonStyle() == Qt::ToolButtonTextUnderIcon);  // words too, for new users
+    int buttons = 0;
+    for (auto* a : toolbar->actions()) {
+        if (a->isSeparator()) continue;
+        ++buttons;
+        INFO(a->text().toStdString());
+        CHECK_FALSE(a->icon().isNull());
+        CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
+    }
+    CHECK(buttons == 5 + 6 + 2 + 5);  // Khan's own, kh.modeling, kh.sketcher, sketch-editing
+    // The menu item shows the same picture as its button.
+    CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
+}
+
+TEST_CASE("an SVG icon follows the theme's text color, and greys out when disabled", "[app][icons]") {
+    const char* svg = R"(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">)"
+                      R"(<rect width="24" height="24" fill="currentColor"/></svg>)";
+    const QIcon icon = app::svgIcon(svg);
+    REQUIRE_FALSE(icon.isNull());
+    const QColor text = QApplication::palette().color(QPalette::ButtonText);
+    const QImage on = icon.pixmap(24, 24).toImage();
+    CHECK(QColor(on.pixel(12, 12)).name() == text.name());
+    CHECK(qAlpha(on.pixel(12, 12)) == 255);
+    const QImage off = icon.pixmap(QSize(24, 24), QIcon::Disabled).toImage();
+    CHECK(off.pixel(12, 12) != on.pixel(12, 12));
+    // Sharp on a high-DPI screen: drawn at twice the pixels, not stretched.
+    const QPixmap hi = icon.pixmap(QSize(24, 24), 2.0);
+    CHECK(hi.width() == 48);
+    CHECK(hi.devicePixelRatio() == 2.0);
+
+    CHECK(app::svgIcon("").isNull());               // no picture: words only
+    CHECK(app::svgIcon("not a picture").isNull());  // not SVG: words only, no crash
 }
 
 TEST_CASE("Create > Box adds a step, selects it, and shows its numbers", "[app]") {
@@ -507,6 +566,243 @@ TEST_CASE("a sketch shows in the tree, and Properties shows how free it still is
                 .empty());
     settle();
     CHECK(app.field<QLabel>("freedom")->text() == QStringLiteral("0: fully constrained"));
+}
+
+namespace {
+
+// Clicks the flat view at a point of the design, in mm, as the student would.
+void clickAt(view::FlatView* v, kernel::Vec3 at) {
+    const QPointF p = v->toScreen(at);
+    QMouseEvent move(QEvent::MouseMove, p, v->mapToGlobal(p), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(v, &move);
+    QMouseEvent press(QEvent::MouseButtonPress, p, v->mapToGlobal(p), Qt::LeftButton, Qt::LeftButton,
+                      Qt::NoModifier);
+    QApplication::sendEvent(v, &press);
+    QMouseEvent release(QEvent::MouseButtonRelease, p, v->mapToGlobal(p), Qt::LeftButton, Qt::NoButton,
+                        Qt::NoModifier);
+    QApplication::sendEvent(v, &release);
+    settle();
+}
+
+void pressEscape(QWidget* w) {
+    QKeyEvent key(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    QApplication::sendEvent(w, &key);
+    settle();
+}
+
+const model::SketchFeature& sketchAt(App& app, std::size_t i) {
+    return static_cast<const model::SketchFeature&>(app.doc().featureAt(i));
+}
+
+}  // namespace
+
+TEST_CASE("Sketch > New sketch, then clicks draw a closed shape, one undo step per line", "[app][sketcher]") {
+    App app;
+    app.menu("kh.grid.snap")->trigger();  // so clicks land exactly on whole millimeters
+    app.click("kh.sketcher.new_xy");
+    REQUIRE(app.doc().featureCount() == 1);
+    CHECK(app.doc().featureAt(0).type() == model::FeatureType::Sketch);
+    auto* viewer = seenViewer;
+    REQUIRE(viewer);
+    CHECK(viewer->tool() != nullptr);  // drawing
+    CHECK(app.shell->statusBar()->currentMessage() ==
+          QStringLiteral("Drawing in Sketch1. Line: click where it starts."));
+
+    auto* flat = app.flat();
+    REQUIRE(flat);
+    for (auto p : {kernel::Vec3{0, 0, 0}, {40, 0, 0}, {40, 20, 0}, {0, 20, 0}, {0, 0, 0}}) clickAt(flat, p);
+
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 4);
+    const auto& l1 = std::get<sketch::LineShape>(s.entities[0].shape);
+    const auto& l4 = std::get<sketch::LineShape>(s.entities[3].shape);
+    CHECK(l1.start.x == 0);
+    CHECK(l1.end.x == 40);
+    CHECK(l4.end.y == 0);
+    // Each line joins the one before, and the last closes onto the first.
+    REQUIRE(s.constraints.size() == 4);
+    for (const auto& c : s.constraints) CHECK(c.kind == sketch::ConstraintKind::Coincident);
+    CHECK(s.constraints[3].points[1].entity == s.entities[0].id);
+    CHECK(app.doc().undoLabel() == "Add Line4");
+    const auto* r =
+        app.host.documents().lastRebuild(app.shell->activeDesign())->result(sketchAt(app, 0).id());
+    REQUIRE(r->sketch);
+    CHECK(r->sketch->freedom == 8);  // 4 lines (16) joined at 4 corners (8 taken)
+
+    // Closing the shape ended the chain: the next click starts a new line.
+    CHECK(app.shell->statusBar()->currentMessage() ==
+          QStringLiteral("Drawing in Sketch1. Line: click where it starts."));
+
+    // The viewer draws it: 4 lines, 4 corners.
+    const auto* lines = app.host.overlays().find("kh.sketcher.edit.lines");
+    REQUIRE(lines);
+    CHECK(lines->points.size() == 8);
+    CHECK(app.host.overlays().find("kh.sketcher.edit.points")->points.size() == 8);
+
+    // One undo takes away one line.
+    app.shell->undoAction()->trigger();
+    settle();
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 3);
+}
+
+TEST_CASE("the Circle, Arc and Point tools draw with clicks", "[app][sketcher]") {
+    App app;
+    app.menu("kh.grid.snap")->trigger();
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.circle");
+    CHECK(app.shell->action("kh.sketcher.circle")->isChecked());
+    clickAt(flat, {10, 10, 0});
+    clickAt(flat, {20, 10, 0});
+    app.click("kh.sketcher.arc");
+    clickAt(flat, {30, 0, 0});   // center
+    clickAt(flat, {40, 0, 0});   // start: radius 10, pointing right
+    clickAt(flat, {30, 10, 0});  // end: straight up, a quarter turn counterclockwise
+    app.click("kh.sketcher.point");
+    clickAt(flat, {-10, -10, 0});
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 3);
+    const auto& c = std::get<sketch::CircleShape>(s.entities[0].shape);
+    CHECK(c.center.x == 10);
+    CHECK(c.radius == Approx(10));
+    const auto& a = std::get<sketch::ArcShape>(s.entities[1].shape);
+    CHECK(a.radius == Approx(10));
+    CHECK(a.startAngle == Approx(0).margin(1e-12));
+    CHECK(a.endAngle == Approx(std::numbers::pi / 2));
+    CHECK(std::get<sketch::PointShape>(s.entities[2].shape).at.x == -10);
+    CHECK(s.entities[1].name == "Arc1");
+}
+
+TEST_CASE("an end close to a point snaps onto it and joins it", "[app][sketcher]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    clickAt(flat, {0, 0, 0});
+    clickAt(flat, {20, 0, 0});
+    pressEscape(flat);  // stop the chain
+    // Start a line 1 mm away from the first line's end: within 8 pixels, so it snaps.
+    clickAt(flat, {21, 1, 0});
+    clickAt(flat, {20, 15, 0});
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 2);
+    const auto& l1 = std::get<sketch::LineShape>(s.entities[0].shape);
+    const auto& l2 = std::get<sketch::LineShape>(s.entities[1].shape);
+    CHECK(l2.start.x == l1.end.x);  // exactly on it
+    CHECK(l2.start.y == l1.end.y);
+    REQUIRE(s.constraints.size() == 1);
+    CHECK(s.constraints[0].points[1].entity == s.entities[0].id);
+    CHECK(s.constraints[0].points[1].role == sketch::PointRole::End);
+}
+
+TEST_CASE("Escape stops the shape being drawn, then stops editing", "[app][sketcher]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    auto* viewer = seenViewer;
+    clickAt(flat, {0, 0, 0});
+    pressEscape(flat);  // the line that was started goes away
+    CHECK(viewer->tool() != nullptr);
+    clickAt(flat, {5, 5, 0});
+    clickAt(flat, {10, 5, 0});
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 1);  // a new line, not one from 0, 0
+    pressEscape(flat);
+    pressEscape(flat);
+    CHECK(viewer->tool() == nullptr);
+    CHECK(app.shell->statusBar()->currentMessage() == QStringLiteral("Finished the sketch."));
+    clickAt(flat, {20, 20, 0});  // not drawing any more
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 1);
+}
+
+TEST_CASE("Sketch menu items are grey when they can't be used", "[app][sketcher]") {
+    App app;
+    auto enabled = [&](const char* id) { return app.shell->action(id)->isEnabled(); };
+    auto toolsOn = [&] {
+        return enabled("kh.sketcher.line") && enabled("kh.sketcher.circle") && enabled("kh.sketcher.arc") &&
+               enabled("kh.sketcher.point");
+    };
+    auto toolsOff = [&] {
+        return !enabled("kh.sketcher.line") && !enabled("kh.sketcher.circle") &&
+               !enabled("kh.sketcher.arc") && !enabled("kh.sketcher.point");
+    };
+    // Nothing picked, not editing: only the New sketch items work.
+    CHECK(enabled("kh.sketcher.new_xy"));
+    CHECK_FALSE(enabled("kh.sketcher.edit"));
+    CHECK_FALSE(enabled("kh.sketcher.finish"));
+    CHECK(toolsOff());
+
+    app.click("kh.modeling.box");  // Box1 is picked: not a sketch
+    CHECK_FALSE(enabled("kh.sketcher.edit"));
+
+    app.click("kh.sketcher.new_xy");  // editing Sketch2
+    CHECK(enabled("kh.sketcher.finish"));
+    CHECK_FALSE(enabled("kh.sketcher.edit"));  // already editing
+    CHECK(toolsOn());
+
+    app.click("kh.sketcher.finish");
+    CHECK_FALSE(enabled("kh.sketcher.finish"));
+    CHECK(toolsOff());
+    app.pickRows({1});  // Sketch1
+    CHECK(enabled("kh.sketcher.edit"));
+    app.pickRows({0, 1});  // two steps
+    CHECK_FALSE(enabled("kh.sketcher.edit"));
+    app.pickRows({0});  // Box1
+    CHECK_FALSE(enabled("kh.sketcher.edit"));
+}
+
+TEST_CASE("the toolbar shows sketch buttons while editing, and 3D buttons otherwise", "[app][sketcher]") {
+    App app;
+    auto shown = [&](const char* id) {
+        auto* b = app.shell->button(id);
+        REQUIRE(b);
+        return b->isVisible();
+    };
+    const char* sketchButtons[] = {"kh.sketcher.finish", "kh.sketcher.line", "kh.sketcher.circle",
+                                   "kh.sketcher.arc", "kh.sketcher.point"};
+    const char* usualButtons[] = {"kh.modeling.box", "kh.modeling.cylinder", "kh.modeling.move",
+                                  "kh.sketcher.new_xy", "kh.sketcher.edit"};
+    for (const char* id : usualButtons) CHECK(shown(id));
+    for (const char* id : sketchButtons) CHECK_FALSE(shown(id));
+    CHECK(app.shell->button("kh.sketcher.new_xy")->text() == QStringLiteral("New sketch"));
+    CHECK(app.shell->button("kh.sketcher.new_xz") == nullptr);  // menu only
+
+    app.click("kh.sketcher.new_xy");
+    for (const char* id : usualButtons) CHECK_FALSE(shown(id));
+    for (const char* id : sketchButtons) CHECK(shown(id));
+    CHECK(app.shell->undoAction()->isVisible());               // Khan's own buttons stay
+    CHECK(app.shell->action("kh.modeling.box")->isVisible());  // and the menus keep every item
+
+    // A button does what its menu item does, and shows the same check mark.
+    app.shell->button("kh.sketcher.circle")->trigger();
+    settle();
+    CHECK(app.shell->button("kh.sketcher.circle")->isChecked());
+    CHECK(app.shell->action("kh.sketcher.circle")->isChecked());
+    CHECK_FALSE(app.shell->button("kh.sketcher.line")->isChecked());
+
+    app.shell->button("kh.sketcher.finish")->trigger();
+    settle();
+    for (const char* id : usualButtons) CHECK(shown(id));
+    for (const char* id : sketchButtons) CHECK_FALSE(shown(id));
+    CHECK(app.host.find("kh.sketcher")->issues.empty());  // sending ActionsChanged is allowed
+}
+
+TEST_CASE("Edit sketch draws in the picked sketch, and stops if the sketch goes away", "[app][sketcher]") {
+    App app;
+    app.click("kh.modeling.box");
+    app.click("kh.sketcher.new_yz");
+    auto* viewer = seenViewer;
+    CHECK(viewer->tool() != nullptr);
+    CHECK(sketchAt(app, 1).plane() == model::SketchPlane::YZ);
+    app.shell->undoAction()->trigger();  // the sketch is gone
+    settle();
+    CHECK(viewer->tool() == nullptr);
+    CHECK_FALSE(app.shell->action("kh.sketcher.finish")->isEnabled());
+
+    app.pickRows({0});
+    app.click("kh.sketcher.new_xy");
+    app.click("kh.sketcher.finish");
+    app.pickRows({1});
+    app.click("kh.sketcher.edit");
+    CHECK(viewer->tool() != nullptr);
 }
 
 TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {
@@ -1098,6 +1394,22 @@ TEST_CASE("a plugin's status-bar item shows, and its setting lasts between runs"
     REQUIRE(label);
     CHECK(label->text() == QStringLiteral("in"));
     CHECK(app.shell->action("test.units.inches")->isChecked());
+}
+
+TEST_CASE("a plugin item is enabled by its own rule, and updates on ActionsChanged", "[app][settings]") {
+    tapeReady = false;
+    App app;
+    auto* a = app.shell->action("test.units.measure");
+    REQUIRE(a);
+    CHECK_FALSE(a->isEnabled());
+    tapeReady = true;
+    app.host.events().publish(plugin::ActionsChanged{});
+    CHECK(a->isEnabled());
+    tapeReady = false;
+    app.host.events().publish(plugin::ActionsChanged{});
+    CHECK_FALSE(a->isEnabled());
+    // A rule that throws just leaves the item grey.
+    CHECK_FALSE(app.shell->action("test.units.broken_rule")->isEnabled());
 }
 
 TEST_CASE("a plugin action that fails says so, without closing Khan", "[app][settings]") {

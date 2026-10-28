@@ -85,6 +85,20 @@ public:
     /// @return The selection.
     virtual Selection& selection() = 0;
 
+    /// Switches the toolbar to a mode, so only the buttons for what the student is
+    /// doing show: while a sketch is being edited, the sketcher turns on
+    /// "kh.sketcher.editing", and only buttons with that `toolbarMode` show (plus
+    /// Khan's own New, Open, Save, Undo and Redo). Sends ToolbarModeChanged.
+    ///
+    /// The name should start with the plugin's id and a dot; otherwise Khan adds
+    /// a warning (and still switches).
+    /// @param mode The mode to turn on, or empty to go back to the usual toolbar.
+    virtual void setToolbarMode(std::string mode) = 0;
+
+    /// Gives the toolbar mode that is on.
+    /// @return The mode, or empty for the usual toolbar.
+    virtual const std::string& toolbarMode() const = 0;
+
     /// Finds a service by name: one the program running Khan provides (the
     /// desktop app provides kh::ui::UiRegistry for adding panels; kh_cli provides
     /// none), or one another plugin provides with provide().

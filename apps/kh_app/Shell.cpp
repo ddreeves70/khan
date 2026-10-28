@@ -26,7 +26,9 @@
 #include <algorithm>
 #include <cctype>
 
+#include "AppIcons.h"
 #include "AppUi.h"
+#include "Icons.h"
 #include "kh/core/Version.h"
 #include "kh/io/KhanFile.h"
 #include "kh/io/Steps.h"
@@ -146,6 +148,10 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* 
     subs_.push_back(host_.events().subscribe<SelectionChanged>(later));
     subs_.push_back(
         host_.events().subscribe<SettingChanged>([this](const SettingChanged&) { refreshActions(); }));
+    subs_.push_back(
+        host_.events().subscribe<ActionsChanged>([this](const ActionsChanged&) { refreshActions(); }));
+    subs_.push_back(host_.events().subscribe<ToolbarModeChanged>(
+        [this](const ToolbarModeChanged&) { refreshActions(); }));
 
     // Start with an empty design, so Create works straight away.
     host_.documents().add(std::make_unique<model::Document>(model::DocKind::Part, "Untitled"));
@@ -172,6 +178,8 @@ void Shell::buildMenus() {
     toolbar_ = addToolBar(tr("Tools"));
     toolbar_->setObjectName(QStringLiteral("kh.shell.toolbar"));
     toolbar_->setMovable(false);
+    toolbar_->setIconSize(QSize(24, 24));
+    toolbar_->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  // pictures, with words for new users
 
     auto* file = menuBar()->addMenu(tr("&File"));
     auto* newAct = file->addAction(tr("&New"), this, [this] { newDesign(); });
@@ -223,6 +231,11 @@ void Shell::buildMenus() {
     paste_->setStatusTip(tr("Add the copied steps to the end of this design."));
     connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this, [this] { refresh(); });
 
+    newAct->setIcon(svgIcon(icons::app::new_svg));
+    openAct->setIcon(svgIcon(icons::app::open_svg));
+    save_->setIcon(svgIcon(icons::app::save_svg));
+    undo_->setIcon(svgIcon(icons::app::undo_svg));
+    redo_->setIcon(svgIcon(icons::app::redo_svg));
     toolbar_->addAction(newAct);
     toolbar_->addAction(openAct);
     toolbar_->addAction(save_);
@@ -265,13 +278,21 @@ void Shell::buildMenus() {
         a->setStatusTip(qs(spec.tip));
         if (!spec.shortcut.empty()) a->setShortcut(QKeySequence(qs(spec.shortcut)));
         a->setCheckable(static_cast<bool>(spec.checked));
+        a->setIcon(svgIcon(spec.icon));
         connect(a, &QAction::triggered, this, [this, spec] { runAction(spec); });
+        QAction* button = nullptr;
         if (spec.toolbar) {
             if (!toolbarSeparator) toolbar_->addSeparator();
             toolbarSeparator = true;
-            toolbar_->addAction(a);
+            button = toolbar_->addAction(qs(spec.buttonText.empty() ? spec.text : spec.buttonText));
+            button->setObjectName(qs(spec.id + ".button"));
+            button->setToolTip(qs(spec.tip));
+            button->setStatusTip(qs(spec.tip));
+            button->setCheckable(a->isCheckable());
+            button->setIcon(a->icon());
+            connect(button, &QAction::triggered, this, [this, spec] { runAction(spec); });
         }
-        actions_.emplace_back(spec, a);
+        actions_.push_back({spec, a, button});
     }
 
     menuBar()->addMenu(viewMenu_);  // after the plugins' own menus
@@ -395,12 +416,36 @@ void Shell::rebuildLayoutMenu() {
 // ---------------------------------------------------------------------------
 
 void Shell::refreshActions() {
-    for (auto& [spec, a] : actions_) {
+    const auto* doc = host_.documents().find(activeDesign());
+    const auto& sel = host_.selection();
+    const auto& mode = host_.toolbarMode();
+    for (auto& [spec, a, button] : actions_) {
+        // Enabled: a design to change (or the plugin's own code), the steps it needs
+        // picked, and whatever the plugin says.
+        bool ok = doc != nullptr || static_cast<bool>(spec.run);
+        if (!spec.fromSelection.empty()) {
+            ok = ok && sel.doc() == activeDesign() && sel.features().size() == spec.fromSelection.size();
+        }
+        if (!spec.fromSelectionList.empty()) {
+            ok = ok && sel.doc() == activeDesign() && !sel.features().empty();
+        }
+        try {
+            if (ok && spec.enabled) ok = spec.enabled();
+        } catch (...) {
+            ok = false;  // a plugin's function failed: grey the item out
+        }
+        a->setEnabled(ok);
         try {
             if (spec.checked) a->setChecked(spec.checked());
             if (spec.currentText) a->setText(qs(spec.currentText()));
         } catch (...) {
             // A plugin's check-mark function failed: leave the item as it was.
+        }
+        if (button) {
+            button->setEnabled(ok);
+            button->setChecked(a->isChecked());
+            if (spec.currentText && spec.buttonText.empty()) button->setText(a->text());
+            button->setVisible(spec.toolbarMode == mode);
         }
     }
 }
@@ -469,8 +514,15 @@ void Shell::runAction(const plugin::ActionSpec& spec) {
 }
 
 QAction* Shell::action(const std::string& id) const {
-    for (const auto& [spec, a] : actions_) {
-        if (spec.id == id) return a;
+    for (const auto& p : actions_) {
+        if (p.spec.id == id) return p.item;
+    }
+    return nullptr;
+}
+
+QAction* Shell::button(const std::string& id) const {
+    for (const auto& p : actions_) {
+        if (p.spec.id == id) return p.button;
     }
     return nullptr;
 }
@@ -732,17 +784,6 @@ void Shell::refresh() {
     undo_->setText(doc && doc->canUndo() ? tr("Undo %1").arg(qs(doc->undoLabel())) : tr("Undo"));
     redo_->setText(doc && doc->canRedo() ? tr("Redo %1").arg(qs(doc->redoLabel())) : tr("Redo"));
 
-    const auto& sel = host_.selection();
-    for (auto& [spec, a] : actions_) {
-        bool ok = doc != nullptr || static_cast<bool>(spec.run);
-        if (!spec.fromSelection.empty()) {
-            ok = ok && sel.doc() == activeDesign() && sel.features().size() == spec.fromSelection.size();
-        }
-        if (!spec.fromSelectionList.empty()) {
-            ok = ok && sel.doc() == activeDesign() && !sel.features().empty();
-        }
-        a->setEnabled(ok);
-    }
     refreshActions();
 }
 

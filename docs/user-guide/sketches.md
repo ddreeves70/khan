@@ -11,11 +11,47 @@ dimensions, and the solver makes it exact.
 
 ![A plate drawn roughly, then solved into an exact 40 × 20 mm rectangle with a hole](images/sketch-plate.png)
 
-Drawing in the desktop app is coming next. Today you build sketches with
-`kh_cli`; the desktop app shows them in the feature tree, and Properties shows how
-free a sketch still is.
+## Drawing in the desktop app
 
-## Example
+![Editing a sketch: the view looks straight at it, and the status bar says what to click](images/app-sketch-edit.png)
+
+1. **Sketch > New sketch on XY (the ground)** (Ctrl+Shift+K), or on XZ or YZ. Khan
+   adds `Sketch1`, turns the view to look straight at its plane, and starts
+   drawing lines. To draw in a sketch you already have, pick it in the feature
+   tree and use **Sketch > Edit sketch** (Ctrl+K). It's grey unless exactly one
+   sketch is picked, and while you're already editing one.
+2. Pick a tool in **Sketch > Draw**, then click in the view. The status bar says
+   what to click next. The tools (and **Finish sketch**) are grey until you're
+   editing a sketch. While you edit, the toolbar changes to just the sketch
+   buttons (**Finish sketch**, **Line**, **Circle**, **Arc**, **Point**); when you
+   finish, the 3D buttons (**Box**, **Cylinder** and the rest) come back.
+
+| Tool | Click |
+| --- | --- |
+| **Line** | Where it starts, then where it ends. The next line starts where this one ended, so a few clicks draw a closed shape. |
+| **Circle** | Its center, then a point on its edge. |
+| **Arc** | Its center, where it starts, then where it ends. It goes counterclockwise. |
+| **Point** | Where it goes. |
+
+3. **Escape** stops the shape you're drawing. Press it again (or use
+   **Sketch > Finish sketch**) to stop editing; then clicks pick and turn the view
+   again.
+
+While drawing:
+
+- **Snapping to points.** A click close to a point of the sketch (an end, a
+  center) lands exactly on it, and Khan joins them with a `coincident`
+  constraint. An orange dot shows the point it will snap to. Clicking the first
+  point of a closed shape ends the line chain.
+- **Snapping to the grid.** With **View > Snap to grid** on, clicks land on the
+  grid's crossings.
+- **Undo.** Each line, circle, arc or point is one undo step.
+- Right-drag or middle-drag moves the view, and the wheel zooms, while you draw.
+
+Add the other constraints and dimensions with `kh_cli` for now (see below);
+adding them in the app comes next.
+
+## Example with kh_cli
 
 Make a sketch, draw a line, and pin it down: horizontal, starting where it is,
 40 mm long.
@@ -135,6 +171,9 @@ If a constraint only repeats what others already say, the sketch still works, an
 Khan says which one you could delete.
 
 ## Tips
+
+- In the app, the sketch you're editing is drawn in blue, with its points as dark
+  dots. Other sketches are grey.
 
 - Draw close to the shape you want. The solver moves things as little as it can,
   so a rough drawing near the answer solves the way you expect.

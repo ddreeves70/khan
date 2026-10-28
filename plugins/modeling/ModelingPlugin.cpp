@@ -1,7 +1,9 @@
 #include "kh/plugins/Modeling.h"
 
 #include <string>
+#include <string_view>
 
+#include "ModelingIcons.h"
 #include "kh/kernel/Types.h"
 #include "kh/model/CommandRegistry.h"
 #include "kh/plugin/Actions.h"
@@ -39,6 +41,7 @@ void registerModeling(plugin::PluginContext& ctx) {
                              .args = {{"size", kernel::Vec3{20, 20, 20}}},
                              .shortcut = "Ctrl+Shift+B",
                              .toolbar = true,
+                             .icon = std::string(icons::modeling::box_svg),
                              .tip = "Add a 20 mm box. Change its size in Properties."});
     ctx.addAction(ActionSpec{.id = "kh.modeling.cylinder",
                              .text = "Cylinder",
@@ -47,18 +50,22 @@ void registerModeling(plugin::PluginContext& ctx) {
                              .args = {{"radius", 10.0}, {"height", 20.0}},
                              .shortcut = "Ctrl+Shift+C",
                              .toolbar = true,
+                             .icon = std::string(icons::modeling::cylinder_svg),
                              .tip = "Add a cylinder 20 mm across and 20 mm tall. Change it in Properties."});
     struct Combine {
         const char* id;
         const char* text;
         const char* op;
         const char* tip;
+        std::string_view icon;
     };
     for (const auto& c :
-         {Combine{"kh.modeling.union", "Union", "union", "Join the two selected bodies into one."},
-          Combine{"kh.modeling.cut", "Cut", "cut", "Cut the second selected body out of the first."},
+         {Combine{"kh.modeling.union", "Union", "union", "Join the two selected bodies into one.",
+                  icons::modeling::union_svg},
+          Combine{"kh.modeling.cut", "Cut", "cut", "Cut the second selected body out of the first.",
+                  icons::modeling::cut_svg},
           Combine{"kh.modeling.intersect", "Intersect", "intersect",
-                  "Keep only where the two selected bodies overlap."}}) {
+                  "Keep only where the two selected bodies overlap.", icons::modeling::intersect_svg}}) {
         ctx.addAction(ActionSpec{.id = c.id,
                                  .text = c.text,
                                  .menu = "Combine",
@@ -66,6 +73,7 @@ void registerModeling(plugin::PluginContext& ctx) {
                                  .args = {{"operation", std::string(c.op)}},
                                  .fromSelection = {"a", "b"},
                                  .toolbar = true,
+                                 .icon = std::string(c.icon),
                                  .tip = c.tip});
     }
     ctx.addAction(ActionSpec{.id = "kh.modeling.move",
@@ -75,6 +83,7 @@ void registerModeling(plugin::PluginContext& ctx) {
                              .fromSelection = {"body"},
                              .shortcut = "Ctrl+M",
                              .toolbar = true,
+                             .icon = std::string(icons::modeling::move_svg),
                              .tip = "Move or turn the picked body. Then type how far in Properties."});
     ctx.addAction(ActionSpec{.id = "kh.modeling.duplicate",
                              .text = "Duplicate step",

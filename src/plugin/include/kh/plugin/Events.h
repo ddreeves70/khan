@@ -74,4 +74,18 @@ struct SettingChanged {
     std::string key;     ///< The setting's name, e.g. "unit".
 };
 
+/// The toolbar switched to another mode (see PluginContext::setToolbarMode()).
+struct ToolbarModeChanged {
+    static constexpr std::string_view kType = "kh.ToolbarModeChanged";  ///< Stable event type name.
+    std::string mode;  ///< The mode now on, e.g. "kh.sketcher.editing"; empty for the usual toolbar.
+};
+
+/// Send it when your menu items should be enabled, checked or worded differently
+/// for a reason Khan can't see (your tool started or stopped, say). Khan then asks
+/// every item's `enabled`, `checked` and `currentText` again. It already asks after
+/// design, selection and setting changes, and when a menu opens.
+struct ActionsChanged {
+    static constexpr std::string_view kType = "kh.ActionsChanged";  ///< Stable event type name.
+};
+
 }  // namespace kh::plugin

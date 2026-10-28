@@ -84,6 +84,7 @@ struct detail::HostShared {
     std::map<std::string, Service, std::less<>> services;
     Phase phase = Phase::Register;
     std::map<std::string, const PluginManifest*, std::less<>> manifests;  // by id, while loading
+    std::string toolbarMode;                                              // empty: the usual toolbar
 
     // The plugin whose id starts a name like "example.ruler.ready": the longest
     // plugin id followed by a dot. Empty if none.
@@ -156,6 +157,20 @@ public:
     PluginSettings& settings() override { return settings_; }
     PluginOverlays& overlays() override { return overlays_; }
 
+    void setToolbarMode(std::string mode) override {
+        const auto& self = info_->manifest;
+        if (!mode.empty() &&
+            !(mode.size() > self.id.size() && startsWith(mode, self.id) && mode[self.id.size()] == '.'))
+            warnOnce(
+                warning("plugin.toolbar_mode_name", shortName(self) + " turned on the toolbar mode " + mode +
+                                                        ". Mode names must start with the plugin id, like " +
+                                                        self.id + ".something, so they don't clash."));
+        if (mode == shared_.toolbarMode) return;
+        shared_.toolbarMode = std::move(mode);
+        bus_.publish(ToolbarModeChanged{shared_.toolbarMode});
+    }
+    const std::string& toolbarMode() const override { return shared_.toolbarMode; }
+
     void* service(std::string_view name) override {
         auto it = shared_.services.find(name);
         if (it == shared_.services.end()) return nullptr;
@@ -202,7 +217,8 @@ public:
 
     void notePublish(std::string_view type) override {
         const auto& self = info_->manifest;
-        if (!startsWith(type, self.id + ".")) {
+        // ActionsChanged is Khan's, but made for plugins to send.
+        if (type != ActionsChanged::kType && !startsWith(type, self.id + ".")) {
             warnOnce(warning("plugin.event_name", shortName(self) + " sent the event " + std::string(type) +
                                                       ". Event names must start with the plugin id, like " +
                                                       self.id + ".something, so they don't clash."));
@@ -323,6 +339,10 @@ void PluginHost::provide(std::string name, void* service) {
 
 void PluginHost::addFolder(std::filesystem::path folder) {
     folders_.push_back(std::move(folder));
+}
+
+const std::string& PluginHost::toolbarMode() const {
+    return shared_->toolbarMode;
 }
 
 const PluginInfo* PluginHost::find(std::string_view id) const {

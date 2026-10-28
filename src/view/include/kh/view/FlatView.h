@@ -3,6 +3,7 @@
 /// @file
 /// A flat, drawn-with-Qt stand-in for the 3D view, for computers without 3D graphics.
 
+#include <QPointF>
 #include <QString>
 #include <QWidget>
 
@@ -48,13 +49,48 @@ public:
     /// @return The drawn distance, in pixels.
     static double pixelsPerSpace(const ViewOverlay& lattice);
 
+    /// Starts or stops drawing mode, as ViewWidget::setDrawingPlane() does. The
+    /// flat view is seen from above, so it only draws on a flat plane (one whose
+    /// normal is up or down); on others, it reports nothing.
+    /// @param plane The plane to draw on, or nothing to stop drawing.
+    void setDrawingPlane(std::optional<DrawingPlane> plane);
+
+    /// Gives the screen position of a point, for tests that click on it.
+    /// @param point A point in mm (z is ignored: the view is seen from above).
+    /// @return Where it is drawn, in widget coordinates.
+    QPointF toScreen(const kernel::Vec3& point) const;
+
+signals:
+    /// While drawing: the mouse moved over the drawing plane.
+    /// @param point Where, on the plane.
+    void planeMoved(const kh::view::PlanePoint& point);
+
+    /// While drawing: the student clicked on the drawing plane.
+    /// @param point Where, on the plane.
+    void planeClicked(const kh::view::PlanePoint& point);
+
+    /// While drawing: the student pressed Escape.
+    void planeCancelled();
+
 protected:
     /// Draws the overlays and the card.
     /// @param event Which part to draw (it draws everything).
     void paintEvent(QPaintEvent* event) override;
+    /// Reports a click while drawing.
+    /// @param event The mouse.
+    void mousePressEvent(QMouseEvent* event) override;
+    /// Reports the mouse while drawing.
+    /// @param event The mouse.
+    void mouseMoveEvent(QMouseEvent* event) override;
+    /// Sends Escape to the drawing tool while drawing.
+    /// @param event The key.
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
+    std::optional<PlanePoint> planePoint(QPointF at) const;
+
     QString text_;
+    std::optional<DrawingPlane> drawing_;
     std::vector<ViewOverlay> overlays_;
 };
 

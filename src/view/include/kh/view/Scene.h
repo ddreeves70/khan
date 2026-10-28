@@ -3,6 +3,7 @@
 /// @file
 /// What a 3D view shows: bodies, the selection and the grid. Plain data, no Qt or OCCT.
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -61,6 +62,26 @@ struct ViewOverlay {
     int alpha = 255;                           ///< How solid, 0 to 255.
     double size = 1;  ///< Line width, dot size or the height of a label's letters, in screen pixels.
 };
+
+/// A flat plane a drawing tool works on (a sketch's plane).
+struct DrawingPlane {
+    kernel::Vec3 origin{};         ///< A point on the plane, in mm.
+    kernel::Vec3 normal{0, 0, 1};  ///< Its direction, pointing toward the side it's drawn from.
+};
+
+/// Where the mouse is on a DrawingPlane.
+struct PlanePoint {
+    kernel::Vec3 at{};  ///< The point on the plane, in mm.
+    double pixel = 0;   ///< How many mm one screen pixel covers there, for "close enough" tests.
+};
+
+/// Finds where a line of sight meets a plane.
+/// @param from A point on the line (mm).
+/// @param direction The line's direction (any length but 0).
+/// @param plane The plane.
+/// @return The point (mm), or nothing if the line runs along the plane.
+std::optional<kernel::Vec3> rayHitsPlane(const kernel::Vec3& from, const kernel::Vec3& direction,
+                                         const DrawingPlane& plane);
 
 /// Works out the lines of a lattice overlay, for drawing.
 /// @param overlay A Lattice overlay.
