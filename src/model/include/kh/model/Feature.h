@@ -347,6 +347,33 @@ enum class SketchPlane {
     YZ,  ///< Standing up, facing the right: sketch x is y, sketch y is z. Seen from the Right.
 };
 
+/// Where a sketch plane sits in the design.
+struct PlaneAxes {
+    kernel::Vec3 origin{};  ///< Where the sketch's x and y are 0, in mm.
+    kernel::Vec3 x{};       ///< The sketch's x direction in the design (a unit vector).
+    kernel::Vec3 y{};       ///< The sketch's y direction in the design (a unit vector).
+};
+
+/// Gives where a sketch plane sits: XY has sketch x, y along x, y; XZ along x, z;
+/// YZ along y, z. Each is seen from the side x × y points to (the top, the front,
+/// the right).
+/// @param plane The plane.
+/// @return Its origin and directions.
+PlaneAxes planeAxes(SketchPlane plane);
+
+/// Turns a point of a sketch into a point of the design.
+/// @param plane The sketch's plane.
+/// @param point The point in the sketch (mm).
+/// @return The same point in the design's x, y and z (mm).
+kernel::Vec3 toDesign(SketchPlane plane, const sketch::Point2& point);
+
+/// Turns a point of the design into a point of a sketch, dropping the distance
+/// off the plane.
+/// @param plane The sketch's plane.
+/// @param point A point in the design (mm).
+/// @return The point in the sketch's x and y (mm).
+sketch::Point2 toSketch(SketchPlane plane, const kernel::Vec3& point);
+
 /// A sketch: points, lines, circles and arcs on a plane, with constraints and
 /// dimensions. It isn't a body; its rebuild result is the solved sketch
 /// (FeatureResult::sketch). Later steps (extrude) turn its closed shapes into bodies.

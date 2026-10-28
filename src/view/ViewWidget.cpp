@@ -1,6 +1,7 @@
 #include "kh/view/ViewWidget.h"
 
 #include <QCoreApplication>
+#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
@@ -31,6 +32,7 @@
 #include <Prs3d_ShadingAspect.hxx>
 #include <Quantity_Color.hxx>
 #include <Standard_Failure.hxx>
+#include <Standard_Version.hxx>
 #include <TopoDS_Shape.hxx>
 #include <V3d_AmbientLight.hxx>
 #include <V3d_DirectionalLight.hxx>
@@ -265,6 +267,27 @@ struct ViewWidget::Impl {
 
     QString glInfo;     // the graphics card and OpenGL version, for failure details
     QPoint rightPress;  // where the right button went down, to tell a click from a drag
+    // Drawing mode: the plane, and where the left button went down (a click, not a drag).
+    std::optional<DrawingPlane> drawing;
+    QPoint leftPress;
+    bool leftDown = false;
+
+    // The point under the mouse on the drawing plane, and how big a pixel is there.
+    std::optional<PlanePoint> planePoint(QPointF at, double ratio) const {
+        if (!drawing || !view) return std::nullopt;
+        auto hit = [&](double x, double y) -> std::optional<kernel::Vec3> {
+            Standard_Real px = 0, py = 0, pz = 0, vx = 0, vy = 0, vz = 0;
+            view->ConvertWithProj(static_cast<int>(std::lround(x)), static_cast<int>(std::lround(y)), px, py,
+                                  pz, vx, vy, vz);
+            return rayHitsPlane({px, py, pz}, {vx, vy, vz}, *drawing);
+        };
+        const double x = at.x() * ratio, y = at.y() * ratio;
+        const auto here = hit(x, y);
+        const auto next = hit(x + ratio, y);  // one screen pixel to the right
+        if (!here || !next) return std::nullopt;
+        const double pixel = std::hypot(next->x - here->x, next->y - here->y, next->z - here->z);
+        return PlanePoint{*here, pixel};
+    }
 
     // A failure's details, with the graphics card and OpenGL version when known.
     QString where(const QString& what) const {
@@ -417,9 +440,23 @@ void ViewWidget::setOverlays(const std::vector<ViewOverlay>& overlays) {
     try {
         for (auto& o : d.overlays) d.context->Remove(o, false);
         d.overlays.clear();
+        int order = 0;
         for (const auto& o : overlays) {
             Handle(OverlayObject) obj = new OverlayObject(o);
+            const int priority = std::min(10, order++);
+            // A lattice (the grid) stays in the normal layer. Lines, points and
+            // words go in the layer drawn after it: still hidden behind bodies,
+            // but where they lie exactly on the grid (a sketch on the ground),
+            // they win instead of flickering with it. Among them, later ones win.
+            obj->SetZLayer(o.shape == OverlayShape::Lattice ? Graphic3d_ZLayerId_Default
+                                                            : Graphic3d_ZLayerId_Top);
             d.context->Display(obj, 0, -1, false);  // -1: never picked
+            // OCCT draws higher priorities later (0 to 10): keep the overlays' order.
+#if OCC_VERSION_HEX >= 0x070700
+            d.context->SetDisplayPriority(obj, static_cast<Graphic3d_DisplayPriority>(priority));
+#else
+            d.context->SetDisplayPriority(obj, priority);
+#endif
             d.overlays.push_back(obj);
         }
     } catch (const Standard_Failure& e) {
@@ -441,6 +478,32 @@ void ViewWidget::setStandardView(StandardView v) {
     d.view->SetUp(dir.up.x, dir.up.y, dir.up.z);
     d.fitPending = true;
     update();
+}
+
+void ViewWidget::setDrawingPlane(std::optional<DrawingPlane> plane) {
+    impl_->drawing = plane;
+    impl_->leftDown = false;
+    setFocusPolicy(plane ? Qt::StrongFocus : Qt::NoFocus);
+    setCursor(plane ? Qt::CrossCursor : Qt::ArrowCursor);
+}
+
+void ViewWidget::lookAlong(const ViewDirection& dir) {
+    auto& d = *impl_;
+    if (!d.view) return;
+    d.controller.AbortViewAnimation();
+    d.view->SetProj(dir.toEye.x, dir.toEye.y, dir.toEye.z);
+    d.view->SetUp(dir.up.x, dir.up.y, dir.up.z);
+    d.fitPending = true;
+    update();
+}
+
+void ViewWidget::keyPressEvent(QKeyEvent* event) {
+    if (impl_->drawing && event->key() == Qt::Key_Escape) {
+        emit planeCancelled();
+        event->accept();
+        return;
+    }
+    QOpenGLWidget::keyPressEvent(event);
 }
 
 void ViewWidget::fitAll() {
@@ -574,6 +637,13 @@ void ViewWidget::mousePressEvent(QMouseEvent* event) {
     QOpenGLWidget::mousePressEvent(event);
     emit activated();
     auto& d = *impl_;
+    if (d.drawing && event->button() == Qt::LeftButton) {
+        // Drawing: the left button draws; it doesn't orbit or select.
+        setFocus(Qt::MouseFocusReason);
+        d.leftPress = event->position().toPoint();
+        d.leftDown = true;
+        return;
+    }
     if (event->button() == Qt::RightButton) d.rightPress = event->position().toPoint();
     if (!d.view) return;
     d.clickAdds = event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier);
@@ -587,6 +657,13 @@ void ViewWidget::mousePressEvent(QMouseEvent* event) {
 void ViewWidget::mouseReleaseEvent(QMouseEvent* event) {
     QOpenGLWidget::mouseReleaseEvent(event);
     auto& d = *impl_;
+    if (d.drawing && event->button() == Qt::LeftButton && d.leftDown) {
+        d.leftDown = false;
+        if ((event->position().toPoint() - d.leftPress).manhattanLength() < 6) {
+            if (const auto p = d.planePoint(event->position(), devicePixelRatioF())) emit planeClicked(*p);
+        }
+        return;
+    }
     // A right click that didn't move (much) asks for the menu; a right drag pans.
     if (event->button() == Qt::RightButton &&
         (event->position().toPoint() - d.rightPress).manhattanLength() < 4) {
@@ -604,6 +681,10 @@ void ViewWidget::mouseMoveEvent(QMouseEvent* event) {
     QOpenGLWidget::mouseMoveEvent(event);
     auto& d = *impl_;
     if (!d.view) return;
+    if (d.drawing) {
+        if (const auto p = d.planePoint(event->position(), devicePixelRatioF())) emit planeMoved(*p);
+        if (event->buttons() & Qt::LeftButton) return;  // the left button draws: no orbit
+    }
     const double ratio = devicePixelRatioF();
     const Graphic3d_Vec2i p(static_cast<int>(event->position().x() * ratio),
                             static_cast<int>(event->position().y() * ratio));

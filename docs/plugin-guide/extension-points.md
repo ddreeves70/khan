@@ -283,6 +283,52 @@ read it. A pane's key comes from the view options (`options->activePane()` is th
 pane the student is working in). `GridChanged` has a `pane` too: empty when the
 all-panes grid changed.
 
+## Draw with the mouse (desktop app only)
+
+A **view tool** lets the student draw with the mouse on a plane, the way the
+sketcher's Line and Circle tools do. The viewer (`kh.viewer`) offers it as the
+`kh.viewer/1` service, described by its contract header `kh/viewer/Viewer.h`.
+While your tool runs, a left click in any pane tells you the point on the plane
+(in mm) instead of turning the view or picking; moving the mouse tells you too, so
+you can draw a preview with an overlay. Panning and zooming still work, and Escape
+calls `cancelled()`.
+
+List `kh.viewer` in `uses` (or `requires`), then start your tool when the student
+asks for it, for example from a menu item:
+
+```cpp
+#include "kh/viewer/Viewer.h"
+
+struct DotTool final : kh::viewer::IViewTool {
+    kh::plugin::PluginContext& ctx;
+    explicit DotTool(kh::plugin::PluginContext& c) : ctx(c) {}
+    void moved(const kh::viewer::ToolPoint&) override {}
+    void clicked(const kh::viewer::ToolPoint& p) override {
+        // p.at is the point in mm; p.pixel is how many mm one screen pixel covers there,
+        // for "close enough"; p.pane is the pane, for the grid: snap with grid->snap(p.at, p.pane).
+        kh::plugin::Overlay dot{.shape = kh::plugin::OverlayShape::Points, .points = {p.at}, .size = 8};
+        ctx.overlays().set("dot", dot);
+    }
+    void cancelled() override {  // Escape
+        if (auto* viewer = ctx.service<kh::viewer::IViewer>()) viewer->stopTool(*this);
+    }
+};
+
+auto tool = std::make_shared<DotTool>(ctx);
+ctx.addAction({.id = "sam.dots.place", .text = "Place a dot", .menu = "Tools",
+               .run = [&ctx, tool] {
+                   auto* viewer = ctx.service<kh::viewer::IViewer>();
+                   if (!viewer) return;
+                   const kh::viewer::ToolPlane ground{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};  // XY
+                   viewer->face(ground);              // look straight down at it
+                   viewer->startTool(*tool, ground);  // clicks now come to the tool
+               }});
+```
+
+One tool runs at a time: starting yours stops the one that was running. Stop it
+with `stopTool()` when you're done, so clicks pick and turn the view again.
+`kh_cli` has no viewers, so nothing calls your tool there.
+
 ## Draw in the viewer
 
 An **overlay** is something every viewer draws over the design: lines, dots, or

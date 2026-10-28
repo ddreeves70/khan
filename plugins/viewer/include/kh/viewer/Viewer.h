@@ -1,0 +1,91 @@
+#pragma once
+
+/// @file
+/// The viewer contract: what other plugins may use from kh.viewer (drawing tools).
+///
+/// A plugin that draws in the viewers with the mouse (the sketcher, say) starts
+/// a tool on a plane. While it runs, a left click in any pane reports the point
+/// on that plane instead of orbiting or selecting, and moving the mouse reports
+/// it too; panning and zooming still work. List "kh.viewer" in "requires" or
+/// "uses" in your plugin.json, then:
+///
+/// @code
+/// struct Dots final : kh::viewer::IViewTool {
+///     void moved(const kh::viewer::ToolPoint&) override {}
+///     void clicked(const kh::viewer::ToolPoint& p) override { /* p.at is the point, in mm */ }
+///     void cancelled() override {}  // Escape
+/// };
+/// auto* viewer = ctx.service<kh::viewer::IViewer>();
+/// viewer->startTool(dots, {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}});  // the ground (XY)
+/// viewer->face({{0, 0, 0}, {1, 0, 0}, {0, 1, 0}});            // look straight down at it
+/// @endcode
+
+#include <string>
+
+#include "kh/kernel/Types.h"
+
+namespace kh::viewer {
+
+/// A flat plane a tool draws on: a point on it and two directions along it.
+/// The tool's x and y are measured along `xAxis` and `yAxis`; the plane is seen
+/// from the side `xAxis` × `yAxis` points to.
+struct ToolPlane {
+    kernel::Vec3 origin{};        ///< Where the tool's x and y are 0, in mm.
+    kernel::Vec3 xAxis{1, 0, 0};  ///< The tool's x direction (a unit vector).
+    kernel::Vec3 yAxis{0, 1, 0};  ///< The tool's y direction (a unit vector, square to xAxis).
+};
+
+/// Where the mouse is on the tool's plane.
+struct ToolPoint {
+    kernel::Vec3 at{};   ///< The point, in mm, in the design's x, y and z.
+    double pixel = 0;    ///< How many mm one screen pixel covers there: use it for "close enough".
+    std::string pane{};  ///< The pane it's in (its view options key, e.g. "viewer1.pane1").
+};
+
+/// A tool that draws with the mouse. The viewer calls it while it runs.
+class IViewTool {
+public:
+    /// Destroys the tool.
+    virtual ~IViewTool() = default;
+
+    /// The mouse moved over the plane (for previews).
+    /// @param point Where.
+    virtual void moved(const ToolPoint& point) = 0;
+
+    /// The student clicked on the plane with the left button.
+    /// @param point Where.
+    virtual void clicked(const ToolPoint& point) = 0;
+
+    /// The student pressed Escape in a view.
+    virtual void cancelled() = 0;
+};
+
+/// The viewers, as other plugins see them.
+class IViewer {
+public:
+    /// The service's name and version.
+    static constexpr const char* kServiceName = "kh.viewer/1";
+
+    /// Destroys the service.
+    virtual ~IViewer() = default;
+
+    /// Starts a tool on a plane in every pane of every viewer, stopping the one
+    /// that was running.
+    /// @param tool The tool. It must stay alive until stopTool() or another startTool().
+    /// @param plane The plane it draws on.
+    virtual void startTool(IViewTool& tool, const ToolPlane& plane) = 0;
+
+    /// Stops a tool, if it's the one running. Clicks orbit and select again.
+    /// @param tool The tool.
+    virtual void stopTool(const IViewTool& tool) = 0;
+
+    /// Gives the tool that's running.
+    /// @return It, or nullptr.
+    virtual IViewTool* tool() const = 0;
+
+    /// Turns each viewer's active pane to look straight at a plane, and fits.
+    /// @param plane The plane.
+    virtual void face(const ToolPlane& plane) = 0;
+};
+
+}  // namespace kh::viewer

@@ -137,7 +137,7 @@ if(TARGET kh_app_core)
   app/test_view_options.cpp)
   target_link_libraries(kh_app_tests PRIVATE Catch2::Catch2 kh_app_core kh::kernel_occt kh::view
     kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewoptions kh::plugin_axes kh::plugin_grid kh::plugin_viewer
-    kh::sketch_planegcs)
+    kh::plugin_sketcher kh::sketch_planegcs)
   kh_set_warnings(kh_app_tests)
   if(WIN32)
     # Qt's DLLs and plugins (including the offscreen platform) and ADS, next to the .exe.

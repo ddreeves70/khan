@@ -22,6 +22,7 @@ INPUT                  = docs/api-mainpage.md \
                          src/view/include \
                          plugins/modeling/include \
                          plugins/viewer/include \
+                         plugins/sketcher/include \
                          docs/plugin-guide
 FILE_PATTERNS          = *.h *.md
 RECURSIVE              = YES

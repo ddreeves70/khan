@@ -84,6 +84,17 @@ public:
     /// @return Empty, or a plain sentence saying what went wrong and what to do.
     QString problem() const;
 
+    /// Starts or stops drawing mode. While drawing, a left click reports the
+    /// point on the plane (planeClicked()) instead of orbiting or selecting, and
+    /// moving the mouse reports it too (planeMoved()). Panning and zooming still
+    /// work, and Escape sends planeCancelled().
+    /// @param plane The plane to draw on, or nothing to stop drawing.
+    void setDrawingPlane(std::optional<DrawingPlane> plane);
+
+    /// Turns the camera to look along a direction, and zooms to fit.
+    /// @param direction From the point looked at towards the camera, and up.
+    void lookAlong(const ViewDirection& direction);
+
     /// Selects as if the student clicked at a point (for tests). It runs on the
     /// next draw, like a real click.
     /// @param point Where, in widget coordinates.
@@ -91,6 +102,17 @@ public:
     void clickAt(QPoint point, bool add = false);
 
 signals:
+    /// While drawing: the mouse moved over the drawing plane.
+    /// @param point Where, on the plane.
+    void planeMoved(const kh::view::PlanePoint& point);
+
+    /// While drawing: the student clicked on the drawing plane.
+    /// @param point Where, on the plane.
+    void planeClicked(const kh::view::PlanePoint& point);
+
+    /// While drawing: the student pressed Escape.
+    void planeCancelled();
+
     /// The student clicked in the view and the selection should change.
     /// @param selection The steps that should be selected, in picking order.
     void picked(const std::vector<kh::FeatureId>& selection);
@@ -127,6 +149,10 @@ protected:
     /// Clears the hover highlight when the mouse leaves.
     /// @param event The leave event.
     void leaveEvent(QEvent* event) override;
+
+    /// Sends Escape to the drawing tool while drawing.
+    /// @param event The key.
+    void keyPressEvent(QKeyEvent* event) override;
     /// Gives the view a sensible starting size.
     /// @return 640 by 480 pixels.
     QSize sizeHint() const override;

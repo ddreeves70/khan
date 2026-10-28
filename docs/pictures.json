@@ -833,6 +833,26 @@
         "file": "plate.khan",
         "name": "Sketch1"
       }
+    },
+    {
+      "out": "docs/user-guide/images/app-sketch-edit.png",
+      "size": "1280x800",
+      "script": "plate-sketch",
+      "app": {
+        "open": "plate.khan",
+        "select": [
+          "Sketch1"
+        ],
+        "trigger": [
+          "kh.sketcher.edit"
+        ]
+      },
+      "crop": [
+        0,
+        0,
+        1280,
+        800
+      ]
     }
   ]
 }

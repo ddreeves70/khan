@@ -1,6 +1,6 @@
 # The sketcher (Phase 1)
 
-> **Draft.** Steps 1 (the solver) and 2 (the Sketch step) are built. The rest is the plan, in the order it
+> **Draft.** Steps 1 (the solver), 2 (the Sketch step) and 3 (drawing in the app) are built. The rest is the plan, in the order it
 > will be built. See the [roadmap](roadmap.md#phase-1-sketcher) for Phase 1's exit
 > check.
 
@@ -16,8 +16,8 @@ revolve).
 | --- | --- | --- |
 | 1. Solver | `kh_sketch` (sketch values, `ISketchSolver`), PlaneGCS as its own shared library, `kh_sketch_planegcs` | Built |
 | 2. Sketch step | A `Sketch` step in the design: on a plane (XY, XZ, YZ), its entities and constraints, saved in the `.khan` file, changed only by commands (add line, add constraint, set dimension, ...), solved on rebuild | Built |
-| 3. Drawing in the app | Edit a sketch in the viewer: draw lines, arcs and circles with the mouse, snap to the grid and to points, pick and drag | Next |
-| 4. Constraints in the app | Add constraints and dimensions from a toolbar and by typing numbers; show them on the drawing; degrees of freedom shown by color (free blue, fixed black); conflicts highlighted with a plain message | |
+| 3. Drawing in the app | Edit a sketch in the viewer: draw lines, arcs and circles with the mouse, snap to the grid and to points | Built |
+| 4. Constraints in the app | Pick sketch lines and points in the viewer, drag them; add constraints and dimensions from a toolbar and by typing numbers; show them on the drawing; degrees of freedom shown by color (free blue, fixed black); conflicts highlighted with a plain message | Next |
 | 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | |
 | 6. Extrude | Profiles become solids (Phase 2 starts properly here) | |
 | 7. B-splines | Full spline support, as the roadmap lists | |
@@ -119,6 +119,29 @@ after scattering the heap between solves.
   next to "solved" for the guide.
 - File: a new step type, `"Sketch"` (schema 1). Plugin API 13 (`ArgType::Vec2`,
   `FeatureResult::sketch`, the solver parameter).
+
+## Drawing in the app (step 3)
+
+- **Viewer tools (`kh.viewer/1`).** `kh_view` has a drawing mode: given a plane, a
+  left click reports the point on it (`planeClicked`) instead of orbiting or
+  picking, moving reports it too (`planeMoved`), and Escape reports
+  `planeCancelled`; pan and zoom still work. The point comes from OCCT's line of
+  sight through the pixel (`ConvertWithProj`) meeting the plane, and the size of
+  a pixel there from the next pixel over, so "close enough" works at any zoom.
+  The flat view (no 3D graphics) does the same for flat planes, which is how the
+  app tests click. `kh.viewer` offers this to plugins as the `kh.viewer/1`
+  service: `startTool(tool, plane)`, `stopTool`, `face(plane)`.
+- **`kh.sketcher`** (a new built-in plugin, tier `ui`) draws every sketch with
+  overlays (the edited one blue with its points, others grey) and runs the Line,
+  Circle, Arc and Point tools. A click snaps to a sketch point within 8 pixels
+  (exactly onto it, plus a Coincident), or to the grid through `kh.grid/2` when
+  snapping is on. Each shape, with its Coincidents, is one `EditSketchCommand`,
+  so one undo step. Lines chain; closing onto a point ends the chain.
+- **Overlay layers.** Lines, points and words are drawn in OCCT's Top layer and
+  the grid in the normal one, in the overlays' order, so a sketch on the ground
+  isn't lost in the grid lines it lies on.
+- `kh_model`: `planeAxes()`, `toDesign()`, `toSketch()` turn sketch x, y into the
+  design's x, y, z and back (also for extrude, later).
 
 ## Choices
 

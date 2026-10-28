@@ -8,7 +8,7 @@ step's numbers in Properties. Everything you do can be undone.
 
 | # | Part | What it's for |
 | --- | --- | --- |
-| 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, folders, delete), Create (shapes), Combine (union, cut, intersect), View (the grid), Window (panels, layouts) |
+| 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, folders, delete), Create (shapes), Combine (union, cut, intersect), Modify (move), Sketch (new, edit, draw), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away |
 | 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built |
 | 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse or the view cube, and click a body to pick it |

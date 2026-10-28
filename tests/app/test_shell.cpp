@@ -12,10 +12,12 @@
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QGuiApplication>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMouseEvent>
 #include <QPalette>
 #include <QSettings>
 #include <QStatusBar>
@@ -40,11 +42,13 @@
 #include "kh/plugins/Grid.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/Properties.h"
+#include "kh/plugins/Sketcher.h"
 #include "kh/plugins/ViewOptions.h"
 #include "kh/plugins/Viewer.h"
 #include "kh/sketch_planegcs/PlaneGcsSolver.h"
 #include "kh/ui/UiRegistry.h"
 #include "kh/view/FlatView.h"
+#include "kh/viewer/Viewer.h"
 
 using namespace kh;
 using Catch::Approx;
@@ -91,10 +95,12 @@ void units(plugin::PluginContext& ctx) {
 // A plugin that uses the grid through its contract, like a sketcher would.
 const grid::IGrid* seenGrid = nullptr;
 viewoptions::IViewOptions* seenOptions = nullptr;
+viewer::IViewer* seenViewer = nullptr;
 void gridClient(plugin::PluginContext& ctx) {
     ctx.onStart([&ctx] {
         seenGrid = ctx.service<grid::IGrid>();
         seenOptions = ctx.service<viewoptions::IViewOptions>();
+        seenViewer = ctx.service<viewer::IViewer>();
     });
 }
 
@@ -133,11 +139,12 @@ struct App {
         host.addBuiltin(plugins::axesPlugin());
         host.addBuiltin(plugins::gridPlugin());
         host.addBuiltin(plugins::viewerPlugin());
+        host.addBuiltin(plugins::sketcherPlugin());
         host.addBuiltin({R"({"id":"test.broken","name":"Broken","version":"1","apiVersion":)" +
                              std::to_string(plugin::kPluginApiVersion) + "}",
                          &panelThenFail});
         host.addBuiltin(
-            {R"({"id":"test.gridclient","name":"Grid client","version":"1","uses":["kh.grid","kh.viewoptions"],"apiVersion":)" +
+            {R"({"id":"test.gridclient","name":"Grid client","version":"1","uses":["kh.grid","kh.viewoptions","kh.viewer"],"apiVersion":)" +
                  std::to_string(plugin::kPluginApiVersion) + "}",
              &gridClient});
         host.addBuiltin({R"({"id":"test.units","name":"Units","version":"1","apiVersion":)" +
@@ -206,7 +213,7 @@ TEST_CASE("Khan's own plugins follow the rules: no warnings, and each has a tier
         CHECK(p.issues.empty());  // as strict as kh_cli plugins --strict
         CHECK_FALSE(p.manifest.tier.empty());
     }
-    CHECK(builtins == 7);
+    CHECK(builtins == 8);
 }
 
 TEST_CASE("Create > Box adds a step, selects it, and shows its numbers", "[app]") {
@@ -507,6 +514,176 @@ TEST_CASE("a sketch shows in the tree, and Properties shows how free it still is
                 .empty());
     settle();
     CHECK(app.field<QLabel>("freedom")->text() == QStringLiteral("0: fully constrained"));
+}
+
+namespace {
+
+// Clicks the flat view at a point of the design, in mm, as the student would.
+void clickAt(view::FlatView* v, kernel::Vec3 at) {
+    const QPointF p = v->toScreen(at);
+    QMouseEvent move(QEvent::MouseMove, p, v->mapToGlobal(p), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(v, &move);
+    QMouseEvent press(QEvent::MouseButtonPress, p, v->mapToGlobal(p), Qt::LeftButton, Qt::LeftButton,
+                      Qt::NoModifier);
+    QApplication::sendEvent(v, &press);
+    QMouseEvent release(QEvent::MouseButtonRelease, p, v->mapToGlobal(p), Qt::LeftButton, Qt::NoButton,
+                        Qt::NoModifier);
+    QApplication::sendEvent(v, &release);
+    settle();
+}
+
+void pressEscape(QWidget* w) {
+    QKeyEvent key(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    QApplication::sendEvent(w, &key);
+    settle();
+}
+
+const model::SketchFeature& sketchAt(App& app, std::size_t i) {
+    return static_cast<const model::SketchFeature&>(app.doc().featureAt(i));
+}
+
+}  // namespace
+
+TEST_CASE("Sketch > New sketch, then clicks draw a closed shape, one undo step per line", "[app][sketcher]") {
+    App app;
+    app.menu("kh.grid.snap")->trigger();  // so clicks land exactly on whole millimeters
+    app.click("kh.sketcher.new_xy");
+    REQUIRE(app.doc().featureCount() == 1);
+    CHECK(app.doc().featureAt(0).type() == model::FeatureType::Sketch);
+    auto* viewer = seenViewer;
+    REQUIRE(viewer);
+    CHECK(viewer->tool() != nullptr);  // drawing
+    CHECK(app.shell->statusBar()->currentMessage() ==
+          QStringLiteral("Drawing in Sketch1. Line: click where it starts."));
+
+    auto* flat = app.flat();
+    REQUIRE(flat);
+    for (auto p : {kernel::Vec3{0, 0, 0}, {40, 0, 0}, {40, 20, 0}, {0, 20, 0}, {0, 0, 0}}) clickAt(flat, p);
+
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 4);
+    const auto& l1 = std::get<sketch::LineShape>(s.entities[0].shape);
+    const auto& l4 = std::get<sketch::LineShape>(s.entities[3].shape);
+    CHECK(l1.start.x == 0);
+    CHECK(l1.end.x == 40);
+    CHECK(l4.end.y == 0);
+    // Each line joins the one before, and the last closes onto the first.
+    REQUIRE(s.constraints.size() == 4);
+    for (const auto& c : s.constraints) CHECK(c.kind == sketch::ConstraintKind::Coincident);
+    CHECK(s.constraints[3].points[1].entity == s.entities[0].id);
+    CHECK(app.doc().undoLabel() == "Add Line4");
+    const auto* r =
+        app.host.documents().lastRebuild(app.shell->activeDesign())->result(sketchAt(app, 0).id());
+    REQUIRE(r->sketch);
+    CHECK(r->sketch->freedom == 8);  // 4 lines (16) joined at 4 corners (8 taken)
+
+    // Closing the shape ended the chain: the next click starts a new line.
+    CHECK(app.shell->statusBar()->currentMessage() ==
+          QStringLiteral("Drawing in Sketch1. Line: click where it starts."));
+
+    // The viewer draws it: 4 lines, 4 corners.
+    const auto* lines = app.host.overlays().find("kh.sketcher.edit.lines");
+    REQUIRE(lines);
+    CHECK(lines->points.size() == 8);
+    CHECK(app.host.overlays().find("kh.sketcher.edit.points")->points.size() == 8);
+
+    // One undo takes away one line.
+    app.shell->undoAction()->trigger();
+    settle();
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 3);
+}
+
+TEST_CASE("the Circle, Arc and Point tools draw with clicks", "[app][sketcher]") {
+    App app;
+    app.menu("kh.grid.snap")->trigger();
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.circle");
+    CHECK(app.shell->action("kh.sketcher.circle")->isChecked());
+    clickAt(flat, {10, 10, 0});
+    clickAt(flat, {20, 10, 0});
+    app.click("kh.sketcher.arc");
+    clickAt(flat, {30, 0, 0});   // center
+    clickAt(flat, {40, 0, 0});   // start: radius 10, pointing right
+    clickAt(flat, {30, 10, 0});  // end: straight up, a quarter turn counterclockwise
+    app.click("kh.sketcher.point");
+    clickAt(flat, {-10, -10, 0});
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 3);
+    const auto& c = std::get<sketch::CircleShape>(s.entities[0].shape);
+    CHECK(c.center.x == 10);
+    CHECK(c.radius == Approx(10));
+    const auto& a = std::get<sketch::ArcShape>(s.entities[1].shape);
+    CHECK(a.radius == Approx(10));
+    CHECK(a.startAngle == Approx(0).margin(1e-12));
+    CHECK(a.endAngle == Approx(std::numbers::pi / 2));
+    CHECK(std::get<sketch::PointShape>(s.entities[2].shape).at.x == -10);
+    CHECK(s.entities[1].name == "Arc1");
+}
+
+TEST_CASE("an end close to a point snaps onto it and joins it", "[app][sketcher]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    clickAt(flat, {0, 0, 0});
+    clickAt(flat, {20, 0, 0});
+    pressEscape(flat);  // stop the chain
+    // Start a line 1 mm away from the first line's end: within 8 pixels, so it snaps.
+    clickAt(flat, {21, 1, 0});
+    clickAt(flat, {20, 15, 0});
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 2);
+    const auto& l1 = std::get<sketch::LineShape>(s.entities[0].shape);
+    const auto& l2 = std::get<sketch::LineShape>(s.entities[1].shape);
+    CHECK(l2.start.x == l1.end.x);  // exactly on it
+    CHECK(l2.start.y == l1.end.y);
+    REQUIRE(s.constraints.size() == 1);
+    CHECK(s.constraints[0].points[1].entity == s.entities[0].id);
+    CHECK(s.constraints[0].points[1].role == sketch::PointRole::End);
+}
+
+TEST_CASE("Escape stops the shape being drawn, then stops editing", "[app][sketcher]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    auto* viewer = seenViewer;
+    clickAt(flat, {0, 0, 0});
+    pressEscape(flat);  // the line that was started goes away
+    CHECK(viewer->tool() != nullptr);
+    clickAt(flat, {5, 5, 0});
+    clickAt(flat, {10, 5, 0});
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 1);  // a new line, not one from 0, 0
+    pressEscape(flat);
+    pressEscape(flat);
+    CHECK(viewer->tool() == nullptr);
+    CHECK(app.shell->statusBar()->currentMessage() == QStringLiteral("Finished the sketch."));
+    clickAt(flat, {20, 20, 0});  // not drawing any more
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 1);
+}
+
+TEST_CASE("Edit sketch needs a sketch picked, and stops if the sketch goes away", "[app][sketcher]") {
+    App app;
+    app.click("kh.modeling.box");
+    app.click("kh.sketcher.edit");  // Box1 is picked: not a sketch
+    REQUIRE(app.shell->lastProblems().size() == 1);
+    CHECK(app.shell->lastProblems()[0].code == "sketch.pick");
+    app.click("kh.sketcher.circle");  // tools need a sketch being edited
+    CHECK(app.shell->lastProblems()[0].code == "sketch.not_editing");
+
+    app.click("kh.sketcher.new_yz");
+    auto* viewer = seenViewer;
+    CHECK(viewer->tool() != nullptr);
+    CHECK(sketchAt(app, 1).plane() == model::SketchPlane::YZ);
+    app.shell->undoAction()->trigger();  // the sketch is gone
+    settle();
+    CHECK(viewer->tool() == nullptr);
+
+    app.pickRows({0});
+    app.click("kh.sketcher.new_xy");
+    app.click("kh.sketcher.finish");
+    app.pickRows({1});
+    app.click("kh.sketcher.edit");
+    CHECK(viewer->tool() != nullptr);
 }
 
 TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {

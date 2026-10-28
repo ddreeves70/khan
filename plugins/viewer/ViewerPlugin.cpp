@@ -23,6 +23,7 @@
 #include "kh/view/Graphics.h"
 #include "kh/view/Layout.h"
 #include "kh/view/ViewWidget.h"
+#include "kh/viewer/Viewer.h"
 #include "kh/viewoptions/ViewOptions.h"
 
 namespace kh::plugins {
@@ -52,6 +53,39 @@ QString slug(std::string_view name) {
     return out;
 }
 
+class ViewerPanel;
+
+kernel::Vec3 cross(const kernel::Vec3& a, const kernel::Vec3& b) {
+    return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+
+view::DrawingPlane drawingPlane(const viewer::ToolPlane& p) {
+    return {p.origin, cross(p.xAxis, p.yAxis)};
+}
+
+// The kh.viewer/1 service: one drawing tool for every pane of every viewer.
+class ViewerService final : public viewer::IViewer {
+public:
+    void startTool(viewer::IViewTool& tool, const viewer::ToolPlane& plane) override;
+    void stopTool(const viewer::IViewTool& tool) override;
+    viewer::IViewTool* tool() const override { return tool_; }
+    void face(const viewer::ToolPlane& plane) override;
+
+    // Where the running tool draws, for panes made while it runs.
+    std::optional<view::DrawingPlane> plane() const {
+        return tool_ ? std::optional<view::DrawingPlane>(drawingPlane(plane_)) : std::nullopt;
+    }
+    void attach(ViewerPanel* panel) { panels_.push_back(panel); }
+    void detach(ViewerPanel* panel) { std::erase(panels_, panel); }
+
+private:
+    void applyAll();
+
+    viewer::IViewTool* tool_ = nullptr;
+    viewer::ToolPlane plane_{};
+    std::vector<ViewerPanel*> panels_;
+};
+
 // The panel: a small toolbar over 1, 2 or 4 panes. Each pane is a ViewWidget
 // with its own camera; the toolbar's views turn the active pane (the one last
 // clicked). Without 3D graphics, a FlatView takes the panes' place.
@@ -59,8 +93,9 @@ class ViewerPanel final : public QWidget {
 public:
     // `number` counts the viewers opened (1 for the first), so each pane has a
     // key the view options can remember, like "viewer1.pane2".
-    ViewerPanel(plugin::PluginContext& ctx, int number)
-        : ctx_(ctx), options_(ctx.service<viewoptions::IViewOptions>()), number_(number) {
+    ViewerPanel(plugin::PluginContext& ctx, ViewerService& service, int number)
+        : ctx_(ctx), service_(service), options_(ctx.service<viewoptions::IViewOptions>()), number_(number) {
+        service_.attach(this);
         setObjectName(QStringLiteral("kh.viewer.panel"));
         auto* layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
@@ -99,6 +134,7 @@ public:
     }
 
     ~ViewerPanel() override {
+        service_.detach(this);
         // The window is closing: forget the panes, but keep their own options
         // for next time.
         if (options_) {
@@ -106,7 +142,34 @@ public:
         }
     }
 
+    // The running tool's plane (or none) in every pane.
+    void applyTool() {
+        const auto plane = service_.plane();
+        for (auto* pane : panes_) pane->setDrawingPlane(plane);
+        if (flat_) flat_->setDrawingPlane(plane);
+    }
+
+    // Turns the active pane to look straight at a plane.
+    void face(const viewer::ToolPlane& plane) {
+        if (auto* pane = activePane()) pane->lookAlong({drawingPlane(plane).normal, plane.yAxis});
+    }
+
 private:
+    // Sends a view's drawing events to the running tool.
+    template <typename View>
+    void forward(View* view, std::string key) {
+        auto point = [key](const view::PlanePoint& p) { return viewer::ToolPoint{p.at, p.pixel, key}; };
+        connect(view, &View::planeMoved, this, [this, point](const view::PlanePoint& p) {
+            if (auto* t = service_.tool()) t->moved(point(p));
+        });
+        connect(view, &View::planeClicked, this, [this, point](const view::PlanePoint& p) {
+            if (auto* t = service_.tool()) t->clicked(point(p));
+        });
+        connect(view, &View::planeCancelled, this, [this] {
+            if (auto* t = service_.tool()) t->cancelled();
+        });
+    }
+
     std::string paneKey(std::size_t i) const {
         return "viewer" + std::to_string(number_) + ".pane" + std::to_string(i + 1);
     }
@@ -299,6 +362,8 @@ private:
             problem_ = why;
             QMetaObject::invokeMethod(this, [this] { showFlat(); }, Qt::QueuedConnection);
         });
+        forward(pane, paneKey(index));
+        pane->setDrawingPlane(service_.plane());
         frames_.push_back(frame);
         panes_.push_back(pane);
     }
@@ -334,6 +399,8 @@ private:
         flat_ = new view::FlatView(body_);
         body_->layout()->addWidget(flat_);
         flat_->setOverlays(viewOverlays(ctx_.overlays().forPane({})));
+        forward(flat_, paneKey(0));
+        flat_->setDrawingPlane(service_.plane());
         refresh();
     }
 
@@ -392,6 +459,7 @@ private:
     }
 
     plugin::PluginContext& ctx_;
+    ViewerService& service_;
     viewoptions::IViewOptions* options_ = nullptr;  // null if kh.viewoptions isn't loaded
     int number_ = 1;
     std::vector<QWidget*> bars_;  // one per pane: "This pane has its own view options"
@@ -409,7 +477,32 @@ private:
     std::vector<plugin::Subscription> subs_;
 };
 
+void ViewerService::startTool(viewer::IViewTool& tool, const viewer::ToolPlane& plane) {
+    tool_ = &tool;
+    plane_ = plane;
+    applyAll();
+}
+
+void ViewerService::stopTool(const viewer::IViewTool& tool) {
+    if (tool_ != &tool) return;
+    tool_ = nullptr;
+    applyAll();
+}
+
+void ViewerService::face(const viewer::ToolPlane& plane) {
+    for (auto* panel : panels_) panel->face(plane);
+}
+
+void ViewerService::applyAll() {
+    for (auto* panel : panels_) panel->applyTool();
+}
+
 void registerViewer(plugin::PluginContext& ctx) {
+    // The service lives as long as the plugin: a listener Khan keeps while the
+    // plugin is loaded holds it (and so does the panel factory below).
+    auto service = std::make_shared<ViewerService>();
+    ctx.provide<viewer::IViewer>(*service);
+    ctx.listen<plugin::DocumentClosed>([service](const plugin::DocumentClosed&) {});
     auto* ui = ctx.service<ui::UiRegistry>();
     if (!ui) {
         ctx.log("No desktop app here, so the 3D viewer isn't shown.");
@@ -417,7 +510,7 @@ void registerViewer(plugin::PluginContext& ctx) {
     }
     auto opened = std::make_shared<int>(0);  // viewers opened so far, to number them
     ui::PanelSpec spec{"kh.viewer.main", QObject::tr("Viewer"), ui::PanelArea::Center,
-                       [&ctx, opened] { return new ViewerPanel(ctx, ++*opened); }};
+                       [&ctx, opened, service] { return new ViewerPanel(ctx, *service, ++*opened); }};
     spec.allowMultiple = true;
     ui->addPanel(std::move(spec));
 }

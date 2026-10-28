@@ -1,6 +1,8 @@
 #include "kh/view/FlatView.h"
 
 #include <QFontMetricsF>
+#include <QKeyEvent>
+#include <QMouseEvent>
 #include <QPainter>
 
 #include <algorithm>
@@ -35,6 +37,48 @@ void FlatView::setOverlays(const std::vector<ViewOverlay>& overlays) {
     update();
 }
 
+QPointF FlatView::toScreen(const kernel::Vec3& p) const {
+    return {width() / 2.0 + p.x * kPixelsPerMm, height() / 2.0 - p.y * kPixelsPerMm};
+}
+
+void FlatView::setDrawingPlane(std::optional<DrawingPlane> plane) {
+    drawing_ = plane;
+    setMouseTracking(plane.has_value());
+    setFocusPolicy(plane ? Qt::StrongFocus : Qt::NoFocus);
+    setCursor(plane ? Qt::CrossCursor : Qt::ArrowCursor);
+}
+
+std::optional<PlanePoint> FlatView::planePoint(QPointF at) const {
+    if (!drawing_) return std::nullopt;
+    // Seen from above: the line of sight goes straight down through the point.
+    const kernel::Vec3 above{(at.x() - width() / 2.0) / kPixelsPerMm,
+                             (height() / 2.0 - at.y()) / kPixelsPerMm, 0};
+    const auto hit = rayHitsPlane(above, {0, 0, -1}, *drawing_);
+    if (!hit) return std::nullopt;
+    return PlanePoint{*hit, 1.0 / kPixelsPerMm};
+}
+
+void FlatView::mousePressEvent(QMouseEvent* event) {
+    QWidget::mousePressEvent(event);
+    if (!drawing_ || event->button() != Qt::LeftButton) return;
+    setFocus(Qt::MouseFocusReason);
+    if (const auto p = planePoint(event->position())) emit planeClicked(*p);
+}
+
+void FlatView::mouseMoveEvent(QMouseEvent* event) {
+    QWidget::mouseMoveEvent(event);
+    if (const auto p = planePoint(event->position())) emit planeMoved(*p);
+}
+
+void FlatView::keyPressEvent(QKeyEvent* event) {
+    if (drawing_ && event->key() == Qt::Key_Escape) {
+        emit planeCancelled();
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
 double FlatView::pixelsPerSpace(const ViewOverlay& lattice) {
     double step = lattice.spacing * kPixelsPerMm;
     // Too dense to see: draw every 2nd, 5th, 10th, ... line instead.
@@ -48,10 +92,7 @@ double FlatView::pixelsPerSpace(const ViewOverlay& lattice) {
 void FlatView::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     // The origin is the middle of the view, so drawings stay put as the window resizes.
-    const QPointF origin(width() / 2.0, height() / 2.0);
-    auto toScreen = [&](const kernel::Vec3& p) {
-        return QPointF(origin.x() + p.x * kPixelsPerMm, origin.y() - p.y * kPixelsPerMm);
-    };
+    auto toScreen = [this](const kernel::Vec3& p) { return this->toScreen(p); };
 
     // Lattices (like the grid) first, underneath everything else, so lines that
     // lie on them (like the axes) still show.
