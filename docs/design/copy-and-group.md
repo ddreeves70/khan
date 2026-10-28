@@ -1,7 +1,9 @@
 # Copying and grouping steps
 
-> **Draft.** Parts 1 to 3 (copy, paste and duplicate; turning steps off;
-> folders) are built. The other parts are the plan, in the order they'll be built.
+> **Draft.** Parts 1 to 3 and the Move step are built (Oct 27 to 28, 2026). They
+> were pulled forward from later phases after Phase 0; linked copies wait for
+> Phase 2's patterns, and groups that move together for Phase 4's assemblies (see
+> the [roadmap](roadmap.md)).
 
 Students want to reuse what they've made (another hole like this one, the same
 bracket in a new design) and to keep big feature trees tidy. This page covers
@@ -12,8 +14,8 @@ six asks, built in this order:
 | 1. Duplicate, Copy and Paste | New steps with the same numbers, in this design or another one | Built |
 | 2. Turn steps off together | Turn off (suppress) several picked steps at once, and back on | Built |
 | 3. Folders in the feature tree | Put steps in a named folder that opens and closes | Built |
-| 4. Move, then linked copies | A Move step, then copies that follow their original | Next |
-| 5. Groups that move together | Bodies grouped into a part you can place as one | Needs its own design |
+| 4. Move, then linked copies | A Move step (built), then copies that follow their original | Move built; linked copies in Phase 2 |
+| 5. Groups that move together | Bodies grouped into a part you can place as one | Phase 4 (assemblies) |
 
 Copy between designs is part 1: the clipboard works across designs.
 
@@ -53,9 +55,8 @@ copies are independent: changing one never changes the other.
 - *Materials match by key, then by name.* A custom material's key is a UUID, so
   pasting twice doesn't add it twice. If the design already has its own material
   with the same name, the steps use that one, so there are never two "Blue PETG"s.
-- *Copies sit on top of the originals.* There's no Move step yet (part 4), so the
-  student moves a copy by changing its Position. A copied Cut has to be moved by
-  moving its inputs, which is one reason for part 4.
+- *Copies sit on top of the originals.* The student moves a copy with a Move step
+  (part 4).
 
 ## 2. Turn steps off together
 
@@ -111,13 +112,33 @@ each other in the tree. It's for tidiness only: it never changes what gets built
 
 ## 4. Move, then linked copies
 
-A **Move** step takes a body and moves or turns it (a distance in mm, an angle in
-radians inside the code). With it, a copy can be moved without touching its
-inputs. A **linked copy** is a step whose shape is "that step's body, moved": it
-follows the original whenever the original changes. Patterns (a row or ring of
-copies) come after, on the same idea.
+**Move (built).** A Move step takes a body, turns it about a line, then slides it.
+The body keeps its size and shape, and the step it moves is used up, like a
+Boolean's inputs.
 
-## 5. Groups that move together
+- `kh_kernel`: `IKernel::transform(shape, Motion)`, with `Motion {offset, center,
+  axis, angle}` (mm and radians). It's added at the end of `IKernel`, so the
+  plugin API doesn't change. The OCCT adapter copies the geometry
+  (`BRepBuilderAPI_Transform` with copy on), so moved shapes have no hidden
+  placement and mesh and export like any other. Corpus cases: `move-slide`,
+  `move-turn`, `move-turn-then-slide` (the turn comes first) and
+  `invalid-move-axis`.
+- `kh_model`: `MoveFeature` (`FeatureType::Move`), `feature.add_move` (`body`,
+  `by`, `turn` in degrees, `axis`, `about`). A moved body is made of what the
+  body it moves is made of: `materialOf()` now follows any step's first input,
+  not just a Boolean's A.
+- File: a new step type, `"Move"`, with `inputs.body` and `params.offset`,
+  `center`, `axis` and `angle` (radians). New step types keep schema 1; an older
+  Khan says the step is a kind it doesn't know.
+- App: **Modify > Move** (Ctrl+M) adds a Move of the picked step; Properties
+  shows Move (mm), Turn (degrees), Axis and Center (mm).
+
+**Linked copies (Phase 2).** A linked copy is a step whose shape is "that step's
+body, moved", which keeps the original as a body too and follows it when it
+changes. It's the same idea as Phase 2's linear and circular patterns, so it'll be
+built with them: a Move whose input isn't used up, and patterns as many of them.
+
+## 5. Groups that move together (Phase 4)
 
 Moving several bodies as one is really a *part* placed in an *assembly*
 (Phase 4: assemblies and drawings). It needs its own design page first: what's

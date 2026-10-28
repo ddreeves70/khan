@@ -311,7 +311,7 @@ private:
                     m.setMotion(value);
                 };
                 addVec3(
-                    form, QStringLiteral("offset"), tr("Move by"), false,
+                    form, QStringLiteral("offset"), tr("Move"), false,
                     [motion](const model::Feature& g) { return motion(g).offset; },
                     [setMotion](model::Feature& g, kernel::Vec3 v) {
                         setMotion(g, [v](kernel::Motion& m) { m.offset = v; });
@@ -338,14 +338,14 @@ private:
                     turn->setValue(motion(g).angle * 180.0 / std::numbers::pi);
                 });
                 addVec3(
-                    form, QStringLiteral("axis"), tr("Turn about"), false,
+                    form, QStringLiteral("axis"), tr("Axis"), false,
                     [motion](const model::Feature& g) { return motion(g).axis; },
                     [setMotion](model::Feature& g, kernel::Vec3 v) {
                         setMotion(g, [v](kernel::Motion& m) { m.axis = v; });
                     },
                     QString());
                 addVec3(
-                    form, QStringLiteral("center"), tr("Turn around"), false,
+                    form, QStringLiteral("center"), tr("Center"), false,
                     [motion](const model::Feature& g) { return motion(g).center; },
                     [setMotion](model::Feature& g, kernel::Vec3 v) {
                         setMotion(g, [v](kernel::Motion& m) { m.center = v; });
