@@ -12,6 +12,7 @@ These pages describe how Khan is designed: what it will do, how the code is orga
 | --- | --- |
 | [Architecture](architecture.md) | Goals, the Fusion capability map, system layers, the geometry kernel, every major area (sketcher, modeling, assemblies, drawings, CAM, simulation), the plugin architecture, file formats and risks |
 | [Shared concepts between plugins](plugin-contracts.md) | How a plugin adds something other plugins share (the grid, snapping) without changing Khan's base: contracts, two-phase startup, dependencies and warnings |
+| [The sketcher](sketcher.md) | Phase 1: sketch values, the solver interface and PlaneGCS (built), then the sketch step, drawing and constraints in the app |
 | [View options](view-options.md) | One shared service for what the viewer shows (grid, axes, and later more): options declared as data, one View menu and panel, and different values per pane when you ask for them |
 | [Copying and grouping steps](copy-and-group.md) | Duplicate, copy and paste, turning steps off together, folders in the feature tree and a Move step (built, pulled forward after Phase 0); linked copies come with Phase 2's patterns, and groups that move together with Phase 4's assemblies |
 | [UI screens](ui-screens.md) | Mockups of the main window, split views, two monitors and the Plugin manager, with a numbered breakdown of each |

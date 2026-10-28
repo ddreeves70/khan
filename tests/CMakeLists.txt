@@ -23,6 +23,18 @@ add_executable(kh_tests
 target_link_libraries(kh_tests PRIVATE Catch2::Catch2WithMain kh::core kh::model kh::io libzip::zip
   kh::plugin kh::plugin_modeling)
 
+# The sketch library and the PlaneGCS solver. PlaneGCS is a shared library
+# (LGPL), so on Windows its DLL is copied next to the test program.
+add_executable(kh_sketch_tests sketch/test_sketch.cpp sketch/test_planegcs.cpp)
+target_link_libraries(kh_sketch_tests PRIVATE Catch2::Catch2WithMain kh::sketch kh::sketch_planegcs)
+kh_set_warnings(kh_sketch_tests)
+if(WIN32)
+  add_custom_command(TARGET kh_sketch_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:kh_sketch_tests> $<TARGET_FILE_DIR:kh_sketch_tests>
+    COMMAND_EXPAND_LISTS)
+endif()
+catch_discover_tests(kh_sketch_tests)
+
 # Plugins built as shared libraries and loaded by the tests: the plugin guide's
 # Hello plugin, and broken ones the host must refuse.
 add_subdirectory(plugin/fixtures)

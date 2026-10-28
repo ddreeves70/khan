@@ -13,6 +13,8 @@ INPUT                  = docs/api-mainpage.md \
                          src/core/include \
                          src/kernel/include \
                          src/kernel_occt/include \
+                         src/sketch/include \
+                         src/sketch_planegcs/include \
                          src/model/include \
                          src/io/include \
                          src/plugin/include \

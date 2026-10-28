@@ -77,7 +77,7 @@ Same steps with your platform's compiler and Ninja: set `VCPKG_ROOT` and `QT_DIR
 ```bash
 sudo apt install cmake ninja-build g++ catch2 qt6-base-dev qt6-base-private-dev libxcb1-dev libtbb-dev \
   libocct-foundation-dev libocct-modeling-data-dev libocct-modeling-algorithms-dev \
-  libocct-data-exchange-dev libocct-visualization-dev nlohmann-json3-dev libzip-dev \
+  libocct-data-exchange-dev libocct-visualization-dev nlohmann-json3-dev libzip-dev libeigen3-dev \
   zipcmp zipmerge ziptool xvfb
 # zipcmp, zipmerge and ziptool: libzip's CMake files expect them.
 # xvfb (optional): the view.gl test draws the 3D view on a virtual screen.

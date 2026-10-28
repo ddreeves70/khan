@@ -38,6 +38,8 @@ endif()
 # kh_io (the .khan file format) is always built: it needs a JSON and a zip library.
 find_package(nlohmann_json 3 CONFIG REQUIRED)
 find_package(libzip CONFIG REQUIRED)
+# Linear algebra for the sketch solver (header-only, MPL-2.0).
+find_package(Eigen3 3.3 CONFIG REQUIRED)
 
 if(KH_BUILD_APP)
   find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets OpenGLWidgets)
@@ -59,6 +61,9 @@ add_subdirectory(src/kernel)      # kh_kernel: IKernel interface, no OCCT types
 if(KH_WITH_OCCT)
   add_subdirectory(src/kernel_occt) # kh_kernel_occt: IKernel on OCCT
 endif()
+add_subdirectory(src/sketch)      # kh_sketch: sketch geometry, constraints, ISketchSolver
+add_subdirectory(third_party/planegcs)  # kh_planegcs: FreeCAD's solver, LGPL, a shared library
+add_subdirectory(src/sketch_planegcs)   # kh_sketch_planegcs: ISketchSolver on PlaneGCS
 add_subdirectory(src/model)       # kh_model: document, commands (Phase 0, week 3)
 add_subdirectory(src/io)          # kh_io: .khan files (zip + JSON)
 add_subdirectory(src/plugin)      # kh_plugin: plugin host, event bus, open documents

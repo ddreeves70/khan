@@ -6,7 +6,7 @@ adds, removes, upgrades or changes how Khan uses a dependency updates this page*
 (a CLAUDE.md rule), and the `docs.guides` test fails if a package in `vcpkg.json`
 or a `FetchContent` download in CMake isn't listed here.
 
-Last reviewed: Oct 24, 2026.
+Last reviewed: Oct 28, 2026.
 
 ## License rules
 
@@ -32,6 +32,8 @@ Khan's own code is Apache-2.0, free forever. A dependency must keep it that way:
 | **libzip** | The zip container of `.khan` files | `kh_io` | BSD-3-Clause | vcpkg (`libzip`, default features off); apt | 1.x | Stays |
 | **zlib** | Compression for libzip | via libzip | zlib | vcpkg (pulled in by libzip); system | | Stays |
 | **FreeType** | Fonts for labels OCCT draws (the view cube's FRONT, TOP, ...) | via OCCT | FreeType License (BSD-style) | vcpkg (pulled in by OCCT); system | | Stays while OCCT draws the view |
+| **PlaneGCS** (from FreeCAD) | The sketch constraint solver: moves sketch geometry so its constraints are true, counts degrees of freedom, finds conflicting and repeated constraints | `kh_sketch_planegcs` (only), through Khan's `ISketchSolver` | LGPL-2.1-or-later | A copy in `third_party/planegcs/`, built as its own **shared library** (`kh_planegcs`), with a few small changes listed in its README (no Boost, no FreeCAD headers) | FreeCAD commit `101dd78835` (Oct 28, 2026) | Stays, behind `ISketchSolver` so it can be replaced. Full B-spline support added in our copy (Phase 1) and offered back to FreeCAD |
+| **Eigen** | Linear algebra for PlaneGCS (and later Khan's own math) | `kh_planegcs` | MPL-2.0 (built with `EIGEN_MPL2_ONLY`, so no LGPL parts of Eigen are used) | vcpkg (`eigen3`); apt (`libeigen3-dev`) | 3.4 | Stays. Header-only |
 | **OpenGL** (system) | 3D drawing | `kh_view` via OCCT and Qt | Part of the graphics driver | The computer's graphics driver | 2.1 or newer (4.1 core on macOS) | Replaced by the WebGPU renderer, which draws through Vulkan, Metal or Direct3D |
 
 ### Build, test and docs tools (not shipped)
@@ -55,9 +57,6 @@ Khan's own code is Apache-2.0, free forever. A dependency must keep it that way:
 
 | Dependency | What it's for | When | License | Plan and open questions |
 | --- | --- | --- | --- | --- |
-| **PlaneGCS** (from FreeCAD) | The sketch constraint solver | Phase 1 | LGPL-2.1+ | Extract from FreeCAD into its own shared library behind Khan's `ISolver` interface, so it can be replaced. Supports splines only partly; we add full B-spline support (see the roadmap, Phase 1) and offer it back to FreeCAD |
-| **Eigen** | Linear algebra, used by PlaneGCS (and later our own math) | Phase 1 | MPL-2.0 | vcpkg (`eigen3`). Header-only |
-| **Boost** (a few header-only parts) | PlaneGCS uses some Boost headers | Phase 1 | BSL-1.0 | To confirm when extracting PlaneGCS; take only what it needs from vcpkg |
 | **pybind11** + embedded **CPython** | Python scripting, console, Python plugins; bindings generated from the command registry | Phase 5 | BSD-3-Clause; PSF | vcpkg (`pybind11`, `python3`). Ship Python with the installer |
 | **lib3mf** | 3MF import and export for 3D printing | Phase 3 | BSD-2-Clause | vcpkg (`lib3mf`). Alternative: write 3MF ourselves with libzip and nlohmann (it's zip + XML), if lib3mf is heavy |
 | **Our own DXF reader** | Importing splines, lines and arcs from DXF (Inkscape, other CAD) | Phase 1 or 2 | Apache-2.0 (ours) | The common DXF libraries (libdxfrw, dxflib) are GPL, and OCCT's DXF importer is commercial, so we write a small reader for the entities we need |
@@ -77,6 +76,7 @@ Khan's own code is Apache-2.0, free forever. A dependency must keep it that way:
 | OCCT's DXF importer | Commercial add-on |
 | FreeCAD's whole sketcher | Tied to FreeCAD's document model and GPL/LGPL code; we take only the solver (PlaneGCS) |
 | Static linking of Qt or OCCT | LGPL: users must be able to swap the library |
+| Boost (Graph) | PlaneGCS used it for one thing, finding which constraints affect each other. Khan's copy does that with a few lines of its own, so Khan doesn't need Boost (Oct 28, 2026) |
 
 ## Adding a dependency
 
