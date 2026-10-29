@@ -61,6 +61,11 @@ struct ActionSpec {
     /// (the other item keeps its keys the rest of the time). The menu item is
     /// always there either way.
     std::string toolbarMode{};
+    /// True: the toolbar button shows only while the item can be used (see
+    /// `enabled`), so the toolbar shows just what fits what's picked, like the
+    /// sketcher's constraint buttons. The menu item is always there (greyed out
+    /// when it can't be used).
+    bool buttonWhenEnabled = false;
     /// A picture for the toolbar button and menu item: SVG text, drawn in a 24 by 24
     /// box (`viewBox="0 0 24 24"`). Write `currentColor` for lines that should follow
     /// the theme (dark on a light theme, light on a dark one). Empty, or text that

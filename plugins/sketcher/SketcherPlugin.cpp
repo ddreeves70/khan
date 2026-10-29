@@ -1,6 +1,7 @@
 #include "kh/plugins/Sketcher.h"
 
 #include <QObject>
+#include <QPointer>
 #include <QString>
 
 #include <algorithm>
@@ -13,6 +14,8 @@
 #include <variant>
 #include <vector>
 
+#include "Constrain.h"
+#include "SketchPanel.h"
 #include "SketcherIcons.h"
 #include "kh/grid/Grid.h"
 #include "kh/model/Commands.h"
@@ -64,13 +67,17 @@ struct Pick {
     std::optional<sketch::PointRef> ref{};
 };
 
-// A part of the sketch the student can pick: one point of an entity, or a
-// whole entity (by its edge).
+// A part of the sketch the student can pick: one point of an entity, a whole
+// entity (by its edge), or a constraint (by its label).
 struct Item {
     EntityId entity{};
     std::optional<sketch::PointRole> point{};
+    ConstraintId constraint{};  // set for a constraint; then entity is nil
     bool operator==(const Item&) const = default;
+    bool isConstraint() const { return !constraint.isNil(); }
 };
+
+using sketcher::Rule;
 
 enum class Tool { Select, Line, Circle, Arc, Point };
 
@@ -142,7 +149,9 @@ public:
         draw();
         hint();
         ctx_.setToolbarMode(std::string(kEditingMode));  // the toolbar shows the sketch buttons
-        ctx_.publish(plugin::ActionsChanged{});          // Finish and the tools turn on, Edit turns off
+        if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showPanel("kh.sketcher.panel");
+        refreshPanels();
+        ctx_.publish(plugin::ActionsChanged{});  // Finish and the tools turn on, Edit turns off
     }
 
     void finish() {
@@ -153,6 +162,7 @@ public:
         draw();
         if (was) {
             message("Finished the sketch.");
+            refreshPanels();
             ctx_.setToolbarMode({});  // back to the usual toolbar
             ctx_.publish(plugin::ActionsChanged{});
         }
@@ -189,6 +199,14 @@ public:
                        std::ranges::any_of(c.points, [&](const auto& p) { return p.entity == id; });
             };
             for (const auto& item : items) {
+                if (item.isConstraint()) {
+                    if (const auto* c = s.find(item.constraint)) {
+                        names.push_back(c->name);
+                        std::erase_if(s.constraints,
+                                      [&](const sketch::Constraint& x) { return x.id == item.constraint; });
+                    }
+                    continue;
+                }
                 const auto* e = s.find(item.entity);
                 if (!e) continue;
                 const bool whole = !item.point || item.point == sketch::PointRole::Self;
@@ -216,6 +234,101 @@ public:
         ctx_.publish(plugin::ActionsChanged{});
     }
 
+    // --- Constraints and dimensions ---------------------------------------
+
+    // Whether a constraint or dimension button fits what's picked.
+    bool fits(Rule rule) const {
+        const auto* step = sketchStep(editing_);
+        if (!step || picked_.empty()) return false;
+        return !sketcher::plan(rule, picks(*step), {current(*step), step->sketch().constraints}).empty();
+    }
+
+    // Adds the constraints a button means for what's picked, as one undo step.
+    // A dimension starts at today's size, so nothing moves; its number is ready
+    // to type in the Sketch panel.
+    void constrain(Rule rule) {
+        const auto* step = sketchStep(editing_);
+        if (!step) return;
+        const auto info = sketcher::ruleInfo(rule);
+        auto adds = sketcher::plan(rule, picks(*step), {current(*step), step->sketch().constraints});
+        if (adds.empty()) {
+            problem("sketch.pick_for", std::string(info.text) + " needs " + info.needs +
+                                           " picked. Pick them with " +
+                                           "Select (Ctrl-click picks more), then try again.");
+            return;
+        }
+        for (auto& c : adds) c.id = ConstraintId::generate();
+        const bool dimension = sketch::isDimension(adds.front().kind);
+        auto change = [adds](sketch::Sketch& s, std::string& label) -> Diagnostics {
+            std::vector<std::string> added, already;
+            for (auto c : adds) {
+                const auto there = std::ranges::find_if(s.constraints, [&](const sketch::Constraint& x) {
+                    return sketcher::sameConstraint(x, c);
+                });
+                if (there != s.constraints.end()) {
+                    already.push_back(there->name);
+                    continue;
+                }
+                c.name = model::uniqueSketchName(s, sketcher::constraintBase(c.kind));
+                added.push_back(c.name);
+                s.constraints.push_back(std::move(c));
+            }
+            if (added.empty()) {
+                std::string names;
+                for (const auto& n : already) names += (names.empty() ? "" : ", ") + n;
+                return {{"sketch.already",
+                         Severity::Error,
+                         "That's already there: " + names + ". Pick something else, or delete it first.",
+                         {}}};
+            }
+            label = "Add " + (added.size() == 1 ? added[0] : std::to_string(added.size()) + " constraints");
+            return {};
+        };
+        picked_.clear();
+        if (dimension) justAdded_ = adds.front().id;  // the Sketch panel puts the cursor in its number
+        if (!run(std::move(change))) {
+            justAdded_ = {};
+            return;
+        }
+        refreshPanels();
+        if (dimension) {
+            message("Added " + std::string(info.text) +
+                    ". Type its number in the Sketch panel, then press Enter.");
+        } else {
+            hint();
+        }
+        draw();
+        ctx_.publish(plugin::ActionsChanged{});
+    }
+
+    // The dimension just added, for the Sketch panel to put the cursor in (once).
+    ConstraintId takeJustAdded() { return std::exchange(justAdded_, {}); }
+
+    // --- The Sketch panel ----------------------------------------------------
+
+    std::optional<FeatureId> editingStep() const {
+        return editing() ? std::optional<FeatureId>(editing_) : std::nullopt;
+    }
+    std::vector<ConstraintId> pickedConstraints() const {
+        std::vector<ConstraintId> out;
+        for (const auto& i : picked_) {
+            if (i.isConstraint()) out.push_back(i.constraint);
+        }
+        return out;
+    }
+    // A click on a constraint's row in the panel picks it in the viewer too.
+    void pickConstraint(const ConstraintId& id) {
+        picked_ = {Item{{}, std::nullopt, id}};
+        draw();
+        hint();
+        ctx_.publish(plugin::ActionsChanged{});
+    }
+    void addPanel(sketcher::SketchPanel* panel) { panels_.emplace_back(panel); }
+    void refreshPanels() {
+        std::erase_if(panels_, [](const auto& p) { return p.isNull(); });
+        for (auto& p : panels_) p->refresh();
+    }
+
     // Draws every sketch of the active design (and the edited one in front),
     // the edited one colored by what can still move.
     void draw() {
@@ -234,6 +347,14 @@ public:
         Overlay hoverPoints{.shape = OverlayShape::Points, .color = kHover, .size = 10};
         Overlay pickedLines{.shape = OverlayShape::Lines, .color = kPicked, .size = 3.5};
         Overlay pickedPoints{.shape = OverlayShape::Points, .color = kPicked, .size = 10};
+        Overlay conflictLines{.shape = OverlayShape::Lines, .color = kConflict, .size = 3};
+        auto labelsIn = [](plugin::OverlayColor color) {
+            return Overlay{.shape = OverlayShape::Labels, .color = color, .size = 13};
+        };
+        Overlay labels = labelsIn(kLabel), redundantLabels = labelsIn(kRedundant),
+                conflictLabels = labelsIn(kConflict), hoverLabels = labelsIn(kHover),
+                pickedLabels = labelsIn(kPicked);
+        labels_.clear();
         if (doc) {
             for (std::size_t i = 0; i < doc->featureCount(); ++i) {
                 const auto& f = doc->featureAt(i);
@@ -269,6 +390,7 @@ public:
                 }
                 // Picked, and under the mouse (in Select).
                 auto showItem = [&](const Item& item, Overlay& lines, Overlay& points) {
+                    if (item.isConstraint()) return;  // its label is drawn orange instead
                     const sketch::Sketch s{entities, {}};
                     const auto* e = s.find(item.entity);
                     if (!e) return;
@@ -284,15 +406,82 @@ public:
                 };
                 if (hoverItem_ && !drag_) showItem(*hoverItem_, hoverLines, hoverPoints);
                 for (const auto& item : picked_) showItem(item, pickedLines, pickedPoints);
+
+                // Constraint labels: "H", "40 mm", ... beside what they're on. Ones that
+                // can't all be true are red (with what they're on); repeats are amber.
+                const auto* last = lastResult(step);
+                auto listed = [](const std::vector<ConstraintId>& ids, const ConstraintId& id) {
+                    return std::ranges::find(ids, id) != ids.end();
+                };
+                const sketch::Sketch whole{entities, step.sketch().constraints};
+                // (Not a structured binding: older Apple clang can't use those in lambdas.)
+                const auto spacing = labelSpacing(entities);
+                const double gap = spacing.first;
+                const sketch::Point2 middle = spacing.second;
+                // Labels already placed, as boxes: their middle and half their width
+                // (about 0.6 of a letter's height per letter; a letter is about `gap` tall).
+                std::vector<std::pair<sketch::Point2, double>> used;
+                auto overlaps = [&](sketch::Point2 at, double half) {
+                    return std::ranges::any_of(used, [&](const auto& u) {
+                        return std::abs(u.first.x - at.x) < u.second + half &&
+                               std::abs(u.first.y - at.y) < gap * 0.9;
+                    });
+                };
+                for (const auto& c : whole.constraints) {
+                    const auto text = sketcher::labelText(c);
+                    const auto spot = sketcher::labelPlace(c, whole, gap, middle);
+                    if (text.empty() || !spot) continue;
+                    const double half = 0.3 * gap * static_cast<double>(QString::fromStdString(text).size());
+                    // A label where another one is moves on: further out above and below
+                    // a line, downwards beside one (labels are wider than they're tall).
+                    const bool sideways = std::abs(spot->away.x) > std::abs(spot->away.y);
+                    const sketch::Point2 move = sideways
+                                                    ? sketch::Point2{0, -gap}
+                                                    : sketch::Point2{spot->away.x * gap, spot->away.y * gap};
+                    auto place = spot->at;
+                    if (sideways) place.x += spot->away.x * half;  // its near edge at the gap, not its middle
+                    for (int tries = 0; tries < 12 && overlaps(place, half); ++tries) {
+                        place = {place.x + move.x, place.y + move.y};
+                    }
+                    used.emplace_back(place, half);
+                    labels_.emplace_back(c.id, place);
+                    const Item item{{}, std::nullopt, c.id};
+                    const bool conflict = last && listed(last->conflicting, c.id);
+                    Overlay& into = std::ranges::find(picked_, item) != picked_.end() ? pickedLabels
+                                    : hoverItem_ == item && !drag_                    ? hoverLabels
+                                    : conflict                                        ? conflictLabels
+                                    : last && listed(last->redundant, c.id)           ? redundantLabels
+                                                                                      : labels;
+                    into.points.push_back(model::toDesign(step.plane(), place));
+                    into.texts.push_back(text);
+                    if (conflict) {
+                        for (const auto& e : entities) {
+                            const bool on = std::ranges::find(c.entities, e.id) != c.entities.end() ||
+                                            std::ranges::any_of(
+                                                c.points, [&](const auto& p) { return p.entity == e.id; });
+                            if (on) lineInto(conflictLines, e);
+                        }
+                    }
+                }
             }
         }
         // Redrawn in this order every time, so what's picked is always on top.
-        const std::pair<const char*, Overlay*> layers[] = {
-            {"sketches", &others},         {"edit.helpers", &helpers},
-            {"edit.lines", &freeLines},    {"edit.fixed", &fixedLines},
-            {"edit.points", &freePoints},  {"edit.fixed_points", &fixedPoints},
-            {"edit.hover", &hoverLines},   {"edit.hover_points", &hoverPoints},
-            {"edit.picked", &pickedLines}, {"edit.picked_points", &pickedPoints}};
+        const std::pair<const char*, Overlay*> layers[] = {{"sketches", &others},
+                                                           {"edit.helpers", &helpers},
+                                                           {"edit.lines", &freeLines},
+                                                           {"edit.fixed", &fixedLines},
+                                                           {"edit.points", &freePoints},
+                                                           {"edit.fixed_points", &fixedPoints},
+                                                           {"edit.hover", &hoverLines},
+                                                           {"edit.hover_points", &hoverPoints},
+                                                           {"edit.picked", &pickedLines},
+                                                           {"edit.picked_points", &pickedPoints},
+                                                           {"edit.conflict", &conflictLines},
+                                                           {"edit.labels", &labels},
+                                                           {"edit.labels_repeated", &redundantLabels},
+                                                           {"edit.labels_conflict", &conflictLabels},
+                                                           {"edit.labels_hover", &hoverLabels},
+                                                           {"edit.labels_picked", &pickedLabels}};
         for (const auto& [name, overlay] : layers) overlays.remove(name);
         for (const auto& [name, overlay] : layers) show(overlays, name, std::move(*overlay));
         drawPreview();
@@ -370,7 +559,7 @@ public:
         if (!step || !solver) return;
         if (!drag_) {
             const auto item = itemAt(from);
-            if (!item) return;  // nothing under the mouse to drag
+            if (!item || item->isConstraint()) return;  // nothing under the mouse to drag
             drag_ = Drag{*item, sketch::Sketch{current(*step), step->sketch().constraints}};
             if (std::ranges::find(picked_, *item) == picked_.end()) picked_ = {*item};
             ctx_.publish(plugin::ActionsChanged{});
@@ -455,6 +644,7 @@ public:
             picked_.clear();
             draw();
             hint();
+            refreshPanels();
             ctx_.publish(plugin::ActionsChanged{});
             return;
         }
@@ -465,13 +655,24 @@ public:
     // and lets go of picked parts that went away.
     void checkStillThere() {
         if (editing() && (ctx_.documents().active() != doc_ || !sketchStep(editing_))) finish();
+        // Constraints that can't all be true: say which, in plain words (they're red too).
+        if (const auto* step = sketchStep(editing_)) {
+            const auto* last = lastResult(*step);
+            if (last && last->status == sketch::SolveStatus::Conflicting && !last->issues.empty()) {
+                if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showProblems(last->issues);
+            }
+        }
         if (const auto* step = sketchStep(editing_)) {
             const auto before = picked_.size();
-            std::erase_if(picked_, [&](const Item& i) { return !step->sketch().find(i.entity); });
-            if (hoverItem_ && !step->sketch().find(hoverItem_->entity)) hoverItem_.reset();
+            auto gone = [&](const Item& i) {
+                return i.isConstraint() ? !step->sketch().find(i.constraint) : !step->sketch().find(i.entity);
+            };
+            std::erase_if(picked_, gone);
+            if (hoverItem_ && gone(*hoverItem_)) hoverItem_.reset();
             if (picked_.size() != before) ctx_.publish(plugin::ActionsChanged{});
         }
         draw();
+        refreshPanels();
     }
 
 private:
@@ -481,13 +682,41 @@ private:
     static constexpr plugin::OverlayColor kFixed{31, 35, 40};
     static constexpr plugin::OverlayColor kPicked{230, 110, 0};
     static constexpr plugin::OverlayColor kHover{245, 170, 80};
-    static constexpr double kEdgePixels = 6;  // how close the mouse must be to a line to pick it
+    static constexpr plugin::OverlayColor kLabel{55, 65, 81};       // constraint labels
+    static constexpr plugin::OverlayColor kConflict{207, 34, 46};   // constraints that can't all be true
+    static constexpr plugin::OverlayColor kRedundant{176, 120, 0};  // constraints that repeat others
+    static constexpr double kEdgePixels = 6;    // how close the mouse must be to a line to pick it
+    static constexpr double kLabelPixels = 12;  // ... and to a constraint's label
 
     struct Drag {
         Item item;                                         // what's dragged
         sketch::Sketch start;                              // the sketch when the drag started
         std::optional<std::vector<sketch::Entity>> now{};  // where the solver has it now
     };
+
+    // What's picked, sorted for the constraint rules. A picked constraint
+    // label counts as something no rule takes.
+    sketcher::Picks picks(const model::SketchFeature& step) const {
+        sketcher::Picks out;
+        const sketch::Sketch s{current(step), {}};
+        for (const auto& item : picked_) {
+            const auto* e = item.isConstraint() ? nullptr : s.find(item.entity);
+            if (!e) {
+                ++out.other;
+                continue;
+            }
+            if (item.point) {
+                out.points.push_back({item.entity, *item.point});
+            } else if (std::holds_alternative<sketch::PointShape>(e->shape)) {
+                out.points.push_back({item.entity, sketch::PointRole::Self});
+            } else if (std::holds_alternative<sketch::LineShape>(e->shape)) {
+                out.lines.push_back(item.entity);
+            } else {
+                out.rounds.push_back(item.entity);
+            }
+        }
+        return out;
+    }
 
     void reset() {
         pending_.clear();
@@ -542,6 +771,31 @@ private:
                                                             : nullptr;
     }
 
+    // The last solve of a sketch step, however it ended (for conflicts).
+    const sketch::SolveResult* lastResult(const model::SketchFeature& step) const {
+        const auto* report = ctx_.documents().lastRebuild(ctx_.documents().active());
+        const auto* r = report ? report->result(step.id()) : nullptr;
+        return r && r->sketch ? &*r->sketch : nullptr;
+    }
+
+    // How far labels sit from what they're on (a little, for the sketch's size),
+    // and the middle of the sketch, so labels go on the outside.
+    static std::pair<double, sketch::Point2> labelSpacing(const std::vector<sketch::Entity>& entities) {
+        double x0 = 1e300, y0 = 1e300, x1 = -1e300, y1 = -1e300;
+        auto grow = [&](double x, double y, double r) {
+            x0 = std::min(x0, x - r), y0 = std::min(y0, y - r), x1 = std::max(x1, x + r),
+            y1 = std::max(y1, y + r);
+        };
+        for (const auto& [ref, p] : sketchPoints(entities)) grow(p.x, p.y, 0);
+        for (const auto& e : entities) {
+            if (const auto* c = std::get_if<sketch::CircleShape>(&e.shape))
+                grow(c->center.x, c->center.y, c->radius);
+        }
+        if (x1 < x0) return {1, {0, 0}};
+        const double size = std::hypot(x1 - x0, y1 - y0);
+        return {std::clamp(size * 0.06, 0.5, 20.0), {(x0 + x1) / 2, (y0 + y1) / 2}};
+    }
+
     const sketch::SolveResult* solveResult(const model::SketchFeature& step) const {
         const auto* report = ctx_.documents().lastRebuild(ctx_.documents().active());
         const auto* r = report ? report->result(step.id()) : nullptr;
@@ -580,7 +834,7 @@ private:
     }
 
     // The part of the edited sketch under the mouse: a point within 8 pixels,
-    // else an edge within 6.
+    // else an edge within 6, else a constraint's label within 12.
     std::optional<Item> itemAt(const viewer::ToolPoint& point) const {
         const auto* step = sketchStep(editing_);
         if (!step) return std::nullopt;
@@ -606,6 +860,17 @@ private:
                 bestDistance = *d;
             }
         }
+        if (best) return best;
+        // Then constraint labels, beside what they're on (points and lines win when
+        // the mouse is right on them).
+        bestDistance = kLabelPixels * point.pixel;
+        for (const auto& [id, p] : labels_) {
+            const double d = distance(at, p);
+            if (d < bestDistance) {
+                best = Item{{}, std::nullopt, id};
+                bestDistance = d;
+            }
+        }
         return best;
     }
 
@@ -625,6 +890,7 @@ private:
         }
         draw();
         hint();
+        refreshPanels();
         ctx_.publish(plugin::ActionsChanged{});  // Delete turns on or off
     }
 
@@ -775,12 +1041,22 @@ private:
         std::string what;
         const sketch::Sketch* s = step ? &step->sketch() : nullptr;
         for (const auto& item : picked_) {
+            if (item.isConstraint()) {
+                if (const auto* c = s ? s->find(item.constraint) : nullptr)
+                    what += (what.empty() ? "" : ", ") + c->name;
+                continue;
+            }
             const auto* e = s ? s->find(item.entity) : nullptr;
             if (!e) continue;
             what +=
                 (what.empty() ? "" : ", ") + (item.point ? e->name + "'s " + roleName(*item.point) : e->name);
         }
-        message("Picked " + what + ". Drag to move it; Ctrl-click picks more; Delete deletes; Esc lets go.");
+        const bool labelsOnly =
+            std::ranges::all_of(picked_, [](const Item& item) { return item.isConstraint(); });
+        message("Picked " + what +
+                (labelsOnly
+                     ? ". Delete deletes it; change a number in the Sketch panel; Esc lets go."
+                     : ". The buttons show what you can add; drag to move; Delete deletes; Esc lets go."));
     }
 
     void message(const std::string& text) {
@@ -796,12 +1072,15 @@ private:
     FeatureId editing_{};  // the sketch being edited, or nil
     DocId doc_{};
     Tool tool_ = Tool::Line;
-    std::vector<Pick> pending_;      // the clicks of the shape being drawn
-    std::optional<Pick> hover_;      // where the mouse is (drawing tools)
-    std::optional<Item> hoverItem_;  // what's under the mouse (Select)
-    std::vector<Item> picked_;       // what's picked (Select), in picking order
-    std::optional<Drag> drag_;       // what's being dragged
-    bool dragCancelled_ = false;     // Escape during a drag: ignore its drop
+    std::vector<Pick> pending_;                                    // the clicks of the shape being drawn
+    std::optional<Pick> hover_;                                    // where the mouse is (drawing tools)
+    std::optional<Item> hoverItem_;                                // what's under the mouse (Select)
+    std::vector<Item> picked_;                                     // what's picked (Select), in picking order
+    std::optional<Drag> drag_;                                     // what's being dragged
+    std::vector<std::pair<ConstraintId, sketch::Point2>> labels_;  // where the edited sketch's labels are
+    ConstraintId justAdded_{};
+    std::vector<QPointer<sketcher::SketchPanel>> panels_;  // a new dimension, for the Sketch panel
+    bool dragCancelled_ = false;                           // Escape during a drag: ignore its drop
 };
 
 void registerSketcher(plugin::PluginContext& ctx) {
@@ -937,6 +1216,76 @@ void registerSketcher(plugin::PluginContext& ctx) {
             .run = [sketcher, tool] { sketcher->setTool(tool); },
             .checked = [sketcher, tool] { return sketcher->editing() && sketcher->tool() == tool; },
             .enabled = [sketcher] { return sketcher->editing(); }});
+    }
+
+    // The Sketch panel: the edited sketch's constraints, with numbers to type.
+    if (auto* ui = ctx.service<ui::UiRegistry>()) {
+        ui->addPanel({"kh.sketcher.panel", QObject::tr("Sketch"), ui::PanelArea::Right,
+                      [&ctx, sketcher] {
+                          auto* panel = new sketcher::SketchPanel(
+                              ctx,
+                              {.editing = [sketcher] { return sketcher->editingStep(); },
+                               .picked = [sketcher] { return sketcher->pickedConstraints(); },
+                               .pick = [sketcher](const ConstraintId& id) { sketcher->pickConstraint(id); },
+                               .takeJustAdded = [sketcher] { return sketcher->takeJustAdded(); }});
+                          sketcher->addPanel(panel);
+                          return panel;
+                      },
+                      false, true});  // starts closed; it opens when a sketch is edited
+    }
+
+    // Constraints and dimensions: a button for each, shown only when it fits
+    // what's picked, so the toolbar offers just what makes sense.
+    auto iconFor = [](Rule rule) -> std::string_view {
+        namespace i = icons::sketcher;
+        switch (rule) {
+            case Rule::Coincident:
+                return i::coincident_svg;
+            case Rule::Horizontal:
+                return i::horizontal_svg;
+            case Rule::Vertical:
+                return i::vertical_svg;
+            case Rule::Parallel:
+                return i::parallel_svg;
+            case Rule::Perpendicular:
+                return i::perpendicular_svg;
+            case Rule::Equal:
+                return i::equal_svg;
+            case Rule::Tangent:
+                return i::tangent_svg;
+            case Rule::On:
+                return i::on_svg;
+            case Rule::Midpoint:
+                return i::midpoint_svg;
+            case Rule::Fix:
+                return i::fix_svg;
+            case Rule::Dimension:
+                return i::dimension_svg;
+            case Rule::HorizontalDimension:
+                return i::horizontal_dimension_svg;
+            case Rule::VerticalDimension:
+                return i::vertical_dimension_svg;
+        }
+        return {};
+    };
+    for (const Rule rule : sketcher::allRules()) {
+        const auto info = sketcher::ruleInfo(rule);
+        const bool dimension =
+            rule == Rule::Dimension || rule == Rule::HorizontalDimension || rule == Rule::VerticalDimension;
+        ctx.addAction(
+            ActionSpec{.id = std::string("kh.sketcher.") + info.id,
+                       .text = info.text,
+                       .menu = dimension ? "Sketch/Dimension" : "Sketch/Constrain",
+                       .toolbar = true,
+                       .buttonText = rule == Rule::HorizontalDimension ? "Width"
+                                     : rule == Rule::VerticalDimension ? "Height"
+                                                                       : "",
+                       .toolbarMode = std::string(kEditingMode),
+                       .buttonWhenEnabled = true,
+                       .icon = std::string(iconFor(rule)),
+                       .tip = info.tip,
+                       .run = [sketcher, rule] { sketcher->constrain(rule); },
+                       .enabled = [sketcher, rule] { return sketcher->editing() && sketcher->fits(rule); }});
     }
 
     // Redraw after every rebuild, and stop editing a sketch that went away.

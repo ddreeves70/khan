@@ -676,10 +676,10 @@
         ]
       },
       "crop": [
-        1044,
+        938,
         78,
-        236,
-        320
+        342,
+        340
       ]
     },
     {
@@ -891,6 +891,30 @@
         78,
         676,
         560
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-sketch-conflict.png",
+      "size": "1280x800",
+      "script": "plate-free",
+      "commands": [
+        "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Line1.end value=30"
+      ],
+      "check": false,
+      "app": {
+        "open": "plate-free.khan",
+        "select": [
+          "Sketch1"
+        ],
+        "trigger": [
+          "kh.sketcher.edit"
+        ]
+      },
+      "crop": [
+        262,
+        78,
+        1018,
+        500
       ]
     }
   ]

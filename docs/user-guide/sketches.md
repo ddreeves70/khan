@@ -79,8 +79,57 @@ black it's **fully constrained**: its size and place are completely set, which
 is what you want before you build a part from it. Dragging something black moves
 nothing. Properties shows the same thing as a number: **Free to move**.
 
-Add the other constraints and dimensions with `kh_cli` for now (see below);
-adding them in the app comes next.
+## Constraints and dimensions
+
+![Editing the plate: every constraint is labeled beside what it's on, and the Sketch panel lists them with their numbers](images/app-sketch-edit.png)
+
+Pick what you want to constrain with **Select**, then click a button. The
+buttons only show when they fit what's picked: pick one line and you get
+**Horizontal**, **Vertical**, **Dimension**, **Width** and **Height**; pick two
+lines and you get **Parallel**, **Perpendicular**, **Equal** and an angle
+**Dimension**. (All of them are in **Sketch > Constrain** and **Sketch >
+Dimension** too, greyed out when they don't fit.) If the buttons don't fit across
+the window, the rest go on a second row.
+
+| Button | Pick | It keeps true |
+| --- | --- | --- |
+| **Coincident** | two points (ends or centers) | they're the same point |
+| **Horizontal**, **Vertical** | one or more lines | each line is level, or straight up and down |
+| **Parallel** | two or more lines | they point the same way |
+| **Perpendicular** | two lines | they meet at 90° |
+| **Equal** | two or more lines, or circles and arcs | the same length, or the same size |
+| **Tangent** | a line and a circle or arc, or two circles or arcs | they touch without crossing |
+| **On** | a point and a line, circle or arc | the point is on it |
+| **Midpoint** | a point and a line | the point is in the middle of the line |
+| **Fix** | one or more points | they stay where they are now |
+| **Dimension** | a line, a circle, an arc, two points, or two lines | its length, diameter (Ø), radius (R), the distance between the points, or the angle between the lines |
+| **Width**, **Height** | two points, or a line | how far apart they are from left to right, or bottom to top |
+
+- **Typing a number.** A new dimension starts at the size the drawing already
+  has, so nothing jumps. The **Sketch** panel opens with the cursor in its
+  number: type the size you want and press **Enter**, and the sketch changes to
+  match. You can change any dimension there later, the same way.
+- **Labels.** Every constraint has a label beside what it's on: **H**, **V**,
+  **//** (parallel), **90°** (perpendicular), **=**, **T** (tangent), **On**,
+  **Mid**, **Fix**, and the numbers of the dimensions (**40 mm**, **Ø8 mm**,
+  **R4 mm**, **x 10 mm** for a width, **y 10 mm** for a height). Coincident
+  points just share a dot.
+- **Picking a constraint.** Click its label, or its row in the Sketch panel. It
+  turns orange, and **Delete** deletes it.
+- **Already there?** Adding a constraint the sketch already has does nothing, and
+  says which one it is.
+
+### When constraints fight
+
+![Two dimensions that can't both be true are red, and the Sketch panel says which](images/app-sketch-conflict.png)
+
+If constraints can't all be true at once (a line can't be 40 mm long *and*
+30 mm wide while it's horizontal), Khan doesn't change the drawing: it shows
+those constraints, and what they're on, in **red**, and the status bar and the
+Sketch panel say which ones. Undo, delete one of them, or change a number.
+
+A constraint in **amber** says what others already say (a line that's horizontal
+twice). The sketch still works; you can delete it to tidy up.
 
 ## Example with kh_cli
 

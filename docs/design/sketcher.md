@@ -1,6 +1,6 @@
 # The sketcher (Phase 1)
 
-> **Draft.** Steps 1 (the solver), 2 (the Sketch step), 3 (drawing in the app) and 4a (picking and dragging) are built. The rest is the plan, in the order it
+> **Draft.** Steps 1 (the solver), 2 (the Sketch step), 3 (drawing in the app) and 4 (picking, dragging, constraints and dimensions in the app) are built. The rest is the plan, in the order it
 > will be built. See the [roadmap](roadmap.md#phase-1-sketcher) for Phase 1's exit
 > check.
 
@@ -18,8 +18,8 @@ revolve).
 | 2. Sketch step | A `Sketch` step in the design: on a plane (XY, XZ, YZ), its entities and constraints, saved in the `.khan` file, changed only by commands (add line, add constraint, set dimension, ...), solved on rebuild | Built |
 | 3. Drawing in the app | Edit a sketch in the viewer: draw lines, arcs and circles with the mouse, snap to the grid and to points | Built |
 | 4a. Picking and dragging | Pick sketch lines and points in the viewer (Select), drag them with the solver keeping every constraint true, delete them; what can still move shown by color (free blue, fixed black) | Built |
-| 4b. Constraints in the app | Add constraints and dimensions from the toolbar and by typing numbers; show them on the drawing; conflicts highlighted with a plain message | Next |
-| 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | |
+| 4b. Constraints in the app | Add constraints and dimensions from the toolbar and by typing numbers; show them on the drawing; conflicts highlighted with a plain message | Built |
+| 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | Next |
 | 6. Extrude | Profiles become solids (Phase 2 starts properly here) | |
 | 7. B-splines | Full spline support, as the roadmap lists | |
 
@@ -174,6 +174,37 @@ after scattering the heap between solves.
   sitting next to it, since no release has shipped `/1`.
 - **Delete.** The Delete key deletes picked parts while a sketch is edited: an
   item with a `toolbarMode` wins a shared shortcut while its mode is on.
+
+## Constraints and dimensions in the app (step 4b)
+
+- **Buttons that fit what's picked.** `plugins/sketcher/Constrain.cpp` sorts what's
+  picked into points, lines and round things, and `plan(rule, picks, sketch)`
+  gives the constraints a button adds, or nothing if it doesn't fit. Buttons have
+  `ActionSpec::buttonWhenEnabled` (plugin API 16), so only fitting ones show, and
+  the shell wraps the rest onto a second toolbar row when they don't fit across
+  the window. Several lines picked get one constraint each (Horizontal) or one per
+  pair with the first (Parallel, Equal), in one undo step; a constraint the sketch
+  already has (either way round) is refused with its name.
+- **Dimensions start at today's size.** Length, Diameter (circles), Radius (arcs),
+  Distance, Angle (`direction(b) - direction(a)`, as `error()` measures it),
+  Horizontal and Vertical distance are measured from the drawing, so adding one
+  moves nothing; the Sketch panel puts the cursor in its number.
+- **The Sketch panel** (`kh.sketcher.panel`, right side, opens when editing
+  starts): the sketch's freedom or its problem, and every constraint with what
+  it's on; dimensions have a number box that runs `sketch.set_value` on Enter.
+  The change runs just after the box's Enter handler returns, because the rebuild
+  makes the list again and deletes the box (a crash the conflict test found).
+  Right-side panels now share the side as tabs.
+- **Labels** are a Labels overlay: short words (H, V, //, 90°, =, T, On, Mid, Fix)
+  and numbers with units, in characters every system font has. Each goes beside
+  what it's on, on the side away from the middle of the sketch, a gap of 6% of
+  the sketch's size away; one that would overlap another (as a box: about 0.6 of
+  a letter's height per letter) moves further out, or down beside an upright
+  line. A click picks points first, then edges, then labels within 12 pixels.
+- **Conflicts and repeats.** The last solve's `conflicting` constraints are
+  red, with what they're on; `redundant` ones are amber. The solver's plain
+  message shows in the status bar and the panel. A conflicting sketch is drawn as
+  it was drawn, since there's no solved shape.
 
 ## Choices
 

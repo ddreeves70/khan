@@ -23,6 +23,7 @@
 #include <QPixmap>
 #include <QSettings>
 #include <QStatusBar>
+#include <QTableWidget>
 #include <QTemporaryDir>
 #include <QToolBar>
 #include <QToolButton>
@@ -88,6 +89,8 @@ void units(plugin::PluginContext& ctx) {
     ctx.addAction({.id = "test.units.measure",
                    .text = "Measure",
                    .menu = "View/Units",
+                   .toolbar = true,
+                   .buttonWhenEnabled = true,  // on the toolbar only while it can be used
                    .run = [] {},
                    .enabled = [] { return tapeReady; }});
     ctx.addAction({.id = "test.units.broken_rule",
@@ -207,7 +210,7 @@ struct App {
 TEST_CASE("the shell is built from plugins", "[app]") {
     App app;
     CHECK(app.shell->dockIds() ==
-          QStringList({"kh.featuretree.panel", "kh.properties.panel", "kh.viewer.main",
+          QStringList({"kh.featuretree.panel", "kh.properties.panel", "kh.sketcher.panel", "kh.viewer.main",
                        "kh.viewoptions.panel"}));  // no test.broken.panel
     CHECK(app.shell->action("kh.modeling.box"));
     CHECK(app.shell->action("kh.modeling.cut"));
@@ -236,16 +239,48 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
     REQUIRE(toolbar);
     CHECK(toolbar->toolButtonStyle() == Qt::ToolButtonTextUnderIcon);  // words too, for new users
     int buttons = 0;
-    for (auto* a : toolbar->actions()) {
-        if (a->isSeparator()) continue;
+    auto rows = toolbar->actions();
+    rows += app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"))->actions();
+    for (auto* a : rows) {
+        if (a->isSeparator() || a->objectName().startsWith(QStringLiteral("test.")))
+            continue;  // Khan's own only
         ++buttons;
         INFO(a->text().toStdString());
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 6 + 2 + 6);  // Khan's own, kh.modeling, kh.sketcher, sketch-editing
+    CHECK(buttons == 5 + 6 + 2 + 6 + 13);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
+}
+
+TEST_CASE("buttons that don't fit go on a second row, which goes away when they fit", "[app][icons]") {
+    App app;
+    auto* row1 = app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar"));
+    auto* row2 = app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"));
+    REQUIRE(row2);
+    app.shell->resize(2400, 800);
+    settle();
+    CHECK(row2->isHidden());
+    CHECK(row1->actions().contains(app.shell->button("kh.sketcher.edit")));
+    app.shell->resize(520, 800);  // too narrow for every button
+    settle();
+    CHECK_FALSE(row2->isHidden());
+    CHECK(row2->actions().contains(app.shell->button("kh.sketcher.edit")));  // the last one wraps
+    CHECK(row1->actions().contains(app.shell->undoAction()));                // Khan's own stay first
+    // Still in order: the first row ends where the second starts.
+    QStringList order;
+    for (auto* bar : {row1, row2}) {
+        for (auto* a : bar->actions()) {
+            if (!a->objectName().isEmpty() && a->objectName().endsWith(QStringLiteral(".button")))
+                order << a->objectName();
+        }
+    }
+    CHECK(order.indexOf(QStringLiteral("kh.modeling.box.button")) <
+          order.indexOf(QStringLiteral("kh.sketcher.edit.button")));
+    app.shell->resize(2400, 800);
+    settle();
+    CHECK(row2->isHidden());
 }
 
 TEST_CASE("an SVG icon follows the theme's text color, and greys out when disabled", "[app][icons]") {
@@ -890,6 +925,157 @@ TEST_CASE("Escape during a drag puts it back", "[app][sketcher]") {
     CHECK(d.line(1).end.x == Approx(60).margin(1e-6));
     CHECK(d.app.doc().undoLabel() == "Add Circle1");
     CHECK(seenViewer->tool() != nullptr);  // still editing
+}
+
+namespace {
+
+// The texts of one of the sketcher's label overlays.
+std::vector<std::string> labelTexts(App& app, const char* name) {
+    const auto* o = app.host.overlays().find(std::string("kh.sketcher.") + name);
+    return o ? o->texts : std::vector<std::string>{};
+}
+
+QDoubleSpinBox* numberBox(App& app, const char* constraint) {
+    auto* panel = app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"));
+    return panel ? panel->findChild<QDoubleSpinBox*>(QString::fromLatin1(constraint)) : nullptr;
+}
+
+void typeNumber(QDoubleSpinBox* box, double value) {
+    box->setValue(value);
+    emit box->editingFinished();
+    settle();
+}
+
+}  // namespace
+
+TEST_CASE("constraint buttons show only when they fit what's picked", "[app][sketcher][constrain]") {
+    Drawn d;
+    auto shown = [&](const char* id) { return d.app.shell->button(id)->isVisible(); };
+    CHECK_FALSE(shown("kh.sketcher.horizontal"));  // nothing picked: no constraint buttons
+    CHECK_FALSE(shown("kh.sketcher.dimension"));
+    clickAt(d.flat, {30, 0, 0});  // Line1
+    CHECK(shown("kh.sketcher.horizontal"));
+    CHECK(shown("kh.sketcher.dimension"));
+    CHECK(shown("kh.sketcher.horizontal_dimension"));
+    CHECK(d.app.shell->button("kh.sketcher.horizontal_dimension")->text() == QStringLiteral("Width"));
+    CHECK_FALSE(shown("kh.sketcher.parallel"));
+    ctrlClickAt(d.flat, {30, 40, 0});  // and Line3
+    CHECK(shown("kh.sketcher.parallel"));
+    CHECK_FALSE(shown("kh.sketcher.coincident"));
+    // The menu always has them all, greyed out when they don't fit.
+    CHECK_FALSE(d.app.shell->action("kh.sketcher.coincident")->isEnabled());
+    d.app.click("kh.sketcher.finish");
+    CHECK_FALSE(shown("kh.sketcher.parallel"));
+}
+
+TEST_CASE("picking in a narrow window doesn't move the view (the rows stay put)",
+          "[app][sketcher][constrain]") {
+    Drawn d;
+    d.app.shell->resize(760, 700);  // too narrow for every sketch button on one row
+    settle();
+    auto* row2 = d.app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"));
+    CHECK_FALSE(row2->isHidden());  // the second row is there while editing, even with nothing picked
+    const QRect before(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
+    clickAt(d.flat, {30, 0, 0});  // Line1: its constraint buttons appear
+    CHECK(d.app.shell->button("kh.sketcher.horizontal")->isVisible());
+    const QRect after(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
+    CHECK(before == after);
+    // And a drag that picks something lands where the mouse went (this failed on
+    // Windows when the second row appeared mid-drag).
+    dragAt(d.flat, {30, 20, 0}, {32, 20, 0});  // Circle1's edge
+    CHECK(std::get<sketch::CircleShape>(d.sketch().entities[4].shape).radius == Approx(12).margin(0.1));
+}
+
+TEST_CASE("Horizontal adds a constraint labeled H, as one undo step, and only once",
+          "[app][sketcher][constrain]") {
+    Drawn d;
+    clickAt(d.flat, {30, 0, 0});
+    ctrlClickAt(d.flat, {30, 40, 0});
+    d.app.click("kh.sketcher.horizontal");  // both lines, one step
+    REQUIRE(d.sketch().constraints.size() == 6);
+    CHECK(d.sketch().constraints[4].name == "Horizontal1");
+    CHECK(d.app.doc().undoLabel() == "Add 2 constraints");
+    CHECK(labelTexts(d.app, "edit.labels") == std::vector<std::string>{"H", "H"});
+    CHECK(d.overlayPoints("edit.picked") == 0);  // picks are let go
+    clickAt(d.flat, {30, 0, 0});
+    d.app.click("kh.sketcher.horizontal");
+    REQUIRE_FALSE(d.app.shell->lastProblems().empty());
+    CHECK(d.app.shell->lastProblems()[0].code == "sketch.already");
+    CHECK(d.app.shell->lastProblems()[0].message.find("Horizontal1") != std::string::npos);
+    d.app.shell->undoAction()->trigger();
+    settle();
+    CHECK(d.sketch().constraints.size() == 4);
+}
+
+TEST_CASE("Dimension: the number is ready to type in the Sketch panel, and typing changes the sketch",
+          "[app][sketcher][constrain]") {
+    Drawn d;
+    clickAt(d.flat, {30, 0, 0});
+    d.app.click("kh.sketcher.dimension");
+    const auto* length = d.sketch().findConstraint("Length1");
+    REQUIRE(length);
+    CHECK(length->value == Approx(60));  // today's size: nothing moved
+    CHECK(labelTexts(d.app, "edit.labels") == std::vector<std::string>{"60 mm"});
+    auto* box = numberBox(d.app, "Length1");
+    REQUIRE(box);
+    CHECK(box->value() == Approx(60));
+    CHECK(box->property("justAdded").toBool());  // the cursor went there
+    typeNumber(box, 45);
+    CHECK(d.sketch().findConstraint("Length1")->value == Approx(45));
+    CHECK(d.app.doc().undoLabel() == "Change Length1");
+    CHECK(labelTexts(d.app, "edit.labels") == std::vector<std::string>{"45 mm"});
+    // The solved line really is 45 mm now.
+    const auto* r = d.app.host.documents()
+                        .lastRebuild(d.app.shell->activeDesign())
+                        ->result(d.app.doc().featureAt(0).id());
+    REQUIRE(r->sketch->ok());
+    const auto& l = std::get<sketch::LineShape>(r->sketch->entities[0].shape);
+    CHECK(std::hypot(l.end.x - l.start.x, l.end.y - l.start.y) == Approx(45).margin(1e-6));
+}
+
+TEST_CASE("constraints that can't all be true are red, and Khan says which", "[app][sketcher][constrain]") {
+    Drawn d;
+    clickAt(d.flat, {30, 0, 0});
+    d.app.click("kh.sketcher.horizontal");
+    clickAt(d.flat, {30, 0, 0});
+    d.app.click("kh.sketcher.dimension");  // Length1 = 60
+    clickAt(d.flat, {30, 0, 0});
+    d.app.click("kh.sketcher.horizontal_dimension");  // Width1 = 60, same thing for a horizontal line
+    CHECK(labelTexts(d.app, "edit.labels_conflict").empty());
+    typeNumber(numberBox(d.app, "HorizontalDistance1"), 50);  // can't be 60 long and 50 wide
+    CHECK_FALSE(labelTexts(d.app, "edit.labels_conflict").empty());
+    CHECK(d.overlayPoints("edit.conflict") > 0);  // the line is red too
+    REQUIRE_FALSE(d.app.shell->lastProblems().empty());
+    CHECK(d.app.shell->lastProblems()[0].message.find("can't all be true at once") != std::string::npos);
+    auto* status = d.app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"))
+                       ->findChild<QLabel*>(QStringLiteral("status"));
+    CHECK(status->text().contains(QStringLiteral("can't all be true")));
+    d.app.shell->undoAction()->trigger();  // back to 60: fine again
+    settle();
+    CHECK(labelTexts(d.app, "edit.labels_conflict").empty());
+}
+
+TEST_CASE("a constraint's label can be picked and deleted, and the panel follows",
+          "[app][sketcher][constrain]") {
+    Drawn d;
+    clickAt(d.flat, {30, 0, 0});
+    d.app.click("kh.sketcher.horizontal");
+    const auto* labels = d.app.host.overlays().find("kh.sketcher.edit.labels");
+    REQUIRE(labels);
+    REQUIRE(labels->points.size() == 1);
+    clickAt(d.flat, labels->points[0]);  // click the "H"
+    CHECK(labelTexts(d.app, "edit.labels_picked") == std::vector<std::string>{"H"});
+    auto* table = d.app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"))
+                      ->findChild<QTableWidget*>(QStringLiteral("constraints"));
+    REQUIRE(table);
+    CHECK(table->selectionModel()->selectedRows().size() == 1);  // its row is picked in the panel too
+    d.app.click("kh.sketcher.delete");
+    CHECK(d.sketch().constraints.size() == 4);
+    CHECK(d.app.doc().undoLabel() == "Delete Horizontal1");
+    // A click on a row in the panel picks that constraint in the viewer.
+    table->selectRow(0);  // Coincident1
+    settle();
+    CHECK(d.app.shell->statusBar()->currentMessage().startsWith(QStringLiteral("Picked Coincident1")));
 }
 
 TEST_CASE("Edit sketch starts with Select; New sketch starts with Line", "[app][sketcher]") {
@@ -1593,9 +1779,11 @@ TEST_CASE("a plugin item is enabled by its own rule, and updates on ActionsChang
     auto* a = app.shell->action("test.units.measure");
     REQUIRE(a);
     CHECK_FALSE(a->isEnabled());
+    CHECK_FALSE(app.shell->button("test.units.measure")->isVisible());
     tapeReady = true;
     app.host.events().publish(plugin::ActionsChanged{});
     CHECK(a->isEnabled());
+    CHECK(app.shell->button("test.units.measure")->isVisible());  // the button comes and goes with it
     tapeReady = false;
     app.host.events().publish(plugin::ActionsChanged{});
     CHECK_FALSE(a->isEnabled());

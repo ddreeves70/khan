@@ -99,6 +99,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     void buildMenus();
@@ -120,6 +121,9 @@ private:
     std::map<QString, int> copies_;  // panel id -> how many copies were opened
     QLabel* problemLabel_ = nullptr;
     QToolBar* toolbar_ = nullptr;
+    // The second row: plugin buttons that don't fit on the first (hidden when empty).
+    QToolBar* toolbar2_ = nullptr;
+    void wrapToolbar();
     QMenu* windowMenu_ = nullptr;
     QMenu* viewMenu_ = nullptr;
     QMenu* layoutMenu_ = nullptr;
