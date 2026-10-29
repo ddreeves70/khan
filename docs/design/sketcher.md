@@ -1,6 +1,6 @@
 # The sketcher (Phase 1)
 
-> **Draft.** Steps 1 (the solver), 2 (the Sketch step), 3 (drawing in the app) and 4 (picking, dragging, constraints and dimensions in the app) are built. The rest is the plan, in the order it
+> **Draft.** Steps 1 (the solver), 2 (the Sketch step), 3 (drawing in the app), 4 (picking, dragging, constraints and dimensions in the app) and 5 (constraints added while drawing, closed shapes) are built. The rest is the plan, in the order it
 > will be built. See the [roadmap](roadmap.md#phase-1-sketcher) for Phase 1's exit
 > check.
 
@@ -19,8 +19,8 @@ revolve).
 | 3. Drawing in the app | Edit a sketch in the viewer: draw lines, arcs and circles with the mouse, snap to the grid and to points | Built |
 | 4a. Picking and dragging | Pick sketch lines and points in the viewer (Select), drag them with the solver keeping every constraint true, delete them; what can still move shown by color (free blue, fixed black) | Built |
 | 4b. Constraints in the app | Add constraints and dimensions from the toolbar and by typing numbers; show them on the drawing; conflicts highlighted with a plain message | Built |
-| 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | Next |
-| 6. Extrude | Profiles become solids (Phase 2 starts properly here) | |
+| 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | Built |
+| 6. Extrude | Profiles become solids (Phase 2 starts properly here) | Next |
 | 7. B-splines | Full spline support, as the roadmap lists | |
 
 Each step is its own pull request, with tests and guide pages.
@@ -205,6 +205,39 @@ after scattering the heap between solves.
   red, with what they're on; `redundant` ones are amber. The solver's plain
   message shows in the status bar and the panel. A conflicting sketch is drawn as
   it was drawn, since there's no solved shape.
+
+## Constraints while drawing and closed shapes (step 5)
+
+- **Where a click lands** (`Sketcher::pick`, `where`): a sketch point within 8
+  pixels (Coincident), else a line, circle or arc within 8 pixels, projected onto
+  it (PointOnLine or PointOnCircle), else the grid. For a line's end that landed
+  on neither: off the end of an arc and within 6 pixels of the arc's direction,
+  it's put exactly on that direction (Tangent: with the Coincident at the shared
+  end, the solver keeps their directions equal there); else within 6 pixels of
+  level or upright, it's made so (Horizontal or Vertical). Each shape and its
+  constraints are one `EditSketchCommand`. A hint label ("H", "V", "T", "On")
+  shows beside the mouse first. `Sketch > Add constraints while drawing` (the
+  plugin setting `auto_constraints_off`) turns the edge snaps and alignments off;
+  point snaps always happen.
+- **Closed shapes (`kh/sketch/Profiles.h`, `findProfiles`).** From solved
+  geometry, not constraints: line and arc ends within a tolerance (1e-6 mm) are
+  joined into vertices. Ends that meet nothing are `openEnds`; three or more
+  meeting at a vertex is a `sketch.junction` warning, and those pieces aren't
+  walked (no guessing which loop is meant). Loops are walked through vertices
+  that join exactly two pieces, then turned counterclockwise. Areas use Green's
+  theorem per edge (lines: the shoelace term; arcs: the exact integral), so a
+  slot's area is exact. A loop is inside another if every sample point of it is
+  (even-odd test on the other's outline, points touching the outline ignored);
+  mixed in and out is a `sketch.crossing` warning. Even depth is an outline,
+  the loops directly inside are its holes (clockwise), and islands in holes are
+  shapes of their own. Circles are one-edge loops; helper geometry and points
+  are left out. Extrude (step 6) builds faces from these.
+- **Showing them:** the Sketch panel counts shapes, holes and open ends; open
+  ends are red dots on the drawing; `kh_cli open --sketch` lists each shape with
+  its area in mm^2.
+- **The second toolbar row** stays while a mode's buttons don't all fit, so
+  picking never moves the view; while none of its buttons show, it says "Pick
+  something in the view to see what you can add here."
 
 ## Choices
 

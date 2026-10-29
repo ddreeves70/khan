@@ -27,8 +27,8 @@
 #include <QToolButton>
 
 #include <algorithm>
-#include <map>
 #include <cctype>
+#include <map>
 
 #include "AppIcons.h"
 #include "AppUi.h"
@@ -191,6 +191,11 @@ void Shell::buildMenus() {
     toolbar2_->setIconSize(QSize(24, 24));
     toolbar2_->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     toolbar2_->toggleViewAction()->setVisible(false);  // shown and hidden by Khan, not the student
+    // While the row's buttons all wait for something to be picked, it says so.
+    auto* hint = new QLabel(tr("  Pick something in the view to see what you can add here."), toolbar2_);
+    hint->setObjectName(QStringLiteral("kh.shell.toolbar2.hint"));
+    hint->setEnabled(false);  // greyed, like a tip
+    toolbar2Hint_ = toolbar2_->addWidget(hint);
     toolbar2_->hide();
 
     auto* file = menuBar()->addMenu(tr("&File"));
@@ -567,8 +572,11 @@ void Shell::wrapToolbar() {
     }
     reorder(toolbar_, all);
     reorder(toolbar2_, all);
-    toolbar2_->setMinimumHeight(second.empty() ? 0 : toolbar_->sizeHint().height());  // same height, whatever shows
+    toolbar2_->setMinimumHeight(
+        second.empty() ? 0 : toolbar_->sizeHint().height());  // same height, whatever shows
     toolbar2_->setVisible(!second.empty());
+    toolbar2Hint_->setVisible(
+        std::none_of(second.begin(), second.end(), [](QAction* a) { return a->isVisible(); }));
 }
 
 void Shell::runAction(const plugin::ActionSpec& spec) {

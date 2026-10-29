@@ -72,7 +72,7 @@ Phase 1 started Oct 28, 2026.
 
 - PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry. (Solver built Oct 28, 2026: `kh_sketch`, `ISketchSolver`, PlaneGCS as a shared library. Sketch steps with commands, saved in files and solved on rebuild: built Oct 28, 2026. Drawing sketches with the mouse in the app: built Oct 28, 2026. Picking and dragging sketch geometry, colored by what can still move: built Oct 28, 2026. Constraints and dimensions from the toolbar, typed in the Sketch panel, labeled on the drawing, with conflicts in red: built Oct 29, 2026. See [The sketcher](sketcher.md).)
 - Core constraints and driving dimensions; degrees-of-freedom coloring; conflict highlighting.
-- Auto-constraints while drawing, snapping, and closed-profile detection.
+- Auto-constraints while drawing, snapping, and closed-profile detection. (Built Oct 29, 2026: On, Horizontal, Vertical and Tangent added while drawing, with a hint and an off switch; closed shapes with holes, areas and open ends, in `kh_sketch`. See [The sketcher](sketcher.md).)
 - **Full B-spline support,** after lines, arcs and circles work (early Phase 2 if Phase 1 runs long). Spline constraints are where a solver most easily fails, so they come once the basic sketcher is solid:
   - Drawing by control points and by fit points (the curve passes through the points clicked).
   - Editing: drag points, add and remove points, change degree and weights, with the rest of the sketch staying solved.

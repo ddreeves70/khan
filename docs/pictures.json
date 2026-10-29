@@ -888,7 +888,7 @@
       },
       "crop": [
         262,
-        78,
+        136,
         676,
         560
       ]
@@ -912,7 +912,30 @@
       },
       "crop": [
         262,
-        78,
+        136,
+        1018,
+        500
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-sketch-open.png",
+      "size": "1280x800",
+      "script": "plate-sketch",
+      "commands": [
+        "run --open plate.khan --save plate.khan sketch.delete sketch=Sketch1 item=Line4"
+      ],
+      "app": {
+        "open": "plate.khan",
+        "select": [
+          "Sketch1"
+        ],
+        "trigger": [
+          "kh.sketcher.edit"
+        ]
+      },
+      "crop": [
+        262,
+        136,
         1018,
         500
       ]

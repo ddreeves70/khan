@@ -28,6 +28,7 @@
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/model/Commands.h"
 #include "kh/model/Document.h"
+#include "kh/sketch/Profiles.h"
 #include "kh/sketch_planegcs/PlaneGcsSolver.h"
 
 namespace {
@@ -170,6 +171,37 @@ void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureR
         std::printf("  %-14s %-19s %s%s%s\n", c.name.c_str(), std::string(ks::kindKey(c.kind)).c_str(),
                     on.c_str(), value.c_str(), note.c_str());
     }
+    // Closed shapes (what extrude will use), and ends that aren't joined yet.
+    const bool anyEdges = std::any_of(shown.entities.begin(), shown.entities.end(), [](const ks::Entity& e) {
+        return !e.construction && !std::holds_alternative<ks::PointShape>(e.shape);
+    });
+    if (!anyEdges) return;
+    const auto found = ks::findProfiles(shown);
+    auto names = [&](const ks::Loop& loop) {
+        std::string out;
+        for (const auto& e : loop.edges) {
+            const auto* x = shown.find(e.entity);
+            out += (out.empty() ? "" : ", ") + (x ? x->name : "?");
+        }
+        return out;
+    };
+    std::printf("closed shapes: %zu\n", found.shapes.size());
+    for (std::size_t i = 0; i < found.shapes.size(); ++i) {
+        const auto& p = found.shapes[i];
+        std::string holes;
+        for (const auto& h : p.holes) holes += (holes.empty() ? "  holes: " : "; ") + names(h);
+        std::printf("  shape %zu  %s  area %.2f mm^2%s\n", i + 1, names(p.outer).c_str(), p.area(),
+                    holes.c_str());
+    }
+    if (!found.openEnds.empty()) {
+        std::string ends;
+        for (const auto& r : found.openEnds) {
+            const auto* x = shown.find(r.entity);
+            ends += (ends.empty() ? "" : ", ") + (x ? x->name : "?") + "." + std::string(ks::roleKey(r.role));
+        }
+        std::printf("open ends: %s\n", ends.c_str());
+    }
+    for (const auto& d : found.issues) std::printf("warning [%s]: %s\n", d.code.c_str(), d.message.c_str());
 }
 
 // Opens a design, rebuilds it and prints one line per step. Returns 1 if the

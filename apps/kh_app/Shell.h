@@ -123,6 +123,7 @@ private:
     QToolBar* toolbar_ = nullptr;
     // The second row: plugin buttons that don't fit on the first (hidden when empty).
     QToolBar* toolbar2_ = nullptr;
+    QAction* toolbar2Hint_ = nullptr;  // "Pick something ..." while the second row has no buttons showing
     void wrapToolbar();
     QMenu* windowMenu_ = nullptr;
     QMenu* viewMenu_ = nullptr;
