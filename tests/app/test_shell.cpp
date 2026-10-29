@@ -244,7 +244,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
     rows += app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"))->actions();
     for (auto* a : rows) {
         if (a->isSeparator() || a->objectName().startsWith(QStringLiteral("test.")))
-            continue;  // Khan's own only
+            continue;                                   // Khan's own only
         if (qobject_cast<QWidgetAction*>(a)) continue;  // the second row's hint, not a button
         ++buttons;
         INFO(a->text().toStdString());
@@ -988,11 +988,19 @@ TEST_CASE("picking in a narrow window doesn't move the view (the rows stay put)"
     CHECK_FALSE(row2->isHidden());  // the second row is there while editing, even with nothing picked
     auto* hint = row2->findChild<QLabel*>(QStringLiteral("kh.shell.toolbar2.hint"));
     REQUIRE(hint);
-    CHECK(hint->isVisibleTo(row2));  // ... and says what it's for
+    // The hint shows exactly when none of the row's buttons do. (Which buttons
+    // wrap depends on the system font, so this checks the rule, not a count.)
+    auto buttonsShowing = [&] {
+        const auto all = row2->actions();
+        return std::any_of(all.begin(), all.end(),
+                           [](QAction* a) { return a->isVisible() && !qobject_cast<QWidgetAction*>(a); });
+    };
+    CHECK(hint->isVisibleTo(row2) == !buttonsShowing());
     const QRect before(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
     clickAt(d.flat, {30, 0, 0});  // Line1: its constraint buttons appear
     CHECK(d.app.shell->button("kh.sketcher.horizontal")->isVisible());
-    CHECK_FALSE(hint->isVisibleTo(row2));  // buttons there now
+    CHECK(buttonsShowing());  // constraint buttons there now
+    CHECK_FALSE(hint->isVisibleTo(row2));
     const QRect after(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
     CHECK(before == after);
     // And a drag that picks something lands where the mouse went (this failed on
