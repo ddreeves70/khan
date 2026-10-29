@@ -92,6 +92,15 @@ words are too long for a button, give shorter ones in `buttonText`: the
 sketcher's **New sketch on XY (the ground)** is just **New sketch** on the
 toolbar.
 
+- **Only when it can be used.** With `.buttonWhenEnabled = true`, the button shows
+  only while the item is enabled (see `enabled` below), so the toolbar offers just
+  what fits right now. The sketcher's constraint buttons work this way: pick two
+  lines and **Parallel** appears. The menu item is always there, greyed out when
+  it can't be used.
+- **A second row.** When the buttons don't fit across the window, the ones at the
+  end go on a second row, which goes away again when they fit. Khan's own New,
+  Open, Save, Undo and Redo stay on the first row.
+
 **Icons.** Give a button a picture with `icon`: SVG text drawn in a 24 by 24
 box. Khan shows it on the button (with the words under it) and next to the menu
 item, and greys it out with the item. Write `currentColor` for lines that should
@@ -560,6 +569,9 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
 
 - Khan calls the function when the main window opens and owns the widget it
   returns. The student can move the panel anywhere; Khan remembers where.
+- Panels on the same side share it as tabs (Properties, Sketch, ...), so the
+  viewer keeps its room. `ui->showPanel(id)` opens yours and brings its tab to
+  the front.
 - Keep the panel up to date by listening to events (`ctx.events().subscribe`,
   keeping the `Subscription` as a member, so it disconnects when the panel
   closes).

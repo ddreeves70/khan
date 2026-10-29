@@ -38,8 +38,9 @@ class PluginContext;
 /// (ActionSpec::buttonText, ActionSpec::icon). Version 15 gave plugins the
 /// sketch solver (DocumentList::solver()), dragging (sketch::ISketchSolver::drag())
 /// and the parts of a solved sketch that can still move (sketch::SolveResult::
-/// freePoints, freeEntities).
-inline constexpr int kPluginApiVersion = 15;
+/// freePoints, freeEntities). Version 16 added toolbar buttons that show only
+/// while their item can be used (ActionSpec::buttonWhenEnabled).
+inline constexpr int kPluginApiVersion = 16;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

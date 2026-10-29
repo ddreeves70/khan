@@ -18,12 +18,16 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QResizeEvent>
 #include <QScreen>
 #include <QSettings>
 #include <QStatusBar>
+#include <QStyle>
 #include <QToolBar>
+#include <QToolButton>
 
 #include <algorithm>
+#include <map>
 #include <cctype>
 
 #include "AppIcons.h"
@@ -180,6 +184,14 @@ void Shell::buildMenus() {
     toolbar_->setMovable(false);
     toolbar_->setIconSize(QSize(24, 24));
     toolbar_->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  // pictures, with words for new users
+    addToolBarBreak();
+    toolbar2_ = addToolBar(tr("More tools"));
+    toolbar2_->setObjectName(QStringLiteral("kh.shell.toolbar2"));
+    toolbar2_->setMovable(false);
+    toolbar2_->setIconSize(QSize(24, 24));
+    toolbar2_->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    toolbar2_->toggleViewAction()->setVisible(false);  // shown and hidden by Khan, not the student
+    toolbar2_->hide();
 
     auto* file = menuBar()->addMenu(tr("&File"));
     auto* newAct = file->addAction(tr("&New"), this, [this] { newDesign(); });
@@ -337,13 +349,17 @@ void Shell::buildPanels() {
         centerArea_ = docks_->setCentralWidget(dock);
     }
 
+    // Panels on the same side share its space as tabs, so the viewer keeps its room.
+    std::map<ui::PanelArea, ads::CDockAreaWidget*> sides;
     for (const auto* spec : specs) {
         if (centerSpec != specs.end() && spec == *centerSpec) continue;
         auto* dock = makeDock(*spec, qs(spec->id), spec->title);
         if (spec->area == ui::PanelArea::Center) {
             docks_->addDockWidgetTabToArea(dock, centerArea_);
+        } else if (auto it = sides.find(spec->area); it != sides.end()) {
+            docks_->addDockWidgetTabToArea(dock, it->second);
         } else {
-            docks_->addDockWidget(toAds(spec->area), dock);
+            sides[spec->area] = docks_->addDockWidget(toAds(spec->area), dock);
         }
         if (spec->startHidden) dock->toggleView(false);
     }
@@ -459,9 +475,95 @@ void Shell::refreshActions() {
             button->setEnabled(ok);
             button->setChecked(a->isChecked());
             if (spec.currentText && spec.buttonText.empty()) button->setText(a->text());
-            button->setVisible(spec.toolbarMode == mode);
+            button->setVisible(spec.toolbarMode == mode && (!spec.buttonWhenEnabled || ok));
         }
     }
+    wrapToolbar();
+}
+
+void Shell::resizeEvent(QResizeEvent* event) {
+    QMainWindow::resizeEvent(event);
+    wrapToolbar();
+}
+
+// Puts plugin buttons that don't fit across the window on a second row, and
+// takes the row away when everything fits.
+void Shell::wrapToolbar() {
+    if (!toolbar2_) return;
+    // How wide each button is, the way the toolbar draws it.
+    QToolButton probe;
+    probe.setToolButtonStyle(toolbar_->toolButtonStyle());
+    probe.setIconSize(toolbar_->iconSize());
+    auto widthOf = [&](QAction* a) {
+        if (a->isSeparator())
+            return style()->pixelMetric(QStyle::PM_ToolBarSeparatorExtent, nullptr, toolbar_);
+        probe.setDefaultAction(a);
+        return probe.sizeHint().width();
+    };
+    const int spacing = style()->pixelMetric(QStyle::PM_ToolBarItemSpacing, nullptr, toolbar_);
+    const int frame = 2 * (style()->pixelMetric(QStyle::PM_ToolBarFrameWidth, nullptr, toolbar_) +
+                           style()->pixelMetric(QStyle::PM_ToolBarItemMargin, nullptr, toolbar_)) +
+                      style()->pixelMetric(QStyle::PM_ToolBarHandleExtent, nullptr, toolbar_);
+    // Khan's own buttons (and the separator before the plugins' ones) stay on the first row.
+    std::vector<QAction*> own;
+    for (auto* a : toolbar_->actions()) {
+        if (!std::any_of(actions_.begin(), actions_.end(),
+                         [a](const PluginItem& p) { return p.button == a; }))
+            own.push_back(a);
+    }
+    int used = frame;
+    for (auto* a : own) {
+        if (a->isVisible()) used += widthOf(a) + spacing;
+    }
+    const int room = width();
+    std::vector<QAction*> first, second;
+    for (const auto& item : actions_) {
+        if (!item.button) continue;
+        if (!item.button->isVisible()) {
+            first.push_back(item.button);  // takes no room
+            continue;
+        }
+        const int w = widthOf(item.button) + spacing;
+        if (second.empty() && used + w <= room) {
+            first.push_back(item.button);
+            used += w;
+        } else {
+            second.push_back(item.button);
+        }
+    }
+    for (auto* a : first) {
+        if (!toolbar_->actions().contains(a)) {
+            toolbar2_->removeAction(a);
+            toolbar_->addAction(a);
+        }
+    }
+    for (auto* a : second) {
+        if (!toolbar2_->actions().contains(a)) {
+            toolbar_->removeAction(a);
+            toolbar2_->addAction(a);
+        }
+    }
+    // Keep the plugin buttons in their own order on each row.
+    auto reorder = [&](QToolBar* bar, const std::vector<QAction*>& order) {
+        std::vector<QAction*> mine;
+        for (auto* a : bar->actions()) {
+            if (std::find(order.begin(), order.end(), a) != order.end()) mine.push_back(a);
+        }
+        std::vector<QAction*> sorted;
+        for (auto* a : order) {
+            if (std::find(mine.begin(), mine.end(), a) != mine.end()) sorted.push_back(a);
+        }
+        if (mine == sorted) return;
+        for (auto* a : sorted) bar->removeAction(a);
+        for (auto* a : sorted) bar->addAction(a);
+    };
+    std::vector<QAction*> all;
+    for (const auto& item : actions_) {
+        if (item.button) all.push_back(item.button);
+    }
+    reorder(toolbar_, all);
+    reorder(toolbar2_, all);
+    toolbar2_->setVisible(!second.empty());
 }
 
 void Shell::runAction(const plugin::ActionSpec& spec) {
