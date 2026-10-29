@@ -3,6 +3,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -194,12 +195,14 @@ TEST_CASE("a pane can have its own grid: drawn there, and snapped to there", "[g
     REQUIRE(options);
     options->addPane({"v1.p1", "Viewer 1, left pane"});
     options->addPane({"v1.p2", "Viewer 1, right pane"});
+    // (Found with find_if and REQUIRE, not a loop then FAIL: MSVC calls code after
+    // FAIL unreachable, and other compilers want a return there.)
     auto lattice = [&](const char* pane) {
-        for (const auto& o : host.overlays().forPane(pane)) {
-            if (o.id == "kh.grid.grid") return o.lattice;
-        }
-        FAIL("no grid");
-        return plugin::OverlayLattice{};
+        const auto overlays = host.overlays().forPane(pane);
+        const auto it = std::find_if(overlays.begin(), overlays.end(),
+                                     [](const plugin::Overlay& o) { return o.id == "kh.grid.grid"; });
+        REQUIRE(it != overlays.end());
+        return it->lattice;
     };
 
     REQUIRE(options->setInPane("kh.grid.spacing", 5.0, "v1.p1").empty());
