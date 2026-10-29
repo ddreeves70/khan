@@ -3,6 +3,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -166,12 +167,14 @@ TEST_CASE("addOption gives each option its View menu items", "[viewoptions]") {
     CHECK(menus[1] == "View/Size");
     CHECK(menus[6] == "View/Style");
 
+    // (find_if and REQUIRE, not a loop then FAIL: see test_grid_plugin.cpp.)
     auto find = [&](const std::string& id) -> const plugin::ActionSpec& {
-        for (const auto& a : host.actions()) {
-            if (a.id == id) return a;
-        }
-        FAIL("no action " << id);
-        return host.actions().front();
+        const auto& all = host.actions();
+        const auto it =
+            std::find_if(all.begin(), all.end(), [&](const plugin::ActionSpec& a) { return a.id == id; });
+        INFO("no action " << id);
+        REQUIRE(it != all.end());
+        return *it;
     };
     CHECK(find("test.views.on").checked());
     find("test.views.on").run();
