@@ -138,6 +138,11 @@ ctx.setToolbarMode("");  // back to the usual toolbar
 - Mode names start with your plugin id and a dot, like event names; otherwise
   Khan warns.
 - The menus don't change: every item stays in its menu, in every mode.
+- An item with a `toolbarMode` wins any shortcut it shares with another item
+  while its mode is on. The sketcher's **Delete picked** has the Delete key, so
+  while a sketch is edited, Delete deletes the picked lines, not the step. The
+  other item gets its keys back when the mode ends. (The item doesn't need to be
+  on the toolbar for this.)
 
 **Submenus.** A `/` in `menu` makes a submenu: `.menu = "View/Grid style"` puts
 the item in the **Grid style** submenu of **View**.
@@ -359,7 +364,7 @@ all-panes grid changed.
 
 A **view tool** lets the student draw with the mouse on a plane, the way the
 sketcher's Line and Circle tools do. The viewer (`kh.viewer`) offers it as the
-`kh.viewer/1` service, described by its contract header `kh/viewer/Viewer.h`.
+`kh.viewer/2` service, described by its contract header `kh/viewer/Viewer.h`.
 While your tool runs, a left click in any pane tells you the point on the plane
 (in mm) instead of turning the view or picking; moving the mouse tells you too, so
 you can draw a preview with an overlay. Panning and zooming still work, and Escape
@@ -397,9 +402,32 @@ ctx.addAction({.id = "sam.dots.place", .text = "Place a dot", .menu = "Tools",
                }});
 ```
 
+**Dragging.** If the student presses the left button and moves more than a few
+pixels, that's a drag, not a click: your tool's `dragged(from, to)` is called on
+every move, with where the button went down and where the mouse is now, then
+`dropped(from, to)` when the button comes up. Both do nothing unless you override
+them. Escape during a drag calls `cancelled()`: put things back, and ignore the
+`dropped()` that follows. `p.add` is true when Ctrl or Shift is held, for "add
+to what's picked".
+
+```cpp
+void dragged(const kh::viewer::ToolPoint& from, const kh::viewer::ToolPoint& to) override {
+    // Move a preview by (to.at - from.at); change the design only when it's dropped.
+}
+void dropped(const kh::viewer::ToolPoint& from, const kh::viewer::ToolPoint& to) override {
+    // Run one command here, so the whole drag is one undo step.
+}
+```
+
 One tool runs at a time: starting yours stops the one that was running. Stop it
 with `stopTool()` when you're done, so clicks pick and turn the view again.
 `kh_cli` has no viewers, so nothing calls your tool there.
+
+**Dragging sketches.** `ctx.documents().solver()` gives the sketch solver. Its
+`drag(sketch, pulls)` moves a sketch so every constraint stays true while the
+pulled points follow the mouse, fast enough to call on every move; the
+sketcher's Select tool is built on it. A solved sketch's
+`freePoints` and `freeEntities` (in the rebuild result) say what can still move.
 
 ## Draw in the viewer
 

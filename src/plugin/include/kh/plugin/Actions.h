@@ -54,9 +54,11 @@ struct ActionSpec {
     /// Shorter words for the toolbar button, e.g. "Sketch" for "New sketch on XY
     /// (the ground)". Empty means the button uses `text`.
     std::string buttonText{};
-    /// Which toolbar mode the button belongs to (see PluginContext::setToolbarMode()).
+    /// Which toolbar mode the item belongs to (see PluginContext::setToolbarMode()).
     /// Empty: the usual toolbar, shown when no mode is on. A mode name, e.g.
-    /// "kh.sketcher.editing": shown only while that mode is on. The menu item is
+    /// "kh.sketcher.editing": its button shows only while that mode is on, and its
+    /// shortcut wins over any other item's with the same keys while the mode is on
+    /// (the other item keeps its keys the rest of the time). The menu item is
     /// always there either way.
     std::string toolbarMode{};
     /// A picture for the toolbar button and menu item: SVG text, drawn in a 24 by 24

@@ -116,6 +116,12 @@ public:
     /// @return The kernel, or nullptr if there is none (designs aren't rebuilt).
     const kernel::IKernel* kernel() const { return kernel_; }
 
+    /// Gives the solver Sketch steps are solved with, for live work on a sketch
+    /// such as dragging part of it (sketch::ISketchSolver::drag()). Change the
+    /// sketch itself only with a command (model::EditSketchCommand).
+    /// @return The solver, or nullptr if there is none.
+    sketch::ISketchSolver* solver() const { return solver_; }
+
 private:
     struct Entry {
         std::unique_ptr<model::Document> doc;

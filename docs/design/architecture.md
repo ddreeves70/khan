@@ -206,7 +206,7 @@ Mockups of the main window, split views, two monitors and the Plugin manager, ea
 | --- | --- | --- |
 | `kh.modeling` | Box, cylinder and Boolean commands and feature types; later sketch, extrude, fillet | 0 |
 | `kh.viewer` | The 3D viewer type, split layouts, view cube, picking and selection tools | 0 |
-| `kh.sketcher` | Draws sketches in the viewers and edits them with the mouse (Line, Circle, Arc, Point, snapping) through the viewer's tools (`kh.viewer/1`) | 1 |
+| `kh.sketcher` | Draws sketches in the viewers and edits them with the mouse (Line, Circle, Arc, Point, snapping; picking and dragging) through the viewer's tools (`kh.viewer/2`) | 1 |
 | `kh.featuretree` | The feature tree panel | 0 |
 | `kh.properties` | The properties panel for the selected step | 0 |
 | `kh.io` | `.khan` save and open, STEP and STL import and export | 0 |

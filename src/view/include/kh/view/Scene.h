@@ -73,6 +73,7 @@ struct DrawingPlane {
 struct PlanePoint {
     kernel::Vec3 at{};  ///< The point on the plane, in mm.
     double pixel = 0;   ///< How many mm one screen pixel covers there, for "close enough" tests.
+    bool add = false;   ///< Ctrl or Shift was held: add to what's picked instead of replacing it.
 };
 
 /// Finds where a line of sight meets a plane.

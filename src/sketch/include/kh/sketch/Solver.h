@@ -32,11 +32,29 @@ struct SolveResult {
     /// Constraints that say something the others already say. The sketch still
     /// solves, but deleting one of them is cleaner.
     std::vector<ConstraintId> redundant{};
+    /// The points that can still move: some of their x and y isn't set by the
+    /// constraints. Points not listed are fixed. Only filled by solve(), when it
+    /// succeeds, in the sketch's order (Self, Start, End, Center for each entity).
+    std::vector<PointRef> freePoints{};
+    /// The entities that can still move or change size in some way (a point, a
+    /// radius, an angle). Entities not listed are fully constrained. Only filled by
+    /// solve(), when it succeeds, in the sketch's order.
+    std::vector<EntityId> freeEntities{};
     Diagnostics issues{};  ///< What went wrong or is worth knowing, in plain words.
 
     /// Checks whether the solve succeeded.
     /// @return True if status is Solved.
     bool ok() const { return status == SolveStatus::Solved; }
+};
+
+/// A pull on a sketch while it's dragged with the mouse (see ISketchSolver::drag()).
+struct Pull {
+    /// The point pulled. With `edge`, only its entity counts.
+    PointRef point{};
+    Point2 to{};  ///< Where it's pulled to, in mm.
+    /// Pull the edge of a circle or arc through `to` instead, so it grows or shrinks
+    /// (its center stays put if the constraints let it).
+    bool edge = false;
 };
 
 /// Solves sketches. Khan's sketch code only talks to the solver through this
@@ -61,6 +79,23 @@ public:
     /// @param sketch The sketch, with its geometry where it is now (the starting guess).
     /// @return The solved geometry and what the solver found.
     virtual SolveResult solve(const Sketch& sketch) = 0;
+
+    /// Like solve(), while the student drags part of the sketch: every constraint
+    /// stays true, and the pulled points come as close to where they're pulled as
+    /// the constraints let them. Everything else moves as little as it can.
+    ///
+    /// Fast enough to call on every mouse move: it doesn't work out degrees of
+    /// freedom, or conflicting and repeated constraints (freedom is -1, and those
+    /// lists are empty). Call solve() for those when the drag ends.
+    /// @code
+    /// // Drag Line1's end to (30, 10) mm.
+    /// const auto r = solver->drag(sketch, {{{line1, kh::sketch::PointRole::End}, {30, 10}}});
+    /// @endcode
+    /// @param sketch The sketch, with its geometry where it is now.
+    /// @param pulls Where the mouse pulls; a pull on something that isn't in the
+    ///        sketch (or an edge pull on something that isn't round) is ignored.
+    /// @return The moved geometry; status Solved if every constraint is still true.
+    virtual SolveResult drag(const Sketch& sketch, const std::vector<Pull>& pulls) = 0;
 };
 
 }  // namespace kh::sketch

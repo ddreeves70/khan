@@ -107,10 +107,12 @@ std::optional<PointRef> jointOf(const Sketch& sketch, const EntityId& a, const E
 // It holds pointers into itself, so it's made once and never moved.
 class GcsModel {
 public:
-    // At most 9 numbers per entity (an arc: center, radius, two angles, two ends)
-    // and 2 constants per constraint (a Fix's x and y).
-    GcsModel(const std::vector<Entity>& entities, const Sketch& sketch)
-        : builder(9 * entities.size() + 2 * sketch.constraints.size()), built(entities.size()) {
+    // At most 9 numbers per entity (an arc: center, radius, two angles, two ends),
+    // 2 constants per constraint (a Fix's x and y) and 4 per pull (where it pulls
+    // to, and where a pulled edge's center is now).
+    GcsModel(const std::vector<Entity>& entities, const Sketch& sketch, const std::vector<Pull>& pulls = {})
+        : builder(9 * entities.size() + 2 * sketch.constraints.size() + 4 * pulls.size()),
+          built(entities.size()) {
         Sketch whole{entities, sketch.constraints};
         auto& b = builder;
 
@@ -305,7 +307,70 @@ public:
             }
         }
 
+        // Pulls, while dragging: temporary constraints, which PlaneGCS keeps only as
+        // far as the real ones let it (it solves them second, as a best fit).
+        for (const auto& pull : pulls) {
+            if (!whole.find(pull.point.entity)) continue;
+            GCS::Point to;
+            to.x = b.constant(pull.to.x);
+            to.y = b.constant(pull.to.y);
+            if (pull.edge) {
+                const auto& s = shapeOf(pull.point.entity);
+                if (std::holds_alternative<CircleShape>(s) || std::holds_alternative<ArcShape>(s)) {
+                    // The edge goes through the mouse, and the center tries to stay where
+                    // it is (as in FreeCAD), so the size changes rather than the place.
+                    auto& circle = circleOf(pull.point.entity);
+                    GCS::Point here;
+                    here.x = b.constant(*circle.center.x);
+                    here.y = b.constant(*circle.center.y);
+                    sys.addConstraintPointOnCircle(to, circle, GCS::DefaultTemporaryConstraint);
+                    sys.addConstraintP2PCoincident(circle.center, here, GCS::DefaultTemporaryConstraint);
+                }
+            } else if (pointOf(whole, pull.point)) {
+                sys.addConstraintP2PCoincident(pointOfRef(pull.point), to, GCS::DefaultTemporaryConstraint);
+            }
+        }
+
         sys.declareUnknowns(builder.unknowns());
+    }
+
+    // After sys.diagnose (initSolution diagnoses): which points and entities can
+    // still move. A number is free if PlaneGCS lists it as "dependent" (not set
+    // by the constraints); with no constraints at all, every number is free.
+    void freeParts(const std::vector<Entity>& entities, SolveResult& result) const {
+        GCS::VEC_pD dependent;
+        sys.getDependentParams(dependent);
+        const std::set<const double*> loose(dependent.begin(), dependent.end());
+        const bool all = sys.isEmptyDiagnoseMatrix();
+        auto isFree = [&](const double* p) { return all || loose.count(p) > 0; };
+        auto pointFree = [&](const GCS::Point& p) { return isFree(p.x) || isFree(p.y); };
+        for (std::size_t i = 0; i < entities.size(); ++i) {
+            const auto& g = built[i];
+            const auto id = entities[i].id;
+            std::vector<std::pair<PointRole, bool>> points;
+            bool size = false;  // a radius or an angle
+            const auto& s = entities[i].shape;
+            if (std::holds_alternative<PointShape>(s)) {
+                points = {{PointRole::Self, pointFree(g.point)}};
+            } else if (std::holds_alternative<LineShape>(s)) {
+                points = {{PointRole::Start, pointFree(g.line.p1)}, {PointRole::End, pointFree(g.line.p2)}};
+            } else if (std::holds_alternative<CircleShape>(s)) {
+                points = {{PointRole::Center, pointFree(g.circle.center)}};
+                size = isFree(g.circle.rad);
+            } else {
+                points = {{PointRole::Start, pointFree(g.arc.start)},
+                          {PointRole::End, pointFree(g.arc.end)},
+                          {PointRole::Center, pointFree(g.arc.center)}};
+                size = isFree(g.arc.rad) || isFree(g.arc.startAngle) || isFree(g.arc.endAngle);
+            }
+            bool any = size;
+            for (const auto& [role, free] : points) {
+                if (!free) continue;
+                result.freePoints.push_back({id, role});
+                any = true;
+            }
+            if (any) result.freeEntities.push_back(id);
+        }
     }
 
     // Reads the numbers back into the entities.
@@ -366,12 +431,69 @@ public:
         return result;
     }
 
+    SolveResult drag(const Sketch& sketch, const std::vector<Pull>& pulls) override {
+        SolveResult result;
+        result.entities = sketch.entities;
+        if (auto problems = check(sketch); !problems.empty()) {
+            result.status = SolveStatus::Invalid;
+            result.issues = std::move(problems);
+            return result;
+        }
+        if (sketch.entities.empty()) {
+            result.status = SolveStatus::Solved;
+            return result;
+        }
+        try {
+            GcsModel model(sketch.entities, sketch, pulls);
+            model.sys.initSolution();
+            model.sys.solve();
+            model.sys.applySolution();
+            auto moved = model.read(sketch.entities);
+            if (const auto problem = checkAnswer(sketch, moved)) {
+                result.status = SolveStatus::Failed;
+                result.issues.push_back(*problem);
+                return result;
+            }
+            result.entities = std::move(moved);
+            result.status = SolveStatus::Solved;
+        } catch (const std::exception& e) {
+            fail(result, e.what());
+        } catch (...) {
+            fail(result, "unknown error");
+        }
+        return result;
+    }
+
 private:
     static void fail(SolveResult& result, const std::string& detail) {
         result.status = SolveStatus::Failed;
         result.issues.push_back(
             {"sketch.solve_failed", Severity::Error,
              "The sketch couldn't be solved. Undo the last change, or delete a constraint.", detail});
+    }
+
+    // Whether an answer really makes every constraint true, with no circle turned
+    // inside out. If not, the problem, in plain words.
+    static std::optional<Diagnostic> checkAnswer(const Sketch& sketch, const std::vector<Entity>& answer) {
+        Sketch after{answer, sketch.constraints};
+        std::vector<ConstraintId> off;
+        for (const auto& c : sketch.constraints) {
+            if (!(error(after, c) <= kTolerance)) off.push_back(c.id);
+        }
+        bool sizes = true;
+        for (const auto& e : answer) {
+            if (const auto* c = std::get_if<CircleShape>(&e.shape)) sizes = sizes && c->radius > 0;
+            if (const auto* a = std::get_if<ArcShape>(&e.shape)) sizes = sizes && a->radius > 0;
+        }
+        if (off.empty() && sizes) return std::nullopt;
+        return Diagnostic{"sketch.solve_failed",
+                          Severity::Error,
+                          off.empty()
+                              ? std::string("The sketch couldn't be solved without turning a circle "
+                                            "inside out. Undo the last change, or change a dimension.")
+                              : "The sketch couldn't be solved: " + names(sketch, off) +
+                                    " couldn't be made true. Undo the last change, or delete a constraint.",
+                          {}};
     }
 
     static void run(const Sketch& sketch, SolveResult& result) {
@@ -417,29 +539,12 @@ private:
 
         // 3. Check the answer with Khan's own measures: the solver must really
         // have made every constraint true.
-        Sketch after{solved, sketch.constraints};
-        std::vector<ConstraintId> off;
-        for (const auto& c : sketch.constraints) {
-            if (!(error(after, c) <= kTolerance)) off.push_back(c.id);
-        }
-        bool sizes = true;
-        for (const auto& e : solved) {
-            if (const auto* c = std::get_if<CircleShape>(&e.shape)) sizes = sizes && c->radius > 0;
-            if (const auto* a = std::get_if<ArcShape>(&e.shape)) sizes = sizes && a->radius > 0;
-        }
-        if (!off.empty() || !sizes) {
+        if (const auto problem = checkAnswer(sketch, solved)) {
             result.status = SolveStatus::Failed;
-            result.issues.push_back(
-                {"sketch.solve_failed",
-                 Severity::Error,
-                 off.empty()
-                     ? std::string("The sketch couldn't be solved without turning a circle inside out. "
-                                   "Undo the last change, or change a dimension.")
-                     : "The sketch couldn't be solved: " + names(sketch, off) +
-                           " couldn't be made true. Undo the last change, or delete a constraint.",
-                 {}});
+            result.issues.push_back(*problem);
             return;
         }
+        second->freeParts(solved, result);
         result.entities = std::move(solved);
         result.status = SolveStatus::Solved;
         if (!result.redundant.empty()) {

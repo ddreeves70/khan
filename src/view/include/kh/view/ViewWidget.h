@@ -85,9 +85,10 @@ public:
     QString problem() const;
 
     /// Starts or stops drawing mode. While drawing, a left click reports the
-    /// point on the plane (planeClicked()) instead of orbiting or selecting, and
-    /// moving the mouse reports it too (planeMoved()). Panning and zooming still
-    /// work, and Escape sends planeCancelled().
+    /// point on the plane (planeClicked()) instead of orbiting or selecting,
+    /// moving the mouse reports it too (planeMoved()), and a left drag reports
+    /// where it started and where it is (planeDragged(), then planeDropped()).
+    /// Panning and zooming still work, and Escape sends planeCancelled().
     /// @param plane The plane to draw on, or nothing to stop drawing.
     void setDrawingPlane(std::optional<DrawingPlane> plane);
 
@@ -109,6 +110,17 @@ signals:
     /// While drawing: the student clicked on the drawing plane.
     /// @param point Where, on the plane.
     void planeClicked(const kh::view::PlanePoint& point);
+
+    /// While drawing: the student is dragging with the left button (pressed, then
+    /// moved more than a few pixels). Sent on every move until planeDropped().
+    /// @param from Where the button went down, on the plane.
+    /// @param to Where the mouse is now, on the plane.
+    void planeDragged(const kh::view::PlanePoint& from, const kh::view::PlanePoint& to);
+
+    /// While drawing: a drag ended (the left button came up).
+    /// @param from Where the button went down, on the plane.
+    /// @param to Where it came up, on the plane.
+    void planeDropped(const kh::view::PlanePoint& from, const kh::view::PlanePoint& to);
 
     /// While drawing: the student pressed Escape.
     void planeCancelled();

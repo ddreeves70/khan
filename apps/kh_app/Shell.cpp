@@ -419,7 +419,21 @@ void Shell::refreshActions() {
     const auto* doc = host_.documents().find(activeDesign());
     const auto& sel = host_.selection();
     const auto& mode = host_.toolbarMode();
+    // While a mode is on, its own items win any shortcut they share with others
+    // (Delete deletes what's picked in a sketch, not the step).
+    QStringList modeKeys;
+    for (const auto& item : actions_) {
+        if (!mode.empty() && item.spec.toolbarMode == mode && !item.spec.shortcut.empty())
+            modeKeys << QKeySequence(qs(item.spec.shortcut)).toString();
+    }
     for (auto& [spec, a, button] : actions_) {
+        if (!spec.shortcut.empty()) {
+            const QKeySequence keys(qs(spec.shortcut));
+            const bool yields =
+                !mode.empty() && spec.toolbarMode != mode && modeKeys.contains(keys.toString());
+            const QKeySequence want = yields ? QKeySequence() : keys;
+            if (a->shortcut() != want) a->setShortcut(want);
+        }
         // Enabled: a design to change (or the plugin's own code), the steps it needs
         // picked, and whatever the plugin says.
         bool ok = doc != nullptr || static_cast<bool>(spec.run);

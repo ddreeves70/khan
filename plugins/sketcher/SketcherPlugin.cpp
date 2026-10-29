@@ -64,10 +64,20 @@ struct Pick {
     std::optional<sketch::PointRef> ref{};
 };
 
-enum class Tool { Line, Circle, Arc, Point };
+// A part of the sketch the student can pick: one point of an entity, or a
+// whole entity (by its edge).
+struct Item {
+    EntityId entity{};
+    std::optional<sketch::PointRole> point{};
+    bool operator==(const Item&) const = default;
+};
+
+enum class Tool { Select, Line, Circle, Arc, Point };
 
 const char* toolHint(Tool tool, std::size_t clicks) {
     switch (tool) {
+        case Tool::Select:
+            return "Click a line or point to pick it, or drag it to move it. Esc finishes the sketch.";
         case Tool::Line:
             return clicks == 0 ? "Line: click where it starts." : "Line: click where it ends. Esc stops.";
         case Tool::Circle:
@@ -82,7 +92,33 @@ const char* toolHint(Tool tool, std::size_t clicks) {
     return "";
 }
 
-// The sketcher: the drawing of sketches, and the mouse tool that draws in one.
+// How far a point is from an entity's edge (mm). Points have no edge.
+std::optional<double> edgeDistance(const sketch::Shape& shape, sketch::Point2 p) {
+    if (const auto* l = std::get_if<sketch::LineShape>(&shape)) {
+        const double dx = l->end.x - l->start.x, dy = l->end.y - l->start.y;
+        const double len2 = dx * dx + dy * dy;
+        double t = len2 > 0 ? ((p.x - l->start.x) * dx + (p.y - l->start.y) * dy) / len2 : 0;
+        t = std::clamp(t, 0.0, 1.0);
+        return distance(p, {l->start.x + t * dx, l->start.y + t * dy});
+    }
+    if (const auto* c = std::get_if<sketch::CircleShape>(&shape))
+        return std::abs(distance(p, c->center) - c->radius);
+    if (const auto* a = std::get_if<sketch::ArcShape>(&shape)) {
+        // On the arc's part of the circle? Then how far from the circle; else from the nearer end.
+        double angle = std::atan2(p.y - a->center.y, p.x - a->center.x);
+        while (angle < a->startAngle) angle += 2 * kPi;
+        while (angle >= a->startAngle + 2 * kPi) angle -= 2 * kPi;
+        if (angle <= a->endAngle) return std::abs(distance(p, a->center) - a->radius);
+        auto end = [&](double t) {
+            return sketch::Point2{a->center.x + a->radius * std::cos(t),
+                                  a->center.y + a->radius * std::sin(t)};
+        };
+        return std::min(distance(p, end(a->startAngle)), distance(p, end(a->endAngle)));
+    }
+    return std::nullopt;
+}
+
+// The sketcher: the drawing of sketches, and the mouse tool that edits one.
 class Sketcher final : public viewer::IViewTool {
 public:
     explicit Sketcher(plugin::PluginContext& ctx) : ctx_(ctx) {}
@@ -91,15 +127,16 @@ public:
 
     bool editing() const { return !editing_.isNil(); }
 
-    // Starts editing a sketch step: the viewers face its plane and draw with the tool.
-    void begin(const FeatureId& id) {
+    // Starts editing a sketch step: the viewers face its plane, and the mouse
+    // works with the given tool.
+    void begin(const FeatureId& id, Tool tool) {
         const auto* step = sketchStep(id);
         auto* viewer = ctx_.service<viewer::IViewer>();
         if (!step || !viewer) return;
         editing_ = id;
         doc_ = ctx_.documents().active();
-        pending_.clear();
-        hover_.reset();
+        tool_ = tool;
+        reset();
         viewer->face(toolPlane(step->plane()));
         viewer->startTool(*this, toolPlane(step->plane()));
         draw();
@@ -112,8 +149,7 @@ public:
         if (auto* viewer = ctx_.service<viewer::IViewer>()) viewer->stopTool(*this);
         const bool was = editing();
         editing_ = {};
-        pending_.clear();
-        hover_.reset();
+        reset();
         draw();
         if (was) {
             message("Finished the sketch.");
@@ -132,61 +168,162 @@ public:
         }
         tool_ = tool;
         pending_.clear();
+        hoverItem_.reset();
         draw();
         hint();
+        ctx_.publish(plugin::ActionsChanged{});  // the pressed tool button changes
     }
 
     Tool tool() const { return tool_; }
+    const std::vector<Item>& picked() const { return picked_; }
 
-    // Draws every sketch of the active design (and the edited one in front).
+    // Deletes the picked lines, circles, arcs and points (with the constraints
+    // on them). A picked end of a line or arc loses its constraints instead.
+    void deletePicked() {
+        if (!editing() || picked_.empty()) return;
+        const auto items = picked_;
+        auto change = [items](sketch::Sketch& s, std::string& label) -> Diagnostics {
+            std::vector<std::string> names;
+            auto uses = [](const sketch::Constraint& c, const EntityId& id) {
+                return std::ranges::find(c.entities, id) != c.entities.end() ||
+                       std::ranges::any_of(c.points, [&](const auto& p) { return p.entity == id; });
+            };
+            for (const auto& item : items) {
+                const auto* e = s.find(item.entity);
+                if (!e) continue;
+                const bool whole = !item.point || item.point == sketch::PointRole::Self;
+                if (whole) {
+                    names.push_back(e->name);
+                    const EntityId id = e->id;
+                    std::erase_if(s.constraints, [&](const sketch::Constraint& c) { return uses(c, id); });
+                    std::erase_if(s.entities, [&](const sketch::Entity& x) { return x.id == id; });
+                } else {
+                    names.push_back("the constraints on " + e->name + "'s " + roleName(*item.point));
+                    std::erase_if(s.constraints, [&](const sketch::Constraint& c) {
+                        return std::ranges::any_of(c.points, [&](const auto& p) {
+                            return p.entity == item.entity && p.role == *item.point;
+                        });
+                    });
+                }
+            }
+            label = "Delete " + (names.size() == 1 ? names[0] : std::to_string(names.size()) + " things");
+            return {};
+        };
+        picked_.clear();
+        hoverItem_.reset();
+        run(std::move(change));
+        hint();
+        ctx_.publish(plugin::ActionsChanged{});
+    }
+
+    // Draws every sketch of the active design (and the edited one in front),
+    // the edited one colored by what can still move.
     void draw() {
         auto& overlays = ctx_.overlays();
         const DocId docId = ctx_.documents().active();
         const auto* doc = ctx_.documents().find(docId);
-        plugin::Overlay others{.shape = plugin::OverlayShape::Lines, .color = {120, 136, 160}, .size = 1.5};
-        plugin::Overlay lines{.shape = plugin::OverlayShape::Lines, .color = {9, 105, 218}, .size = 2.5};
-        plugin::Overlay helpers{.shape = plugin::OverlayShape::Lines, .color = {140, 149, 159}, .size = 1};
-        plugin::Overlay points{.shape = plugin::OverlayShape::Points, .color = {31, 35, 40}, .size = 5};
+        using plugin::Overlay;
+        using plugin::OverlayShape;
+        Overlay others{.shape = OverlayShape::Lines, .color = {120, 136, 160}, .size = 1.5};
+        Overlay helpers{.shape = OverlayShape::Lines, .color = {140, 149, 159}, .size = 1};
+        Overlay freeLines{.shape = OverlayShape::Lines, .color = kFree, .size = 2.5};
+        Overlay fixedLines{.shape = OverlayShape::Lines, .color = kFixed, .size = 2.5};
+        Overlay freePoints{.shape = OverlayShape::Points, .color = kFree, .size = 6};
+        Overlay fixedPoints{.shape = OverlayShape::Points, .color = kFixed, .size = 6};
+        Overlay hoverLines{.shape = OverlayShape::Lines, .color = kHover, .size = 3.5};
+        Overlay hoverPoints{.shape = OverlayShape::Points, .color = kHover, .size = 10};
+        Overlay pickedLines{.shape = OverlayShape::Lines, .color = kPicked, .size = 3.5};
+        Overlay pickedPoints{.shape = OverlayShape::Points, .color = kPicked, .size = 10};
         if (doc) {
             for (std::size_t i = 0; i < doc->featureCount(); ++i) {
                 const auto& f = doc->featureAt(i);
                 if (f.type() != model::FeatureType::Sketch || f.suppressed()) continue;
                 const auto& step = static_cast<const model::SketchFeature&>(f);
-                const auto entities = shown(step);
                 if (f.id() != editing_) {
-                    auto add = sketchLines(step.plane(), entities);
+                    auto add = sketchLines(step.plane(), shown(step));
                     others.points.insert(others.points.end(), add.begin(), add.end());
                     continue;
                 }
-                for (const auto& e : entities) {
+                const auto entities = current(step);
+                const auto* solved = solveResult(step);
+                // Free (blue) unless the last solve says it's fully constrained (black).
+                auto entityFree = [&](const EntityId& id) {
+                    return !solved ||
+                           std::ranges::find(solved->freeEntities, id) != solved->freeEntities.end();
+                };
+                auto pointFree = [&](const sketch::PointRef& r) {
+                    return !solved || std::ranges::any_of(solved->freePoints, [&](const auto& p) {
+                        return p.entity == r.entity && p.role == r.role;
+                    });
+                };
+                auto lineInto = [&](Overlay& o, const sketch::Entity& e) {
                     auto add = sketchLines(step.plane(), {e});
-                    auto& into = e.construction ? helpers : lines;
-                    into.points.insert(into.points.end(), add.begin(), add.end());
+                    o.points.insert(o.points.end(), add.begin(), add.end());
+                };
+                for (const auto& e : entities) {
+                    lineInto(e.construction ? helpers : entityFree(e.id) ? freeLines : fixedLines, e);
                 }
                 for (const auto& [ref, at] : sketchPoints(entities)) {
-                    points.points.push_back(model::toDesign(step.plane(), at));
+                    (pointFree(ref) ? freePoints : fixedPoints)
+                        .points.push_back(model::toDesign(step.plane(), at));
                 }
+                // Picked, and under the mouse (in Select).
+                auto showItem = [&](const Item& item, Overlay& lines, Overlay& points) {
+                    const sketch::Sketch s{entities, {}};
+                    const auto* e = s.find(item.entity);
+                    if (!e) return;
+                    if (item.point) {
+                        if (const auto at = sketch::pointOf(s, {item.entity, *item.point}))
+                            points.points.push_back(model::toDesign(step.plane(), *at));
+                    } else if (std::holds_alternative<sketch::PointShape>(e->shape)) {
+                        points.points.push_back(
+                            model::toDesign(step.plane(), std::get<sketch::PointShape>(e->shape).at));
+                    } else {
+                        lineInto(lines, *e);
+                    }
+                };
+                if (hoverItem_ && !drag_) showItem(*hoverItem_, hoverLines, hoverPoints);
+                for (const auto& item : picked_) showItem(item, pickedLines, pickedPoints);
             }
         }
-        show(overlays, "sketches", std::move(others));
-        show(overlays, "edit.helpers", std::move(helpers));
-        show(overlays, "edit.lines", std::move(lines));
-        show(overlays, "edit.points", std::move(points));
+        // Redrawn in this order every time, so what's picked is always on top.
+        const std::pair<const char*, Overlay*> layers[] = {
+            {"sketches", &others},         {"edit.helpers", &helpers},
+            {"edit.lines", &freeLines},    {"edit.fixed", &fixedLines},
+            {"edit.points", &freePoints},  {"edit.fixed_points", &fixedPoints},
+            {"edit.hover", &hoverLines},   {"edit.hover_points", &hoverPoints},
+            {"edit.picked", &pickedLines}, {"edit.picked_points", &pickedPoints}};
+        for (const auto& [name, overlay] : layers) overlays.remove(name);
+        for (const auto& [name, overlay] : layers) show(overlays, name, std::move(*overlay));
         drawPreview();
     }
 
     // --- The mouse (IViewTool) -------------------------------------------
 
     void moved(const viewer::ToolPoint& point) override {
+        if (tool_ == Tool::Select) {
+            const auto item = itemAt(point);
+            if (item != hoverItem_) {
+                hoverItem_ = item;
+                draw();
+            }
+            return;
+        }
         hover_ = pick(point);
         drawPreview();
     }
 
     void clicked(const viewer::ToolPoint& point) override {
         if (!editing()) return;
+        if (tool_ == Tool::Select) {
+            pickAt(point);
+            return;
+        }
         const Pick here = pick(point);
         hover_ = here;
         switch (tool_) {
+            case Tool::Select:
+                break;
             case Tool::Line:
                 if (pending_.empty()) {
                     pending_.push_back(here);
@@ -223,23 +360,181 @@ public:
         hint();
     }
 
+    // Select: dragging a point moves it; dragging a line moves the whole line;
+    // dragging the edge of a circle or arc changes its size. The solver keeps
+    // every constraint true while it follows the mouse.
+    void dragged(const viewer::ToolPoint& from, const viewer::ToolPoint& to) override {
+        if (!editing() || tool_ != Tool::Select || dragCancelled_) return;
+        const auto* step = sketchStep(editing_);
+        auto* solver = ctx_.documents().solver();
+        if (!step || !solver) return;
+        if (!drag_) {
+            const auto item = itemAt(from);
+            if (!item) return;  // nothing under the mouse to drag
+            drag_ = Drag{*item, sketch::Sketch{current(*step), step->sketch().constraints}};
+            if (std::ranges::find(picked_, *item) == picked_.end()) picked_ = {*item};
+            ctx_.publish(plugin::ActionsChanged{});
+        }
+        const auto plane = step->plane();
+        const auto a = model::toSketch(plane, from.at);
+        const auto b = model::toSketch(plane, to.at);
+        const sketch::Point2 delta{b.x - a.x, b.y - a.y};
+        const auto& start = drag_->start;
+        std::vector<sketch::Pull> pulls;
+        auto movePoint = [&](sketch::PointRef ref) {
+            if (const auto p = sketch::pointOf(start, ref))
+                pulls.push_back({ref, {p->x + delta.x, p->y + delta.y}});
+        };
+        const Item& item = drag_->item;
+        const auto* e = start.find(item.entity);
+        if (!e) return;
+        if (item.point) {
+            movePoint({item.entity, *item.point});
+        } else if (std::holds_alternative<sketch::PointShape>(e->shape)) {
+            movePoint({item.entity, sketch::PointRole::Self});
+        } else if (std::holds_alternative<sketch::LineShape>(e->shape)) {
+            movePoint({item.entity, sketch::PointRole::Start});
+            movePoint({item.entity, sketch::PointRole::End});
+        } else {
+            pulls.push_back({{item.entity, sketch::PointRole::Center}, b, true});  // the edge: its size
+        }
+        const auto r = solver->drag(start, pulls);
+        if (r.ok()) drag_->now = r.entities;
+        draw();
+    }
+
+    void dropped(const viewer::ToolPoint& from, const viewer::ToolPoint& to) override {
+        if (dragCancelled_) {
+            dragCancelled_ = false;
+            return;
+        }
+        if (!drag_) return;
+        dragged(from, to);
+        const auto d = std::move(*drag_);
+        drag_.reset();
+        if (!d.now || moved(d.start.entities, *d.now) == 0) {
+            draw();
+            return;
+        }
+        const auto moved = *d.now;
+        const auto* e = d.start.find(d.item.entity);
+        const std::string what = !e ? std::string("sketch")
+                                 : d.item.point && d.item.point != sketch::PointRole::Self
+                                     ? e->name + "'s " + roleName(*d.item.point)
+                                     : e->name;
+        run([moved, what](sketch::Sketch& s, std::string& label) -> Diagnostics {
+            for (auto& entity : s.entities) {
+                for (const auto& m : moved) {
+                    if (m.id == entity.id) entity.shape = m.shape;
+                }
+            }
+            label = "Move " + what;
+            return {};
+        });
+        hint();
+    }
+
     void cancelled() override {
+        if (drag_) {  // Escape while dragging: put it back, and ignore the drop that follows
+            drag_.reset();
+            dragCancelled_ = true;
+            draw();
+            return;
+        }
         if (!pending_.empty()) {
             pending_.clear();
             drawPreview();
             hint();
             return;
         }
+        if (tool_ != Tool::Select) {
+            setTool(Tool::Select);
+            return;
+        }
+        if (!picked_.empty()) {
+            picked_.clear();
+            draw();
+            hint();
+            ctx_.publish(plugin::ActionsChanged{});
+            return;
+        }
         finish();
     }
 
-    // Stops editing if the sketch went away (deleted, undone, another design).
+    // Stops editing if the sketch went away (deleted, undone, another design),
+    // and lets go of picked parts that went away.
     void checkStillThere() {
         if (editing() && (ctx_.documents().active() != doc_ || !sketchStep(editing_))) finish();
+        if (const auto* step = sketchStep(editing_)) {
+            const auto before = picked_.size();
+            std::erase_if(picked_, [&](const Item& i) { return !step->sketch().find(i.entity); });
+            if (hoverItem_ && !step->sketch().find(hoverItem_->entity)) hoverItem_.reset();
+            if (picked_.size() != before) ctx_.publish(plugin::ActionsChanged{});
+        }
         draw();
     }
 
 private:
+    // Blue for what can still move, black for what's fully constrained (as in
+    // other CAD programs); orange for what's picked, light orange under the mouse.
+    static constexpr plugin::OverlayColor kFree{9, 105, 218};
+    static constexpr plugin::OverlayColor kFixed{31, 35, 40};
+    static constexpr plugin::OverlayColor kPicked{230, 110, 0};
+    static constexpr plugin::OverlayColor kHover{245, 170, 80};
+    static constexpr double kEdgePixels = 6;  // how close the mouse must be to a line to pick it
+
+    struct Drag {
+        Item item;                                         // what's dragged
+        sketch::Sketch start;                              // the sketch when the drag started
+        std::optional<std::vector<sketch::Entity>> now{};  // where the solver has it now
+    };
+
+    void reset() {
+        pending_.clear();
+        hover_.reset();
+        hoverItem_.reset();
+        picked_.clear();
+        drag_.reset();
+        dragCancelled_ = false;
+    }
+
+    static std::string roleName(sketch::PointRole role) {
+        switch (role) {
+            case sketch::PointRole::Start:
+                return "start";
+            case sketch::PointRole::End:
+                return "end";
+            case sketch::PointRole::Center:
+                return "center";
+            case sketch::PointRole::Self:
+                break;
+        }
+        return "point";
+    }
+
+    // How many entities moved (by more than a millionth of a mm).
+    static std::size_t moved(const std::vector<sketch::Entity>& a, const std::vector<sketch::Entity>& b) {
+        std::size_t n = 0;
+        const sketch::Sketch sb{b, {}};
+        for (const auto& e : a) {
+            for (const auto& [ref, p] : sketchPoints({e})) {
+                const auto q = sketch::pointOf(sb, ref);
+                if (q && distance(p, *q) > 1e-6) {
+                    ++n;
+                    break;
+                }
+            }
+            const auto* f = sb.find(e.id);
+            auto radius = [](const sketch::Shape& s) {
+                if (const auto* c = std::get_if<sketch::CircleShape>(&s)) return c->radius;
+                if (const auto* r = std::get_if<sketch::ArcShape>(&s)) return r->radius;
+                return 0.0;
+            };
+            if (f && std::abs(radius(e.shape) - radius(f->shape)) > 1e-6) ++n;
+        }
+        return n;
+    }
+
     const model::SketchFeature* sketchStep(const FeatureId& id) const {
         const auto* doc = ctx_.documents().find(ctx_.documents().active());
         const auto* f = doc ? doc->find(id) : nullptr;
@@ -247,12 +542,22 @@ private:
                                                             : nullptr;
     }
 
-    // A sketch as the student sees it: solved, if it solved; as drawn otherwise.
-    std::vector<sketch::Entity> shown(const model::SketchFeature& step) const {
+    const sketch::SolveResult* solveResult(const model::SketchFeature& step) const {
         const auto* report = ctx_.documents().lastRebuild(ctx_.documents().active());
         const auto* r = report ? report->result(step.id()) : nullptr;
-        if (r && r->sketch && r->sketch->ok()) return r->sketch->entities;
+        return r && r->sketch && r->sketch->ok() ? &*r->sketch : nullptr;
+    }
+
+    // A sketch as the student sees it: solved, if it solved; as drawn otherwise.
+    std::vector<sketch::Entity> shown(const model::SketchFeature& step) const {
+        if (const auto* r = solveResult(step)) return r->entities;
         return step.sketch().entities;
+    }
+
+    // The edited sketch as it is right now: following the mouse while dragging.
+    std::vector<sketch::Entity> current(const model::SketchFeature& step) const {
+        if (drag_ && drag_->now && step.id() == editing_) return *drag_->now;
+        return shown(step);
     }
 
     static std::vector<std::pair<sketch::PointRef, sketch::Point2>> sketchPoints(
@@ -272,6 +577,55 @@ private:
     static viewer::ToolPlane toolPlane(model::SketchPlane plane) {
         const auto a = model::planeAxes(plane);
         return {a.origin, a.x, a.y};
+    }
+
+    // The part of the edited sketch under the mouse: a point within 8 pixels,
+    // else an edge within 6.
+    std::optional<Item> itemAt(const viewer::ToolPoint& point) const {
+        const auto* step = sketchStep(editing_);
+        if (!step) return std::nullopt;
+        const auto at = model::toSketch(step->plane(), point.at);
+        const auto entities = current(*step);
+        std::optional<Item> best;
+        double bestDistance = kSnapPixels * point.pixel;
+        for (const auto& [ref, p] : sketchPoints(entities)) {
+            const double d = distance(at, p);
+            if (d < bestDistance || (!best && d <= bestDistance)) {  // two points in one place: the first
+                // A point entity is picked whole; other points by their role.
+                best = ref.role == sketch::PointRole::Self ? Item{ref.entity, std::nullopt}
+                                                           : Item{ref.entity, ref.role};
+                bestDistance = d;
+            }
+        }
+        if (best) return best;
+        bestDistance = kEdgePixels * point.pixel;
+        for (const auto& e : entities) {
+            const auto d = edgeDistance(e.shape, at);
+            if (d && (*d < bestDistance || (!best && *d <= bestDistance))) {
+                best = Item{e.id, std::nullopt};
+                bestDistance = *d;
+            }
+        }
+        return best;
+    }
+
+    // A click in Select: picks what's under the mouse (Ctrl or Shift adds or
+    // removes it); a click on nothing lets go of everything.
+    void pickAt(const viewer::ToolPoint& point) {
+        const auto item = itemAt(point);
+        if (!item) {
+            if (!point.add) picked_.clear();
+        } else if (point.add) {
+            if (const auto it = std::ranges::find(picked_, *item); it != picked_.end())
+                picked_.erase(it);
+            else
+                picked_.push_back(*item);
+        } else {
+            picked_ = {*item};
+        }
+        draw();
+        hint();
+        ctx_.publish(plugin::ActionsChanged{});  // Delete turns on or off
     }
 
     // Where a mouse point lands: on a sketch point if it's close, else on the
@@ -303,7 +657,7 @@ private:
         plugin::Overlay preview{.shape = plugin::OverlayShape::Lines, .color = {230, 120, 20}, .size = 1.5};
         plugin::Overlay snap{.shape = plugin::OverlayShape::Points, .color = {230, 120, 20}, .size = 11};
         const auto* step = sketchStep(editing_);
-        if (step && hover_) {
+        if (step && hover_ && tool_ != Tool::Select) {
             const auto plane = step->plane();
             const Pick& h = *hover_;
             auto show = [&](sketch::Shape shape) {
@@ -327,6 +681,7 @@ private:
                             show(*arc);
                         }
                         break;
+                    case Tool::Select:
                     case Tool::Point:
                         break;
                 }
@@ -347,10 +702,20 @@ private:
         return sketch::ArcShape{center, r, a0, a1};
     }
 
-    // --- Adding shapes: one undo step each, with Coincident for snapped ends ---
+    // --- Changing the sketch: one undo step each ---------------------------
+
+    // Runs a change to the edited sketch as a command; shows its problems.
+    bool run(model::EditSketchCommand::Change change) {
+        auto problems = ctx_.documents().execute(
+            doc_, std::make_unique<model::EditSketchCommand>(editing_, std::move(change)));
+        if (problems.empty()) return true;
+        if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showProblems(problems);
+        return false;
+    }
 
     using Join = std::pair<sketch::PointRole, std::optional<sketch::PointRef>>;
 
+    // Adds a shape, with a Coincident for each snapped point.
     std::optional<EntityId> add(const std::string& base, sketch::Shape shape, std::vector<Join> joins) {
         const EntityId id = EntityId::generate();
         auto change = [id, base, shape, joins](sketch::Sketch& s, std::string& label) -> Diagnostics {
@@ -369,12 +734,7 @@ private:
             label = "Add " + name;
             return {};
         };
-        auto problems = ctx_.documents().execute(
-            doc_, std::make_unique<model::EditSketchCommand>(editing_, std::move(change)));
-        if (!problems.empty()) {
-            if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showProblems(problems);
-            return std::nullopt;
-        }
+        if (!run(std::move(change))) return std::nullopt;
         return id;
     }
 
@@ -403,8 +763,24 @@ private:
     void hint() {
         if (!editing()) return;
         const auto* step = sketchStep(editing_);
-        message("Drawing in " + (step ? step->name() : std::string("the sketch")) + ". " +
-                toolHint(tool_, pending_.size()));
+        const std::string name = step ? step->name() : std::string("the sketch");
+        if (tool_ != Tool::Select) {
+            message("Drawing in " + name + ". " + toolHint(tool_, pending_.size()));
+            return;
+        }
+        if (picked_.empty()) {
+            message("Editing " + name + ". " + toolHint(tool_, 0));
+            return;
+        }
+        std::string what;
+        const sketch::Sketch* s = step ? &step->sketch() : nullptr;
+        for (const auto& item : picked_) {
+            const auto* e = s ? s->find(item.entity) : nullptr;
+            if (!e) continue;
+            what +=
+                (what.empty() ? "" : ", ") + (item.point ? e->name + "'s " + roleName(*item.point) : e->name);
+        }
+        message("Picked " + what + ". Drag to move it; Ctrl-click picks more; Delete deletes; Esc lets go.");
     }
 
     void message(const std::string& text) {
@@ -420,8 +796,12 @@ private:
     FeatureId editing_{};  // the sketch being edited, or nil
     DocId doc_{};
     Tool tool_ = Tool::Line;
-    std::vector<Pick> pending_;  // the clicks of the shape being drawn
-    std::optional<Pick> hover_;  // where the mouse is
+    std::vector<Pick> pending_;      // the clicks of the shape being drawn
+    std::optional<Pick> hover_;      // where the mouse is (drawing tools)
+    std::optional<Item> hoverItem_;  // what's under the mouse (Select)
+    std::vector<Item> picked_;       // what's picked (Select), in picking order
+    std::optional<Drag> drag_;       // what's being dragged
+    bool dragCancelled_ = false;     // Escape during a drag: ignore its drop
 };
 
 void registerSketcher(plugin::PluginContext& ctx) {
@@ -445,7 +825,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
         const auto* design = docs.find(doc);
         const FeatureId id = design->featureAt(design->featureCount() - 1).id();
         ctx.selection().set(doc, {id});
-        sketcher->begin(id);
+        sketcher->begin(id, Tool::Line);  // a new sketch starts with lines
     };
     ctx.addAction(ActionSpec{.id = "kh.sketcher.new_xy",
                              .text = "New sketch on XY (the ground)",
@@ -487,7 +867,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
         .run =
             [&ctx, sketcher, pickedSketch] {
                 if (const auto id = pickedSketch()) {
-                    sketcher->begin(*id);
+                    sketcher->begin(*id, Tool::Select);  // a sketch you have starts with picking
                 } else if (auto* ui = ctx.service<ui::UiRegistry>()) {
                     ui->showProblems({{"sketch.pick",
                                        Severity::Error,
@@ -507,6 +887,26 @@ void registerSketcher(plugin::PluginContext& ctx) {
                              .tip = "Stop drawing. Clicks in the viewer pick and turn the view again.",
                              .run = [sketcher] { sketcher->finish(); },
                              .enabled = [sketcher] { return sketcher->editing(); }});
+    ctx.addAction(
+        ActionSpec{.id = "kh.sketcher.select",
+                   .text = "Select",
+                   .menu = "Sketch/Draw",
+                   .toolbar = true,
+                   .toolbarMode = std::string(kEditingMode),
+                   .icon = std::string(icons::sketcher::select_svg),
+                   .tip = "Pick lines and points, and drag them to move them.",
+                   .run = [sketcher] { sketcher->setTool(Tool::Select); },
+                   .checked = [sketcher] { return sketcher->editing() && sketcher->tool() == Tool::Select; },
+                   .enabled = [sketcher] { return sketcher->editing(); }});
+    ctx.addAction(
+        ActionSpec{.id = "kh.sketcher.delete",
+                   .text = "Delete picked",
+                   .menu = "Sketch",
+                   .shortcut = "Delete",
+                   .toolbarMode = std::string(kEditingMode),  // while editing, Delete is this
+                   .tip = "Delete the picked lines, circles, arcs and points, and their constraints.",
+                   .run = [sketcher] { sketcher->deletePicked(); },
+                   .enabled = [sketcher] { return sketcher->editing() && !sketcher->picked().empty(); }});
     struct ToolItem {
         const char* id;
         const char* text;

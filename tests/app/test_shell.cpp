@@ -243,7 +243,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 6 + 2 + 5);  // Khan's own, kh.modeling, kh.sketcher, sketch-editing
+    CHECK(buttons == 5 + 6 + 2 + 6);  // Khan's own, kh.modeling, kh.sketcher, sketch-editing
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
 }
@@ -584,6 +584,33 @@ void clickAt(view::FlatView* v, kernel::Vec3 at) {
     settle();
 }
 
+// A left drag in the flat view, in a few steps, as the mouse would.
+void dragAt(view::FlatView* v, kernel::Vec3 from, kernel::Vec3 to,
+            Qt::KeyboardModifiers keys = Qt::NoModifier) {
+    const QPointF a = v->toScreen(from), b = v->toScreen(to);
+    auto send = [&](QEvent::Type type, QPointF at, Qt::MouseButton button, Qt::MouseButtons held) {
+        QMouseEvent e(type, at, v->mapToGlobal(at), button, held, keys);
+        QApplication::sendEvent(v, &e);
+    };
+    send(QEvent::MouseMove, a, Qt::NoButton, Qt::NoButton);
+    send(QEvent::MouseButtonPress, a, Qt::LeftButton, Qt::LeftButton);
+    for (int i = 1; i <= 4; ++i) send(QEvent::MouseMove, a + (b - a) * i / 4, Qt::NoButton, Qt::LeftButton);
+    send(QEvent::MouseButtonRelease, b, Qt::LeftButton, Qt::NoButton);
+    settle();
+}
+
+// A click with Ctrl held (adds to what's picked).
+void ctrlClickAt(view::FlatView* v, kernel::Vec3 at) {
+    const QPointF p = v->toScreen(at);
+    QMouseEvent press(QEvent::MouseButtonPress, p, v->mapToGlobal(p), Qt::LeftButton, Qt::LeftButton,
+                      Qt::ControlModifier);
+    QApplication::sendEvent(v, &press);
+    QMouseEvent release(QEvent::MouseButtonRelease, p, v->mapToGlobal(p), Qt::LeftButton, Qt::NoButton,
+                        Qt::ControlModifier);
+    QApplication::sendEvent(v, &release);
+    settle();
+}
+
 void pressEscape(QWidget* w) {
     QKeyEvent key(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
     QApplication::sendEvent(w, &key);
@@ -694,7 +721,7 @@ TEST_CASE("an end close to a point snaps onto it and joins it", "[app][sketcher]
     CHECK(s.constraints[0].points[1].role == sketch::PointRole::End);
 }
 
-TEST_CASE("Escape stops the shape being drawn, then stops editing", "[app][sketcher]") {
+TEST_CASE("Escape stops the shape being drawn, then goes to Select, then stops editing", "[app][sketcher]") {
     App app;
     app.click("kh.sketcher.new_xy");
     auto* flat = app.flat();
@@ -705,12 +732,176 @@ TEST_CASE("Escape stops the shape being drawn, then stops editing", "[app][sketc
     clickAt(flat, {5, 5, 0});
     clickAt(flat, {10, 5, 0});
     CHECK(sketchAt(app, 0).sketch().entities.size() == 1);  // a new line, not one from 0, 0
-    pressEscape(flat);
-    pressEscape(flat);
+    pressEscape(flat);                                      // stops the chain of lines
+    pressEscape(flat);                                      // Line tool -> Select
+    CHECK(app.shell->action("kh.sketcher.select")->isChecked());
+    CHECK(viewer->tool() != nullptr);
+    pressEscape(flat);  // nothing picked: finish
     CHECK(viewer->tool() == nullptr);
     CHECK(app.shell->statusBar()->currentMessage() == QStringLiteral("Finished the sketch."));
     clickAt(flat, {20, 20, 0});  // not drawing any more
     CHECK(sketchAt(app, 0).sketch().entities.size() == 1);
+}
+
+namespace {
+
+// A design with Sketch1 holding a 60 x 40 mm rectangle (Line1 to Line4, joined
+// corners, from 0, 0) and Circle1 at 20, 20 (radius 10 mm), being edited in Select.
+struct Drawn {
+    App app;
+    view::FlatView* flat = nullptr;
+    Drawn() {
+        app.menu("kh.grid.snap")->trigger();
+        app.click("kh.sketcher.new_xy");
+        flat = app.flat();
+        for (auto p : {kernel::Vec3{0, 0, 0}, {60, 0, 0}, {60, 40, 0}, {0, 40, 0}, {0, 0, 0}})
+            clickAt(flat, p);
+        app.click("kh.sketcher.circle");
+        clickAt(flat, {20, 20, 0});
+        clickAt(flat, {30, 20, 0});
+        app.click("kh.sketcher.select");
+    }
+    const sketch::Sketch& sketch() { return sketchAt(app, 0).sketch(); }
+    const sketch::LineShape& line(std::size_t i) {
+        return std::get<sketch::LineShape>(sketch().entities[i].shape);
+    }
+    std::size_t overlayPoints(const char* name) {
+        const auto* o = app.host.overlays().find(std::string("kh.sketcher.") + name);
+        return o ? o->points.size() : 0;
+    }
+};
+
+}  // namespace
+
+TEST_CASE("Select: a click picks a line or point, Ctrl-click adds, a click on nothing lets go",
+          "[app][sketcher]") {
+    Drawn d;
+    CHECK(d.overlayPoints("edit.picked") == 0);
+    CHECK_FALSE(d.app.shell->action("kh.sketcher.delete")->isEnabled());
+    clickAt(d.flat, {30, 0, 0});                 // the middle of Line1
+    CHECK(d.overlayPoints("edit.picked") == 2);  // one line: two ends
+    CHECK(d.app.shell->statusBar()->currentMessage().startsWith(QStringLiteral("Picked Line1.")));
+    CHECK(d.app.shell->action("kh.sketcher.delete")->isEnabled());
+    ctrlClickAt(d.flat, {60, 20, 0});  // and Line2
+    CHECK(d.overlayPoints("edit.picked") == 4);
+    ctrlClickAt(d.flat, {30, 0, 0});  // Ctrl-click again: Line1 is let go
+    CHECK(d.overlayPoints("edit.picked") == 2);
+    clickAt(d.flat, {60, 40, 0});  // a corner: picks that point, not a line
+    CHECK(d.overlayPoints("edit.picked") == 0);
+    CHECK(d.overlayPoints("edit.picked_points") == 1);
+    clickAt(d.flat, {45, 20, 0});  // nothing there
+    CHECK(d.overlayPoints("edit.picked_points") == 0);
+    CHECK_FALSE(d.app.shell->action("kh.sketcher.delete")->isEnabled());
+    // Esc lets go of what's picked before it finishes the sketch.
+    clickAt(d.flat, {30, 0, 0});
+    pressEscape(d.flat);
+    CHECK(d.overlayPoints("edit.picked") == 0);
+    CHECK(seenViewer->tool() != nullptr);
+}
+
+TEST_CASE("Delete deletes the picked lines and their constraints, in one undo step", "[app][sketcher]") {
+    Drawn d;
+    REQUIRE(d.sketch().entities.size() == 5);
+    REQUIRE(d.sketch().constraints.size() == 4);  // the rectangle's corners
+    clickAt(d.flat, {30, 0, 0});
+    ctrlClickAt(d.flat, {30, 20, 0});  // Circle1's edge
+    // While editing, the Delete key deletes what's picked in the sketch, not the step.
+    CHECK(d.app.shell->action("kh.sketcher.delete")->shortcut() == QKeySequence(QKeySequence::Delete));
+    CHECK(d.app.shell->action("kh.modeling.delete")->shortcut().isEmpty());
+    d.app.click("kh.sketcher.delete");
+    CHECK(d.sketch().entities.size() == 3);
+    CHECK(d.sketch().constraints.size() == 2);  // the corners on Line1 went with it
+    CHECK(d.app.doc().undoLabel() == "Delete 2 things");
+    CHECK_FALSE(d.app.shell->action("kh.sketcher.delete")->isEnabled());  // nothing picked now
+    d.app.shell->undoAction()->trigger();
+    settle();
+    CHECK(d.sketch().entities.size() == 5);
+    d.app.click("kh.sketcher.finish");
+    CHECK_FALSE(d.app.shell->action("kh.modeling.delete")->shortcut().isEmpty());  // Delete is back
+}
+
+TEST_CASE("dragging a corner moves it, and the lines joined to it follow", "[app][sketcher]") {
+    Drawn d;
+    dragAt(d.flat, {60, 40, 0}, {70, 50, 0});
+    CHECK(d.line(1).end.x == Approx(70).margin(0.1));  // Line2's end
+    CHECK(d.line(1).end.y == Approx(50).margin(0.1));
+    CHECK(d.line(2).start.x == Approx(70).margin(0.1));  // Line3's start, joined to it
+    CHECK(d.line(0).start.x == Approx(0).margin(1e-6));  // the far corner stays
+    CHECK(d.app.doc().undoLabel() == "Move Line2's end");
+    d.app.shell->undoAction()->trigger();  // one undo step
+    settle();
+    CHECK(d.line(1).end.x == Approx(60).margin(1e-6));
+}
+
+TEST_CASE("dragging a line moves all of it; dragging a circle's edge changes its size", "[app][sketcher]") {
+    Drawn d;
+    dragAt(d.flat, {30, 0, 0}, {30, -5, 0});  // Line1, down 5 mm
+    CHECK(d.line(0).start.y == Approx(-5).margin(0.1));
+    CHECK(d.line(0).end.y == Approx(-5).margin(0.1));
+    CHECK(d.app.doc().undoLabel() == "Move Line1");
+    dragAt(d.flat, {30, 20, 0}, {32, 20, 0});  // Circle1's edge, out 2 mm
+    const auto& c = std::get<sketch::CircleShape>(d.sketch().entities[4].shape);
+    CHECK(c.radius == Approx(12).margin(0.1));
+    CHECK(c.center.x == Approx(20).margin(0.1));  // it grows where it is
+}
+
+TEST_CASE("a fully constrained sketch is drawn black, and dragging it moves nothing", "[app][sketcher]") {
+    Drawn d;
+    CHECK(d.overlayPoints("edit.lines") > 0);  // all blue: free to move
+    CHECK(d.overlayPoints("edit.fixed") == 0);
+    auto& docs = d.app.host.documents();
+    const auto doc = d.app.shell->activeDesign();
+    const auto sketchId = d.app.doc().featureAt(0).id();
+    auto con = [&](const char* kind, const char* on, double value = 0) {
+        model::Args a{{"sketch", sketchId}, {"kind", std::string(kind)}, {"on", std::string(on)}};
+        if (value) a["value"] = value;
+        REQUIRE(docs.run(doc, "sketch.constrain", a).empty());
+    };
+    con("fix", "Line1.start");
+    con("horizontal", "Line1");
+    con("horizontal", "Line3");
+    con("vertical", "Line2");
+    con("vertical", "Line4");
+    con("length", "Line1", 60);
+    con("length", "Line2", 40);
+    settle();
+    CHECK(d.overlayPoints("edit.fixed") == 8);  // the rectangle: 4 lines
+    CHECK(d.overlayPoints("edit.fixed_points") == 8);
+    CHECK(d.overlayPoints("edit.points") == 1);  // Circle1's center is still free
+    const auto undo = d.app.doc().undoLabel();
+    dragAt(d.flat, {60, 40, 0}, {70, 50, 0});
+    CHECK(d.line(1).end.x == Approx(60).margin(1e-6));
+    CHECK(d.app.doc().undoLabel() == undo);  // nothing moved, so nothing to undo
+}
+
+TEST_CASE("Escape during a drag puts it back", "[app][sketcher]") {
+    Drawn d;
+    const QPointF a = d.flat->toScreen({60, 40, 0}), b = d.flat->toScreen({70, 50, 0});
+    auto send = [&](QEvent::Type type, QPointF at, Qt::MouseButton button, Qt::MouseButtons held) {
+        QMouseEvent e(type, at, d.flat->mapToGlobal(at), button, held, Qt::NoModifier);
+        QApplication::sendEvent(d.flat, &e);
+        settle();
+    };
+    send(QEvent::MouseButtonPress, a, Qt::LeftButton, Qt::LeftButton);
+    send(QEvent::MouseMove, b, Qt::NoButton, Qt::LeftButton);
+    CHECK(d.app.host.overlays().find("kh.sketcher.edit.lines")->points.size() > 0);
+    pressEscape(d.flat);
+    send(QEvent::MouseButtonRelease, b, Qt::LeftButton, Qt::NoButton);
+    CHECK(d.line(1).end.x == Approx(60).margin(1e-6));
+    CHECK(d.app.doc().undoLabel() == "Add Circle1");
+    CHECK(seenViewer->tool() != nullptr);  // still editing
+}
+
+TEST_CASE("Edit sketch starts with Select; New sketch starts with Line", "[app][sketcher]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    CHECK(app.shell->action("kh.sketcher.line")->isChecked());
+    app.click("kh.sketcher.finish");
+    app.pickRows({0});
+    app.click("kh.sketcher.edit");
+    CHECK(app.shell->action("kh.sketcher.select")->isChecked());
+    CHECK(app.shell->button("kh.sketcher.select")->isChecked());
+    CHECK(app.shell->statusBar()->currentMessage().startsWith(QStringLiteral("Editing Sketch1.")));
 }
 
 TEST_CASE("Sketch menu items are grey when they can't be used", "[app][sketcher]") {
@@ -756,8 +947,8 @@ TEST_CASE("the toolbar shows sketch buttons while editing, and 3D buttons otherw
         REQUIRE(b);
         return b->isVisible();
     };
-    const char* sketchButtons[] = {"kh.sketcher.finish", "kh.sketcher.line", "kh.sketcher.circle",
-                                   "kh.sketcher.arc", "kh.sketcher.point"};
+    const char* sketchButtons[] = {"kh.sketcher.finish", "kh.sketcher.select", "kh.sketcher.line",
+                                   "kh.sketcher.circle", "kh.sketcher.arc",    "kh.sketcher.point"};
     const char* usualButtons[] = {"kh.modeling.box", "kh.modeling.cylinder", "kh.modeling.move",
                                   "kh.sketcher.new_xy", "kh.sketcher.edit"};
     for (const char* id : usualButtons) CHECK(shown(id));

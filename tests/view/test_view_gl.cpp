@@ -272,7 +272,12 @@ TEST_CASE("drawing mode: clicks report points on the plane, and the left button 
     CHECK(clicks[2].at.y - clicks[0].at.y == Approx(100 * clicks[0].pixel).epsilon(0.02));
     CHECK(f.view.content().selected.empty());  // clicks draw, they don't pick
 
-    // A left drag doesn't orbit while drawing.
+    // A left drag doesn't orbit while drawing: it's reported as a drag on the plane.
+    std::vector<std::pair<PlanePoint, PlanePoint>> drags, drops;
+    QObject::connect(&f.view, &ViewWidget::planeDragged,
+                     [&](const PlanePoint& a, const PlanePoint& b) { drags.emplace_back(a, b); });
+    QObject::connect(&f.view, &ViewWidget::planeDropped,
+                     [&](const PlanePoint& a, const PlanePoint& b) { drops.emplace_back(a, b); });
     send(QEvent::MouseButtonPress, {200, 150}, Qt::LeftButton, Qt::LeftButton);
     for (int i = 1; i <= 5; ++i)
         send(QEvent::MouseMove, QPoint(200 + 20 * i, 150), Qt::LeftButton, Qt::LeftButton);
@@ -280,6 +285,10 @@ TEST_CASE("drawing mode: clicks report points on the plane, and the left button 
     const auto after = f.view.camera();
     CHECK(after.toEye.z == Approx(before.toEye.z).margin(1e-9));
     CHECK(clicks.size() == 3);  // and a drag isn't a click
+    CHECK(drags.size() == 5);
+    REQUIRE(drops.size() == 1);
+    CHECK(drops[0].first.at.x == Approx(clicks[0].at.x).margin(clicks[0].pixel));  // from where it went down
+    CHECK(drops[0].second.at.x - drops[0].first.at.x == Approx(100 * clicks[0].pixel).epsilon(0.02));
 
     // Escape is sent to the tool; after drawing stops, clicks pick again.
     bool cancelled = false;
