@@ -854,7 +854,7 @@ TEST_CASE("a fully constrained sketch is drawn black, and dragging it moves noth
     const auto sketchId = d.app.doc().featureAt(0).id();
     auto con = [&](const char* kind, const char* on, double value = 0) {
         model::Args a{{"sketch", sketchId}, {"kind", std::string(kind)}, {"on", std::string(on)}};
-        if (value) a["value"] = value;
+        if (value != 0) a["value"] = value;
         REQUIRE(docs.run(doc, "sketch.constrain", a).empty());
     };
     con("fix", "Line1.start");
