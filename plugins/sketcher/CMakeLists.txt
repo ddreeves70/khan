@@ -12,5 +12,5 @@ kh_add_library(kh_plugin_sketcher
     kh::plugin_grid
 )
 kh_embed_files(kh_plugin_sketcher HEADER SketcherIcons.h NAMESPACE kh::icons::sketcher
-  FILES icons/new_sketch.svg icons/edit_sketch.svg icons/finish_sketch.svg
+  FILES icons/new_sketch.svg icons/edit_sketch.svg icons/finish_sketch.svg icons/select.svg
         icons/line.svg icons/circle.svg icons/arc.svg icons/point.svg)

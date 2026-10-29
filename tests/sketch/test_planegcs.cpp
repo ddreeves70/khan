@@ -312,3 +312,181 @@ TEST_CASE("an impossible size is refused, not drawn inside out", "[sketch][plane
     REQUIRE_FALSE(result.issues.empty());
     CHECK(result.issues[0].severity == Severity::Error);
 }
+
+// --- Which parts can still move -----------------------------------------------
+
+namespace {
+
+bool hasPoint(const SolveResult& r, PointRef ref) {
+    return std::any_of(r.freePoints.begin(), r.freePoints.end(),
+                       [&](const PointRef& p) { return p.entity == ref.entity && p.role == ref.role; });
+}
+
+bool hasEntity(const SolveResult& r, EntityId id) {
+    return std::find(r.freeEntities.begin(), r.freeEntities.end(), id) != r.freeEntities.end();
+}
+
+}  // namespace
+
+TEST_CASE("free points and entities: what can still move", "[sketch][planegcs]") {
+    SECTION("with no constraints, everything is free") {
+        SketchBuilder b;
+        const auto l = b.line(0, 0, 10, 0);
+        const auto c = b.circle(20, 0, 3);
+        const auto r = solveAndCheck(b.sketch);
+        CHECK(hasPoint(r, test::start(l)));
+        CHECK(hasPoint(r, test::end(l)));
+        CHECK(hasPoint(r, test::center(c)));
+        CHECK(hasEntity(r, l));
+        CHECK(hasEntity(r, c));
+    }
+    SECTION("a fully constrained rectangle has nothing free") {
+        Rectangle rect;
+        rect.b.constrain(K::Fix, {test::start(rect.bottom)}, {}, 0, {0, 0});
+        rect.b.constrain(K::Length, {}, {rect.bottom}, 40);
+        rect.b.constrain(K::Length, {}, {rect.left}, 20);
+        const auto r = solveAndCheck(rect.b.sketch);
+        CHECK(r.freePoints.empty());
+        CHECK(r.freeEntities.empty());
+    }
+    SECTION("a line with one end fixed and a length: that end is fixed, the other can swing") {
+        SketchBuilder b;
+        const auto l = b.line(0, 0, 10, 1);
+        const auto other = b.point(30, 30);
+        b.constrain(K::Fix, {test::start(l)}, {}, 0, {0, 0});
+        b.constrain(K::Length, {}, {l}, 10);
+        b.constrain(K::Fix, {test::self(other)}, {}, 0, {30, 30});
+        const auto r = solveAndCheck(b.sketch);
+        CHECK_FALSE(hasPoint(r, test::start(l)));
+        CHECK(hasPoint(r, test::end(l)));
+        CHECK(hasEntity(r, l));
+        CHECK_FALSE(hasPoint(r, test::self(other)));
+        CHECK_FALSE(hasEntity(r, other));
+    }
+    SECTION("a circle with its center fixed is still free until it has a size") {
+        SketchBuilder b;
+        const auto c = b.circle(0, 0, 5);
+        b.constrain(K::Fix, {test::center(c)}, {}, 0, {0, 0});
+        auto r = solveAndCheck(b.sketch);
+        CHECK_FALSE(hasPoint(r, test::center(c)));
+        CHECK(hasEntity(r, c));  // its radius can change
+        b.constrain(K::Radius, {}, {c}, 5);
+        r = solveAndCheck(b.sketch);
+        CHECK_FALSE(hasEntity(r, c));
+    }
+}
+
+// --- Dragging -------------------------------------------------------------------
+
+TEST_CASE("dragging a free point moves it to the mouse, and nothing else", "[sketch][planegcs]") {
+    SketchBuilder b;
+    const auto l = b.line(0, 0, 10, 0);
+    const auto other = b.line(0, 5, 10, 5);
+    auto solver = makePlaneGcsSolver();
+    const auto r = solver->drag(b.sketch, {{test::end(l), {12, 3}}});
+    REQUIRE(r.ok());
+    CHECK(at(r, b.sketch, test::end(l)).x == Approx(12));
+    CHECK(at(r, b.sketch, test::end(l)).y == Approx(3));
+    CHECK(at(r, b.sketch, test::start(l)).x == Approx(0).margin(1e-9));
+    CHECK(at(r, b.sketch, test::start(other)).y == Approx(5));
+    CHECK(r.freedom == -1);  // not worked out while dragging
+}
+
+TEST_CASE("dragging keeps every constraint true", "[sketch][planegcs]") {
+    auto solver = makePlaneGcsSolver();
+    SECTION("a horizontal line's end slides along, at the same height") {
+        SketchBuilder b;
+        const auto l = b.line(0, 0, 10, 0);
+        b.constrain(K::Horizontal, {}, {l});
+        b.constrain(K::Fix, {test::start(l)}, {}, 0, {0, 0});
+        const auto r = solver->drag(b.sketch, {{test::end(l), {15, 4}}});
+        REQUIRE(r.ok());
+        CHECK(at(r, b.sketch, test::end(l)).x == Approx(15));
+        CHECK(at(r, b.sketch, test::end(l)).y == Approx(0).margin(1e-9));
+    }
+    SECTION("a fixed point stays where it is") {
+        SketchBuilder b;
+        const auto p = b.point(1, 1);
+        b.constrain(K::Fix, {test::self(p)}, {}, 0, {1, 1});
+        const auto r = solver->drag(b.sketch, {{test::self(p), {9, 9}}});
+        REQUIRE(r.ok());
+        CHECK(at(r, b.sketch, test::self(p)).x == Approx(1));
+        CHECK(at(r, b.sketch, test::self(p)).y == Approx(1));
+    }
+    SECTION("a closed rectangle stays closed and square when a corner is dragged") {
+        Rectangle rect;
+        const auto settled = solveAndCheck(rect.b.sketch);
+        const Sketch s{settled.entities, rect.b.sketch.constraints};
+        const auto r = solver->drag(s, {{test::end(rect.right), {50, 30}}});
+        REQUIRE(r.ok());
+        const Sketch after{r.entities, s.constraints};
+        for (const auto& c : s.constraints) CHECK(error(after, c) < 1e-6);
+        CHECK(at(r, s, test::end(rect.right)).x == Approx(50).margin(1e-6));
+        CHECK(at(r, s, test::end(rect.right)).y == Approx(30).margin(1e-6));
+    }
+}
+
+TEST_CASE("dragging a circle's edge changes its size, not where it is", "[sketch][planegcs]") {
+    SketchBuilder b;
+    const auto c = b.circle(0, 0, 5);
+    auto solver = makePlaneGcsSolver();
+    const auto r = solver->drag(b.sketch, {{test::center(c), {0, 8}, true}});
+    REQUIRE(r.ok());
+    const auto& circle = std::get<CircleShape>(r.entities[0].shape);
+    CHECK(circle.radius == Approx(8));
+    CHECK(circle.center.x == Approx(0).margin(1e-9));
+    CHECK(circle.center.y == Approx(0).margin(1e-9));
+
+    SECTION("with a Radius, it moves the whole circle instead") {
+        b.constrain(K::Radius, {}, {c}, 5);
+        const auto moved = solver->drag(b.sketch, {{test::center(c), {0, 8}, true}});
+        REQUIRE(moved.ok());
+        const auto& m = std::get<CircleShape>(moved.entities[0].shape);
+        CHECK(m.radius == Approx(5));
+        CHECK(m.center.y > 0.5);  // pulled toward the mouse, since it can't grow
+    }
+}
+
+TEST_CASE("dragging a whole line pulls both ends by the same amount", "[sketch][planegcs]") {
+    SketchBuilder b;
+    const auto l = b.line(0, 0, 10, 0);
+    auto solver = makePlaneGcsSolver();
+    const auto r = solver->drag(b.sketch, {{test::start(l), {3, 4}}, {test::end(l), {13, 4}}});
+    REQUIRE(r.ok());
+    CHECK(at(r, b.sketch, test::start(l)).x == Approx(3));
+    CHECK(at(r, b.sketch, test::end(l)).y == Approx(4));
+}
+
+TEST_CASE("pulls on things that aren't there are ignored, and a bad sketch isn't dragged",
+          "[sketch][planegcs]") {
+    SketchBuilder b;
+    const auto l = b.line(0, 0, 10, 0);
+    auto solver = makePlaneGcsSolver();
+    auto r = solver->drag(b.sketch, {{{EntityId::generate(), PointRole::Self}, {5, 5}},
+                                     {test::center(l), {5, 5}},         // a line has no center
+                                     {test::start(l), {5, 5}, true}});  // or a round edge
+    REQUIRE(r.ok());
+    CHECK(at(r, b.sketch, test::end(l)).x == Approx(10));
+
+    SketchBuilder bad;
+    bad.circle(0, 0, -1);
+    r = solver->drag(bad.sketch, {});
+    CHECK(r.status == SolveStatus::Invalid);
+}
+
+TEST_CASE("dragging gives the same numbers every time", "[sketch][planegcs]") {
+    Rectangle rect;
+    auto solver = makePlaneGcsSolver();
+    const auto a = solver->drag(rect.b.sketch, {{test::end(rect.right), {50, 30}}});
+    std::vector<std::unique_ptr<double[]>> scatter;  // move the heap around between drags
+    for (int i = 0; i < 50; ++i)
+        scatter.push_back(std::make_unique<double[]>(static_cast<std::size_t>(17 * i + 3)));
+    const auto b2 = solver->drag(rect.b.sketch, {{test::end(rect.right), {50, 30}}});
+    REQUIRE(a.ok());
+    REQUIRE(b2.ok());
+    for (std::size_t i = 0; i < a.entities.size(); ++i) {
+        const auto& x = std::get<LineShape>(a.entities[i].shape);
+        const auto& y = std::get<LineShape>(b2.entities[i].shape);
+        CHECK(std::memcmp(&x, &y, sizeof x) == 0);
+    }
+}

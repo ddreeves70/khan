@@ -63,7 +63,7 @@ view::DrawingPlane drawingPlane(const viewer::ToolPlane& p) {
     return {p.origin, cross(p.xAxis, p.yAxis)};
 }
 
-// The kh.viewer/1 service: one drawing tool for every pane of every viewer.
+// The kh.viewer/2 service: one drawing tool for every pane of every viewer.
 class ViewerService final : public viewer::IViewer {
 public:
     void startTool(viewer::IViewTool& tool, const viewer::ToolPlane& plane) override;
@@ -158,13 +158,21 @@ private:
     // Sends a view's drawing events to the running tool.
     template <typename View>
     void forward(View* view, std::string key) {
-        auto point = [key](const view::PlanePoint& p) { return viewer::ToolPoint{p.at, p.pixel, key}; };
+        auto point = [key](const view::PlanePoint& p) { return viewer::ToolPoint{p.at, p.pixel, key, p.add}; };
         connect(view, &View::planeMoved, this, [this, point](const view::PlanePoint& p) {
             if (auto* t = service_.tool()) t->moved(point(p));
         });
         connect(view, &View::planeClicked, this, [this, point](const view::PlanePoint& p) {
             if (auto* t = service_.tool()) t->clicked(point(p));
         });
+        connect(view, &View::planeDragged, this,
+                [this, point](const view::PlanePoint& from, const view::PlanePoint& to) {
+                    if (auto* t = service_.tool()) t->dragged(point(from), point(to));
+                });
+        connect(view, &View::planeDropped, this,
+                [this, point](const view::PlanePoint& from, const view::PlanePoint& to) {
+                    if (auto* t = service_.tool()) t->dropped(point(from), point(to));
+                });
         connect(view, &View::planeCancelled, this, [this] {
             if (auto* t = service_.tool()) t->cancelled();
         });

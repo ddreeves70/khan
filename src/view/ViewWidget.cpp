@@ -271,6 +271,8 @@ struct ViewWidget::Impl {
     std::optional<DrawingPlane> drawing;
     QPoint leftPress;
     bool leftDown = false;
+    bool dragging = false;                // moved far enough with the left button down to be a drag
+    std::optional<PlanePoint> pressPoint;  // where the left button went down, on the plane
 
     // The point under the mouse on the drawing plane, and how big a pixel is there.
     std::optional<PlanePoint> planePoint(QPointF at, double ratio) const {
@@ -482,7 +484,7 @@ void ViewWidget::setStandardView(StandardView v) {
 
 void ViewWidget::setDrawingPlane(std::optional<DrawingPlane> plane) {
     impl_->drawing = plane;
-    impl_->leftDown = false;
+    impl_->leftDown = impl_->dragging = false;
     setFocusPolicy(plane ? Qt::StrongFocus : Qt::NoFocus);
     setCursor(plane ? Qt::CrossCursor : Qt::ArrowCursor);
 }
@@ -642,6 +644,9 @@ void ViewWidget::mousePressEvent(QMouseEvent* event) {
         setFocus(Qt::MouseFocusReason);
         d.leftPress = event->position().toPoint();
         d.leftDown = true;
+        d.dragging = false;
+        d.pressPoint = d.planePoint(event->position(), devicePixelRatioF());
+        if (d.pressPoint) d.pressPoint->add = event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier);
         return;
     }
     if (event->button() == Qt::RightButton) d.rightPress = event->position().toPoint();
@@ -659,8 +664,13 @@ void ViewWidget::mouseReleaseEvent(QMouseEvent* event) {
     auto& d = *impl_;
     if (d.drawing && event->button() == Qt::LeftButton && d.leftDown) {
         d.leftDown = false;
-        if ((event->position().toPoint() - d.leftPress).manhattanLength() < 6) {
-            if (const auto p = d.planePoint(event->position(), devicePixelRatioF())) emit planeClicked(*p);
+        auto p = d.planePoint(event->position(), devicePixelRatioF());
+        if (p) p->add = event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier);
+        if (d.dragging) {
+            d.dragging = false;
+            if (p && d.pressPoint) emit planeDropped(*d.pressPoint, *p);
+        } else if (p) {
+            emit planeClicked(*p);
         }
         return;
     }
@@ -682,8 +692,16 @@ void ViewWidget::mouseMoveEvent(QMouseEvent* event) {
     auto& d = *impl_;
     if (!d.view) return;
     if (d.drawing) {
-        if (const auto p = d.planePoint(event->position(), devicePixelRatioF())) emit planeMoved(*p);
-        if (event->buttons() & Qt::LeftButton) return;  // the left button draws: no orbit
+        auto p = d.planePoint(event->position(), devicePixelRatioF());
+        if (p) p->add = event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier);
+        if (d.leftDown && (event->buttons() & Qt::LeftButton)) {
+            // The left button drags on the plane: no orbit.
+            if ((event->position().toPoint() - d.leftPress).manhattanLength() >= 6) d.dragging = true;
+            if (d.dragging && p && d.pressPoint) emit planeDragged(*d.pressPoint, *p);
+            return;
+        }
+        if (p) emit planeMoved(*p);
+        if (event->buttons() & Qt::LeftButton) return;
     }
     const double ratio = devicePixelRatioF();
     const Graphic3d_Vec2i p(static_cast<int>(event->position().x() * ratio),

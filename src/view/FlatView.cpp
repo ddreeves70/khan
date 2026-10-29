@@ -43,6 +43,7 @@ QPointF FlatView::toScreen(const kernel::Vec3& p) const {
 
 void FlatView::setDrawingPlane(std::optional<DrawingPlane> plane) {
     drawing_ = plane;
+    leftDown_ = dragging_ = false;
     setMouseTracking(plane.has_value());
     setFocusPolicy(plane ? Qt::StrongFocus : Qt::NoFocus);
     setCursor(plane ? Qt::CrossCursor : Qt::ArrowCursor);
@@ -58,16 +59,53 @@ std::optional<PlanePoint> FlatView::planePoint(QPointF at) const {
     return PlanePoint{*hit, 1.0 / kPixelsPerMm};
 }
 
+namespace {
+
+constexpr int kDragPixels = 6;  // the mouse must move this far with the button down to drag
+
+bool adding(const QMouseEvent* event) {
+    return event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier);
+}
+
+}  // namespace
+
 void FlatView::mousePressEvent(QMouseEvent* event) {
     QWidget::mousePressEvent(event);
     if (!drawing_ || event->button() != Qt::LeftButton) return;
     setFocus(Qt::MouseFocusReason);
-    if (const auto p = planePoint(event->position())) emit planeClicked(*p);
+    leftPress_ = event->position().toPoint();
+    leftDown_ = true;
+    dragging_ = false;
+    pressPoint_ = planePoint(event->position());
+    if (pressPoint_) pressPoint_->add = adding(event);
 }
 
 void FlatView::mouseMoveEvent(QMouseEvent* event) {
     QWidget::mouseMoveEvent(event);
-    if (const auto p = planePoint(event->position())) emit planeMoved(*p);
+    auto p = planePoint(event->position());
+    if (!p) return;
+    p->add = adding(event);
+    if (leftDown_ && (event->buttons() & Qt::LeftButton)) {
+        if ((event->position().toPoint() - leftPress_).manhattanLength() >= kDragPixels) dragging_ = true;
+        if (dragging_ && pressPoint_) emit planeDragged(*pressPoint_, *p);
+        return;
+    }
+    emit planeMoved(*p);
+}
+
+void FlatView::mouseReleaseEvent(QMouseEvent* event) {
+    QWidget::mouseReleaseEvent(event);
+    if (!drawing_ || event->button() != Qt::LeftButton || !leftDown_) return;
+    leftDown_ = false;
+    auto p = planePoint(event->position());
+    if (!p) return;
+    p->add = adding(event);
+    if (dragging_) {
+        dragging_ = false;
+        if (pressPoint_) emit planeDropped(*pressPoint_, *p);
+    } else {
+        emit planeClicked(*p);
+    }
 }
 
 void FlatView::keyPressEvent(QKeyEvent* event) {

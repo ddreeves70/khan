@@ -1,6 +1,6 @@
 # The sketcher (Phase 1)
 
-> **Draft.** Steps 1 (the solver), 2 (the Sketch step) and 3 (drawing in the app) are built. The rest is the plan, in the order it
+> **Draft.** Steps 1 (the solver), 2 (the Sketch step), 3 (drawing in the app) and 4a (picking and dragging) are built. The rest is the plan, in the order it
 > will be built. See the [roadmap](roadmap.md#phase-1-sketcher) for Phase 1's exit
 > check.
 
@@ -17,7 +17,8 @@ revolve).
 | 1. Solver | `kh_sketch` (sketch values, `ISketchSolver`), PlaneGCS as its own shared library, `kh_sketch_planegcs` | Built |
 | 2. Sketch step | A `Sketch` step in the design: on a plane (XY, XZ, YZ), its entities and constraints, saved in the `.khan` file, changed only by commands (add line, add constraint, set dimension, ...), solved on rebuild | Built |
 | 3. Drawing in the app | Edit a sketch in the viewer: draw lines, arcs and circles with the mouse, snap to the grid and to points | Built |
-| 4. Constraints in the app | Pick sketch lines and points in the viewer, drag them; add constraints and dimensions from a toolbar and by typing numbers; show them on the drawing; degrees of freedom shown by color (free blue, fixed black); conflicts highlighted with a plain message | Next |
+| 4a. Picking and dragging | Pick sketch lines and points in the viewer (Select), drag them with the solver keeping every constraint true, delete them; what can still move shown by color (free blue, fixed black) | Built |
+| 4b. Constraints in the app | Add constraints and dimensions from the toolbar and by typing numbers; show them on the drawing; conflicts highlighted with a plain message | Next |
 | 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | |
 | 6. Extrude | Profiles become solids (Phase 2 starts properly here) | |
 | 7. B-splines | Full spline support, as the roadmap lists | |
@@ -122,7 +123,7 @@ after scattering the heap between solves.
 
 ## Drawing in the app (step 3)
 
-- **Viewer tools (`kh.viewer/1`).** `kh_view` has a drawing mode: given a plane, a
+- **Viewer tools (`kh.viewer/1`, now `/2`).** `kh_view` has a drawing mode: given a plane, a
   left click reports the point on it (`planeClicked`) instead of orbiting or
   picking, moving reports it too (`planeMoved`), and Escape reports
   `planeCancelled`; pan and zoom still work. The point comes from OCCT's line of
@@ -142,6 +143,37 @@ after scattering the heap between solves.
   isn't lost in the grid lines it lies on.
 - `kh_model`: `planeAxes()`, `toDesign()`, `toSketch()` turn sketch x, y into the
   design's x, y, z and back (also for extrude, later).
+
+## Picking and dragging (step 4a)
+
+- **Select tool.** A click picks the sketch point within 8 pixels (a point
+  entity is picked whole, an end or center by its role), else the edge within
+  6 pixels; Ctrl or Shift adds or removes. Picked parts are orange, the part under
+  the mouse light orange. Edit sketch starts in Select; New sketch starts with
+  Line. Escape steps back: stop the shape, then Select, then let go, then finish.
+- **Dragging (`ISketchSolver::drag()`).** The adapter adds each pull as a
+  PlaneGCS *temporary* constraint (tag -1). PlaneGCS solves the real constraints
+  first and the temporary ones as a best fit after, so the dragged part follows
+  the mouse only as far as the constraints let it. A point is pulled to where it
+  was plus how far the mouse moved (no jump when it was grabbed slightly off); a
+  line pulls both ends; a circle's or arc's edge is pulled through the mouse
+  while its center is held where it is by a second temporary constraint (as
+  FreeCAD does), so the size changes, not the place. Every answer is checked
+  with Khan's own `error()`, like solve(). It doesn't diagnose, so it's fast
+  enough for every mouse move. The drop is one `EditSketchCommand` ("Move Line1",
+  "Move Line2's end"), only if something moved.
+- **Free or fixed (`SolveResult::freePoints`, `freeEntities`).** After the
+  diagnose step, PlaneGCS's *dependent* parameters are the numbers the
+  constraints don't set. A point is free if its x or y is; an entity is free if
+  any of its numbers is (a point, a radius, an angle). With no constraints at all
+  (an empty diagnose matrix) everything is free. Free is drawn blue, fixed black.
+- **Viewer drags (`kh.viewer/2`).** `IViewTool` gained `dragged(from, to)` and
+  `dropped(from, to)` (empty by default), and `ToolPoint::add` for Ctrl/Shift. A
+  press that moves 6 pixels or more is a drag, never a click; the flat view now
+  reports a click on release, like the 3D view. `/2` replaces `/1` rather than
+  sitting next to it, since no release has shipped `/1`.
+- **Delete.** The Delete key deletes picked parts while a sketch is edited: an
+  item with a `toolbarMode` wins a shared shortcut while its mode is on.
 
 ## Choices
 

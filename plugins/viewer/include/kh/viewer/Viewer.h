@@ -5,9 +5,10 @@
 ///
 /// A plugin that draws in the viewers with the mouse (the sketcher, say) starts
 /// a tool on a plane. While it runs, a left click in any pane reports the point
-/// on that plane instead of orbiting or selecting, and moving the mouse reports
-/// it too; panning and zooming still work. List "kh.viewer" in "requires" or
-/// "uses" in your plugin.json, then:
+/// on that plane instead of orbiting or selecting, moving the mouse reports it
+/// too, and a left drag reports where it started and where it is; panning and
+/// zooming still work. List "kh.viewer" in "requires" or "uses" in your
+/// plugin.json, then:
 ///
 /// @code
 /// struct Dots final : kh::viewer::IViewTool {
@@ -40,6 +41,7 @@ struct ToolPoint {
     kernel::Vec3 at{};   ///< The point, in mm, in the design's x, y and z.
     double pixel = 0;    ///< How many mm one screen pixel covers there: use it for "close enough".
     std::string pane{};  ///< The pane it's in (its view options key, e.g. "viewer1.pane1").
+    bool add = false;    ///< Ctrl or Shift was held: add to what's picked instead of replacing it.
 };
 
 /// A tool that draws with the mouse. The viewer calls it while it runs.
@@ -56,7 +58,27 @@ public:
     /// @param point Where.
     virtual void clicked(const ToolPoint& point) = 0;
 
-    /// The student pressed Escape in a view.
+    /// The student is dragging with the left button: pressed, then moved more
+    /// than a few pixels. Called on every move until dropped(). A drag is never
+    /// also a click. Does nothing unless the tool overrides it.
+    /// @param from Where the button went down.
+    /// @param to Where the mouse is now.
+    virtual void dragged(const ToolPoint& from, const ToolPoint& to) {
+        (void)from;
+        (void)to;
+    }
+
+    /// A drag ended: the left button came up. Does nothing unless the tool
+    /// overrides it.
+    /// @param from Where the button went down.
+    /// @param to Where it came up.
+    virtual void dropped(const ToolPoint& from, const ToolPoint& to) {
+        (void)from;
+        (void)to;
+    }
+
+    /// The student pressed Escape in a view (also while dragging: then forget the
+    /// drag, and ignore the dropped() that follows).
     virtual void cancelled() = 0;
 };
 
@@ -64,7 +86,8 @@ public:
 class IViewer {
 public:
     /// The service's name and version.
-    static constexpr const char* kServiceName = "kh.viewer/1";
+    /// Version 2 added dragged(), dropped() and ToolPoint::add.
+    static constexpr const char* kServiceName = "kh.viewer/2";
 
     /// Destroys the service.
     virtual ~IViewer() = default;

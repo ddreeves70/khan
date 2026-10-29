@@ -17,14 +17,16 @@ dimensions, and the solver makes it exact.
 
 1. **Sketch > New sketch on XY (the ground)** (Ctrl+Shift+K), or on XZ or YZ. Khan
    adds `Sketch1`, turns the view to look straight at its plane, and starts
-   drawing lines. To draw in a sketch you already have, pick it in the feature
-   tree and use **Sketch > Edit sketch** (Ctrl+K). It's grey unless exactly one
+   drawing lines. To work on a sketch you already have, pick it in the feature
+   tree and use **Sketch > Edit sketch** (Ctrl+K); it starts with **Select**, for
+   picking and dragging (see below). Edit sketch is grey unless exactly one
    sketch is picked, and while you're already editing one.
 2. Pick a tool in **Sketch > Draw**, then click in the view. The status bar says
    what to click next. The tools (and **Finish sketch**) are grey until you're
    editing a sketch. While you edit, the toolbar changes to just the sketch
-   buttons (**Finish sketch**, **Line**, **Circle**, **Arc**, **Point**); when you
-   finish, the 3D buttons (**Box**, **Cylinder** and the rest) come back.
+   buttons (**Finish sketch**, **Select**, **Line**, **Circle**, **Arc**,
+   **Point**); when you finish, the 3D buttons (**Box**, **Cylinder** and the
+   rest) come back.
 
 | Tool | Click |
 | --- | --- |
@@ -33,9 +35,10 @@ dimensions, and the solver makes it exact.
 | **Arc** | Its center, where it starts, then where it ends. It goes counterclockwise. |
 | **Point** | Where it goes. |
 
-3. **Escape** stops the shape you're drawing. Press it again (or use
-   **Sketch > Finish sketch**) to stop editing; then clicks pick and turn the view
-   again.
+3. **Escape** steps back one thing at a time: it stops the shape you're
+   drawing, then switches to **Select**, then lets go of what's picked, then
+   finishes the sketch. **Sketch > Finish sketch** finishes straight away. After
+   that, clicks pick steps and turn the view again.
 
 While drawing:
 
@@ -47,6 +50,34 @@ While drawing:
   grid's crossings.
 - **Undo.** Each line, circle, arc or point is one undo step.
 - Right-drag or middle-drag moves the view, and the wheel zooms, while you draw.
+
+## Picking and dragging
+
+![A sketch that isn't fully constrained: the bottom line is fixed (black), everything else can still move (blue)](images/app-sketch-free.png)
+
+With **Select** (the arrow on the toolbar, or **Sketch > Draw > Select**):
+
+- **Pick** a line, circle, arc or point by clicking it; it turns orange. Click
+  near an end or a center to pick just that point. Hold **Ctrl** (or Shift) to
+  pick more, or to let go of one; click on nothing to let go of everything.
+- **Drag** to move things, and the solver keeps every constraint true as you
+  go:
+  - drag a **point** (an end, a center) to move it, and whatever is joined to it
+    follows;
+  - drag a **line** to move all of it;
+  - drag the **edge of a circle or arc** to make it bigger or smaller.
+
+  Each drag is one undo step. Press **Escape** while dragging to put it back.
+- **Delete** (the key, or **Sketch > Delete picked**) deletes the picked lines,
+  circles, arcs and points, with their constraints. A picked end loses its
+  constraints instead (it isn't a thing of its own). While you edit a sketch,
+  the Delete key works on the sketch, not on the steps in the feature tree.
+
+**Colors tell you what can still move.** Blue lines and points can still move or
+change size; black ones are fixed by the constraints. When the whole sketch is
+black it's **fully constrained**: its size and place are completely set, which
+is what you want before you build a part from it. Dragging something black moves
+nothing. Properties shows the same thing as a number: **Free to move**.
 
 Add the other constraints and dimensions with `kh_cli` for now (see below);
 adding them in the app comes next.

@@ -69,6 +69,17 @@ signals:
     /// @param point Where, on the plane.
     void planeClicked(const kh::view::PlanePoint& point);
 
+    /// While drawing: the student is dragging with the left button (pressed, then
+    /// moved more than a few pixels). Sent on every move until planeDropped().
+    /// @param from Where the button went down, on the plane.
+    /// @param to Where the mouse is now, on the plane.
+    void planeDragged(const kh::view::PlanePoint& from, const kh::view::PlanePoint& to);
+
+    /// While drawing: a drag ended (the left button came up).
+    /// @param from Where the button went down, on the plane.
+    /// @param to Where it came up, on the plane.
+    void planeDropped(const kh::view::PlanePoint& from, const kh::view::PlanePoint& to);
+
     /// While drawing: the student pressed Escape.
     void planeCancelled();
 
@@ -82,6 +93,9 @@ protected:
     /// Reports the mouse while drawing.
     /// @param event The mouse.
     void mouseMoveEvent(QMouseEvent* event) override;
+    /// Reports a click or the end of a drag while drawing.
+    /// @param event The mouse.
+    void mouseReleaseEvent(QMouseEvent* event) override;
     /// Sends Escape to the drawing tool while drawing.
     /// @param event The key.
     void keyPressEvent(QKeyEvent* event) override;
@@ -91,6 +105,11 @@ private:
 
     QString text_;
     std::optional<DrawingPlane> drawing_;
+    // Where the left button went down, to tell a click from a drag.
+    QPoint leftPress_;
+    std::optional<PlanePoint> pressPoint_;
+    bool leftDown_ = false;
+    bool dragging_ = false;
     std::vector<ViewOverlay> overlays_;
 };
 
