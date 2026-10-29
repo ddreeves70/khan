@@ -968,6 +968,24 @@ TEST_CASE("constraint buttons show only when they fit what's picked", "[app][ske
     CHECK_FALSE(shown("kh.sketcher.parallel"));
 }
 
+TEST_CASE("picking in a narrow window doesn't move the view (the rows stay put)",
+          "[app][sketcher][constrain]") {
+    Drawn d;
+    d.app.shell->resize(760, 700);  // too narrow for every sketch button on one row
+    settle();
+    auto* row2 = d.app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"));
+    CHECK_FALSE(row2->isHidden());  // the second row is there while editing, even with nothing picked
+    const QRect before(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
+    clickAt(d.flat, {30, 0, 0});  // Line1: its constraint buttons appear
+    CHECK(d.app.shell->button("kh.sketcher.horizontal")->isVisible());
+    const QRect after(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
+    CHECK(before == after);
+    // And a drag that picks something lands where the mouse went (this failed on
+    // Windows when the second row appeared mid-drag).
+    dragAt(d.flat, {30, 20, 0}, {32, 20, 0});  // Circle1's edge
+    CHECK(std::get<sketch::CircleShape>(d.sketch().entities[4].shape).radius == Approx(12).margin(0.1));
+}
+
 TEST_CASE("Horizontal adds a constraint labeled H, as one undo step, and only once",
           "[app][sketcher][constrain]") {
     Drawn d;

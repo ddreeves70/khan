@@ -414,7 +414,10 @@ public:
                     return std::ranges::find(ids, id) != ids.end();
                 };
                 const sketch::Sketch whole{entities, step.sketch().constraints};
-                const auto [gap, middle] = labelSpacing(entities);
+                // (Not a structured binding: older Apple clang can't use those in lambdas.)
+                const auto spacing = labelSpacing(entities);
+                const double gap = spacing.first;
+                const sketch::Point2 middle = spacing.second;
                 // Labels already placed, as boxes: their middle and half their width
                 // (about 0.6 of a letter's height per letter; a letter is about `gap` tall).
                 std::vector<std::pair<sketch::Point2, double>> used;

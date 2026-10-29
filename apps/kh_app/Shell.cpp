@@ -516,11 +516,15 @@ void Shell::wrapToolbar() {
         if (a->isVisible()) used += widthOf(a) + spacing;
     }
     const int room = width();
+    // Rows are worked out from every button the toolbar mode could show, even ones
+    // hidden until they fit what's picked, so picking never moves a button to the
+    // other row or makes the view jump; it only shows or hides buttons in place.
+    const auto& mode = host_.toolbarMode();
     std::vector<QAction*> first, second;
     for (const auto& item : actions_) {
         if (!item.button) continue;
-        if (!item.button->isVisible()) {
-            first.push_back(item.button);  // takes no room
+        if (item.spec.toolbarMode != mode) {
+            first.push_back(item.button);  // not in this mode: hidden, takes no room
             continue;
         }
         const int w = widthOf(item.button) + spacing;
@@ -563,6 +567,7 @@ void Shell::wrapToolbar() {
     }
     reorder(toolbar_, all);
     reorder(toolbar2_, all);
+    toolbar2_->setMinimumHeight(second.empty() ? 0 : toolbar_->sizeHint().height());  // same height, whatever shows
     toolbar2_->setVisible(!second.empty());
 }
 
