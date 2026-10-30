@@ -130,8 +130,20 @@ private:
     ViewOverlay overlay_;
 };
 
-constexpr double kCubeSize = 40.0;  // pixels, before scaling for high-DPI screens
-constexpr int kCubeOffset = 62;     // pixels from the corner to the cube's middle
+// Pixels, before scaling for high-DPI screens. OCCT puts the cube's sides 15% of
+// this further out than half of it (20 + 6 = kViewCubeHalfSize), and bevels the
+// edges back by that 15% (kViewCubeBevel).
+constexpr double kCubeSize = 40.0;
+static_assert(kCubeSize * 13 / 20 == kViewCubeHalfSize);
+static_assert(kCubeSize * 3 / 20 == kViewCubeBevel);
+
+// Places something in the view's top-right corner, turning with the view but not
+// panning or zooming, where the view cube is.
+Handle(Graphic3d_TransformPers) atTheCube(double ratio) {
+    const int offset = static_cast<int>(kViewCubeOffset * ratio);
+    return new Graphic3d_TransformPers(Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER,
+                                       Graphic3d_Vec2i(offset, offset));
+}
 
 Aspect_VKeyMouse toButtons(Qt::MouseButtons b) {
     Aspect_VKeyMouse out = Aspect_VKeyMouse_NONE;
@@ -473,7 +485,15 @@ void ViewWidget::setOverlays(const std::vector<ViewOverlay>& overlays) {
         for (auto& o : d.overlays) d.context->Remove(o, false);
         d.overlays.clear();
         int order = 0;
-        for (const auto& o : overlays) {
+        const double ratio = devicePixelRatioF();
+        for (const auto& given : overlays) {
+            if (given.onViewCube && given.shape == OverlayShape::Lattice) continue;
+            ViewOverlay o = given;
+            if (o.onViewCube) {
+                // In screen pixels, like the cube: scaled the same way on high-DPI screens.
+                for (auto& p : o.points) p = {p.x * ratio, p.y * ratio, p.z * ratio};
+                o.size *= ratio;
+            }
             Handle(OverlayObject) obj = new OverlayObject(o);
             const int priority = std::min(10, order++);
             // A lattice (the grid) stays in the normal layer. Lines, points and
@@ -482,6 +502,12 @@ void ViewWidget::setOverlays(const std::vector<ViewOverlay>& overlays) {
             // they win instead of flickering with it. Among them, later ones win.
             obj->SetZLayer(o.shape == OverlayShape::Lattice ? Graphic3d_ZLayerId_Default
                                                             : Graphic3d_ZLayerId_Top);
+            if (o.onViewCube) {
+                // Turned and placed like the cube, and in its layer (drawn over the
+                // design), so the cube hides the parts behind it.
+                obj->SetTransformPersistence(atTheCube(ratio));
+                obj->SetZLayer(Graphic3d_ZLayerId_Topmost);
+            }
             d.context->Display(obj, 0, -1, false);  // -1: never picked
             // OCCT draws higher priorities later (0 to 10): keep the overlays' order.
 #if OCC_VERSION_HEX >= 0x070700
@@ -655,13 +681,12 @@ void ViewWidget::initializeGL() {
             d.cube = new AIS_ViewCube();
             d.cube->SetSize(kCubeSize * ratio);
             d.cube->SetFontHeight(9 * ratio);
-            d.cube->SetDrawAxes(false);  // the kh.axes plugin draws axes at the origin instead
+            d.cube->SetDrawAxes(false);  // the kh.axes plugin draws them, as overlays on the cube
             d.cube->SetViewAnimation(d.controller.ViewAnimation());
             d.cube->SetFixedAnimationLoop(false);
             d.cube->SetAutoStartAnimation(true);
-            const int offset = static_cast<int>(kCubeOffset * ratio);
-            d.cube->SetTransformPersistence(new Graphic3d_TransformPers(
-                Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER, Graphic3d_Vec2i(offset, offset)));
+            d.cube->SetTransformPersistence(atTheCube(ratio));
+            d.cube->SetZLayer(Graphic3d_ZLayerId_Topmost);  // OCCT's default, said here for its overlays
             d.context->Display(d.cube, 0, 0, false);
         }
     } catch (const Standard_Failure& e) {

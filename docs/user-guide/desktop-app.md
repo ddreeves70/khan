@@ -73,7 +73,7 @@ Z always stays pointing up while you orbit, so the floor stays the floor.
 | **Zoom** | Dragging with the left button zooms instead: drag right to move closer, left to move away |
 | **Fit all** | Zooms so every body fits, in every pane |
 | **Views** | Look from the Front, Top, Right, at an angle (Iso), Back, Left or Bottom |
-| **Display** | How bodies are drawn (**Shaded with edges**, **Shaded** or **Wireframe**), and whether the axes and their labels show |
+| **Display** | How bodies are drawn (**Shaded with edges**, **Shaded** or **Wireframe**), and which [axes](#the-axes) and labels show |
 | **Grid** | Show or hide the grid, its style and spacing, snapping to it, and **All view options...** |
 | **Panes** | Split the viewer into 1, 2 or 4 panes |
 
@@ -247,17 +247,24 @@ panel, where Grid spacing takes any size.
 
 ## The axes
 
-The short coloured lines at the origin (0, 0, 0) are the **axes**, each 25 mm
-long and labeled at its end: red **X**, green **Y** and blue **Z**. They show
-which way is which, so you can tell a box's width (x) from its depth (y) and
-height (z). Both start **on**:
+The coloured lines on the view cube are the **axes**: red **X**, green **Y** and
+blue **Z**. They show which way is which, so you can tell a box's width (x) from
+its depth (y) and height (z). They start at the cube's corner nearest x, y and z
+all being smallest, and run along its edges, turning with the cube as you turn
+the view.
 
-| Menu item | What it does |
-| --- | --- |
-| View > Show axes | Shows or hides the three axes (and their letters) |
-| View > Show axis labels | Shows or hides just the letters X, Y and Z |
+![The view cube with its axes: red X, green Y (hidden behind the cube from this side) and blue Z](images/app-cube-axes.png)
 
-Khan remembers both for next time, and both are also in the
+From this side, Y points away from you, so the cube hides it, just like the back
+edge of a real box. Turn the view (try the cube's **Top** face) and it shows.
+
+| Menu item | What it does | Starts |
+| --- | --- | --- |
+| View > Show axes | Shows or hides the axes on the view cube (and their letters) | on |
+| View > Show axis labels | Shows or hides just the letters X, Y and Z | on |
+| View > Show axes at the origin | Also draws the axes at the origin (0, 0, 0), 25 mm long, in your design. Handy when you sketch around the origin | off |
+
+Khan remembers all three for next time, and they're also in the
 [View options](#view-options) panel. The letters always face you and stay the
 same size as you zoom. The axes are a plugin too, `kh.axes`, built into Khan.
 

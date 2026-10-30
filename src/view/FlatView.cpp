@@ -129,8 +129,6 @@ double FlatView::pixelsPerSpace(const ViewOverlay& lattice) {
 
 void FlatView::paintEvent(QPaintEvent*) {
     QPainter painter(this);
-    // The origin is the middle of the view, so drawings stay put as the window resizes.
-    auto toScreen = [this](const kernel::Vec3& p) { return this->toScreen(p); };
 
     // Lattices (like the grid) first, underneath everything else, so lines that
     // lie on them (like the axes) still show.
@@ -143,6 +141,14 @@ void FlatView::paintEvent(QPaintEvent*) {
     }
     for (const auto* drawn : order) {
         const auto& o = *drawn;
+        // The origin is the middle of the view, so drawings stay put as the window
+        // resizes. There's no view cube here, but what's drawn on it goes where it
+        // would be, in the top-right corner, seen from above like the rest.
+        auto toScreen = [this, &o](const kernel::Vec3& p) {
+            if (!o.onViewCube) return this->toScreen(p);
+            return QPointF(width() - kViewCubeOffset + p.x, kViewCubeOffset - p.y);
+        };
+        if (o.onViewCube && o.shape == OverlayShape::Lattice) continue;
         if (o.shape == OverlayShape::Lattice) {
             // Seen from above: only a lattice on a floor-like plane makes sense here,
             // and it covers the whole view.

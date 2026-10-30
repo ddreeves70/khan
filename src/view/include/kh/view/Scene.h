@@ -61,7 +61,19 @@ struct ViewOverlay {
     Rgb color{};                               ///< Its color.
     int alpha = 255;                           ///< How solid, 0 to 255.
     double size = 1;  ///< Line width, dot size or the height of a label's letters, in screen pixels.
+    /// True to draw it on the view cube: `points` are in screen pixels from the
+    /// cube's middle, turning with the view like the cube (see kViewCubeHalfSize).
+    bool onViewCube = false;
 };
+
+/// How far each side of the view cube is from its middle, in screen pixels.
+inline constexpr double kViewCubeHalfSize = 26;
+
+/// How far in from the view cube's sides its edges and corners are bevelled, in screen pixels.
+inline constexpr double kViewCubeBevel = 6;
+
+/// How far the view cube's middle is from the view's top and right edges, in screen pixels.
+inline constexpr int kViewCubeOffset = 62;
 
 /// A flat plane a drawing tool works on (a sketch's plane).
 struct DrawingPlane {

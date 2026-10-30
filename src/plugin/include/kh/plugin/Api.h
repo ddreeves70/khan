@@ -54,7 +54,9 @@ class PluginContext;
 /// points (sketch::PointRole::Pole and PointRef::index, sketch::pointsOf(),
 /// pointKey(), splinePoint()), kernel::Spline2 edges for faces, lists of points as
 /// command arguments (model::ArgType::Vec2List) and the sketch.add_spline command.
-inline constexpr int kPluginApiVersion = 20;
+/// Version 21 added overlays drawn on the view cube (Overlay::onViewCube,
+/// kViewCubeHalfSize).
+inline constexpr int kPluginApiVersion = 21;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

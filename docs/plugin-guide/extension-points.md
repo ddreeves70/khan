@@ -477,6 +477,13 @@ ctx.overlays().set("guides", guide);  // its id is "sam.notes.guides"
 - `color` has an `a` part for see-through overlays (0 to 255); `size` is the line
   width or dot size in screen pixels.
 - Overlays are never picked with the mouse and don't count for **Fit all**.
+- Set `onViewCube = true` to draw it on the view cube instead of in the design.
+  Then `points` are in screen pixels from the cube's middle, along x, y and z: it
+  turns with the cube but doesn't pan or zoom, and the cube hides what's behind
+  it. The cube's sides are `kh::plugin::kViewCubeHalfSize` (26) pixels from its
+  middle, and its edges are bevelled `kViewCubeBevel` (6) pixels in, so a line
+  along an edge needs to be more than 23 pixels out on both sides. Lattices can't
+  go on the cube.
 - Every change sends `kh.OverlaysChanged`, which the viewer listens to.
 - If your plugin fails to start, Khan removes its overlays.
 
@@ -485,8 +492,8 @@ draws the grid with one Lattice overlay, and also uses settings, check-mark menu
 items, submenus, a status-bar item and a service. It uses only the public plugin
 API, so an outside plugin could replace it. Khan's app tests click through it.
 The built-in [axes plugin](../../plugins/axes/AxesPlugin.cpp) is a smaller
-example: three Lines overlays and three Labels overlays, two check-mark View
-items and two settings, with no Qt at all.
+example: Lines and Labels overlays on the view cube (and at the origin, if the
+student asks), three check-mark View items and their settings, with no Qt at all.
 
 ## Listen to events
 
