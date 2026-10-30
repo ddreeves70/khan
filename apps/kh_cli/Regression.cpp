@@ -32,6 +32,32 @@ Vec3 vec3(const json& j) {
     return {j.at(0).get<double>(), j.at(1).get<double>(), j.at(2).get<double>()};
 }
 
+// A flat outline in a case: edges like {"line": [[0, 0], [40, 0]]},
+// {"arc": {"center": [x, y], "radius": r, "from": 0, "to": 90}} (degrees,
+// counterclockwise) or {"circle": {"center": [x, y], "radius": r}}, each with an
+// optional "reversed": true.
+kernel::Loop2 loop2(const json& edges) {
+    kernel::Loop2 out;
+    const double deg = std::numbers::pi / 180.0;
+    auto p2 = [](const json& j) { return kernel::Point2{j.at(0).get<double>(), j.at(1).get<double>()}; };
+    for (const auto& e : edges) {
+        kernel::Edge2 edge;
+        edge.reversed = e.value("reversed", false);
+        if (e.contains("line")) {
+            edge.curve = kernel::Line2{p2(e.at("line").at(0)), p2(e.at("line").at(1))};
+        } else if (e.contains("arc")) {
+            const auto& a = e.at("arc");
+            edge.curve = kernel::Arc2{p2(a.at("center")), a.at("radius").get<double>(),
+                                      a.at("from").get<double>() * deg, a.at("to").get<double>() * deg};
+        } else {
+            const auto& c = e.at("circle");
+            edge.curve = kernel::Circle2{p2(c.at("center")), c.at("radius").get<double>()};
+        }
+        out.push_back(edge);
+    }
+    return out;
+}
+
 json toJson(const Vec3& v) {
     return json::array({round6(v.x), round6(v.y), round6(v.z)});
 }
@@ -73,6 +99,18 @@ Outcome build(IKernel& k, const json& c) {
             m.axis = vec3(step.value("axis", json::array({0, 0, 1})));
             m.center = vec3(step.value("about", json::array({0, 0, 0})));
             r = k.transform(shapes.at(step.at("body").get<std::string>()), m);
+        } else if (op == "face") {
+            kernel::Plane plane;
+            if (step.contains("plane")) {
+                const auto& pl = step.at("plane");
+                plane = {vec3(pl.value("origin", json::array({0, 0, 0}))), vec3(pl.at("x")),
+                         vec3(pl.at("y"))};
+            }
+            kernel::Profile2 profile{loop2(step.at("outer")), {}};
+            for (const auto& h : step.value("holes", json::array())) profile.holes.push_back(loop2(h));
+            r = k.makeFace(profile, plane);
+        } else if (op == "extrude") {
+            r = k.extrude(shapes.at(step.at("face").get<std::string>()), vec3(step.at("by")));
         } else {
             out.errorStep = id;
             out.errorCode = "regress.unknown_op";

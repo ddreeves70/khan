@@ -7,6 +7,7 @@ one or two new ideas on the way. Do them in order.
 | --- | --- | --- | --- |
 | 1 | [Keychain tag](01-keychain-tag.md) | Steps, boxes, cylinders, cutting a hole, exporting for 3D printing | 10 minutes |
 | 2 | [Desk organizer](02-desk-organizer.md) | Joining bodies, cutting several holes, renaming steps, positions in x, y and z | 20 minutes |
+| 3 | [Sketched name tag](03-name-tag.md) | Sketches, constraints and dimensions, extrude, changing a part with one number | 20 minutes |
 
 For now the tutorials use `kh_cli`, Khan's command-line tool. When the desktop
 app arrives, each tutorial gets a version with buttons and screenshots; the

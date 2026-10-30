@@ -20,7 +20,7 @@ revolve).
 | 4a. Picking and dragging | Pick sketch lines and points in the viewer (Select), drag them with the solver keeping every constraint true, delete them; what can still move shown by color (free blue, fixed black) | Built |
 | 4b. Constraints in the app | Add constraints and dimensions from the toolbar and by typing numbers; show them on the drawing; conflicts highlighted with a plain message | Built |
 | 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | Built |
-| 6. Extrude | Profiles become solids (Phase 2 starts properly here). A: the kernel's faces and extrude (built); B: the Extrude step | Next |
+| 6. Extrude | Profiles become solids (Phase 2 starts properly here). A: the kernel's faces and extrude; B: the Extrude step | Built |
 | 7. B-splines | Full spline support, as the roadmap lists | |
 
 Each step is its own pull request, with tests and guide pages.
@@ -271,6 +271,11 @@ Two pull requests, so each is small enough to review line by line:
   `feature.add_extrude sketch=Sketch1 distance=10 side=one|flip|both`; the
   modeling toolbar gets **Extrude** (with a sketch picked), Properties edits the
   distance and side, and a corpus case pins the geometry.
+- Built as planned. The sketch's result carries its plane, so the extrude needs
+  nothing but the sketch's id. Both sides moves the face back half the distance
+  first. Two corpus cases (`extrude-plate-hole`, `extrude-slot-xz`) and
+  `invalid-face-open` pin the geometry through the corpus runner's new `face` and
+  `extrude` operations.
 - Join and cut keep going through Combine for now; an Extrude option for them
   can come with the Phase 2 feature work.
 

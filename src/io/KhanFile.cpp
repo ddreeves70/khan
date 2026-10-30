@@ -341,6 +341,28 @@ const char* opName(kernel::BoolOp op) {
     return "union";
 }
 
+// An Extrude's side, as saved: "one", "flip" or "both".
+const char* sideName(model::ExtrudeSide side) {
+    switch (side) {
+        case model::ExtrudeSide::One:
+            return "one";
+        case model::ExtrudeSide::Flip:
+            return "flip";
+        case model::ExtrudeSide::Both:
+            return "both";
+    }
+    return "one";
+}
+
+std::optional<model::ExtrudeSide> readSide(const json& j) {
+    if (!j.is_string()) return std::nullopt;
+    const auto s = j.get<std::string>();
+    if (s == "one") return model::ExtrudeSide::One;
+    if (s == "flip") return model::ExtrudeSide::Flip;
+    if (s == "both") return model::ExtrudeSide::Both;
+    return std::nullopt;
+}
+
 std::optional<kernel::BoolOp> readOp(const json& j) {
     if (!j.is_string()) return std::nullopt;
     const auto s = j.get<std::string>();
@@ -391,6 +413,13 @@ json featureToJson(const Feature& f) {
                            {"center", vec3(m.motion().center)},
                            {"axis", vec3(m.motion().axis)},
                            {"angle", m.motion().angle}};
+            break;
+        }
+        case FeatureType::Extrude: {
+            const auto& e = static_cast<const model::ExtrudeFeature&>(f);
+            j["type"] = "Extrude";
+            j["inputs"] = {{"sketch", e.sketch().toString()}};
+            j["params"] = {{"distance", e.distance()}, {"side", sideName(e.side())}};
             break;
         }
     }
@@ -471,6 +500,17 @@ std::unique_ptr<Feature> featureFromJson(const json& j, const FeatureId& id, std
         if (!angle) return bad("angle");
         return std::make_unique<model::MoveFeature>(id, name, *body,
                                                     kernel::Motion{*offset, *center, *axis, *angle});
+    }
+    if (type == "Extrude") {
+        const auto sketch = inputs.contains("sketch") && inputs["sketch"].is_string()
+                                ? FeatureId::parse(inputs["sketch"].get<std::string>())
+                                : std::nullopt;
+        const auto distance = readNumber(params.value("distance", json()));
+        const auto side = readSide(params.value("side", json()));
+        if (!sketch) return bad("input sketch");
+        if (!distance) return bad("distance");
+        if (!side) return bad("side");
+        return std::make_unique<model::ExtrudeFeature>(id, name, *sketch, *distance, *side);
     }
     unknownType = type;
     why = "step " + name + " has unknown type " + type;

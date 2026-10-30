@@ -5,12 +5,15 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
 #include "kh/kernel/IKernel.h"
 #include "kh/sketch/Sketch.h"
+#include "kh/sketch/Solver.h"
 
 /// Documents, features, commands and undo.
 namespace kh::model {
@@ -22,6 +25,35 @@ enum class FeatureType {
     Boolean,   ///< A BooleanFeature.
     Move,      ///< A MoveFeature.
     Sketch,    ///< A SketchFeature.
+    Extrude,   ///< An ExtrudeFeature.
+};
+
+/// The flat plane a sketch is drawn on.
+enum class SketchPlane {
+    XY,  ///< The ground: sketch x is x, sketch y is y. Seen from above (Top).
+    XZ,  ///< Standing up, facing the front: sketch x is x, sketch y is z. Seen from the Front.
+    YZ,  ///< Standing up, facing the right: sketch x is y, sketch y is z. Seen from the Right.
+};
+
+/// How one feature came out of a rebuild.
+enum class FeatureStatus {
+    Ok,          ///< Built successfully.
+    Failed,      ///< The kernel could not build it.
+    Blocked,     ///< An earlier step it uses has a problem or is turned off.
+    Suppressed,  ///< Turned off by the user.
+};
+
+/// The rebuild result of one feature.
+struct FeatureResult {
+    FeatureStatus status = FeatureStatus::Ok;  ///< How it came out.
+    kernel::ShapeHandle shape;                 ///< The shape; empty unless status is Ok.
+    Diagnostics issues;                        ///< Why it failed or is blocked.
+    /// For a Sketch step: what the solver gave back (the solved geometry, the
+    /// degrees of freedom, conflicting and repeated constraints). Null otherwise.
+    std::shared_ptr<const sketch::SolveResult> sketch;
+    /// For a Sketch step: the plane it's drawn on (so a later step, like
+    /// Extrude, knows where its shapes are). Empty otherwise.
+    std::optional<SketchPlane> plane;
 };
 
 /// Gives a feature access to the results of features before it during a rebuild.
@@ -34,6 +66,12 @@ public:
     /// @param id The feature to look up.
     /// @return The shape, or nullptr if it has none (failed, blocked, suppressed or unknown).
     virtual const kernel::ShapeHandle* shapeOf(const FeatureId& id) const = 0;
+
+    /// Finds everything a feature produced: for a Sketch step, its solved sketch
+    /// and plane (see FeatureResult::sketch and FeatureResult::plane).
+    /// @param id The feature to look up.
+    /// @return Its result, or nullptr if it wasn't rebuilt before this one.
+    virtual const FeatureResult* resultOf(const FeatureId& id) const = 0;
 };
 
 /// One step in a design's history.
@@ -92,6 +130,11 @@ public:
     /// Lists the features whose results this one uses. They must come earlier in the document.
     /// @return The input features; empty for features that use no others.
     virtual std::vector<FeatureId> dependencies() const { return {}; }
+
+    /// Lists the inputs (from dependencies()) that are sketches, not bodies. A
+    /// sketch input is ready when it solved; other inputs when they made a body.
+    /// @return The sketch inputs; empty for features that use no sketches.
+    virtual std::vector<FeatureId> sketchInputs() const { return {}; }
 
     /// Makes a copy with a new id, for duplicating and pasting. Everything else
     /// (name, numbers, inputs, material, turned off) is copied as it is.
@@ -340,13 +383,6 @@ private:
     kernel::Motion motion_;
 };
 
-/// The flat plane a sketch is drawn on.
-enum class SketchPlane {
-    XY,  ///< The ground: sketch x is x, sketch y is y. Seen from above (Top).
-    XZ,  ///< Standing up, facing the front: sketch x is x, sketch y is z. Seen from the Front.
-    YZ,  ///< Standing up, facing the right: sketch x is y, sketch y is z. Seen from the Right.
-};
-
 /// Where a sketch plane sits in the design.
 struct PlaneAxes {
     kernel::Vec3 origin{};  ///< Where the sketch's x and y are 0, in mm.
@@ -418,6 +454,72 @@ public:
 private:
     SketchPlane plane_;
     sketch::Sketch sketch_;
+};
+
+/// Which way an Extrude goes from its sketch.
+enum class ExtrudeSide {
+    One,   ///< Out of the sketch's front (the side it's seen from: up for XY).
+    Flip,  ///< Out of the back instead (down for XY).
+    Both,  ///< Half the distance each way.
+};
+
+/// An Extrude step: every closed shape of a sketch, swept straight out of its
+/// plane into a solid. Holes in a shape go through; several shapes make one body.
+///
+/// @code
+/// // A 40 x 20 mm plate, 5 mm thick, from the closed rectangle in Sketch1.
+/// auto plate = std::make_unique<ExtrudeFeature>("Plate", sketchId, 5.0, ExtrudeSide::One);
+/// @endcode
+class ExtrudeFeature final : public Feature {
+public:
+    /// Makes an Extrude step with a new id.
+    /// @param name The name shown in the feature tree.
+    /// @param sketch The Sketch step whose closed shapes are extruded.
+    /// @param distance How far (mm). Must be greater than 0.
+    /// @param side Which way.
+    ExtrudeFeature(std::string name, FeatureId sketch, double distance, ExtrudeSide side);
+
+    /// Makes an Extrude step with a given id, for loading a saved design.
+    /// @param id The id it was saved with.
+    /// @param name The name shown in the feature tree.
+    /// @param sketch The Sketch step whose closed shapes are extruded.
+    /// @param distance How far (mm).
+    /// @param side Which way.
+    ExtrudeFeature(FeatureId id, std::string name, FeatureId sketch, double distance, ExtrudeSide side);
+
+    /// Gives the Sketch step it extrudes.
+    /// @return Its id.
+    const FeatureId& sketch() const { return sketch_; }
+
+    /// Gives how far it goes.
+    /// @return The distance (mm); with ExtrudeSide::Both, the whole thickness.
+    double distance() const { return distance_; }
+
+    /// Gives which way it goes.
+    /// @return The side.
+    ExtrudeSide side() const { return side_; }
+
+    /// Changes how far it goes. Use on a copy, or from a Command.
+    /// @param d The distance (mm).
+    void setDistance(double d) { distance_ = d; }
+
+    /// Changes which way it goes. Use on a copy, or from a Command.
+    /// @param s The side.
+    void setSide(ExtrudeSide s) { side_ = s; }
+
+    FeatureType type() const override { return FeatureType::Extrude; }
+    std::unique_ptr<Feature> clone() const override { return std::make_unique<ExtrudeFeature>(*this); }
+    std::vector<FeatureId> dependencies() const override { return {sketch_}; }
+    std::vector<FeatureId> sketchInputs() const override { return {sketch_}; }
+    void remapInputs(const std::map<FeatureId, FeatureId>& map) override {
+        if (auto it = map.find(sketch_); it != map.end()) sketch_ = it->second;
+    }
+    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+
+private:
+    FeatureId sketch_;
+    double distance_;
+    ExtrudeSide side_;
 };
 
 }  // namespace kh::model

@@ -253,10 +253,32 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel, sketch::ISketchSolve
             // A feature is blocked if any input has no shape (failed, blocked,
             // suppressed or missing). Name the first such input for the message.
             std::optional<std::string> blocker;  // the message, once one input is found
+            const auto sketchInputs = f->sketchInputs();
             for (const auto& dep : f->dependencies()) {
                 usedAsInput.insert(dep);
-                if (blocker || report.shapeOf(dep)) continue;
+                if (blocker) continue;
                 const Feature* d = find(dep);
+                if (std::find(sketchInputs.begin(), sketchInputs.end(), dep) != sketchInputs.end()) {
+                    // A sketch input is ready when it solved.
+                    const auto* input = report.result(dep);
+                    if (input && input->status == FeatureStatus::Ok && input->sketch && input->sketch->ok())
+                        continue;
+                    if (!d) {
+                        blocker =
+                            "This step uses a sketch that no longer exists. Change or delete this step.";
+                    } else if (d->type() != FeatureType::Sketch) {
+                        blocker =
+                            "This step uses " + d->name() + ", which isn't a sketch. Pick a sketch instead.";
+                    } else if (d->suppressed()) {
+                        blocker = "This step uses " + d->name() + ", which is turned off. Turn " + d->name() +
+                                  " back on, or change this step.";
+                    } else {
+                        blocker =
+                            "This step uses " + d->name() + ", which didn't solve. Fix the sketch first.";
+                    }
+                    continue;
+                }
+                if (report.shapeOf(dep)) continue;
                 if (!d) {
                     blocker = "This step uses a step that no longer exists. Change or delete this step.";
                 } else if (d->type() == FeatureType::Sketch) {
@@ -284,6 +306,7 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel, sketch::ISketchSolve
                     r.status = solved->ok() ? FeatureStatus::Ok : FeatureStatus::Failed;
                     r.issues = solved->issues;
                     r.sketch = std::move(solved);
+                    r.plane = static_cast<const SketchFeature&>(*f).plane();
                 }
             } else {
                 auto op = f->execute(kernel, report);

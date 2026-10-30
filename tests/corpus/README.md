@@ -40,8 +40,13 @@ deterministic).
 ```
 
 - **Steps:** `box` (`corner`, `size`), `cylinder` (`base`, `axis`, `radius`, `height`),
-  `union`, `cut`, `intersect` (`a`, `b` are earlier step ids), and `move` (`body`, an
-  earlier step id; `by`, `turn` in degrees, `axis`, `about`). Lengths are in mm.
+  `union`, `cut`, `intersect` (`a`, `b` are earlier step ids), `move` (`body`, an
+  earlier step id; `by`, `turn` in degrees, `axis`, `about`), `face` (`plane`:
+  `origin`, `x`, `y`, default the ground; `outer` and optional `holes`: lists of edges,
+  each `{"line": [[x, y], [x, y]]}`, `{"arc": {"center": [x, y], "radius": r, "from":
+  degrees, "to": degrees}}` or `{"circle": {"center": [x, y], "radius": r}}`, with
+  `"reversed": true` for an edge the loop runs backwards), and `extrude` (`face`, an
+  earlier step id; `by`, the direction and distance). Lengths are in mm.
 - **`result`:** which step to measure; defaults to the last step.
 - **`expect`:** only the keys present are checked. Use `"error": "<code>"` for cases that
   must fail with a specific diagnostic.

@@ -79,6 +79,7 @@ Every step has `id`, `type` and `name`. Steps that use other steps list them und
 | `Boolean` | `a`, `b`: step ids | `operation`: `"union"`, `"cut"` or `"intersect"` |
 | `Sketch` | none | `plane`: `"xy"`, `"xz"` or `"yz"`; `entities` and `constraints` (below) |
 | `Move` | `body`: step id | `offset` [x, y, z] mm, `center` [x, y, z] mm, `axis` [x, y, z] direction, `angle` radians. Turns by `angle` about the line through `center` along `axis`, then slides by `offset` |
+| `Extrude` | `sketch`: a Sketch step's id | `distance` mm (the whole thickness), `side`: `"one"` (out of the sketch's front, the side its plane is seen from), `"flip"` (the other way) or `"both"` (half each way). Every closed shape of the sketch is swept; holes go through |
 
 ```json
 {

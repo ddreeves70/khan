@@ -348,6 +348,8 @@ private:
                 });
                 break;
             }
+            case model::FeatureType::Extrude:  // see addExtrude()
+                break;
             case model::FeatureType::Move: {
                 auto* body = new QLabel(form_);
                 body->setObjectName(QStringLiteral("body"));
@@ -410,10 +412,43 @@ private:
                 break;
             }
         }
+        if (f.type() == model::FeatureType::Extrude) addExtrude(form);
         if (f.type() != model::FeatureType::Sketch) addMaterial(form);  // a sketch isn't a body
     }
 
     const model::Document* design() const { return ctx_.documents().find(ctx_.selection().doc()); }
+
+    // An Extrude: which sketch, how far, and which way.
+    void addExtrude(QFormLayout* form) {
+        auto* sketch = new QLabel(form_);
+        sketch->setObjectName(QStringLiteral("sketch"));
+        form->addRow(tr("Sketch"), sketch);
+        updaters_.push_back([this, sketch](const model::Feature& g) {
+            const auto* d = design();
+            const auto* s = d ? d->find(static_cast<const model::ExtrudeFeature&>(g).sketch()) : nullptr;
+            sketch->setText(s ? QString::fromStdString(s->name()) : tr("(missing)"));
+        });
+        addNumber(
+            form, QStringLiteral("distance"), tr("Distance"),
+            [](const model::Feature& g) { return static_cast<const model::ExtrudeFeature&>(g).distance(); },
+            [](model::Feature& g, double v) { static_cast<model::ExtrudeFeature&>(g).setDistance(v); });
+        auto* side = new QComboBox(form_);
+        side->setObjectName(QStringLiteral("side"));
+        side->addItem(tr("One side (out of the sketch's front)"), static_cast<int>(model::ExtrudeSide::One));
+        side->addItem(tr("Flipped (the other way)"), static_cast<int>(model::ExtrudeSide::Flip));
+        side->addItem(tr("Both sides (half each way)"), static_cast<int>(model::ExtrudeSide::Both));
+        side->setToolTip(tr("Which way the shape goes from its sketch."));
+        form->addRow(tr("Side"), side);
+        connect(side, &QComboBox::activated, this, [this, side](int index) {
+            const auto s = static_cast<model::ExtrudeSide>(side->itemData(index).toInt());
+            edit(QStringLiteral("side"),
+                 [s](model::Feature& g) { static_cast<model::ExtrudeFeature&>(g).setSide(s); });
+        });
+        updaters_.push_back([side](const model::Feature& g) {
+            const int want = static_cast<int>(static_cast<const model::ExtrudeFeature&>(g).side());
+            side->setCurrentIndex(side->findData(want));
+        });
+    }
 
     // The material, and what it makes of the body: mass, weight and cost.
     void addMaterial(QFormLayout* form) {

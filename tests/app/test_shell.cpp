@@ -251,7 +251,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 6 + 2 + 6 + 13);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
+    CHECK(buttons == 5 + 7 + 2 + 6 + 13);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
 }
@@ -1320,6 +1320,55 @@ TEST_CASE("Edit sketch draws in the picked sketch, and stops if the sketch goes 
     app.pickRows({1});
     app.click("kh.sketcher.edit");
     CHECK(viewer->tool() != nullptr);
+}
+
+TEST_CASE("Create > Extrude makes a solid from the picked sketch; Properties changes how far and which way",
+          "[app][extrude]") {
+    App app;
+    auto& docs = app.host.documents();
+    const auto doc = app.shell->activeDesign();
+    REQUIRE(docs.run(doc, "feature.add_box",
+                     {{"size", kernel::Vec3{5, 5, 5}}, {"corner", kernel::Vec3{100, 0, 0}}})
+                .empty());
+    REQUIRE(docs.run(doc, "feature.add_sketch", {}).empty());
+    const auto sketchId = app.doc().featureAt(1).id();
+    for (auto [a, b] : {std::pair{sketch::Point2{0, 0}, sketch::Point2{40, 0}},
+                        {{40, 0}, {40, 20}},
+                        {{40, 20}, {0, 20}},
+                        {{0, 20}, {0, 0}}}) {
+        REQUIRE(docs.run(doc, "sketch.add_line", {{"sketch", sketchId}, {"from", a}, {"to", b}}).empty());
+    }
+    settle();
+    auto* extrude = app.shell->action("kh.modeling.extrude");
+    app.pickRows({0});  // Box1: not a sketch
+    CHECK_FALSE(extrude->isEnabled());
+    app.pickRows({1});  // Sketch1
+    REQUIRE(extrude->isEnabled());
+    app.click("kh.modeling.extrude");
+    REQUIRE(app.doc().featureCount() == 3);
+    const auto id = app.doc().featureAt(2).id();
+    CHECK(app.doc().featureAt(2).name() == "Extrude1");
+    auto solid = [&] { return docs.lastRebuild(doc)->shapeOf(id); };
+    REQUIRE(solid());
+    CHECK(docs.kernel()->massProps(*solid()).volume == Approx(8000));  // 40 x 20 x 10 mm
+    CHECK(docs.kernel()->bounds(*solid()).max.z == Approx(10));
+
+    // Properties: the new step is picked, so its fields show.
+    auto* distance = app.field<QDoubleSpinBox>("distance");
+    REQUIRE(distance);
+    CHECK(distance->value() == Approx(10));
+    distance->setValue(5);
+    settle();
+    CHECK(docs.kernel()->massProps(*solid()).volume == Approx(4000));
+    CHECK(app.doc().undoLabel() == "Edit Extrude1");
+    auto* side = app.field<QComboBox>("side");
+    REQUIRE(side);
+    side->setCurrentIndex(2);  // both sides
+    emit side->activated(2);
+    settle();
+    CHECK(docs.kernel()->bounds(*solid()).min.z == Approx(-2.5));
+    CHECK(docs.kernel()->bounds(*solid()).max.z == Approx(2.5));
+    CHECK(app.field<QLabel>("sketch")->text() == QStringLiteral("Sketch1"));
 }
 
 TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {

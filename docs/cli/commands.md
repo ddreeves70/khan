@@ -26,6 +26,7 @@ All lengths are in millimeters (mm). Positions and sizes are written `x,y,z`:
 | [`sketch.constrain`](#sketchconstrain) | Adds a constraint or dimension to a sketch |
 | [`sketch.set_value`](#sketchset_value) | Changes a dimension |
 | [`sketch.delete`](#sketchdelete) | Deletes something from a sketch |
+| [`feature.add_extrude`](#featureadd_extrude) | Turns a sketch's closed shapes into a solid |
 | [`material.define`](#materialdefine) | Adds a material of your own, or changes one |
 | [`material.delete`](#materialdelete) | Removes a material you added |
 
@@ -613,6 +614,87 @@ $ kh_cli run --open s.khan --save s.khan sketch.delete sketch=Sketch1 item=Line1
 s: 1 step
   Sketch1      ok  1 circle, 1 arc, 1 point, 0 constraints, free to move 10 ways
 wrote s.khan
+```
+
+## feature.add_extrude
+
+Turns every closed shape of a sketch into a solid, by sweeping it straight out of
+the sketch's plane. Holes in a shape go all the way through, and several shapes
+make one body. The sketch stays as it is (it isn't a body), so changing it changes
+the solid. See [Extrude](../user-guide/extrude.md).
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `distance` | number (mm) | no | How far. Default `10` |
+| `side` | `one`, `flip` or `both` | no | `one`: out of the sketch's front (up, for a sketch on XY); `flip`: the other way; `both`: half the distance each way. Default `one` |
+| `name` | text | no | Step name. Default `Extrude1`, `Extrude2`, ... |
+
+A 40 × 20 mm rectangle with a hole of radius 4 mm in it, extruded 5 mm into a plate:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save plate.khan feature.add_sketch
+plate: 1 step
+  Sketch1      ok  empty
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,0 to=40,0
+plate: 1 step
+  Sketch1      ok  1 line, 0 constraints, free to move 4 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=40,0 to=40,20
+plate: 1 step
+  Sketch1      ok  2 lines, 0 constraints, free to move 8 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=40,20 to=0,20
+plate: 1 step
+  Sketch1      ok  3 lines, 0 constraints, free to move 12 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,20 to=0,0
+plate: 1 step
+  Sketch1      ok  4 lines, 0 constraints, free to move 16 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.add_circle sketch=Sketch1 center=10,10 radius=4
+plate: 1 step
+  Sketch1      ok  4 lines, 1 circle, 0 constraints, free to move 19 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan feature.add_extrude sketch=Sketch1 distance=5
+plate: 2 steps
+  Sketch1      ok  4 lines, 1 circle, 0 constraints, free to move 19 ways
+  Extrude1     ok  volume 3748.67 mm^3  mass 4.65 g (PLA)
+wrote plate.khan
+```
+
+That's (40 × 20 − π × 4²) × 5 = 3748.67 mm³. With `side=both` the plate sits
+half above the sketch and half below:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open plate.khan feature.add_extrude sketch=Sketch1 distance=6 side=both name=Thick
+plate: 3 steps
+  Sketch1      ok  4 lines, 1 circle, 0 constraints, free to move 19 ways
+  Extrude1     ok  volume 3748.67 mm^3  mass 4.65 g (PLA)
+  Thick        ok  volume 4498.41 mm^3  mass 5.58 g (PLA)
+```
+
+A sketch with no closed shape can't be extruded; the message says which ends
+aren't joined:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --save open.khan feature.add_sketch
+open: 1 step
+  Sketch1      ok  empty
+wrote open.khan
+$ kh_cli run --open open.khan --save open.khan sketch.add_line sketch=Sketch1 from=0,0 to=10,0
+open: 1 step
+  Sketch1      ok  1 line, 0 constraints, free to move 4 ways
+wrote open.khan
+$ kh_cli run --open open.khan feature.add_extrude sketch=Sketch1
+open: 2 steps
+  Sketch1      ok  1 line, 0 constraints, free to move 4 ways
+  Extrude1     failed
+    error [extrude.no_shape]: The sketch has no closed shape to extrude. These ends aren't joined: Line1's start, Line1's end. Join them so the lines go all the way round.
 ```
 
 ## material.define

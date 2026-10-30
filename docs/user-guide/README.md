@@ -15,8 +15,9 @@ works in either.
 
 | You can do now | Coming next |
 | --- | --- |
-| Boxes, cylinders, union, cut, intersect | Drawing sketches in the app; extrude, revolve |
-| Sketches with constraints and dimensions (with `kh_cli`) | |
+| Boxes, cylinders, union, cut, intersect | Revolve; pulling a face of a solid |
+| Sketches with constraints and dimensions, drawn in the app or with `kh_cli` | |
+| Extrude a sketch into a solid | |
 | Name, rename and delete steps; undo and redo | |
 | Move and turn bodies; copy, paste and duplicate steps; turn steps off; folders | |
 | The desktop app: 3D viewer with 1, 2 or 4 panes, feature tree, Properties, layouts | |
@@ -34,10 +35,11 @@ works in either.
 5. [Combining bodies](combining.md): union, cut and intersect.
 6. [Moving bodies](moving.md): slide and turn a body.
 7. [Sketches](sketches.md): flat drawings with constraints and dimensions.
-8. [Materials](materials.md): what a body is made of, its mass, weight and cost.
-9. [Files](files.md): saving, opening, and exporting for 3D printing.
-10. [Plugins](plugins.md): adding features to Khan.
-11. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
+8. [Extrude](extrude.md): turn a sketch into a solid.
+9. [Materials](materials.md): what a body is made of, its mass, weight and cost.
+10. [Files](files.md): saving, opening, and exporting for 3D printing.
+11. [Plugins](plugins.md): adding features to Khan.
+12. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
 
 ## Other guides
 

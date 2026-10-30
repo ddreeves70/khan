@@ -4,7 +4,7 @@ A **sketch** is a flat drawing (lines, circles, arcs and points) on one of the
 three main planes. **Constraints** say how the pieces relate (this line is
 horizontal, these two ends meet) and **dimensions** give sizes (this line is
 40 mm long). Khan's solver moves the drawing until every constraint and dimension
-is true. Soon, extrude will turn a sketch's closed shapes into solid parts.
+is true. Then [extrude](extrude.md) turns a sketch's closed shapes into solid parts.
 
 You don't have to draw exactly: draw roughly, then add constraints and
 dimensions, and the solver makes it exact.
@@ -68,7 +68,7 @@ While drawing:
 
 ![The plate with its left side deleted: the two ends that aren't joined are red, and the Sketch panel says so](images/app-sketch-open.png)
 
-Soon, **extrude** will turn a sketch's **closed shapes** into solid parts. A
+[**Extrude**](extrude.md) turns a sketch's **closed shapes** into solid parts. A
 closed shape is lines and arcs joined end to end all the way round, or a circle.
 A closed shape inside another one is a **hole** in it (like the plate's circle).
 

@@ -1,0 +1,106 @@
+{
+  "name": "extrude-slot-xz",
+  "description": "A slot (two 30 mm lines 10 mm apart closed by half circles of radius 5) drawn on XZ, standing up and seen from the front, extruded 2 mm towards the viewer (-y). Arcs join the lines exactly; volume (300 + 25 pi) x 2; the sketch's y becomes z, so the bounds are x -5..35, y -2..0, z 0..10.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "plane": {
+        "origin": [
+          0,
+          0,
+          0
+        ],
+        "x": [
+          1,
+          0,
+          0
+        ],
+        "y": [
+          0,
+          0,
+          1
+        ]
+      },
+      "outer": [
+        {
+          "line": [
+            [
+              0,
+              0
+            ],
+            [
+              30,
+              0
+            ]
+          ]
+        },
+        {
+          "arc": {
+            "center": [
+              30,
+              5
+            ],
+            "radius": 5,
+            "from": -90,
+            "to": 90
+          }
+        },
+        {
+          "line": [
+            [
+              30,
+              10
+            ],
+            [
+              0,
+              10
+            ]
+          ]
+        },
+        {
+          "arc": {
+            "center": [
+              0,
+              5
+            ],
+            "radius": 5,
+            "from": 90,
+            "to": 270
+          }
+        }
+      ]
+    },
+    {
+      "id": "slot",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        -2,
+        0
+      ]
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 757.079633,
+    "area": 939.911486,
+    "bounds": [
+      [
+        -5.0,
+        -2.0,
+        0.0
+      ],
+      [
+        35.0,
+        0.0,
+        10.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 6,
+    "edges": 12,
+    "vertices": 8
+  }
+}

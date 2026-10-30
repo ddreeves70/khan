@@ -88,7 +88,7 @@ Phase 1 started Oct 28, 2026.
 
 - Parameter table with expressions and units.
 - Feature graph with incremental recompute; timeline bar with rollback, edit, suppress.
-- Features: extrude (new/join/cut), revolve, fillet, chamfer, hole, shell, mirror, linear and circular pattern, construction planes.
+- Features: extrude (new/join/cut), revolve, fillet, chamfer, hole, shell, mirror, linear and circular pattern, construction planes. (Extrude, new body only, one side, flipped or both: built Oct 29, 2026, as the sketcher's step 6; join and cut go through Combine for now. See [The sketcher](sketcher.md).)
 - Linked copies: a copy that follows its original when it changes (a Move that keeps its input), built with the patterns.
 - Topological naming v1 (history-based names plus geometric fallback); ambiguous references flagged, never guessed.
 - Geometry regression corpus started: every bug becomes a test model.
