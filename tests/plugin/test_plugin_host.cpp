@@ -89,12 +89,12 @@ TEST_CASE("kh.modeling loads and its commands work", "[plugin][host]") {
     CHECK(modeling.builtin);
     CHECK(modeling.commands ==
           std::vector<std::string>{
-              "feature.add_boolean",  "feature.add_box",  "feature.add_cylinder", "feature.add_move",
-              "feature.add_sketch",   "feature.delete",   "feature.duplicate",    "feature.rename",
-              "feature.set_material", "feature.suppress", "folder.add",           "folder.delete",
-              "folder.rename",        "material.define",  "material.delete",      "sketch.add_arc",
-              "sketch.add_circle",    "sketch.add_line",  "sketch.add_point",     "sketch.constrain",
-              "sketch.delete",        "sketch.set_value"});
+              "feature.add_boolean", "feature.add_box",      "feature.add_cylinder", "feature.add_extrude",
+              "feature.add_move",    "feature.add_sketch",   "feature.delete",       "feature.duplicate",
+              "feature.rename",      "feature.set_material", "feature.suppress",     "folder.add",
+              "folder.delete",       "folder.rename",        "material.define",      "material.delete",
+              "sketch.add_arc",      "sketch.add_circle",    "sketch.add_line",      "sketch.add_point",
+              "sketch.constrain",    "sketch.delete",        "sketch.set_value"});
 
     const DocId doc = host.documents().add(std::make_unique<model::Document>());
     REQUIRE(host.documents().run(doc, "feature.add_box", {{"size", kernel::Vec3{2, 3, 4}}}).empty());
@@ -321,9 +321,9 @@ TEST_CASE("kh.modeling adds menu items that run its commands", "[plugin][host]")
     }
     CHECK(ids == std::vector<std::string>{"kh.modeling.box", "kh.modeling.cylinder", "kh.modeling.union",
                                           "kh.modeling.cut", "kh.modeling.intersect", "kh.modeling.move",
-                                          "kh.modeling.duplicate", "kh.modeling.turn_off",
-                                          "kh.modeling.turn_on", "kh.modeling.new_folder",
-                                          "kh.modeling.delete"});
+                                          "kh.modeling.extrude", "kh.modeling.duplicate",
+                                          "kh.modeling.turn_off", "kh.modeling.turn_on",
+                                          "kh.modeling.new_folder", "kh.modeling.delete"});
     CHECK(get(host, "kh.modeling").actions == ids);
 }
 

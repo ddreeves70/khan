@@ -118,7 +118,7 @@ closed shapes: 1
   shape 1  Circle1  area 78.54 mm^2
 ```
 
-Last come the sketch's **closed shapes**, which extrude will turn into solids:
+Last come the sketch's **closed shapes**, which [extrude](../user-guide/extrude.md) turns into solids:
 each shape's lines, arcs and circles in order around it, its area, and any holes
 in it. Ends of lines and arcs that nothing else meets are listed as
 `open ends`; a shape with an open end isn't closed yet. A `warning` says when

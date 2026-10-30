@@ -85,6 +85,25 @@ void registerModeling(plugin::PluginContext& ctx) {
                              .toolbar = true,
                              .icon = std::string(icons::modeling::move_svg),
                              .tip = "Move or turn the picked body. Then type how far in Properties."});
+    // Extrude: the one sketch picked, swept 10 mm out of its plane.
+    ctx.addAction(ActionSpec{
+        .id = "kh.modeling.extrude",
+        .text = "Extrude",
+        .menu = "Create",
+        .command = "feature.add_extrude",
+        .args = {{"distance", 10.0}},
+        .fromSelection = {"sketch"},
+        .shortcut = "Ctrl+Shift+E",
+        .toolbar = true,
+        .icon = std::string(icons::modeling::extrude_svg),
+        .tip = "Make a 10 mm solid from the picked sketch's closed shapes. Change how far in "
+               "Properties.",
+        .enabled = [&ctx] {
+            const auto& sel = ctx.selection();
+            const auto* doc = ctx.documents().find(sel.doc());
+            const auto* f = doc && sel.features().size() == 1 ? doc->find(sel.features()[0]) : nullptr;
+            return f && f->type() == model::FeatureType::Sketch;
+        }});
     ctx.addAction(ActionSpec{.id = "kh.modeling.duplicate",
                              .text = "Duplicate step",
                              .menu = "Edit",

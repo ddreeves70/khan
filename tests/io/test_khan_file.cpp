@@ -694,6 +694,55 @@ bool sameSketch(const sketch::Sketch& a, const sketch::Sketch& b) {
 
 }  // namespace
 
+TEST_CASE("an Extrude step survives saving and opening, and pastes with its sketch", "[io][extrude]") {
+    model::Document doc(model::DocKind::Part, "Plate");
+    auto sketchStep = std::make_unique<model::SketchFeature>(FeatureId::generate(), "Sketch1",
+                                                             model::SketchPlane::XZ, everyKind());
+    const auto sketchId = sketchStep->id();
+    REQUIRE(doc.execute(std::make_unique<model::AddFeatureCommand>(std::move(sketchStep))).empty());
+    auto extrude = std::make_unique<model::ExtrudeFeature>("Plate", sketchId, 4.5, model::ExtrudeSide::Both);
+    const auto id = extrude->id();
+    REQUIRE(doc.execute(std::make_unique<model::AddFeatureCommand>(std::move(extrude))).empty());
+
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(doc, bytes).empty());
+    auto opened = io::readBytes(bytes, "plate.khan");
+    REQUIRE(opened.ok());
+    const auto* back = dynamic_cast<const model::ExtrudeFeature*>(opened.document->find(id));
+    REQUIRE(back);
+    CHECK(back->sketch() == sketchId);
+    CHECK(back->distance() == 4.5);
+    CHECK(back->side() == model::ExtrudeSide::Both);
+    io::Bytes again;
+    REQUIRE(io::writeBytes(*opened.document, again).empty());
+    CHECK(again == bytes);
+
+    // Pasted, it comes with its sketch, and uses the pasted sketch.
+    auto pasted = io::stepsFromText(io::stepsToText(doc, {id}));
+    REQUIRE(pasted.steps.size() == 2);
+    const auto& copy = dynamic_cast<const model::ExtrudeFeature&>(*pasted.steps[1]);
+    CHECK(copy.sketch() == pasted.steps[0]->id());
+    CHECK(copy.side() == model::ExtrudeSide::Both);
+}
+
+TEST_CASE("an Extrude with a side Khan doesn't know is refused, naming the step", "[io][extrude]") {
+    const std::string sketchId = "1a2b3c4d-1111-4222-8333-444455556666";
+    const std::string extrudeId = "5e6f7a8b-1111-4222-8333-444455556666";
+    const auto bytes = makeZip(
+        {{"manifest.json", manifest()},
+         {"timeline.json", R"({"features":[{"id":")" + sketchId + R"(","suppressed":false},{"id":")" +
+                               extrudeId + R"(","suppressed":false}]})"},
+         {"features/" + sketchId + ".json",
+          R"({"id":")" + sketchId +
+              R"(","name":"Sketch1","type":"Sketch","params":{"plane":"xy","entities":[],"constraints":[]}})"},
+         {"features/" + extrudeId + ".json",
+          R"({"id":")" + extrudeId + R"(","name":"Plate","type":"Extrude","inputs":{"sketch":")" + sketchId +
+              R"("},"params":{"distance":5,"side":"sideways"}})"}});
+    const auto r = io::readBytes(bytes, "odd.khan");
+    REQUIRE_FALSE(r.ok());
+    CHECK(r.issues.at(0).detail.find("step Plate: bad or missing side") != std::string::npos);
+}
+
 TEST_CASE("a sketch with every kind of entity and constraint survives saving and opening", "[io][sketch]") {
     REQUIRE(sketch::check(everyKind()).empty());
     model::Document doc(model::DocKind::Part, "Plate");

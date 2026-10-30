@@ -21,6 +21,7 @@ Commands for kh_cli run:
   feature.add_boolean      Combine bodies
   feature.add_box          Add box
   feature.add_cylinder     Add cylinder
+  feature.add_extrude      Extrude
   feature.add_move         Move body
   feature.add_sketch       Add sketch
   feature.delete           Delete step

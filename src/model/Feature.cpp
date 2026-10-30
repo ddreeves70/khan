@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include "kh/sketch/Profiles.h"
+
 namespace kh::model {
 
 BoxFeature::BoxFeature(std::string name, kernel::Vec3 corner, kernel::Vec3 size)
@@ -102,6 +104,111 @@ sketch::Point2 toSketch(SketchPlane plane, const kernel::Vec3& p) {
     const auto a = planeAxes(plane);
     const kernel::Vec3 d{p.x - a.origin.x, p.y - a.origin.y, p.z - a.origin.z};
     return {d.x * a.x.x + d.y * a.x.y + d.z * a.x.z, d.x * a.y.x + d.y * a.y.y + d.z * a.y.z};
+}
+
+}  // namespace kh::model
+
+namespace kh::model {
+
+ExtrudeFeature::ExtrudeFeature(std::string name, FeatureId sketch, double distance, ExtrudeSide side)
+    : Feature(std::move(name)), sketch_(sketch), distance_(distance), side_(side) {}
+
+ExtrudeFeature::ExtrudeFeature(FeatureId id, std::string name, FeatureId sketch, double distance,
+                               ExtrudeSide side)
+    : Feature(id, std::move(name)), sketch_(sketch), distance_(distance), side_(side) {}
+
+namespace {
+
+// A sketch loop as the kernel takes it.
+kernel::Loop2 toKernel(const sketch::Loop& loop, const sketch::Sketch& s) {
+    kernel::Loop2 out;
+    for (const auto& e : loop.edges) {
+        const auto* entity = s.find(e.entity);
+        if (!entity) continue;  // findProfiles only lists entities of the sketch
+        kernel::Edge2 edge;
+        edge.reversed = e.reversed;
+        if (const auto* l = std::get_if<sketch::LineShape>(&entity->shape)) {
+            edge.curve = kernel::Line2{{l->start.x, l->start.y}, {l->end.x, l->end.y}};
+        } else if (const auto* a = std::get_if<sketch::ArcShape>(&entity->shape)) {
+            edge.curve = kernel::Arc2{{a->center.x, a->center.y}, a->radius, a->startAngle, a->endAngle};
+        } else if (const auto* c = std::get_if<sketch::CircleShape>(&entity->shape)) {
+            edge.curve = kernel::Circle2{{c->center.x, c->center.y}, c->radius};
+        }
+        out.push_back(edge);
+    }
+    return out;
+}
+
+kernel::OpResult extrudeFailed(std::string code, std::string message) {
+    kernel::OpResult r;
+    r.issues.push_back({std::move(code), Severity::Error, std::move(message), {}});
+    return r;
+}
+
+}  // namespace
+
+kernel::OpResult ExtrudeFeature::execute(kernel::IKernel& kernel, const ResultLookup& earlier) const {
+    if (!(distance_ > 0)) {
+        return extrudeFailed("extrude.distance",
+                             "Extrude needs a distance greater than 0 mm. Type one in Properties, like 10.");
+    }
+    const FeatureResult* r = earlier.resultOf(sketch_);
+    if (!r || !r->sketch || !r->sketch->ok() || !r->plane) {
+        // Rebuilds block this step first; this is only for callers that don't.
+        return extrudeFailed("extrude.sketch", "Extrude needs a sketch that solved. Fix the sketch first.");
+    }
+    const sketch::Sketch solved{r->sketch->entities, {}};
+    const auto found = sketch::findProfiles(solved);
+    if (found.shapes.empty()) {
+        std::string why = "The sketch has no closed shape to extrude.";
+        if (!found.openEnds.empty()) {
+            std::string ends;
+            for (const auto& end : found.openEnds) {
+                const auto* e = solved.find(end.entity);
+                ends += (ends.empty() ? "" : ", ") + (e ? e->name : std::string("?")) + "'s " +
+                        (end.role == sketch::PointRole::Start ? "start" : "end");
+            }
+            why += " These ends aren't joined: " + ends + ". Join them so the lines go all the way round.";
+        } else if (!found.issues.empty()) {
+            why += " " + found.issues.front().message;
+        } else {
+            why += " Draw a closed shape in it, like a rectangle or a circle.";
+        }
+        return extrudeFailed("extrude.no_shape", why);
+    }
+
+    // Which way: the sketch's front (the side it's seen from) unless flipped; for
+    // both sides, start half the distance behind the sketch.
+    const PlaneAxes axes = planeAxes(*r->plane);
+    const kernel::Vec3 n{axes.x.y * axes.y.z - axes.x.z * axes.y.y, axes.x.z * axes.y.x - axes.x.x * axes.y.z,
+                         axes.x.x * axes.y.y - axes.x.y * axes.y.x};
+    const double sign = side_ == ExtrudeSide::Flip ? -1 : 1;
+    const kernel::Vec3 sweep{n.x * distance_ * sign, n.y * distance_ * sign, n.z * distance_ * sign};
+    const kernel::Plane plane{axes.origin, axes.x, axes.y};
+
+    kernel::OpResult out;
+    for (const auto& shape : found.shapes) {
+        kernel::Profile2 profile{toKernel(shape.outer, solved), {}};
+        for (const auto& hole : shape.holes) profile.holes.push_back(toKernel(hole, solved));
+        auto face = kernel.makeFace(profile, plane);
+        if (!face.ok()) return face;
+        if (side_ == ExtrudeSide::Both) {
+            const double back = -distance_ / 2;
+            face = kernel.transform(face.shape, kernel::Motion{{n.x * back, n.y * back, n.z * back}});
+            if (!face.ok()) return face;
+        }
+        auto solid = kernel.extrude(face.shape, sweep);
+        if (!solid.ok()) return solid;
+        // Several shapes make one body.
+        if (out.shape.valid()) {
+            solid = kernel.boolean(kernel::BoolOp::Union, out.shape, solid.shape);
+            if (!solid.ok()) return solid;
+        }
+        out.shape = solid.shape;
+    }
+    // Pieces that weren't in any shape (three lines meeting, shapes crossing) are worth knowing about.
+    for (const auto& d : found.issues) out.issues.push_back({d.code, Severity::Warning, d.message, d.detail});
+    return out;
 }
 
 }  // namespace kh::model

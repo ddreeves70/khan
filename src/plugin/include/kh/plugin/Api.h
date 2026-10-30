@@ -39,8 +39,12 @@ class PluginContext;
 /// sketch solver (DocumentList::solver()), dragging (sketch::ISketchSolver::drag())
 /// and the parts of a solved sketch that can still move (sketch::SolveResult::
 /// freePoints, freeEntities). Version 16 added toolbar buttons that show only
-/// while their item can be used (ActionSpec::buttonWhenEnabled).
-inline constexpr int kPluginApiVersion = 16;
+/// while their item can be used (ActionSpec::buttonWhenEnabled). Version 17 added
+/// Extrude steps (model::ExtrudeFeature), steps that use sketches
+/// (model::Feature::sketchInputs(), model::ResultLookup::resultOf(), the sketch's
+/// plane in model::FeatureResult::plane), and faces and extrude in the kernel
+/// (kernel::IKernel::makeFace(), kernel::IKernel::extrude()).
+inline constexpr int kPluginApiVersion = 17;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

@@ -1,0 +1,16 @@
+{
+  "name": "invalid-face-open",
+  "description": "A rectangle missing its last side can't be a face: the outline isn't closed, and the kernel says so instead of making something.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {"line": [[0, 0], [40, 0]]},
+        {"line": [[40, 0], [40, 20]]},
+        {"line": [[40, 20], [0, 20]]}
+      ]
+    }
+  ],
+  "expect": {"error": "kernel.face.outline"}
+}

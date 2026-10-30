@@ -1,0 +1,105 @@
+{
+  "name": "extrude-plate-hole",
+  "description": "A 40 x 20 mm rectangle with a 4 mm radius hole at (10, 10), extruded 5 mm up: the sketched keychain plate. Volume (800 - 16 pi) x 5; the hole's loop runs clockwise, as holes from findProfiles do. 7 faces: top, bottom, 4 sides, the hole's wall.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {
+          "line": [
+            [
+              0,
+              0
+            ],
+            [
+              40,
+              0
+            ]
+          ]
+        },
+        {
+          "line": [
+            [
+              40,
+              0
+            ],
+            [
+              40,
+              20
+            ]
+          ]
+        },
+        {
+          "line": [
+            [
+              40,
+              20
+            ],
+            [
+              0,
+              20
+            ]
+          ]
+        },
+        {
+          "line": [
+            [
+              0,
+              20
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        }
+      ],
+      "holes": [
+        [
+          {
+            "circle": {
+              "center": [
+                10,
+                10
+              ],
+              "radius": 4
+            },
+            "reversed": true
+          }
+        ]
+      ]
+    },
+    {
+      "id": "plate",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        0,
+        5
+      ]
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 3748.672588,
+    "area": 2225.132741,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        40.0,
+        20.0,
+        5.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 7,
+    "edges": 15,
+    "vertices": 10
+  }
+}

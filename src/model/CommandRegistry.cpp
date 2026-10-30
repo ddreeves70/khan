@@ -277,6 +277,29 @@ CommandRegistry makeBuiltin() {
                 argText(a, "name", doc.uniqueName("Move")), argFeature(a, "body"), m));
         });
 
+    r.add({"feature.add_extrude",
+           "Extrude",
+           "Turns every closed shape of a sketch into a solid, by sweeping it straight out of the sketch. "
+           "Holes in a shape go all the way through.",
+           {{"sketch", ArgType::FeatureRef, "The sketch, like Sketch1.", true, {}},
+            {"distance", ArgType::Number, "How far, in mm. Default 10.", false, {}},
+            {"side",
+             ArgType::Choice,
+             "Which way: one (out of the sketch's front: up for XY), flip (the other way) or both (half "
+             "each way). Default one.",
+             false,
+             {"one", "flip", "both"}},
+            {"name", ArgType::Text, "Step name. Default Extrude1, Extrude2, ...", false, {}}}},
+          [](const Document& doc, const Args& a) -> std::unique_ptr<Command> {
+              const std::string side = argText(a, "side", "one");
+              const auto s = side == "flip"   ? ExtrudeSide::Flip
+                             : side == "both" ? ExtrudeSide::Both
+                                              : ExtrudeSide::One;
+              const double distance = a.count("distance") ? argNumber(a, "distance") : 10.0;
+              return std::make_unique<AddFeatureCommand>(std::make_unique<ExtrudeFeature>(
+                  argText(a, "name", doc.uniqueName("Extrude")), argFeature(a, "sketch"), distance, s));
+          });
+
     r.add({"feature.delete",
            "Delete step",
            "Deletes a step that no other step uses.",

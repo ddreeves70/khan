@@ -28,24 +28,6 @@ enum class DocKind {
     Assembly,  ///< Parts put together with mates (Phase 3).
 };
 
-/// How one feature came out of a rebuild.
-enum class FeatureStatus {
-    Ok,          ///< Built successfully.
-    Failed,      ///< The kernel could not build it.
-    Blocked,     ///< An earlier step it uses has a problem or is turned off.
-    Suppressed,  ///< Turned off by the user.
-};
-
-/// The rebuild result of one feature.
-struct FeatureResult {
-    FeatureStatus status = FeatureStatus::Ok;  ///< How it came out.
-    kernel::ShapeHandle shape;                 ///< The shape; empty unless status is Ok.
-    Diagnostics issues;                        ///< Why it failed or is blocked.
-    /// For a Sketch step: what the solver gave back (the solved geometry, the
-    /// degrees of freedom, conflicting and repeated constraints). Null otherwise.
-    std::shared_ptr<const sketch::SolveResult> sketch;
-};
-
 /// The outcome of rebuilding a document: one result per feature, in document order.
 class RebuildReport final : public ResultLookup {
 public:
@@ -55,6 +37,7 @@ public:
     const FeatureResult* result(const FeatureId& id) const;
 
     const kernel::ShapeHandle* shapeOf(const FeatureId& id) const override;
+    const FeatureResult* resultOf(const FeatureId& id) const override { return result(id); }
 
     /// Lists the finished bodies: features that built successfully and are not
     /// used as an input by any later active step.

@@ -58,6 +58,15 @@
       "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
       "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
       "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=4"
+    ],
+    "nametag": [
+      "run --save tag.khan feature.add_sketch",
+      "run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=0,0 to=60,0",
+      "run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=60,0 to=60,20",
+      "run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=60,20 to=0,20",
+      "run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=0,20 to=0,0",
+      "run --open tag.khan --save tag.khan sketch.add_circle sketch=Sketch1 center=6,10 radius=2.5",
+      "run --open tag.khan --save tag.khan feature.add_extrude sketch=Sketch1 distance=3"
     ]
   },
   "pictures": [
@@ -938,6 +947,72 @@
         136,
         1018,
         500
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/extrude-plate.png",
+      "size": "560x340",
+      "commands": [
+        "run --save plate.khan feature.add_sketch",
+        "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,0 to=37,2",
+        "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=37,2 to=39,19",
+        "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=39,19 to=-2,22",
+        "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=-2,22 to=0,0",
+        "run --open plate.khan --save plate.khan sketch.add_circle sketch=Sketch1 center=12,8 radius=3",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line3",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line2",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line4",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=4",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Circle1.center value=10",
+        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical_distance on=Line1.start,Circle1.center value=10",
+        "run --open plate.khan --save plate.khan feature.add_extrude sketch=Sketch1 distance=3"
+      ],
+      "show": [
+        {
+          "file": "plate.khan",
+          "color": "blue",
+          "step": "Extrude1"
+        }
+      ]
+    },
+    {
+      "out": "docs/tutorials/images/nametag-done.png",
+      "size": "560x340",
+      "script": "nametag",
+      "show": [
+        {
+          "file": "tag.khan",
+          "color": "blue",
+          "step": "Extrude1"
+        }
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-extrude.png",
+      "size": "1280x800",
+      "script": "nametag",
+      "app": {
+        "open": "tag.khan",
+        "select": [
+          "Extrude1"
+        ],
+        "trigger": [
+          "kh.viewer.fit"
+        ]
+      },
+      "crop": [
+        0,
+        0,
+        1280,
+        800
       ]
     }
   ]
