@@ -1,7 +1,8 @@
 #pragma once
 
 /// @file
-/// How a viewer is split into panes, and the standard directions to look from.
+/// How a viewer is split into panes, the standard directions to look from, and
+/// how the mouse and the bodies' drawing can be set (the view bar's choices).
 
 #include <optional>
 #include <string_view>
@@ -28,6 +29,21 @@ enum class StandardView {
     Top,     ///< From +Z, looking down. Y is up on the screen.
     Bottom,  ///< From -Z, looking up. -Y is up on the screen.
     Iso,     ///< From the front, right and above at once (+X, -Y, +Z). Z is up.
+};
+
+/// What dragging with the left mouse button does (the view bar's Orbit, Pan and
+/// Zoom buttons). The other buttons and the wheel always do what they do.
+enum class LeftDrag {
+    Orbit,  ///< Turn the camera around the part. The usual choice.
+    Pan,    ///< Slide the camera sideways.
+    Zoom,   ///< Move closer (drag right) or farther away (drag left).
+};
+
+/// How bodies are drawn.
+enum class DisplayStyle {
+    ShadedWithEdges,  ///< Solid colors with the edges drawn in dark lines. The usual choice.
+    Shaded,           ///< Solid colors only.
+    Wireframe,        ///< Just the edges, so you can see through the part.
 };
 
 /// A camera's direction, as unit vectors.
@@ -77,5 +93,19 @@ const std::vector<PaneLayout>& allLayouts();
 /// @param layout The layout.
 /// @return "One pane", "Two side by side", "Two stacked" or "Four panes".
 std::string_view layoutName(PaneLayout layout);
+
+/// Gives every display style, in the order the view bar lists them.
+/// @return ShadedWithEdges, Shaded, Wireframe.
+const std::vector<DisplayStyle>& allDisplayStyles();
+
+/// Gives a display style's name, as the view bar shows it.
+/// @param style The style.
+/// @return "Shaded with edges", "Shaded" or "Wireframe".
+std::string_view displayStyleName(DisplayStyle style);
+
+/// Finds a display style by name, ignoring upper and lower case (for settings).
+/// @param name A name from displayStyleName(), e.g. "wireframe".
+/// @return The style, or nothing if no style has that name.
+std::optional<DisplayStyle> parseDisplayStyle(std::string_view name);
 
 }  // namespace kh::view

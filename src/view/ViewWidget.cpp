@@ -192,14 +192,7 @@ static unsigned int with(Aspect_VKeyMouse button, Aspect_VKeyFlags keys) {
 class ViewController final : public AIS_ViewController {
 public:
     explicit ViewController(ViewWidget& widget) : widget_(widget) {
-        // Left drag orbits; right, middle or Shift+left drag pans; the wheel zooms.
-        auto& gestures = ChangeMouseGestureMap();
-        gestures.Clear();
-        gestures.Bind(Aspect_VKeyMouse_LeftButton, AIS_MouseGesture_RotateOrbit);
-        gestures.Bind(with(Aspect_VKeyMouse_LeftButton, Aspect_VKeyFlags_CTRL), AIS_MouseGesture_RotateOrbit);
-        gestures.Bind(with(Aspect_VKeyMouse_LeftButton, Aspect_VKeyFlags_SHIFT), AIS_MouseGesture_Pan);
-        gestures.Bind(Aspect_VKeyMouse_MiddleButton, AIS_MouseGesture_Pan);
-        gestures.Bind(Aspect_VKeyMouse_RightButton, AIS_MouseGesture_Pan);
+        setLeftDrag(LeftDrag::Orbit);
         // A click selects; Ctrl- or Shift-click adds or removes.
         auto& schemes = ChangeMouseSelectionSchemes();
         schemes.Clear();
@@ -208,6 +201,23 @@ public:
         schemes.Bind(with(Aspect_VKeyMouse_LeftButton, Aspect_VKeyFlags_SHIFT), AIS_SelectionScheme_XOR);
         SetLockOrbitZUp(true);  // Z stays up while orbiting, so the floor stays the floor
     }
+
+    // Left drag orbits (or pans, or zooms: the view bar's choice); right,
+    // middle or Shift+left drag pans; the wheel zooms.
+    void setLeftDrag(LeftDrag drag) {
+        AIS_MouseGesture left = AIS_MouseGesture_RotateOrbit;
+        if (drag == LeftDrag::Pan) left = AIS_MouseGesture_Pan;
+        if (drag == LeftDrag::Zoom) left = AIS_MouseGesture_Zoom;
+        auto& gestures = ChangeMouseGestureMap();
+        gestures.Clear();
+        gestures.Bind(Aspect_VKeyMouse_LeftButton, left);
+        gestures.Bind(with(Aspect_VKeyMouse_LeftButton, Aspect_VKeyFlags_CTRL), left);
+        gestures.Bind(with(Aspect_VKeyMouse_LeftButton, Aspect_VKeyFlags_SHIFT), AIS_MouseGesture_Pan);
+        gestures.Bind(Aspect_VKeyMouse_MiddleButton, AIS_MouseGesture_Pan);
+        gestures.Bind(Aspect_VKeyMouse_RightButton, AIS_MouseGesture_Pan);
+        leftDrag_ = drag;
+    }
+    LeftDrag leftDrag() const { return leftDrag_; }
 
     void OnSelectionChanged(const Handle(AIS_InteractiveContext) & ctx,
                             const Handle(V3d_View) & view) override;
@@ -230,6 +240,7 @@ protected:
 
 private:
     ViewWidget& widget_;
+    LeftDrag leftDrag_ = LeftDrag::Orbit;
 };
 
 struct ViewWidget::Impl {
@@ -254,6 +265,19 @@ struct ViewWidget::Impl {
     bool everShown = false;  // has the view had a body to fit yet?
     bool ready = false;
     bool clickAdds = false;  // the last click had Ctrl or Shift held
+    DisplayStyle style = DisplayStyle::ShadedWithEdges;
+
+    // Draws a body in the display style. Ghosts (bodies used up by a later
+    // step, shown while picked) stay see-through shaded, so they read as ghosts.
+    void applyStyle(const Handle(AIS_Shape) & obj, bool ghost) {
+        if (ghost) {
+            context->SetDisplayMode(obj, AIS_Shaded, false);
+            return;
+        }
+        obj->Attributes()->SetFaceBoundaryDraw(style == DisplayStyle::ShadedWithEdges);
+        context->SetDisplayMode(obj, style == DisplayStyle::Wireframe ? AIS_WireFrame : AIS_Shaded, false);
+        context->Redisplay(obj, false);
+    }
     QString problem;
 
     void fit() {
@@ -271,7 +295,7 @@ struct ViewWidget::Impl {
     std::optional<DrawingPlane> drawing;
     QPoint leftPress;
     bool leftDown = false;
-    bool dragging = false;                // moved far enough with the left button down to be a drag
+    bool dragging = false;                 // moved far enough with the left button down to be a drag
     std::optional<PlanePoint> pressPoint;  // where the left button went down, on the plane
 
     // The point under the mouse on the drawing plane, and how big a pixel is there.
@@ -412,10 +436,16 @@ void ViewWidget::setContent(const SceneContent& content) {
                 obj->Attributes()->ShadingAspect()->Aspect()->SetPolygonOffsets(Aspect_POM_Fill, -1.0f,
                                                                                 -2.0f);
             } else {
-                obj->Attributes()->SetFaceBoundaryDraw(true);
+                obj->Attributes()->SetFaceBoundaryDraw(d.style == DisplayStyle::ShadedWithEdges);
                 obj->Attributes()->SetFaceBoundaryAspect(new Prs3d_LineAspect(kEdges, Aspect_TOL_SOLID, 1.0));
+                // Wireframe lines in the edge color, so they show on the grid.
+                obj->Attributes()->SetWireAspect(new Prs3d_LineAspect(kEdges, Aspect_TOL_SOLID, 1.0));
+                obj->Attributes()->SetFreeBoundaryAspect(new Prs3d_LineAspect(kEdges, Aspect_TOL_SOLID, 1.0));
+                obj->Attributes()->SetUnFreeBoundaryAspect(
+                    new Prs3d_LineAspect(kEdges, Aspect_TOL_SOLID, 1.0));
             }
-            d.context->Display(obj, AIS_Shaded, 0, false);
+            const bool wire = !body.ghost && d.style == DisplayStyle::Wireframe;
+            d.context->Display(obj, wire ? AIS_WireFrame : AIS_Shaded, 0, false);
             next[body.feature] = {body.shape.id(), body.ghost, body.color, obj};
         }
         for (auto& [id, s] : d.shown) d.context->Remove(s.object, false);
@@ -465,6 +495,32 @@ void ViewWidget::setOverlays(const std::vector<ViewOverlay>& overlays) {
         d.fail(*this, drawFailed(d.where(QStringLiteral("showing overlays: ") + failureText(e))));
     }
     update();
+}
+
+void ViewWidget::setLeftDrag(LeftDrag drag) {
+    impl_->controller.setLeftDrag(drag);
+}
+
+LeftDrag ViewWidget::leftDrag() const {
+    return impl_->controller.leftDrag();
+}
+
+void ViewWidget::setDisplayStyle(DisplayStyle style) {
+    auto& d = *impl_;
+    if (d.style == style) return;
+    d.style = style;
+    if (!d.context) return;  // used when the bodies are first shown
+    try {
+        for (auto& [id, s] : d.shown) d.applyStyle(s.object, s.ghost);
+    } catch (const Standard_Failure& e) {
+        d.fail(*this,
+               drawFailed(d.where(QStringLiteral("changing how bodies are drawn: ") + failureText(e))));
+    }
+    update();
+}
+
+DisplayStyle ViewWidget::displayStyle() const {
+    return impl_->style;
 }
 
 int ViewWidget::overlayCount() const {

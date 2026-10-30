@@ -234,6 +234,80 @@ TEST_CASE("dragging with the left button orbits, with the right button pans", "[
     CHECK(f.view.content().selected.empty());                 // a drag isn't a click
 }
 
+TEST_CASE("the view bar's Pan and Zoom change what a left drag does", "[view][gl]") {
+    Fixture f;
+    f.view.setContent({{{f.boxId, f.box, false}}, {}});
+    settle(f.view);
+    auto drag = [&](QPoint from, QPoint to) {
+        auto send = [&](QEvent::Type type, QPoint at, Qt::MouseButtons held) {
+            QMouseEvent e(type, QPointF(at), f.view.mapToGlobal(QPointF(at)), Qt::LeftButton, held,
+                          Qt::NoModifier);
+            QApplication::sendEvent(&f.view, &e);
+            settle(f.view);
+        };
+        send(QEvent::MouseButtonPress, from, Qt::LeftButton);
+        for (int i = 1; i <= 5; ++i) send(QEvent::MouseMove, from + (to - from) * i / 5, Qt::LeftButton);
+        send(QEvent::MouseButtonRelease, to, Qt::NoButton);
+    };
+    CHECK(f.view.leftDrag() == LeftDrag::Orbit);
+    const auto before = f.view.camera();
+    f.view.setLeftDrag(LeftDrag::Pan);
+    drag({200, 150}, {300, 150});
+    CHECK(f.view.camera().toEye.x == Approx(before.toEye.x).margin(1e-9));  // panning doesn't turn
+    f.view.setLeftDrag(LeftDrag::Zoom);
+    auto bodyPixels = [&] {
+        const QImage img = f.view.grabFramebuffer();
+        int n = 0;
+        for (int y = 0; y < img.height(); y += 4)
+            for (int x = 0; x < img.width(); x += 4) n += isBackground(img.pixelColor(x, y)) ? 0 : 1;
+        return n;
+    };
+    const int far = bodyPixels();
+    drag({150, 150}, {250, 150});  // right: closer, so the box looks bigger
+    const int near = bodyPixels();
+    CHECK(near > far);
+    drag({250, 150}, {100, 150});  // left: farther away
+    CHECK(bodyPixels() < near);
+    CHECK(f.view.camera().toEye.x == Approx(before.toEye.x).margin(1e-9));  // zooming doesn't turn
+    CHECK(f.view.content().selected.empty());                               // a drag isn't a click
+}
+
+TEST_CASE("display styles: shaded with edges, shaded, wireframe", "[view][gl]") {
+    Fixture f;
+    f.view.setContent({{{f.boxId, f.box, false}}, {}});
+    settle(f.view);
+    CHECK(f.view.displayStyle() == DisplayStyle::ShadedWithEdges);
+    const QImage edges = f.view.grabFramebuffer();
+    const QPoint middle(edges.width() / 2, edges.height() / 2);
+    CHECK_FALSE(isBackground(edges.pixelColor(middle)));  // a solid face
+
+    f.view.setDisplayStyle(DisplayStyle::Wireframe);
+    settle(f.view);
+    const QImage wire = f.view.grabFramebuffer();
+    CHECK(f.view.shownCount() == 1);
+    // In the middle of a face there's nothing but sky now (or the grid's, or a
+    // far edge's line: at least most of a small square is sky).
+    int sky = 0;
+    for (int dx = -4; dx <= 4; ++dx)
+        for (int dy = -4; dy <= 4; ++dy)
+            sky += isBackground(wire.pixelColor(middle + QPoint(dx, dy))) ? 1 : 0;
+    CHECK(sky > 40);
+
+    f.view.setDisplayStyle(DisplayStyle::Shaded);
+    settle(f.view);
+    CHECK_FALSE(isBackground(f.view.grabFramebuffer().pixelColor(middle)));
+    // Bodies shown later use the style too.
+    f.view.setDisplayStyle(DisplayStyle::Wireframe);
+    f.view.setContent({{{f.boxId, f.kernel->makeBox({-10, -10, 0}, 20, 20, 21).shape, false}}, {}});
+    settle(f.view);
+    const QImage later = f.view.grabFramebuffer();
+    sky = 0;
+    for (int dx = -4; dx <= 4; ++dx)
+        for (int dy = -4; dy <= 4; ++dy)
+            sky += isBackground(later.pixelColor(middle + QPoint(dx, dy))) ? 1 : 0;
+    CHECK(sky > 40);
+}
+
 TEST_CASE("drawing mode: clicks report points on the plane, and the left button doesn't orbit",
           "[view][gl][draw]") {
     Fixture f;

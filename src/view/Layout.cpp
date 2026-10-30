@@ -121,6 +121,38 @@ std::string_view layoutName(PaneLayout layout) {
     return "One pane";
 }
 
+const std::vector<DisplayStyle>& allDisplayStyles() {
+    static const std::vector<DisplayStyle> styles{DisplayStyle::ShadedWithEdges, DisplayStyle::Shaded,
+                                                  DisplayStyle::Wireframe};
+    return styles;
+}
+
+std::string_view displayStyleName(DisplayStyle style) {
+    switch (style) {
+        case DisplayStyle::ShadedWithEdges:
+            return "Shaded with edges";
+        case DisplayStyle::Shaded:
+            return "Shaded";
+        case DisplayStyle::Wireframe:
+            return "Wireframe";
+    }
+    return "Shaded with edges";
+}
+
+std::optional<DisplayStyle> parseDisplayStyle(std::string_view name) {
+    auto lower = [](std::string_view s) {
+        std::string out(s);
+        std::transform(out.begin(), out.end(), out.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return out;
+    };
+    const std::string wanted = lower(name);
+    for (auto s : allDisplayStyles()) {
+        if (lower(displayStyleName(s)) == wanted) return s;
+    }
+    return std::nullopt;
+}
+
 namespace {
 
 // How many lines of a lattice each way from its origin. A spacing of 0 or less
