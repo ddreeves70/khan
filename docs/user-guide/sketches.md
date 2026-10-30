@@ -75,8 +75,8 @@ A closed shape inside another one is a **hole** in it (like the plate's circle).
 - The **Sketch** panel says how many closed shapes the sketch has, and how many
   holes.
 - An end of a line or arc that nothing else meets is marked with a **red dot**,
-  and the panel counts them: join it to another end (drag it onto it, or draw a
-  line to it) to close the shape.
+  and the panel counts them. To close the shape, drag one end onto the other
+  (they join), or pick both ends (Ctrl-click) and click **Coincident**.
 - Where three or more lines meet at one point, or two shapes cross each other,
   Khan can't tell which shape is which: the panel says where. Delete the extra
   line, or make it a helper line.
@@ -97,6 +97,10 @@ With **Select** (the arrow on the toolbar, or **Sketch > Draw > Select**):
     follows;
   - drag a **line** to move all of it;
   - drag the **edge of a circle or arc** to make it bigger or smaller.
+
+  - drop a **point** within a few pixels of another point (an orange dot shows
+    it) and it lands exactly there, and the two are **joined** with a
+    `coincident` constraint: the quick way to close a gap in a shape.
 
   Each drag is one undo step. Press **Escape** while dragging to put it back.
 - **Delete** (the key, or **Sketch > Delete picked**) deletes the picked lines,
