@@ -6,16 +6,20 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
+#include <QPainter>
+#include <QResizeEvent>
 #include <QSplitter>
-#include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <cmath>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "ViewerIcons.h"
 #include "kh/model/Document.h"
 #include "kh/plugin/Events.h"
 #include "kh/ui/UiRegistry.h"
@@ -86,9 +90,81 @@ private:
     std::vector<ViewerPanel*> panels_;
 };
 
-// The panel: a small toolbar over 1, 2 or 4 panes. Each pane is a ViewWidget
-// with its own camera; the toolbar's views turn the active pane (the one last
-// clicked). Without 3D graphics, a FlatView takes the panes' place.
+// The view bar: a row of buttons floating at the bottom middle of the viewer,
+// see-through, like Fusion's navigation bar.
+class ViewBar final : public QWidget {
+public:
+    explicit ViewBar(QWidget* parent) : QWidget(parent) {
+        setObjectName(QStringLiteral("kh.viewer.bar"));
+        setAttribute(Qt::WA_TranslucentBackground);  // paintEvent draws its rounded back
+        layout_ = new QHBoxLayout(this);
+        layout_->setContentsMargins(6, 3, 6, 3);
+        layout_->setSpacing(1);
+    }
+
+    // A button for an action (it takes the action's icon, tip and check mark).
+    QToolButton* add(QAction* action) {
+        auto* b = new QToolButton(this);
+        b->setDefaultAction(action);
+        b->setAutoRaise(true);
+        b->setIconSize(QSize(20, 20));
+        layout_->addWidget(b);
+        return b;
+    }
+
+    // A button that opens a menu.
+    QToolButton* addMenu(const QIcon& icon, const QString& name, const QString& tip, QMenu* menu) {
+        auto* b = new QToolButton(this);
+        b->setObjectName(name);
+        b->setIcon(icon);
+        b->setToolTip(tip);
+        b->setAutoRaise(true);
+        b->setIconSize(QSize(20, 20));
+        b->setPopupMode(QToolButton::InstantPopup);
+        b->setMenu(menu);
+        layout_->addWidget(b);
+        return b;
+    }
+
+    void addSeparator() {
+        auto* line = new QFrame(this);
+        line->setFrameShape(QFrame::VLine);
+        line->setFrameShadow(QFrame::Sunken);
+        line->setFixedHeight(20);
+        layout_->addWidget(line);
+    }
+
+    // At the bottom middle of the viewer.
+    void place() {
+        auto* host = parentWidget();
+        if (!host) return;
+        adjustSize();
+        move((host->width() - width()) / 2, host->height() - height() - kMargin);
+        raise();
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        QColor back = palette().color(QPalette::Window);
+        back.setAlpha(200);
+        QColor line = palette().color(QPalette::Mid);
+        line.setAlpha(160);
+        p.setPen(line);
+        p.setBrush(back);
+        p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
+    }
+
+private:
+    static constexpr int kMargin = 10;  // pixels from the viewer's bottom edge
+    QHBoxLayout* layout_ = nullptr;
+};
+
+// The panel: 1, 2 or 4 panes, with the view bar floating at the bottom. Each
+// pane is a ViewWidget with its own camera; the bar's views turn the active
+// pane (the one last clicked). Without 3D graphics, a FlatView takes the panes'
+// place.
 class ViewerPanel final : public QWidget {
 public:
     // `number` counts the viewers opened (1 for the first), so each pane has a
@@ -101,17 +177,15 @@ public:
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
-        toolbar_ = new QToolBar(this);
-        toolbar_->setObjectName(QStringLiteral("kh.viewer.toolbar"));
-        toolbar_->setIconSize(QSize(16, 16));
-        toolbar_->setToolButtonStyle(Qt::ToolButtonTextOnly);
-        layout->addWidget(toolbar_);
-        buildToolbar();
-
         body_ = new QWidget(this);
         auto* bodyLayout = new QVBoxLayout(body_);
         bodyLayout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(body_, 1);
+
+        if (const auto saved = view::parseDisplayStyle(ctx_.settings().text("display_style")))
+            style_ = *saved;
+        bar_ = new ViewBar(this);
+        buildBar();
 
         using namespace plugin;
         auto later = [this](const auto&) { scheduleRefresh(); };
@@ -158,7 +232,9 @@ private:
     // Sends a view's drawing events to the running tool.
     template <typename View>
     void forward(View* view, std::string key) {
-        auto point = [key](const view::PlanePoint& p) { return viewer::ToolPoint{p.at, p.pixel, key, p.add}; };
+        auto point = [key](const view::PlanePoint& p) {
+            return viewer::ToolPoint{p.at, p.pixel, key, p.add};
+        };
         connect(view, &View::planeMoved, this, [this, point](const view::PlanePoint& p) {
             if (auto* t = service_.tool()) t->moved(point(p));
         });
@@ -200,60 +276,210 @@ private:
         return viewer;
     }
 
-    void buildToolbar() {
-        // Panes: one button that opens a menu of layouts.
-        auto* panes = new QToolButton(toolbar_);
-        panes->setObjectName(QStringLiteral("kh.viewer.panes"));
-        panes->setText(tr("Panes"));
-        panes->setToolTip(tr("Split the viewer into 1, 2 or 4 panes, each with its own camera."));
-        panes->setPopupMode(QToolButton::InstantPopup);
-        auto* menu = new QMenu(panes);
-        auto* group = new QActionGroup(menu);
+    QIcon icon(std::string_view svg) const {
+        auto* ui = ctx_.service<ui::UiRegistry>();
+        return ui ? ui->icon(svg) : QIcon();
+    }
+
+    QAction* action(const QString& id, const QString& text, const QString& tip, QObject* parent) {
+        auto* a = new QAction(text, parent);
+        a->setObjectName(id);
+        a->setToolTip(tip);
+        a->setStatusTip(tip);
+        return a;
+    }
+
+    // The view bar, left to right: what a left drag does (orbit, pan, zoom),
+    // Fit all, the standard views, how bodies are drawn, the grid, and panes.
+    void buildBar() {
+        namespace i = icons::viewer;
+        auto* drags = new QActionGroup(this);
+        auto addDrag = [&](view::LeftDrag drag, const char* id, const QString& text, const QString& tip,
+                           std::string_view svg) {
+            auto* a = action(QString::fromLatin1(id), text, tip, this);
+            a->setIcon(icon(svg));
+            a->setCheckable(true);
+            a->setChecked(drag == drag_);
+            drags->addAction(a);
+            connect(a, &QAction::triggered, this, [this, drag] { setLeftDrag(drag); });
+            bar_->add(a);
+        };
+        addDrag(view::LeftDrag::Orbit, "kh.viewer.drag.orbit", tr("Orbit"),
+                tr("Orbit: dragging with the left mouse button turns the camera around the part."),
+                i::orbit_svg);
+        addDrag(view::LeftDrag::Pan, "kh.viewer.drag.pan", tr("Pan"),
+                tr("Pan: dragging with the left mouse button slides the camera sideways. Click Orbit to go "
+                   "back."),
+                i::pan_svg);
+        addDrag(view::LeftDrag::Zoom, "kh.viewer.drag.zoom", tr("Zoom"),
+                tr("Zoom: drag right with the left mouse button to move closer, left to move away. The wheel "
+                   "zooms too."),
+                i::zoom_svg);
+        auto* fit = action(QStringLiteral("kh.viewer.fit"), tr("Fit all"),
+                           tr("Fit all: zoom so every body fits, in every pane."), this);
+        fit->setIcon(icon(i::fit_svg));
+        connect(fit, &QAction::triggered, this, [this] {
+            for (auto* pane : panes_) pane->fitAll();
+        });
+        bar_->add(fit);
+        bar_->addSeparator();
+
+        // Views: every standard view, for the active pane.
+        auto* views = new QMenu(this);
+        for (auto v : {view::StandardView::Front, view::StandardView::Top, view::StandardView::Right,
+                       view::StandardView::Iso, view::StandardView::Back, view::StandardView::Left,
+                       view::StandardView::Bottom}) {
+            if (v == view::StandardView::Back) views->addSeparator();
+            auto* a =
+                action(QStringLiteral("kh.viewer.view.") + slug(view::viewName(v)), qs(view::viewName(v)),
+                       tr("Look at the design from the %1, in the active pane.")
+                           .arg(qs(view::viewName(v)).toLower()),
+                       views);
+            connect(a, &QAction::triggered, this, [this, v] {
+                if (auto* pane = activePane()) pane->setStandardView(v);
+            });
+            views->addAction(a);
+        }
+        bar_->addMenu(icon(i::views_svg), QStringLiteral("kh.viewer.views"),
+                      tr("Views: look from the front, top, right, at an angle (Iso), and more."), views);
+
+        // Display: how bodies are drawn, and the view options that aren't the grid's (the axes).
+        auto* display = new QMenu(this);
+        auto* styles = new QActionGroup(display);
+        for (auto style : view::allDisplayStyles()) {
+            auto* a = action(QStringLiteral("kh.viewer.style.") + slug(view::displayStyleName(style)),
+                             qs(view::displayStyleName(style)), QString(), display);
+            a->setCheckable(true);
+            a->setChecked(style == style_);
+            styles->addAction(a);
+            display->addAction(a);
+            connect(a, &QAction::triggered, this, [this, style] { setDisplayStyle(style); });
+        }
+        connect(display, &QMenu::aboutToShow, this, [this, display] {
+            clearOptions(display);
+            fillOptions(display, [](const viewoptions::OptionSpec& o) { return o.group != "Grid"; });
+        });
+        bar_->addMenu(icon(i::display_svg), QStringLiteral("kh.viewer.display"),
+                      tr("Display: draw bodies shaded, with or without edges, or as see-through wireframes; "
+                         "show or hide the axes."),
+                      display);
+
+        // Grid: the grid's view options, and the View options panel.
+        if (options_) {
+            auto* grid = new QMenu(this);
+            connect(grid, &QMenu::aboutToShow, this, [this, grid] {
+                grid->clear();
+                fillOptions(grid, [](const viewoptions::OptionSpec& o) { return o.group == "Grid"; });
+                grid->addSeparator();
+                auto* all = grid->addAction(tr("All view options..."));
+                all->setObjectName(QStringLiteral("kh.viewer.alloptions"));
+                connect(all, &QAction::triggered, this, [this] {
+                    if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showPanel("kh.viewoptions.panel");
+                });
+            });
+            bar_->addMenu(icon(i::grid_svg), QStringLiteral("kh.viewer.grid"),
+                          tr("Grid and snap: show the grid, its spacing and style, and snapping to it."),
+                          grid);
+        }
+        bar_->addSeparator();
+
+        // Panes: one, two or four, each with its own camera.
+        auto* panes = new QMenu(this);
+        auto* group = new QActionGroup(panes);
         for (auto layout : view::allLayouts()) {
-            auto* a = menu->addAction(qs(view::layoutName(layout)));
+            auto* a = panes->addAction(qs(view::layoutName(layout)));
             a->setObjectName(QStringLiteral("kh.viewer.layout.") + slug(view::layoutName(layout)));
             a->setCheckable(true);
             a->setChecked(layout == view::PaneLayout::Single);
             group->addAction(a);
             connect(a, &QAction::triggered, this, [this, layout] { setPaneLayout(layout); });
         }
-        panes->setMenu(menu);
-        toolbar_->addWidget(panes);
-        toolbar_->addSeparator();
+        bar_->addMenu(icon(i::panes_svg), QStringLiteral("kh.viewer.panes"),
+                      tr("Panes: split the viewer into 1, 2 or 4 panes, each with its own camera."), panes);
+        bar_->place();
+    }
 
-        // The usual views get a button each; the rest are in a menu.
-        auto add = [this](view::StandardView v, QWidget* into) {
-            auto* a = new QAction(qs(view::viewName(v)), into);
-            a->setObjectName(QStringLiteral("kh.viewer.view.") + slug(view::viewName(v)));
-            a->setToolTip(tr("Look at the design from the %1, in the active pane.")
-                              .arg(qs(view::viewName(v)).toLower()));
-            connect(a, &QAction::triggered, this, [this, v] {
-                if (auto* pane = activePane()) pane->setStandardView(v);
-            });
-            into->addAction(a);
-            return a;
-        };
-        for (auto v : {view::StandardView::Front, view::StandardView::Top, view::StandardView::Right,
-                       view::StandardView::Iso}) {
-            add(v, toolbar_);
+    // Removes the view options a menu listed last time (the items after the
+    // display styles), so they're listed fresh.
+    void clearOptions(QMenu* menu) {
+        const auto items = menu->actions();
+        for (auto* a : items) {
+            if (!a->objectName().startsWith(QStringLiteral("kh.viewer.style."))) {
+                menu->removeAction(a);
+                if (a->parent() == menu) a->deleteLater();
+            }
         }
-        auto* more = new QToolButton(toolbar_);
-        more->setText(tr("More views"));
-        more->setPopupMode(QToolButton::InstantPopup);
-        auto* moreMenu = new QMenu(more);
-        for (auto v : {view::StandardView::Back, view::StandardView::Left, view::StandardView::Bottom}) {
-            add(v, moreMenu);
-        }
-        more->setMenu(moreMenu);
-        toolbar_->addWidget(more);
-        toolbar_->addSeparator();
+    }
 
-        auto* fit = toolbar_->addAction(tr("Fit all"));
-        fit->setObjectName(QStringLiteral("kh.viewer.fit"));
-        fit->setToolTip(tr("Zoom so every body fits, in every pane."));
-        connect(fit, &QAction::triggered, this, [this] {
-            for (auto* pane : panes_) pane->fitAll();
-        });
+    // Lists view options in a menu, under their groups' names, the way the
+    // View menu does: check marks, choices and sizes. They change every pane.
+    void fillOptions(QMenu* menu, const std::function<bool(const viewoptions::OptionSpec&)>& which) {
+        if (!options_) return;
+        std::string group;
+        for (const auto* o : options_->options()) {
+            if (!which(*o)) continue;
+            if (o->group != group) {
+                group = o->group;
+                menu->addSection(qs(group));
+            }
+            const std::string id = o->id;
+            switch (o->kind) {
+                case viewoptions::OptionKind::Flag: {
+                    auto* a = menu->addAction(qs(o->text));
+                    a->setCheckable(true);
+                    a->setChecked(options_->flag(id));
+                    a->setToolTip(qs(o->tip));
+                    connect(a, &QAction::triggered, this, [this, id](bool on) { options_->set(id, on); });
+                    break;
+                }
+                case viewoptions::OptionKind::Choice: {
+                    auto* sub = menu->addMenu(qs(o->text));
+                    const auto now = options_->choice(id);
+                    for (const auto& c : o->choices) {
+                        auto* a = sub->addAction(qs(c.text));
+                        a->setCheckable(true);
+                        a->setChecked(c.value == now);
+                        const std::string value = c.value;
+                        connect(a, &QAction::triggered, this,
+                                [this, id, value] { options_->set(id, value); });
+                    }
+                    break;
+                }
+                case viewoptions::OptionKind::Length:
+                case viewoptions::OptionKind::Number: {
+                    auto* sub = menu->addMenu(qs(o->text));
+                    const double now = options_->number(id);
+                    const bool mm = o->kind == viewoptions::OptionKind::Length;
+                    for (const double v : o->presets) {
+                        const QString text = qs(viewoptions::numberText(v));
+                        auto* a = sub->addAction(mm ? tr("%1 mm").arg(text) : text);
+                        a->setCheckable(true);
+                        a->setChecked(std::abs(v - now) < 1e-9);
+                        connect(a, &QAction::triggered, this, [this, id, v] { options_->set(id, v); });
+                    }
+                    sub->addSeparator();
+                    connect(sub->addAction(tr("Other...")), &QAction::triggered, this,
+                            [this, id] { options_->ask(id, {}); });
+                    break;
+                }
+            }
+        }
+    }
+
+    void setLeftDrag(view::LeftDrag drag) {
+        drag_ = drag;
+        for (auto* pane : panes_) pane->setLeftDrag(drag);
+    }
+
+    void setDisplayStyle(view::DisplayStyle style) {
+        style_ = style;
+        for (auto* pane : panes_) pane->setDisplayStyle(style);
+        ctx_.settings().set("display_style", view::displayStyleName(style));  // remembered next time
+    }
+
+    void resizeEvent(QResizeEvent* event) override {
+        QWidget::resizeEvent(event);
+        if (bar_) bar_->place();
     }
 
     // Splits the viewer. Panes are kept when they can be, and every pane turns
@@ -349,6 +575,8 @@ private:
 
         auto* pane = new view::ViewWidget(frame);
         pane->setObjectName(QStringLiteral("kh.viewer.pane"));
+        pane->setLeftDrag(drag_);
+        pane->setDisplayStyle(style_);
         l->addWidget(pane);
         pane->setContent(content_);
         pane->setOverlays(viewOverlays(ctx_.overlays().forPane(paneKey(index))));
@@ -403,7 +631,7 @@ private:
         frames_.clear();
         panes_.clear();
         bars_.clear();
-        toolbar_->hide();
+        bar_->hide();  // nothing to turn, split or redraw in the flat view
         flat_ = new view::FlatView(body_);
         body_->layout()->addWidget(flat_);
         flat_->setOverlays(viewOverlays(ctx_.overlays().forPane({})));
@@ -471,7 +699,9 @@ private:
     viewoptions::IViewOptions* options_ = nullptr;  // null if kh.viewoptions isn't loaded
     int number_ = 1;
     std::vector<QWidget*> bars_;  // one per pane: "This pane has its own view options"
-    QToolBar* toolbar_ = nullptr;
+    ViewBar* bar_ = nullptr;
+    view::LeftDrag drag_ = view::LeftDrag::Orbit;
+    view::DisplayStyle style_ = view::DisplayStyle::ShadedWithEdges;
     QWidget* body_ = nullptr;
     QSplitter* splitter_ = nullptr;
     view::FlatView* flat_ = nullptr;

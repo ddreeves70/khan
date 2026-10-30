@@ -1612,17 +1612,10 @@ TEST_CASE("the feature tree floats over the view, folds, docks, and Khan remembe
     auto* viewer = app.shell->panelWidget(QStringLiteral("kh.viewer.main"));
     CHECK(frame->parentWidget()->isAncestorOf(viewer));  // it floats over the view's panel
     CHECK(frame->x() == 8);
-    // Below the view's toolbar, so it doesn't cover its buttons (with no 3D
-    // graphics here, the flat view has no toolbar, so it's at the top).
-    auto* bar = viewer->findChild<QToolBar*>(QStringLiteral("kh.viewer.toolbar"));
-    REQUIRE(bar);
-    if (bar->isVisible()) {
-        CHECK(frame->mapTo(app.shell.get(), QPoint(0, 0)).y() >=
-              bar->mapTo(app.shell.get(), QPoint(0, bar->height())).y());
-    } else {
-        CHECK(frame->mapTo(app.shell.get(), QPoint(0, 0)).y() - viewer->mapTo(app.shell.get(), QPoint(0, 0)).y() ==
-              8);
-    }
+    // At the top of the view: its bar is at the bottom.
+    CHECK(frame->mapTo(app.shell.get(), QPoint(0, 0)).y() -
+              viewer->mapTo(app.shell.get(), QPoint(0, 0)).y() ==
+          8);
     // Its dock stays closed; Window > Feature tree shows and hides the frame instead.
     auto* show = app.menu("kh.shell.show.kh.featuretree.panel");
     auto* over = app.menu("kh.shell.overview.kh.featuretree.panel");
@@ -1833,12 +1826,82 @@ TEST_CASE("the viewer fills the middle; without 3D graphics it draws flat and sa
     REQUIRE(app.flat());
     CHECK(app.flat()->text().contains(QStringLiteral("running without a screen")));
     CHECK(app.flat()->text().contains(QStringLiteral("Create > Box")));
-    // The panes' toolbar is hidden: there are no panes to turn.
-    CHECK_FALSE(panel->findChild<QToolBar*>(QStringLiteral("kh.viewer.toolbar"))->isVisible());
+    // The view bar is hidden: there are no panes to turn, split or redraw.
+    CHECK_FALSE(panel->findChild<QWidget*>(QStringLiteral("kh.viewer.bar"))->isVisible());
 
     app.shell->action("kh.modeling.box")->trigger();
     settle();
     CHECK(app.flat()->text().contains(QStringLiteral("Finished bodies: Box1")));
+}
+
+TEST_CASE("the view bar: orbit, pan, zoom, fit, views, display, grid and panes", "[app][viewer][viewbar]") {
+    App app;
+    auto* panel = app.shell->panelWidget(QStringLiteral("kh.viewer.main"));
+    auto* bar = panel->findChild<QWidget*>(QStringLiteral("kh.viewer.bar"));
+    REQUIRE(bar);
+    CHECK_FALSE(panel->findChild<QToolBar*>());  // no strip across the top any more
+    // Its buttons, left to right.
+    QStringList names;
+    for (auto* b : bar->findChildren<QToolButton*>(Qt::FindDirectChildrenOnly)) {
+        names << (b->defaultAction() ? b->defaultAction()->objectName() : b->objectName());
+        CHECK_FALSE(b->toolTip().isEmpty());
+        CHECK_FALSE(b->icon().isNull());
+    }
+    CHECK(names ==
+          QStringList({"kh.viewer.drag.orbit", "kh.viewer.drag.pan", "kh.viewer.drag.zoom", "kh.viewer.fit",
+                       "kh.viewer.views", "kh.viewer.display", "kh.viewer.grid", "kh.viewer.panes"}));
+    // Orbit, Pan and Zoom: one at a time; Orbit at first.
+    CHECK(app.menu("kh.viewer.drag.orbit")->isChecked());
+    app.menu("kh.viewer.drag.pan")->trigger();
+    CHECK(app.menu("kh.viewer.drag.pan")->isChecked());
+    CHECK_FALSE(app.menu("kh.viewer.drag.orbit")->isChecked());
+    // Views: all seven, for the active pane.
+    for (const char* v : {"front", "top", "right", "iso", "back", "left", "bottom"}) {
+        CHECK(app.menu((std::string("kh.viewer.view.") + v).c_str()));
+    }
+    CHECK(app.menu("kh.viewer.layout.fourpanes"));
+
+    // Display: the style is remembered next time.
+    CHECK(app.menu("kh.viewer.style.shadedwithedges")->isChecked());
+    app.menu("kh.viewer.style.wireframe")->trigger();
+    settle();
+    app.shell.reset();
+    app.open();
+    CHECK(app.menu("kh.viewer.style.wireframe")->isChecked());
+    CHECK_FALSE(app.menu("kh.viewer.style.shadedwithedges")->isChecked());
+
+    // The Display and Grid menus list the view options, and change them.
+    panel = app.shell->panelWidget(QStringLiteral("kh.viewer.main"));
+    auto* display = panel->findChild<QToolButton*>(QStringLiteral("kh.viewer.display"))->menu();
+    emit display->aboutToShow();
+    QStringList shown;
+    for (auto* a : display->actions()) shown << a->text();
+    CHECK(shown.contains(QStringLiteral("Show axes")));
+    CHECK_FALSE(shown.contains(QStringLiteral("Show grid")));
+    auto* grid = panel->findChild<QToolButton*>(QStringLiteral("kh.viewer.grid"))->menu();
+    emit grid->aboutToShow();
+    QAction* showGrid = nullptr;
+    for (auto* a : grid->actions()) {
+        if (a->text() == QStringLiteral("Show grid")) showGrid = a;
+    }
+    REQUIRE(showGrid);
+    CHECK(showGrid->isChecked());
+    showGrid->trigger();
+    settle();
+    CHECK_FALSE(app.menu("kh.grid.show")->isChecked());  // the same option as View > Show grid
+    emit grid->aboutToShow();                            // listed again, up to date
+    for (auto* a : grid->actions()) {
+        if (a->text() == QStringLiteral("Show grid")) CHECK_FALSE(a->isChecked());
+    }
+    // ... and opens the View options panel.
+    QAction* all = nullptr;
+    for (auto* a : grid->actions()) {
+        if (a->objectName() == QStringLiteral("kh.viewer.alloptions")) all = a;
+    }
+    REQUIRE(all);
+    all->trigger();
+    settle();
+    CHECK(app.shell->overlay(QStringLiteral("kh.viewoptions.panel"))->isVisible());
 }
 
 TEST_CASE("the flat view draws lines on top of the grid", "[app][viewer]") {

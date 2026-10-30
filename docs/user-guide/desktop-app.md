@@ -11,7 +11,7 @@ step's numbers in Properties. Everything you do can be undone.
 | 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, folders, delete), Create (shapes), Combine (union, cut, intersect), Modify (move), Sketch (new, edit, draw), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away, each with a picture and its name. While you edit a sketch it shows the sketch tools instead, plus the constraint buttons that fit what you picked. If they don't all fit across the window, the rest go on a second row |
 | 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built. It floats over the viewer, see-through, and starts with the design's **Document settings** |
-| 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse or the view cube, and click a body to pick it |
+| 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse, the view cube or the **view bar** at its bottom, and click a body to pick it |
 | 5 | **Properties** | The selected step's name and numbers. Change them here. It floats over the viewer's top right, under the view cube |
 | 6 | **Status bar** | Messages, and what went wrong when something does |
 | 7 | **Grid status** | The grid's spacing and style, and whether snapping is on |
@@ -58,9 +58,33 @@ drawn, unless you pick them.
 | Pan (slide sideways) | Drag with the right or middle button, or Shift and the left button |
 | Zoom | Roll the wheel; it zooms towards the mouse |
 | Look from a side | Click a face of the **view cube** (top right). Click one of its edges or corners to look from in between |
-| See everything | **Fit all** on the viewer's toolbar |
+| See everything | **Fit all** on the view bar |
 
 Z always stays pointing up while you orbit, so the floor stays the floor.
+
+**The view bar** floats at the bottom middle of the viewer:
+
+![The view bar: Orbit, Pan, Zoom, Fit all, Views, Display, Grid and Panes](images/app-viewbar.png)
+
+| Button | What it does |
+| --- | --- |
+| **Orbit** | Dragging with the left button turns the camera around the part. This is how it starts |
+| **Pan** | Dragging with the left button slides the camera sideways instead. Handy on a laptop's touchpad |
+| **Zoom** | Dragging with the left button zooms instead: drag right to move closer, left to move away |
+| **Fit all** | Zooms so every body fits, in every pane |
+| **Views** | Look from the Front, Top, Right, at an angle (Iso), Back, Left or Bottom |
+| **Display** | How bodies are drawn (**Shaded with edges**, **Shaded** or **Wireframe**), and whether the axes and their labels show |
+| **Grid** | Show or hide the grid, its style and spacing, snapping to it, and **All view options...** |
+| **Panes** | Split the viewer into 1, 2 or 4 panes |
+
+Orbit, Pan and Zoom change only the left button: the right and middle buttons
+always pan, and the wheel always zooms. A click still picks, whichever one is on.
+Khan remembers the display style next time it starts.
+
+**Wireframe** draws just the edges, so you can see inside the part, like where
+the pen hole of the desk organizer ends:
+
+![The desk organizer drawn as a wireframe](images/app-wireframe.png)
 
 **Picking.** Click a body to pick its step: it turns orange, and the feature tree
 and Properties show the same step. Ctrl-click (⌘-click) or Shift-click picks more
@@ -69,16 +93,15 @@ both ways: rows you pick in the feature tree turn orange in the viewer too. A
 picked step that a later step used up is drawn in orange so you can see where it
 is, like the cutting tool of a Cut.
 
-**Standard views.** The toolbar's **Front**, **Top**, **Right** and **Iso** buttons
-turn the camera to look from that side and zoom to fit (**More views** has Back,
-Left and Bottom). Front looks from -y towards +y, Top looks down, and Iso looks
+**Standard views.** **Views** on the view bar turns the camera to look from the
+Front, Top, Right, Iso, Back, Left or Bottom, and zooms to fit. Front looks from -y towards +y, Top looks down, and Iso looks
 from the front, right and above at once.
 
-**Panes.** **Panes** on the toolbar splits the viewer into one pane, two side by
+**Panes.** **Panes** on the view bar splits the viewer into one pane, two side by
 side, two stacked, or four. Each pane has its own camera. Four panes are set out
 like a drawing: Top above Front, Right beside Front, and Iso in the corner. The
-pane you clicked last has a blue frame, and the view buttons turn that pane;
-**Fit all** fits every pane.
+pane you clicked last has a blue frame, and **Views** turns that pane; **Fit
+all** fits every pane.
 
 ![Four panes: Top, Iso, Front and Right](images/app-viewer-panes.png)
 

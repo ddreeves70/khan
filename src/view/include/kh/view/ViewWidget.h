@@ -96,6 +96,25 @@ public:
     /// @param direction From the point looked at towards the camera, and up.
     void lookAlong(const ViewDirection& direction);
 
+    /// Changes what a left drag does: orbit (the usual), pan or zoom. Right and
+    /// middle drags still pan, Shift+left drag pans, and the wheel zooms. A left
+    /// click still picks.
+    /// @param drag What it does.
+    void setLeftDrag(LeftDrag drag);
+
+    /// Gives what a left drag does.
+    /// @return The choice last given to setLeftDrag(); Orbit at first.
+    LeftDrag leftDrag() const;
+
+    /// Changes how bodies are drawn: shaded with edges (the usual), shaded, or
+    /// wireframe. Ghosts of used-up steps stay see-through either way.
+    /// @param style The style.
+    void setDisplayStyle(DisplayStyle style);
+
+    /// Gives how bodies are drawn.
+    /// @return The style last given to setDisplayStyle(); ShadedWithEdges at first.
+    DisplayStyle displayStyle() const;
+
     /// Selects as if the student clicked at a point (for tests). It runs on the
     /// next draw, like a real click.
     /// @param point Where, in widget coordinates.

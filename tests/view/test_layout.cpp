@@ -120,3 +120,14 @@ TEST_CASE("a click keeps the picking order", "[view]") {
     // Duplicates collapse.
     CHECK(mergePick({}, {a, a}) == std::vector{a});
 }
+
+TEST_CASE("display styles have names the view bar shows, and are found by them", "[view]") {
+    REQUIRE(view::allDisplayStyles().size() == 3);
+    CHECK(view::allDisplayStyles().front() == view::DisplayStyle::ShadedWithEdges);  // the usual one first
+    for (auto s : view::allDisplayStyles()) {
+        CHECK(view::parseDisplayStyle(view::displayStyleName(s)) == s);
+    }
+    CHECK(view::displayStyleName(view::DisplayStyle::Wireframe) == "Wireframe");
+    CHECK(view::parseDisplayStyle("SHADED") == view::DisplayStyle::Shaded);
+    CHECK_FALSE(view::parseDisplayStyle("x-ray"));
+}

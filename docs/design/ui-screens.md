@@ -10,7 +10,11 @@ Four mockups show the shell, the plugins and the docking from [UI and plugin arc
 > its top left, the others stacked at its top right under the view cube. Each can
 > fold to its title, be resized, or be docked as an ordinary Qt ADS panel, and
 > Khan remembers which. The tree starts with the design's name and **Document
-> settings** (`Selection::pickDesign()`), where units will be chosen.
+> settings** (`Selection::pickDesign()`), where units will be chosen. The strip
+> of view buttons across the top of the viewer became a floating **view bar** at
+> its bottom middle, like Fusion's: Orbit, Pan and Zoom (what a left drag does),
+> Fit all, Views, Display (shaded with edges, shaded, wireframe, and the axes),
+> Grid (the grid's view options) and Panes.
 
 ## 1. Main window, Modeling layout
 
