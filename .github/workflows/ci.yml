@@ -79,12 +79,18 @@ jobs:
           version: '6.8.3'
           cache: true
 
+      # vcpkg's built packages. Each run on main saves a new copy under its own key,
+      # and every run restores the newest one. A fixed key would be found every time,
+      # so it was never saved again: once the runner's compiler changed, Windows
+      # rebuilt every package (about 80 minutes) on every run.
       - name: Restore vcpkg binary cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
-          restore-keys: vcpkg-${{ runner.os }}-
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-
+            vcpkg-${{ runner.os }}-
 
       - name: Get vcpkg
         shell: bash
@@ -104,6 +110,16 @@ jobs:
         run: |
           set -o pipefail
           cmake --preset ci -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" 2>&1 | tee configure.log
+
+      # Right after Configure, which is when vcpkg builds the packages, so the copy
+      # is saved even if Khan's own build or tests fail. Only on main: pull requests
+      # read main's copy, and saving one per pull request would fill the 10 GB cache.
+      - name: Save vcpkg binary cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
 
       - name: Build
         shell: bash
