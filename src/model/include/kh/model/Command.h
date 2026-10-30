@@ -9,6 +9,7 @@
 
 #include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
+#include "kh/core/Units.h"
 #include "kh/model/Feature.h"
 #include "kh/model/Folder.h"
 #include "kh/model/Material.h"
@@ -56,6 +57,10 @@ public:
     /// (with steps that were deleted still listed; see Document::folders()).
     /// @return The list.
     std::vector<Folder>& folders();
+
+    /// Changes the unit the design shows its lengths in (see Document::lengthUnit()).
+    /// @param unit The unit.
+    void setLengthUnit(LengthUnit unit);
 
 private:
     friend class Document;

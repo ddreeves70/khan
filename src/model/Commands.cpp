@@ -224,6 +224,24 @@ void SetMaterialCommand::revert(DocumentEditor& editor) {
     if (Feature* f = editor.find(id_)) f->setMaterial(oldKey_);
 }
 
+SetUnitsCommand::SetUnitsCommand(LengthUnit unit) : unit_(unit) {}
+
+std::string SetUnitsCommand::label() const {
+    std::string name(unitName(unit_));
+    for (auto& c : name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return "Use " + name;
+}
+
+Diagnostics SetUnitsCommand::apply(DocumentEditor& editor) {
+    old_ = editor.document().lengthUnit();
+    editor.setLengthUnit(unit_);
+    return {};
+}
+
+void SetUnitsCommand::revert(DocumentEditor& editor) {
+    editor.setLengthUnit(old_);
+}
+
 DefineMaterialCommand::DefineMaterialCommand(Material material, std::string badColor)
     : material_(std::move(material)), badColor_(std::move(badColor)) {
     material_.builtin = false;

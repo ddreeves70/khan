@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "kh/core/Units.h"
 #include "kh/sketch/Sketch.h"
 
 namespace kh::plugins::sketcher {
@@ -58,8 +59,9 @@ std::vector<sketch::Constraint> plan(Rule rule, const Picks& picks, const sketch
 bool sameConstraint(const sketch::Constraint& a, const sketch::Constraint& b);
 
 // What a constraint's label says on the drawing: "H", "40 mm", "R4 mm", "30°";
-// empty for one that isn't labeled (Coincident: its dot shows it).
-std::string labelText(const sketch::Constraint& c);
+// empty for one that isn't labeled (Coincident: its dot shows it). Lengths are
+// in the design's unit ("1.575 in").
+std::string labelText(const sketch::Constraint& c, LengthUnit unit = LengthUnit::Millimeter);
 
 // Where a label goes, in sketch mm, and which way to move it if another label is
 // already there (a unit vector, away from the middle of the sketch).

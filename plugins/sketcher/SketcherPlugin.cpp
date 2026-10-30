@@ -440,8 +440,10 @@ public:
                                std::abs(u.first.y - at.y) < gap * 0.9;
                     });
                 };
+                const auto* design = ctx_.documents().find(ctx_.documents().active());
+                const auto unit = design ? design->lengthUnit() : LengthUnit::Millimeter;
                 for (const auto& c : whole.constraints) {
-                    const auto text = sketcher::labelText(c);
+                    const auto text = sketcher::labelText(c, unit);
                     const auto spot = sketcher::labelPlace(c, whole, gap, middle);
                     if (text.empty() || !spot) continue;
                     const double half = 0.3 * gap * static_cast<double>(QString::fromStdString(text).size());

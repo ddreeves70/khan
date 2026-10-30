@@ -18,6 +18,7 @@ kh_cli help [--plugins <folder>]... [<command>]
 ```console
 $ kh_cli help
 Commands for kh_cli run:
+  document.set_units       Set units
   feature.add_boolean      Combine bodies
   feature.add_box          Add box
   feature.add_cylinder     Add cylinder
