@@ -16,7 +16,7 @@ kh_cli open <file.khan> --sketch <name>
 | `--export <out.stl>` | Write the finished shape as an STL mesh, for slicers and 3D printing |
 | `--export <out.step>` | Write the finished shape as a STEP file, for other CAD programs (`.stp` works too) |
 | `--step <name>` | Export the shape of this step instead, even if later steps use it |
-| `--sketch <name>` | Also list this sketch: each line, circle, arc and point where the solver put it (mm, angles in degrees), then each constraint |
+| `--sketch <name>` | Also list this sketch: each line, circle, arc and point where the solver put it (mm, angles in degrees), each constraint, then its closed shapes (with their areas in mm^2) and any ends that aren't joined |
 
 Each step shows one of these:
 
@@ -114,7 +114,16 @@ disc: 1 step
 Sketch1 (XY plane): free to move 2 ways
   Circle1        circle  center 1.00, 2.00  radius 5.00
   Diameter1      diameter            Circle1  10.00 mm
+closed shapes: 1
+  shape 1  Circle1  area 78.54 mm^2
 ```
+
+Last come the sketch's **closed shapes**, which extrude will turn into solids:
+each shape's lines, arcs and circles in order around it, its area, and any holes
+in it. Ends of lines and arcs that nothing else meets are listed as
+`open ends`; a shape with an open end isn't closed yet. A `warning` says when
+three or more pieces meet at one point, or when shapes cross, since Khan can't
+tell which closed shape those belong to.
 
 A sketch whose constraints conflict is listed as drawn, with `(conflicts)` after
 the constraints that fight.

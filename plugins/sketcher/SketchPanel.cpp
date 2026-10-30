@@ -13,6 +13,7 @@
 
 #include "Constrain.h"
 #include "kh/model/Feature.h"
+#include "kh/sketch/Profiles.h"
 #include "kh/ui/UiRegistry.h"
 
 namespace kh::plugins::sketcher {
@@ -75,6 +76,11 @@ protected:
     }
 };
 
+// "1 hole", "2 holes".
+QString count(std::size_t n, const QString& one, const QString& many) {
+    return QString::number(n) + QLatin1Char(' ') + (n == 1 ? one : many);
+}
+
 }  // namespace
 
 SketchPanel::SketchPanel(plugin::PluginContext& ctx, PanelHooks hooks, QWidget* parent)
@@ -120,13 +126,32 @@ void SketchPanel::refresh() {
     } else if (last && last->ok()) {
         status_->setText(last->freedom == 0
                              ? tr("%1 is fully constrained.").arg(qs(step->name()))
-                             : tr("%1 can still move %n way(s): blue parts are free.", "", last->freedom)
-                                   .arg(qs(step->name())));
+                             : tr("%1 can still move %2: blue parts are free.")
+                                   .arg(qs(step->name()), count(static_cast<std::size_t>(last->freedom),
+                                                                tr("way"), tr("ways"))));
         status_->setStyleSheet({});
     } else {
         status_->setText(last && !last->issues.empty() ? qs(last->issues.front().message)
                                                        : tr("%1 didn't solve.").arg(qs(step->name())));
         status_->setStyleSheet(QStringLiteral("color: #cf222e;"));
+    }
+    // Closed shapes, which extrude will turn into solids, and what stops others closing.
+    if (last && last->ok() && !last->entities.empty()) {
+        const auto found = sketch::findProfiles({last->entities, {}});
+        std::size_t holes = 0;
+        for (const auto& p : found.shapes) holes += p.holes.size();
+        QString shapes = found.shapes.empty()
+                             ? tr("No closed shapes yet.")
+                             : count(found.shapes.size(), tr("closed shape"), tr("closed shapes")) +
+                                   (holes ? tr(", with %1.").arg(count(holes, tr("hole"), tr("holes")))
+                                          : QStringLiteral("."));
+        if (!found.openEnds.empty())
+            shapes += QLatin1Char(' ') +
+                      (found.openEnds.size() == 1
+                           ? tr("1 end isn't joined (marked in red).")
+                           : tr("%1 ends aren't joined (marked in red).").arg(found.openEnds.size()));
+        for (const auto& d : found.issues) shapes += QLatin1Char(' ') + qs(d.message);
+        status_->setText(status_->text() + QLatin1Char('\n') + shapes);
     }
     // The list, made again only if the constraints or their numbers changed.
     std::string now = step->id().toString();

@@ -3,6 +3,7 @@
 kh_add_library(kh_sketch
   SOURCES
     Sketch.cpp
+    Profiles.cpp
   DEPS
     kh::core
 )

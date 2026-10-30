@@ -46,10 +46,41 @@ While drawing:
   center) lands exactly on it, and Khan joins them with a `coincident`
   constraint. An orange dot shows the point it will snap to. Clicking the first
   point of a closed shape ends the line chain.
+- **Snapping onto lines and circles.** A click close to a line, circle or arc
+  (but not near one of its points) lands exactly on it, and Khan adds an `On`
+  constraint, so it stays there.
+- **Level, upright and smooth lines.** A line's end within 6 pixels of level
+  (or of straight up and down) is made exactly level (or upright), with a
+  `Horizontal` (or `Vertical`) constraint. A line drawn off the end of an arc,
+  in nearly the way the arc was going, carries straight on from it, with a
+  `Tangent` constraint.
+- **The hint.** Before you click, a small orange **H**, **V**, **T** or **On**
+  beside the mouse shows what will be added.
+- **Drawing freely.** Turn off **Sketch > Add constraints while drawing** to put
+  ends exactly where you click, with nothing added (joins at points still snap).
 - **Snapping to the grid.** With **View > Snap to grid** on, clicks land on the
-  grid's crossings.
-- **Undo.** Each line, circle, arc or point is one undo step.
+  grid's crossings (when they don't land on a point, line or circle).
+- **Undo.** Each line, circle, arc or point is one undo step, with the constraints
+  added with it.
 - Right-drag or middle-drag moves the view, and the wheel zooms, while you draw.
+
+## Closed shapes
+
+![The plate with its left side deleted: the two ends that aren't joined are red, and the Sketch panel says so](images/app-sketch-open.png)
+
+Soon, **extrude** will turn a sketch's **closed shapes** into solid parts. A
+closed shape is lines and arcs joined end to end all the way round, or a circle.
+A closed shape inside another one is a **hole** in it (like the plate's circle).
+
+- The **Sketch** panel says how many closed shapes the sketch has, and how many
+  holes.
+- An end of a line or arc that nothing else meets is marked with a **red dot**,
+  and the panel counts them: join it to another end (drag it onto it, or draw a
+  line to it) to close the shape.
+- Where three or more lines meet at one point, or two shapes cross each other,
+  Khan can't tell which shape is which: the panel says where. Delete the extra
+  line, or make it a helper line.
+- Helper (construction) lines and points are never part of a shape.
 
 ## Picking and dragging
 
@@ -172,7 +203,12 @@ Sketch1 (XY plane): fully constrained
   Horizontal1    horizontal          Line1
   Fix1           fix                 Line1.start
   Length1        length              Line1  40.00 mm
+closed shapes: 0
+open ends: Line1.start, Line1.end
 ```
+
+A single line isn't a closed shape, so it has no area yet: both of its ends are
+open.
 
 The line was drawn from 0, 0 to 38, 3. Now it runs from 0, 0 to 40, 0.
 

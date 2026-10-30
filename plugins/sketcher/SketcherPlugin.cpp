@@ -21,6 +21,7 @@
 #include "kh/model/Commands.h"
 #include "kh/plugin/Events.h"
 #include "kh/plugin/PluginContext.h"
+#include "kh/sketch/Profiles.h"
 #include "kh/ui/UiRegistry.h"
 #include "kh/viewer/Viewer.h"
 
@@ -64,7 +65,11 @@ void show(plugin::PluginOverlays& overlays, const char* name, plugin::Overlay ov
 // sketch point it snapped to, if any.
 struct Pick {
     sketch::Point2 at{};
-    std::optional<sketch::PointRef> ref{};
+    std::optional<sketch::PointRef> ref{};  // the sketch point it snapped onto
+    std::optional<EntityId> on{};           // ... or the line, circle or arc it snapped onto
+    // For a line's end: kept level, upright, or running on smoothly from an arc.
+    std::optional<sketch::ConstraintKind> align{};
+    std::optional<EntityId> alignWith{};  // the arc, for Tangent
 };
 
 // A part of the sketch the student can pick: one point of an entity, a whole
@@ -348,6 +353,7 @@ public:
         Overlay pickedLines{.shape = OverlayShape::Lines, .color = kPicked, .size = 3.5};
         Overlay pickedPoints{.shape = OverlayShape::Points, .color = kPicked, .size = 10};
         Overlay conflictLines{.shape = OverlayShape::Lines, .color = kConflict, .size = 3};
+        Overlay openEnds{.shape = OverlayShape::Points, .color = kConflict, .size = 9};
         auto labelsIn = [](plugin::OverlayColor color) {
             return Overlay{.shape = OverlayShape::Labels, .color = color, .size = 13};
         };
@@ -387,6 +393,11 @@ public:
                 for (const auto& [ref, at] : sketchPoints(entities)) {
                     (pointFree(ref) ? freePoints : fixedPoints)
                         .points.push_back(model::toDesign(step.plane(), at));
+                }
+                // Ends that aren't joined, so the shape isn't closed yet: red dots.
+                for (const auto& ref : sketch::findProfiles({entities, {}}).openEnds) {
+                    if (const auto at = sketch::pointOf({entities, {}}, ref))
+                        openEnds.points.push_back(model::toDesign(step.plane(), *at));
                 }
                 // Picked, and under the mouse (in Select).
                 auto showItem = [&](const Item& item, Overlay& lines, Overlay& points) {
@@ -472,6 +483,7 @@ public:
                                                            {"edit.fixed", &fixedLines},
                                                            {"edit.points", &freePoints},
                                                            {"edit.fixed_points", &fixedPoints},
+                                                           {"edit.open_ends", &openEnds},
                                                            {"edit.hover", &hoverLines},
                                                            {"edit.hover_points", &hoverPoints},
                                                            {"edit.picked", &pickedLines},
@@ -498,7 +510,8 @@ public:
             }
             return;
         }
-        hover_ = pick(point);
+        hover_ = where(point);
+        hoverPixel_ = point.pixel;
         drawPreview();
     }
 
@@ -508,7 +521,7 @@ public:
             pickAt(point);
             return;
         }
-        const Pick here = pick(point);
+        const Pick here = where(point);
         hover_ = here;
         switch (tool_) {
             case Tool::Select:
@@ -687,6 +700,7 @@ private:
     static constexpr plugin::OverlayColor kRedundant{176, 120, 0};  // constraints that repeat others
     static constexpr double kEdgePixels = 6;    // how close the mouse must be to a line to pick it
     static constexpr double kLabelPixels = 12;  // ... and to a constraint's label
+    static constexpr double kAutoPixels = 6;    // how close to level or upright a line snaps to it
 
     struct Drag {
         Item item;                                         // what's dragged
@@ -911,10 +925,96 @@ private:
             }
         }
         if (best) return {best->second, best->first};
+        // Onto a line, circle or arc (and On is added), when that's turned on.
+        if (autoConstraints()) {
+            std::optional<std::pair<EntityId, sketch::Point2>> edge;
+            double edgeDistance = kSnapPixels * point.pixel;
+            for (const auto& e : shown(*step)) {
+                if (e.construction) continue;
+                const auto near = nearestOnEdge(e.shape, at);
+                if (near && distance(at, *near) < edgeDistance) {
+                    edge.emplace(e.id, *near);
+                    edgeDistance = distance(at, *near);
+                }
+            }
+            if (edge) return {edge->second, std::nullopt, edge->first};
+        }
         if (const auto* grid = ctx_.service<grid::IGrid>()) {
             return {model::toSketch(plane, grid->snap(point.at, point.pane)), std::nullopt};
         }
         return {at, std::nullopt};
+    }
+
+    // Constraints added while drawing: on unless the student turned them off.
+    bool autoConstraints() const { return !ctx_.settings().flag("auto_constraints_off"); }
+
+    // Where the mouse lands for the tool: pick(), and for a line's end, kept
+    // level or upright when it's within 6 pixels of that, or running on smoothly
+    // from the arc it starts at.
+    Pick where(const viewer::ToolPoint& point) const {
+        Pick here = pick(point);
+        if (tool_ != Tool::Line || pending_.empty() || here.ref || here.on || !autoConstraints()) return here;
+        const auto* step = sketchStep(editing_);
+        if (!step) return here;
+        const auto& from = pending_[0];
+        const double close = kAutoPixels * point.pixel;
+        const sketch::Point2 d{here.at.x - from.at.x, here.at.y - from.at.y};
+        const double length = std::hypot(d.x, d.y);
+        if (length <= close) return here;
+        // Off the end of an arc, in nearly the arc's direction: exactly tangent.
+        if (from.ref &&
+            (from.ref->role == sketch::PointRole::Start || from.ref->role == sketch::PointRole::End)) {
+            const sketch::Sketch s{shown(*step), {}};
+            const auto* e = s.find(from.ref->entity);
+            if (const auto* arc = e ? std::get_if<sketch::ArcShape>(&e->shape) : nullptr) {
+                const bool atEnd = from.ref->role == sketch::PointRole::End;
+                const double t = atEnd ? arc->endAngle : arc->startAngle;
+                // The way the arc is heading as it leaves this end.
+                const sketch::Point2 dir = atEnd ? sketch::Point2{-std::sin(t), std::cos(t)}
+                                                 : sketch::Point2{std::sin(t), -std::cos(t)};
+                const double along = d.x * dir.x + d.y * dir.y;
+                if (along > 0 && std::abs(d.x * dir.y - d.y * dir.x) <= close) {
+                    here.at = {from.at.x + dir.x * along, from.at.y + dir.y * along};
+                    here.align = sketch::ConstraintKind::Tangent;
+                    here.alignWith = e->id;
+                    return here;
+                }
+            }
+        }
+        if (std::abs(d.y) <= close) {
+            here.at.y = from.at.y;
+            here.align = sketch::ConstraintKind::Horizontal;
+        } else if (std::abs(d.x) <= close) {
+            here.at.x = from.at.x;
+            here.align = sketch::ConstraintKind::Vertical;
+        }
+        return here;
+    }
+
+    // The point of an edge nearest to p, if p is beside it (lines: between the
+    // ends; arcs: within their sweep).
+    static std::optional<sketch::Point2> nearestOnEdge(const sketch::Shape& shape, sketch::Point2 p) {
+        if (const auto* l = std::get_if<sketch::LineShape>(&shape)) {
+            const double dx = l->end.x - l->start.x, dy = l->end.y - l->start.y, len2 = dx * dx + dy * dy;
+            if (len2 <= 0) return std::nullopt;
+            const double t = ((p.x - l->start.x) * dx + (p.y - l->start.y) * dy) / len2;
+            if (t < 0 || t > 1) return std::nullopt;
+            return sketch::Point2{l->start.x + t * dx, l->start.y + t * dy};
+        }
+        auto toCircle = [&](sketch::Point2 c, double r) -> std::optional<sketch::Point2> {
+            const double d = distance(c, p);
+            if (d <= 1e-12) return std::nullopt;
+            return sketch::Point2{c.x + (p.x - c.x) * r / d, c.y + (p.y - c.y) * r / d};
+        };
+        if (const auto* c = std::get_if<sketch::CircleShape>(&shape)) return toCircle(c->center, c->radius);
+        if (const auto* a = std::get_if<sketch::ArcShape>(&shape)) {
+            double t = std::atan2(p.y - a->center.y, p.x - a->center.x);
+            while (t < a->startAngle) t += 2 * kPi;
+            while (t >= a->startAngle + 2 * kPi) t -= 2 * kPi;
+            if (t > a->endAngle) return std::nullopt;
+            return toCircle(a->center, a->radius);
+        }
+        return std::nullopt;
     }
 
     // The shape being drawn, following the mouse, and the point it would snap to.
@@ -922,6 +1022,8 @@ private:
         auto& overlays = ctx_.overlays();
         plugin::Overlay preview{.shape = plugin::OverlayShape::Lines, .color = {230, 120, 20}, .size = 1.5};
         plugin::Overlay snap{.shape = plugin::OverlayShape::Points, .color = {230, 120, 20}, .size = 11};
+        // What will be added with the click, beside the mouse: "H", "V", "T" or "On".
+        plugin::Overlay hintLabel{.shape = plugin::OverlayShape::Labels, .color = {230, 120, 20}, .size = 13};
         const auto* step = sketchStep(editing_);
         if (step && hover_ && tool_ != Tool::Select) {
             const auto plane = step->plane();
@@ -952,10 +1054,21 @@ private:
                         break;
                 }
             }
-            if (h.ref) snap.points.push_back(model::toDesign(plane, h.at));
+            if (h.ref || h.on) snap.points.push_back(model::toDesign(plane, h.at));
+            const char* word = h.on                                            ? "On"
+                               : h.align == sketch::ConstraintKind::Horizontal ? "H"
+                               : h.align == sketch::ConstraintKind::Vertical   ? "V"
+                               : h.align == sketch::ConstraintKind::Tangent    ? "T"
+                                                                               : nullptr;
+            if (word) {
+                const double off = 14 * hoverPixel_;  // up and to the right of the mouse
+                hintLabel.points.push_back(model::toDesign(plane, {h.at.x + off, h.at.y + off}));
+                hintLabel.texts.emplace_back(word);
+            }
         }
         show(overlays, "edit.preview", std::move(preview));
         show(overlays, "edit.snap", std::move(snap));
+        show(overlays, "edit.hint", std::move(hintLabel));
     }
 
     static std::optional<sketch::ArcShape> arcFrom(sketch::Point2 center, sketch::Point2 start,
@@ -979,23 +1092,46 @@ private:
         return false;
     }
 
-    using Join = std::pair<sketch::PointRole, std::optional<sketch::PointRef>>;
+    // Where each of a new shape's points was picked: what it snapped onto.
+    using Join = std::pair<sketch::PointRole, Pick>;
 
-    // Adds a shape, with a Coincident for each snapped point.
+    // Adds a shape as one undo step, with the constraints its picks call for: a
+    // Coincident for a point it snapped onto, On for an edge, and Horizontal,
+    // Vertical or Tangent for a line's end that was kept that way.
     std::optional<EntityId> add(const std::string& base, sketch::Shape shape, std::vector<Join> joins) {
         const EntityId id = EntityId::generate();
-        auto change = [id, base, shape, joins](sketch::Sketch& s, std::string& label) -> Diagnostics {
+        const bool isLine = std::holds_alternative<sketch::LineShape>(shape);
+        auto change = [id, base, shape, joins, isLine](sketch::Sketch& s, std::string& label) -> Diagnostics {
             const std::string name = model::uniqueSketchName(s, base);
             s.entities.push_back({id, name, shape, false});
-            for (const auto& [role, ref] : joins) {
-                if (!ref) continue;
-                s.constraints.push_back({ConstraintId::generate(),
-                                         model::uniqueSketchName(s, "Coincident"),
-                                         sketch::ConstraintKind::Coincident,
-                                         {sketch::PointRef{id, role}, *ref},
-                                         {},
-                                         0,
-                                         {}});
+            auto addConstraint = [&](sketch::ConstraintKind kind, std::vector<sketch::PointRef> points,
+                                     std::vector<EntityId> entities) {
+                sketch::Constraint c;
+                c.id = ConstraintId::generate();
+                c.kind = kind;
+                c.points = std::move(points);
+                c.entities = std::move(entities);
+                c.name = model::uniqueSketchName(s, sketcher::constraintBase(kind));
+                s.constraints.push_back(std::move(c));
+            };
+            for (const auto& [role, pick] : joins) {
+                const sketch::PointRef mine{id, role};
+                if (pick.ref) {
+                    addConstraint(sketch::ConstraintKind::Coincident, {mine, *pick.ref}, {});
+                } else if (pick.on) {
+                    const auto* e = s.find(*pick.on);
+                    if (!e) continue;
+                    const bool line = std::holds_alternative<sketch::LineShape>(e->shape);
+                    addConstraint(
+                        line ? sketch::ConstraintKind::PointOnLine : sketch::ConstraintKind::PointOnCircle,
+                        {mine}, {*pick.on});
+                }
+                if (isLine && pick.align) {
+                    if (*pick.align == sketch::ConstraintKind::Tangent && pick.alignWith)
+                        addConstraint(sketch::ConstraintKind::Tangent, {}, {id, *pick.alignWith});
+                    else if (*pick.align != sketch::ConstraintKind::Tangent)
+                        addConstraint(*pick.align, {}, {id});
+                }
             }
             label = "Add " + name;
             return {};
@@ -1006,23 +1142,25 @@ private:
 
     std::optional<EntityId> addLine(const Pick& from, const Pick& to) {
         return add("Line", sketch::LineShape{from.at, to.at},
-                   {{sketch::PointRole::Start, from.ref}, {sketch::PointRole::End, to.ref}});
+                   {{sketch::PointRole::Start, from}, {sketch::PointRole::End, to}});
     }
 
     void addCircle(const Pick& center, double radius) {
-        add("Circle", sketch::CircleShape{center.at, radius}, {{sketch::PointRole::Center, center.ref}});
+        add("Circle", sketch::CircleShape{center.at, radius}, {{sketch::PointRole::Center, center}});
     }
 
     void addArc(const Pick& center, const Pick& start, const Pick& end) {
         if (const auto arc = arcFrom(center.at, start.at, end.at)) {
             add("Arc", *arc,
-                {{sketch::PointRole::Center, center.ref},
-                 {sketch::PointRole::Start, start.ref},
-                 {sketch::PointRole::End, end.ref}});
+                {{sketch::PointRole::Center, center},
+                 {sketch::PointRole::Start, start},
+                 {sketch::PointRole::End, end}});
         }
     }
 
-    void addPoint(const Pick& at) { add("Point", sketch::PointShape{at.at}, {}); }
+    void addPoint(const Pick& at) {
+        add("Point", sketch::PointShape{at.at}, {{sketch::PointRole::Self, at}});
+    }
 
     // --- Messages ----------------------------------------------------------
 
@@ -1074,6 +1212,7 @@ private:
     Tool tool_ = Tool::Line;
     std::vector<Pick> pending_;                                    // the clicks of the shape being drawn
     std::optional<Pick> hover_;                                    // where the mouse is (drawing tools)
+    double hoverPixel_ = 0.1;                                      // how many mm a screen pixel covers there
     std::optional<Item> hoverItem_;                                // what's under the mouse (Select)
     std::vector<Item> picked_;                                     // what's picked (Select), in picking order
     std::optional<Drag> drag_;                                     // what's being dragged
@@ -1217,6 +1356,19 @@ void registerSketcher(plugin::PluginContext& ctx) {
             .checked = [sketcher, tool] { return sketcher->editing() && sketcher->tool() == tool; },
             .enabled = [sketcher] { return sketcher->editing(); }});
     }
+
+    // Constraints added while drawing (On, Horizontal, Vertical, Tangent): on by default.
+    ctx.addAction(ActionSpec{.id = "kh.sketcher.auto",
+                             .text = "Add constraints while drawing",
+                             .menu = "Sketch",
+                             .tip = "Snap onto lines and keep lines level or upright as you draw, adding the "
+                                    "constraints that keep them that way. Turn it off to draw freely.",
+                             .run =
+                                 [&ctx] {
+                                     ctx.settings().set("auto_constraints_off",
+                                                        !ctx.settings().flag("auto_constraints_off"));
+                                 },
+                             .checked = [&ctx] { return !ctx.settings().flag("auto_constraints_off"); }});
 
     // The Sketch panel: the edited sketch's constraints, with numbers to type.
     if (auto* ui = ctx.service<ui::UiRegistry>()) {

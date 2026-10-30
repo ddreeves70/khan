@@ -28,6 +28,7 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QWidgetAction>
 
 #include <cstring>
 #include <memory>
@@ -243,7 +244,8 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
     rows += app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"))->actions();
     for (auto* a : rows) {
         if (a->isSeparator() || a->objectName().startsWith(QStringLiteral("test.")))
-            continue;  // Khan's own only
+            continue;                                   // Khan's own only
+        if (qobject_cast<QWidgetAction*>(a)) continue;  // the second row's hint, not a button
         ++buttons;
         INFO(a->text().toStdString());
         CHECK_FALSE(a->icon().isNull());
@@ -681,15 +683,20 @@ TEST_CASE("Sketch > New sketch, then clicks draw a closed shape, one undo step p
     CHECK(l1.start.x == 0);
     CHECK(l1.end.x == 40);
     CHECK(l4.end.y == 0);
-    // Each line joins the one before, and the last closes onto the first.
-    REQUIRE(s.constraints.size() == 4);
-    for (const auto& c : s.constraints) CHECK(c.kind == sketch::ConstraintKind::Coincident);
-    CHECK(s.constraints[3].points[1].entity == s.entities[0].id);
+    // Each line joins the one before, and the last closes onto the first; the
+    // lines drawn level or upright are kept that way (the last one closes onto a
+    // point, which wins).
+    std::vector<sketch::ConstraintKind> kinds;
+    for (const auto& c : s.constraints) kinds.push_back(c.kind);
+    using K = sketch::ConstraintKind;
+    CHECK(kinds == std::vector<K>{K::Horizontal, K::Coincident, K::Vertical, K::Coincident, K::Horizontal,
+                                  K::Coincident, K::Coincident});
+    CHECK(s.constraints[6].points[1].entity == s.entities[0].id);
     CHECK(app.doc().undoLabel() == "Add Line4");
     const auto* r =
         app.host.documents().lastRebuild(app.shell->activeDesign())->result(sketchAt(app, 0).id());
     REQUIRE(r->sketch);
-    CHECK(r->sketch->freedom == 8);  // 4 lines (16) joined at 4 corners (8 taken)
+    CHECK(r->sketch->freedom == 5);  // 4 lines (16), 4 corners (8 taken), 3 level or upright
 
     // Closing the shape ended the chain: the next click starts a new line.
     CHECK(app.shell->statusBar()->currentMessage() ==
@@ -751,9 +758,12 @@ TEST_CASE("an end close to a point snaps onto it and joins it", "[app][sketcher]
     const auto& l2 = std::get<sketch::LineShape>(s.entities[1].shape);
     CHECK(l2.start.x == l1.end.x);  // exactly on it
     CHECK(l2.start.y == l1.end.y);
-    REQUIRE(s.constraints.size() == 1);
-    CHECK(s.constraints[0].points[1].entity == s.entities[0].id);
-    CHECK(s.constraints[0].points[1].role == sketch::PointRole::End);
+    const auto joined = std::ranges::find_if(s.constraints, [](const sketch::Constraint& c) {
+        return c.kind == sketch::ConstraintKind::Coincident;
+    });
+    REQUIRE(joined != s.constraints.end());
+    CHECK(joined->points[1].entity == s.entities[0].id);
+    CHECK(joined->points[1].role == sketch::PointRole::End);
 }
 
 TEST_CASE("Escape stops the shape being drawn, then goes to Select, then stops editing", "[app][sketcher]") {
@@ -787,6 +797,7 @@ struct Drawn {
     view::FlatView* flat = nullptr;
     Drawn() {
         app.menu("kh.grid.snap")->trigger();
+        app.menu("kh.sketcher.auto")->trigger();  // off: just the corners join, for these tests
         app.click("kh.sketcher.new_xy");
         flat = app.flat();
         for (auto p : {kernel::Vec3{0, 0, 0}, {60, 0, 0}, {60, 40, 0}, {0, 40, 0}, {0, 0, 0}})
@@ -975,9 +986,21 @@ TEST_CASE("picking in a narrow window doesn't move the view (the rows stay put)"
     settle();
     auto* row2 = d.app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"));
     CHECK_FALSE(row2->isHidden());  // the second row is there while editing, even with nothing picked
+    auto* hint = row2->findChild<QLabel*>(QStringLiteral("kh.shell.toolbar2.hint"));
+    REQUIRE(hint);
+    // The hint shows exactly when none of the row's buttons do. (Which buttons
+    // wrap depends on the system font, so this checks the rule, not a count.)
+    auto buttonsShowing = [&] {
+        const auto all = row2->actions();
+        return std::any_of(all.begin(), all.end(),
+                           [](QAction* a) { return a->isVisible() && !qobject_cast<QWidgetAction*>(a); });
+    };
+    CHECK(hint->isVisibleTo(row2) == !buttonsShowing());
     const QRect before(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
     clickAt(d.flat, {30, 0, 0});  // Line1: its constraint buttons appear
     CHECK(d.app.shell->button("kh.sketcher.horizontal")->isVisible());
+    CHECK(buttonsShowing());  // constraint buttons there now
+    CHECK_FALSE(hint->isVisibleTo(row2));
     const QRect after(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
     CHECK(before == after);
     // And a drag that picks something lands where the mouse went (this failed on
@@ -1076,6 +1099,123 @@ TEST_CASE("a constraint's label can be picked and deleted, and the panel follows
     table->selectRow(0);  // Coincident1
     settle();
     CHECK(d.app.shell->statusBar()->currentMessage().startsWith(QStringLiteral("Picked Coincident1")));
+}
+
+namespace {
+
+// Moves the mouse over the flat view, without clicking (for the hints).
+void hoverAt(view::FlatView* v, kernel::Vec3 at) {
+    const QPointF p = v->toScreen(at);
+    QMouseEvent move(QEvent::MouseMove, p, v->mapToGlobal(p), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(v, &move);
+    settle();
+}
+
+std::vector<sketch::ConstraintKind> kindsIn(const sketch::Sketch& s) {
+    std::vector<sketch::ConstraintKind> out;
+    for (const auto& c : s.constraints) out.push_back(c.kind);
+    return out;
+}
+
+}  // namespace
+
+// The flat view draws 4 pixels to the mm, so the 6-pixel "nearly" is 1.5 mm.
+TEST_CASE("a line drawn nearly level or upright is made so, with H or V; the hint shows first",
+          "[app][sketcher][auto]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    clickAt(flat, {0, 0, 0});
+    hoverAt(flat, {30, 1, 0});  // 1 mm off level
+    CHECK(labelTexts(app, "edit.hint") == std::vector<std::string>{"H"});
+    clickAt(flat, {30, 1, 0});
+    const auto& s = sketchAt(app, 0).sketch();
+    CHECK(std::get<sketch::LineShape>(s.entities[0].shape).end.y == 0);  // exactly level
+    hoverAt(flat, {31, 25, 0});
+    CHECK(labelTexts(app, "edit.hint") == std::vector<std::string>{"V"});
+    clickAt(flat, {31, 25, 0});
+    CHECK(std::get<sketch::LineShape>(s.entities[1].shape).end.x == 30);
+    using K = sketch::ConstraintKind;
+    CHECK(kindsIn(s) == std::vector<K>{K::Horizontal, K::Coincident, K::Vertical});
+    CHECK(app.doc().undoLabel() == "Add Line2");  // with its constraints: one undo step
+    hoverAt(flat, {10, 10, 0});                   // far from level or upright: no hint
+    CHECK(labelTexts(app, "edit.hint").empty());
+}
+
+TEST_CASE("a click next to a line or circle snaps onto it, with On", "[app][sketcher][auto]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    clickAt(flat, {0, 0, 0});
+    clickAt(flat, {40, 0, 0});
+    pressEscape(flat);
+    app.click("kh.sketcher.circle");
+    clickAt(flat, {20, 30, 0});
+    clickAt(flat, {30, 30, 0});
+    app.click("kh.sketcher.point");
+    hoverAt(flat, {20, 1, 0});
+    CHECK(labelTexts(app, "edit.hint") == std::vector<std::string>{"On"});
+    clickAt(flat, {20, 1, 0});   // 1 mm from the line
+    clickAt(flat, {20, 41, 0});  // 1 mm outside the circle, at its top
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 4);
+    const auto& p1 = std::get<sketch::PointShape>(s.entities[2].shape).at;
+    CHECK(p1.y == Approx(0).margin(1e-9));  // on the line
+    const auto& p2 = std::get<sketch::PointShape>(s.entities[3].shape).at;
+    CHECK(p2.y == Approx(40));  // on the circle
+    using K = sketch::ConstraintKind;
+    CHECK(kindsIn(s) == std::vector<K>{K::Horizontal, K::PointOnLine, K::PointOnCircle});
+}
+
+TEST_CASE("a line drawn off the end of an arc, in its direction, is made tangent", "[app][sketcher][auto]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.arc");
+    clickAt(flat, {0, 0, 0});   // center
+    clickAt(flat, {20, 0, 0});  // start
+    clickAt(flat, {0, 20, 0});  // end: a quarter turn, heading left at the end
+    app.click("kh.sketcher.line");
+    clickAt(flat, {0, 20, 0});  // the arc's end
+    hoverAt(flat, {-25, 21, 0});
+    CHECK(labelTexts(app, "edit.hint") == std::vector<std::string>{"T"});
+    clickAt(flat, {-25, 21, 0});
+    const auto& s = sketchAt(app, 0).sketch();
+    const auto& l = std::get<sketch::LineShape>(s.entities[1].shape);
+    CHECK(l.end.y == Approx(20));  // straight on from the arc
+    using K = sketch::ConstraintKind;
+    CHECK(kindsIn(s) == std::vector<K>{K::Coincident, K::Tangent});
+    const auto* r =
+        app.host.documents().lastRebuild(app.shell->activeDesign())->result(sketchAt(app, 0).id());
+    CHECK(r->sketch->ok());
+}
+
+TEST_CASE("with Add constraints while drawing off, lines go where they're clicked", "[app][sketcher][auto]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    CHECK(app.menu("kh.sketcher.auto")->isChecked());
+    app.menu("kh.sketcher.auto")->trigger();
+    CHECK_FALSE(app.menu("kh.sketcher.auto")->isChecked());
+    auto* flat = app.flat();
+    clickAt(flat, {0, 0, 0});
+    clickAt(flat, {30, 1, 0});
+    const auto& s = sketchAt(app, 0).sketch();
+    CHECK(std::get<sketch::LineShape>(s.entities[0].shape).end.y == Approx(1));
+    CHECK(s.constraints.empty());
+}
+
+TEST_CASE("the Sketch panel counts closed shapes, and open ends are marked", "[app][sketcher][profiles]") {
+    Drawn d;  // a closed rectangle with a circle inside
+    auto* status = d.app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"))
+                       ->findChild<QLabel*>(QStringLiteral("status"));
+    REQUIRE(status);
+    CHECK(status->text().contains(QStringLiteral("1 closed shape, with 1 hole.")));
+    CHECK(d.overlayPoints("edit.open_ends") == 0);
+    clickAt(d.flat, {30, 0, 0});  // Line1
+    d.app.click("kh.sketcher.delete");
+    CHECK(status->text().contains(QStringLiteral("1 closed shape.")));  // just the circle now
+    CHECK(status->text().contains(QStringLiteral("2 ends aren't joined")));
+    CHECK(d.overlayPoints("edit.open_ends") == 2);  // where Line1 was
 }
 
 TEST_CASE("Edit sketch starts with Select; New sketch starts with Line", "[app][sketcher]") {
