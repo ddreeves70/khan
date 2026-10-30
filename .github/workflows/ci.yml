@@ -37,7 +37,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022, macos-14]
+        # macos-14 runners are retired on 2026-11-02 (actions/runner-images#13518).
+        os: [ubuntu-24.04, windows-2022, macos-15]
 
     env:
       # Our own vcpkg checkout. VCPKG_ROOT is set from this in the "Get vcpkg" step,
