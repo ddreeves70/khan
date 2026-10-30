@@ -133,6 +133,10 @@ kernel::Loop2 toKernel(const sketch::Loop& loop, const sketch::Sketch& s) {
             edge.curve = kernel::Arc2{{a->center.x, a->center.y}, a->radius, a->startAngle, a->endAngle};
         } else if (const auto* c = std::get_if<sketch::CircleShape>(&entity->shape)) {
             edge.curve = kernel::Circle2{{c->center.x, c->center.y}, c->radius};
+        } else if (const auto* sp = std::get_if<sketch::SplineShape>(&entity->shape)) {
+            kernel::Spline2 k{{}, sp->weights, sp->degree, sp->closed};
+            for (const auto& p : sp->poles) k.poles.push_back({p.x, p.y});
+            edge.curve = std::move(k);
         }
         out.push_back(edge);
     }

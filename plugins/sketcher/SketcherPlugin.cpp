@@ -78,8 +78,11 @@ struct Item {
     EntityId entity{};
     std::optional<sketch::PointRole> point{};
     ConstraintId constraint{};  // set for a constraint; then entity is nil
+    int index = 0;              // which pole, for a spline's control point (PointRole::Pole)
     bool operator==(const Item&) const = default;
     bool isConstraint() const { return !constraint.isNil(); }
+    // The picked point (a point entity itself if no point of it is picked).
+    sketch::PointRef ref() const { return {entity, point.value_or(sketch::PointRole::Self), index}; }
 };
 
 using sketcher::Rule;
@@ -115,6 +118,19 @@ std::optional<double> edgeDistance(const sketch::Shape& shape, sketch::Point2 p)
     }
     if (const auto* c = std::get_if<sketch::CircleShape>(&shape))
         return std::abs(distance(p, c->center) - c->radius);
+    if (const auto* s = std::get_if<sketch::SplineShape>(&shape)) {
+        // How far from the curve, measured to short straight pieces along it.
+        const auto pts = sketch::splineSample(*s, 32);
+        double best = 1e300;
+        for (std::size_t i = 0; i + 1 < pts.size(); ++i) {
+            const auto a = pts[i], b = pts[i + 1];
+            const double dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+            const double t =
+                len2 > 0 ? std::clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / len2, 0.0, 1.0) : 0;
+            best = std::min(best, distance(p, {a.x + t * dx, a.y + t * dy}));
+        }
+        return best;
+    }
     if (const auto* a = std::get_if<sketch::ArcShape>(&shape)) {
         // On the arc's part of the circle? Then how far from the circle; else from the nearer end.
         double angle = std::atan2(p.y - a->center.y, p.x - a->center.x);
@@ -223,11 +239,9 @@ public:
                     std::erase_if(s.constraints, [&](const sketch::Constraint& c) { return uses(c, id); });
                     std::erase_if(s.entities, [&](const sketch::Entity& x) { return x.id == id; });
                 } else {
-                    names.push_back("the constraints on " + e->name + "'s " + roleName(*item.point));
+                    names.push_back("the constraints on " + e->name + "'s " + pointName(item.ref()));
                     std::erase_if(s.constraints, [&](const sketch::Constraint& c) {
-                        return std::ranges::any_of(c.points, [&](const auto& p) {
-                            return p.entity == item.entity && p.role == *item.point;
-                        });
+                        return std::ranges::any_of(c.points, [&](const auto& p) { return p == item.ref(); });
                     });
                 }
             }
@@ -381,9 +395,7 @@ public:
                            std::ranges::find(solved->freeEntities, id) != solved->freeEntities.end();
                 };
                 auto pointFree = [&](const sketch::PointRef& r) {
-                    return !solved || std::ranges::any_of(solved->freePoints, [&](const auto& p) {
-                        return p.entity == r.entity && p.role == r.role;
-                    });
+                    return !solved || std::ranges::find(solved->freePoints, r) != solved->freePoints.end();
                 };
                 auto lineInto = [&](Overlay& o, const sketch::Entity& e) {
                     auto add = sketchLines(step.plane(), {e});
@@ -391,6 +403,14 @@ public:
                 };
                 for (const auto& e : entities) {
                     lineInto(e.construction ? helpers : entityFree(e.id) ? freeLines : fixedLines, e);
+                    // A spline's control points, joined by thin helper lines (its control polygon).
+                    if (const auto* sp = std::get_if<sketch::SplineShape>(&e.shape)) {
+                        for (std::size_t k = 0; k + 1 < sp->poles.size() + (sp->closed ? 1 : 0); ++k) {
+                            helpers.points.push_back(model::toDesign(step.plane(), sp->poles[k]));
+                            helpers.points.push_back(
+                                model::toDesign(step.plane(), sp->poles[(k + 1) % sp->poles.size()]));
+                        }
+                    }
                 }
                 for (const auto& [ref, at] : sketchPoints(entities)) {
                     (pointFree(ref) ? freePoints : fixedPoints)
@@ -408,7 +428,7 @@ public:
                     const auto* e = s.find(item.entity);
                     if (!e) return;
                     if (item.point) {
-                        if (const auto at = sketch::pointOf(s, {item.entity, *item.point}))
+                        if (const auto at = sketch::pointOf(s, item.ref()))
                             points.points.push_back(model::toDesign(step.plane(), *at));
                     } else if (std::holds_alternative<sketch::PointShape>(e->shape)) {
                         points.points.push_back(
@@ -597,7 +617,7 @@ public:
         // A dragged point dropped within 8 pixels of another point (not one of its
         // own entity's) lands exactly on it, and they're joined with a Coincident.
         std::optional<sketch::PointRef> dragging;
-        if (item.point) dragging = sketch::PointRef{item.entity, *item.point};
+        if (item.point) dragging = item.ref();
         if (!item.point && std::holds_alternative<sketch::PointShape>(e->shape))
             dragging = sketch::PointRef{item.entity, sketch::PointRole::Self};
         drag_->joinTo.reset();
@@ -620,12 +640,12 @@ public:
             pulls.push_back({*dragging, onto});
             hover_ = Pick{onto, drag_->joinTo};  // the orange snap dot shows it
         } else if (item.point) {
-            movePoint({item.entity, *item.point});
+            movePoint(item.ref());
         } else if (std::holds_alternative<sketch::PointShape>(e->shape)) {
             movePoint({item.entity, sketch::PointRole::Self});
-        } else if (std::holds_alternative<sketch::LineShape>(e->shape)) {
-            movePoint({item.entity, sketch::PointRole::Start});
-            movePoint({item.entity, sketch::PointRole::End});
+        } else if (std::holds_alternative<sketch::LineShape>(e->shape) ||
+                   std::holds_alternative<sketch::SplineShape>(e->shape)) {
+            for (const auto& ref : sketch::pointsOf(*e)) movePoint(ref);  // all of it moves
         } else {
             pulls.push_back({{item.entity, sketch::PointRole::Center}, b, true});  // the edge: its size
         }
@@ -649,25 +669,22 @@ public:
             return;
         }
         const auto moved = *d.now;
-        auto pointName = [&](const sketch::PointRef& r) {
+        auto nameOf = [&](const sketch::PointRef& r) {
             const auto* x = d.start.find(r.entity);
             if (!x) return std::string("a point");
-            return r.role == sketch::PointRole::Self ? x->name : x->name + "'s " + roleName(r.role);
+            return r.role == sketch::PointRole::Self ? x->name : x->name + "'s " + pointName(r);
         };
         const auto* e = d.start.find(d.item.entity);
         const std::string what = !e ? std::string("sketch")
                                  : d.item.point && d.item.point != sketch::PointRole::Self
-                                     ? e->name + "'s " + roleName(*d.item.point)
+                                     ? e->name + "'s " + pointName(d.item.ref())
                                      : e->name;
         // The point that was dragged, if it's being joined.
         std::optional<sketch::PointRef> joining;
-        if (d.joinTo) {
-            joining = d.item.point ? sketch::PointRef{d.item.entity, *d.item.point}
-                                   : sketch::PointRef{d.item.entity, sketch::PointRole::Self};
-        }
+        if (d.joinTo) joining = d.item.ref();
         const auto joinTo = d.joinTo;
         const std::string label =
-            joining ? "Join " + pointName(*joining) + " to " + pointName(*joinTo) : "Move " + what;
+            joining ? "Join " + nameOf(*joining) + " to " + nameOf(*joinTo) : "Move " + what;
         run([moved, joining, joinTo, label](sketch::Sketch& s, std::string& undoLabel) -> Diagnostics {
             for (auto& entity : s.entities) {
                 for (const auto& m : moved) {
@@ -779,11 +796,13 @@ private:
                 continue;
             }
             if (item.point) {
-                out.points.push_back({item.entity, *item.point});
+                out.points.push_back(item.ref());
             } else if (std::holds_alternative<sketch::PointShape>(e->shape)) {
                 out.points.push_back({item.entity, sketch::PointRole::Self});
             } else if (std::holds_alternative<sketch::LineShape>(e->shape)) {
                 out.lines.push_back(item.entity);
+            } else if (std::holds_alternative<sketch::SplineShape>(e->shape)) {
+                ++out.other;  // no constraint takes a whole spline yet
             } else {
                 out.rounds.push_back(item.entity);
             }
@@ -800,14 +819,17 @@ private:
         dragCancelled_ = false;
     }
 
-    static std::string roleName(sketch::PointRole role) {
-        switch (role) {
+    // What the student calls a point of an entity: "start", "control point 2", ...
+    static std::string pointName(const sketch::PointRef& ref) {
+        switch (ref.role) {
             case sketch::PointRole::Start:
                 return "start";
             case sketch::PointRole::End:
                 return "end";
             case sketch::PointRole::Center:
                 return "center";
+            case sketch::PointRole::Pole:
+                return "control point " + std::to_string(ref.index + 1);
             case sketch::PointRole::Self:
                 break;
         }
@@ -892,9 +914,7 @@ private:
         std::vector<std::pair<sketch::PointRef, sketch::Point2>> out;
         const sketch::Sketch s{entities, {}};
         for (const auto& e : entities) {
-            for (auto role : {sketch::PointRole::Self, sketch::PointRole::Start, sketch::PointRole::End,
-                              sketch::PointRole::Center}) {
-                const sketch::PointRef ref{e.id, role};
+            for (const auto& ref : sketch::pointsOf(e)) {
                 if (const auto at = sketch::pointOf(s, ref)) out.emplace_back(ref, *at);
             }
         }
@@ -920,7 +940,7 @@ private:
             if (d < bestDistance || (!best && d <= bestDistance)) {  // two points in one place: the first
                 // A point entity is picked whole; other points by their role.
                 best = ref.role == sketch::PointRole::Self ? Item{ref.entity, std::nullopt}
-                                                           : Item{ref.entity, ref.role};
+                                                           : Item{ref.entity, ref.role, {}, ref.index};
                 bestDistance = d;
             }
         }
@@ -1246,7 +1266,7 @@ private:
             const auto* e = s ? s->find(item.entity) : nullptr;
             if (!e) continue;
             what +=
-                (what.empty() ? "" : ", ") + (item.point ? e->name + "'s " + roleName(*item.point) : e->name);
+                (what.empty() ? "" : ", ") + (item.point ? e->name + "'s " + pointName(item.ref()) : e->name);
         }
         const bool labelsOnly =
             std::ranges::all_of(picked_, [](const Item& item) { return item.isConstraint(); });
@@ -1533,6 +1553,9 @@ std::vector<kernel::Vec3> sketchLines(model::SketchPlane plane, const std::vecto
             curve(c->center, c->radius, 0, 2 * kPi);
         } else if (const auto* a = std::get_if<sketch::ArcShape>(&e.shape)) {
             curve(a->center, a->radius, a->startAngle, a->endAngle);
+        } else if (const auto* sp = std::get_if<sketch::SplineShape>(&e.shape)) {
+            const auto pts = sketch::splineSample(*sp, 16);
+            for (std::size_t i = 0; i + 1 < pts.size(); ++i) segment(pts[i], pts[i + 1]);
         }
     }
     return out;

@@ -67,6 +67,12 @@
       "run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=0,20 to=0,0",
       "run --open tag.khan --save tag.khan sketch.add_circle sketch=Sketch1 center=6,10 radius=2.5",
       "run --open tag.khan --save tag.khan feature.add_extrude sketch=Sketch1 distance=3"
+    ],
+    "arch": [
+      "run --save arch.khan feature.add_sketch",
+      "run --open arch.khan --save arch.khan sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0",
+      "run --open arch.khan --save arch.khan sketch.add_line sketch=Sketch1 from=40,0 to=0,0",
+      "run --open arch.khan --save arch.khan sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start"
     ]
   },
   "pictures": [
@@ -1090,6 +1096,29 @@
         198,
         380,
         400
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-sketch-spline.png",
+      "size": "1280x800",
+      "script": "arch",
+      "app": {
+        "open": "arch.khan",
+        "select": [
+          "Sketch1"
+        ],
+        "trigger": [
+          "kh.sketcher.edit",
+          "kh.shell.show.kh.featuretree.panel",
+          "kh.shell.show.kh.properties.panel",
+          "kh.shell.show.kh.sketcher.panel"
+        ]
+      },
+      "crop": [
+        580,
+        250,
+        370,
+        250
       ]
     }
   ]

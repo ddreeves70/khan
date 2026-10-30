@@ -44,7 +44,9 @@ deterministic).
   earlier step id; `by`, `turn` in degrees, `axis`, `about`), `face` (`plane`:
   `origin`, `x`, `y`, default the ground; `outer` and optional `holes`: lists of edges,
   each `{"line": [[x, y], [x, y]]}`, `{"arc": {"center": [x, y], "radius": r, "from":
-  degrees, "to": degrees}}` or `{"circle": {"center": [x, y], "radius": r}}`, with
+  degrees, "to": degrees}}`, `{"circle": {"center": [x, y], "radius": r}}` or
+  `{"spline": {"poles": [[x, y], ...], "degree": 3, "weights": [...], "closed": false}}`
+  (degree, weights and closed are optional; knots are spread evenly), with
   `"reversed": true` for an edge the loop runs backwards), and `extrude` (`face`, an
   earlier step id; `by`, the direction and distance). Lengths are in mm.
 - **`result`:** which step to measure; defaults to the last step.

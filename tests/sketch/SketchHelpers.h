@@ -18,6 +18,11 @@ struct SketchBuilder {
         return add(ArcShape{{x, y}, r, a0, a1});
     }
 
+    EntityId spline(std::vector<Point2> poles, int degree = 3, bool closed = false,
+                    std::vector<double> weights = {}) {
+        return add(SplineShape{std::move(poles), std::move(weights), degree, closed});
+    }
+
     EntityId add(Shape shape) {
         Entity e{EntityId::generate(), {}, shape, false};
         sketch.entities.push_back(e);
@@ -43,6 +48,9 @@ inline PointRef center(EntityId e) {
 }
 inline PointRef self(EntityId e) {
     return {e, PointRole::Self};
+}
+inline PointRef pole(EntityId e, int i) {
+    return {e, PointRole::Pole, i};
 }
 
 }  // namespace kh::test

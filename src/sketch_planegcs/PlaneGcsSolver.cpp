@@ -28,7 +28,21 @@ struct Built {
     GCS::Line line;
     GCS::Circle circle;
     GCS::Arc arc;
+    // A spline's control points. Its curve doesn't need to be in PlaneGCS while
+    // no constraint uses the curve itself: its ends are its first and last pole.
+    std::vector<GCS::Point> poles;
 };
+
+// How many numbers a sketch's entities can need: 9 for most (an arc: center,
+// radius, two angles, two ends), 2 per pole for a spline.
+std::size_t entityNumbers(const std::vector<Entity>& entities) {
+    std::size_t n = 0;
+    for (const auto& e : entities) {
+        const auto* s = std::get_if<SplineShape>(&e.shape);
+        n += s ? 2 * s->poles.size() : 9;
+    }
+    return n;
+}
 
 // Every number lives in one array, filled in a fixed order, so the numbers' memory
 // addresses rise in the order they were made, on every computer. PlaneGCS orders
@@ -107,11 +121,11 @@ std::optional<PointRef> jointOf(const Sketch& sketch, const EntityId& a, const E
 // It holds pointers into itself, so it's made once and never moved.
 class GcsModel {
 public:
-    // At most 9 numbers per entity (an arc: center, radius, two angles, two ends),
-    // 2 constants per constraint (a Fix's x and y) and 4 per pull (where it pulls
-    // to, and where a pulled edge's center is now).
+    // The entities' numbers (see entityNumbers()), 2 constants per constraint (a
+    // Fix's x and y) and 4 per pull (where it pulls to, and where a pulled edge's
+    // center is now).
     GcsModel(const std::vector<Entity>& entities, const Sketch& sketch, const std::vector<Pull>& pulls = {})
-        : builder(9 * entities.size() + 2 * sketch.constraints.size() + 4 * pulls.size()),
+        : builder(entityNumbers(entities) + 2 * sketch.constraints.size() + 4 * pulls.size()),
           built(entities.size()) {
         Sketch whole{entities, sketch.constraints};
         auto& b = builder;
@@ -139,6 +153,8 @@ public:
                 g.arc.end = b.point({a->center.x + a->radius * std::cos(a->endAngle),
                                      a->center.y + a->radius * std::sin(a->endAngle)});
                 sys.addConstraintArcRules(g.arc, 0);
+            } else if (const auto* s = std::get_if<SplineShape>(&shape)) {
+                for (const auto& pole : s->poles) g.poles.push_back(b.point(pole));
             }
         }
 
@@ -156,6 +172,12 @@ public:
             if (std::holds_alternative<LineShape>(s))
                 return ref.role == PointRole::Start ? g.line.p1 : g.line.p2;
             if (std::holds_alternative<CircleShape>(s)) return g.circle.center;
+            if (std::holds_alternative<SplineShape>(s)) {
+                // check() made sure the pole is there; an open spline's ends are its first and last pole.
+                if (ref.role == PointRole::Start) return g.poles.front();
+                if (ref.role == PointRole::End) return g.poles.back();
+                return g.poles[static_cast<std::size_t>(ref.index)];
+            }
             if (ref.role == PointRole::Center) return g.arc.center;
             return ref.role == PointRole::Start ? g.arc.start : g.arc.end;
         };
@@ -350,6 +372,16 @@ public:
             std::vector<std::pair<PointRole, bool>> points;
             bool size = false;  // a radius or an angle
             const auto& s = entities[i].shape;
+            if (std::holds_alternative<SplineShape>(s)) {
+                bool any = false;
+                for (std::size_t k = 0; k < g.poles.size(); ++k) {
+                    if (!pointFree(g.poles[k])) continue;
+                    result.freePoints.push_back({id, PointRole::Pole, static_cast<int>(k)});
+                    any = true;
+                }
+                if (any) result.freeEntities.push_back(id);
+                continue;
+            }
             if (std::holds_alternative<PointShape>(s)) {
                 points = {{PointRole::Self, pointFree(g.point)}};
             } else if (std::holds_alternative<LineShape>(s)) {
@@ -389,6 +421,8 @@ public:
                     } else if constexpr (std::is_same_v<S, CircleShape>) {
                         s.center = p2(g.circle.center);
                         s.radius = *g.circle.rad;
+                    } else if constexpr (std::is_same_v<S, SplineShape>) {
+                        for (std::size_t k = 0; k < s.poles.size(); ++k) s.poles[k] = p2(g.poles[k]);
                     } else {
                         s.center = p2(g.arc.center);
                         s.radius = *g.arc.rad;

@@ -189,6 +189,14 @@ json sketchToJson(const sketch::Sketch& s) {
                     j["type"] = "circle";
                     j["center"] = vec2(shape.center);
                     j["radius"] = shape.radius;
+                } else if constexpr (std::is_same_v<S, sketch::SplineShape>) {
+                    j["type"] = "spline";
+                    json poles = json::array();
+                    for (const auto& p : shape.poles) poles.push_back(vec2(p));
+                    j["poles"] = poles;
+                    if (!shape.weights.empty()) j["weights"] = shape.weights;  // left out when all 1
+                    j["degree"] = shape.degree;
+                    if (shape.closed) j["closed"] = true;  // left out when false
                 } else {
                     j["type"] = "arc";
                     j["center"] = vec2(shape.center);
@@ -208,6 +216,7 @@ json sketchToJson(const sketch::Sketch& s) {
             for (const auto& p : c.points) {
                 json pj{{"entity", p.entity.toString()}};
                 if (p.role != sketch::PointRole::Self) pj["role"] = std::string(sketch::roleKey(p.role));
+                if (p.role == sketch::PointRole::Pole) pj["index"] = p.index;  // from 0
                 points.push_back(pj);
             }
             j["points"] = points;
@@ -267,6 +276,27 @@ std::optional<sketch::Sketch> sketchFromJson(const json& j, std::string& why) {
                 if (!a0 || !a1) return bad("start_angle or end_angle");
                 e.shape = sketch::ArcShape{*c, *r, *a0, *a1};
             }
+        } else if (type == "spline") {
+            sketch::SplineShape sp;
+            const json poles = ej.value("poles", json());
+            if (!poles.is_array()) return bad("poles");
+            for (const auto& pj : poles) {
+                const auto p = readVec2(pj);
+                if (!p) return bad("poles");
+                sp.poles.push_back(*p);
+            }
+            const json weights = ej.value("weights", json::array());
+            if (!weights.is_array()) return bad("weights");
+            for (const auto& wj : weights) {
+                const auto w = readNumber(wj);
+                if (!w) return bad("weights");
+                sp.weights.push_back(*w);
+            }
+            const json degree = ej.value("degree", json());
+            if (!degree.is_number_integer()) return bad("degree");
+            sp.degree = degree.get<int>();
+            sp.closed = ej.value("closed", false);
+            e.shape = std::move(sp);
         } else {
             return bad("type");
         }
@@ -285,11 +315,15 @@ std::optional<sketch::Sketch> sketchFromJson(const json& j, std::string& why) {
         for (const auto& pj : cj.value("points", json::array())) {
             const auto entity = pj.is_object() ? EntityId::parse(pj.value("entity", "")) : std::nullopt;
             const auto role = pj.is_object() ? sketch::roleFromKey(pj.value("role", "")) : std::nullopt;
-            if (!entity || !role) {
+            const json index = pj.is_object() ? pj.value("index", json(0)) : json();
+            if (!entity || !role || !index.is_number_integer()) {
                 why = "sketch constraint " + c.name + ": bad point";
                 return std::nullopt;
             }
-            c.points.push_back({*entity, *role});
+            // value_or, not *role: GCC's -O3 can't see the check above and warns
+            // that the optional may be uninitialized.
+            const sketch::PointRole r = role.value_or(sketch::PointRole::Self);
+            c.points.push_back({*entity, r, r == sketch::PointRole::Pole ? index.get<int>() : 0});
         }
         for (const auto& ij : cj.value("entities", json::array())) {
             const auto entity = ij.is_string() ? EntityId::parse(ij.get<std::string>()) : std::nullopt;

@@ -70,14 +70,24 @@ struct Circle2 {
     double radius = 0;  ///< The radius (mm). Must be greater than 0.
 };
 
+/// A B-spline in a flat outline, the same as kh::sketch::SplineShape: its knots
+/// are spread evenly. An open one is clamped (it starts at its first pole and ends
+/// at its last); a closed one is periodic and makes a loop on its own, like a circle.
+struct Spline2 {
+    std::vector<Point2> poles{};    ///< Control points (mm, in the plane): at least degree + 1.
+    std::vector<double> weights{};  ///< One per pole, each more than 0; empty means all 1.
+    int degree = 3;                 ///< 1 to 5.
+    bool closed = false;            ///< True for a closed loop.
+};
+
 /// One piece of a closed outline, and which way the outline runs along it.
 struct Edge2 {
-    std::variant<Line2, Arc2, Circle2> curve{};  ///< The line, arc or circle.
-    bool reversed = false;                       ///< True if the outline goes from its end to its start.
+    std::variant<Line2, Arc2, Circle2, Spline2> curve{};  ///< The line, arc, circle or spline.
+    bool reversed = false;  ///< True if the outline goes from its end to its start.
 };
 
 /// A closed outline: edges joined end to end, the last back to the first. A
-/// circle is a loop of one edge.
+/// circle, or a closed spline, is a loop of one edge.
 using Loop2 = std::vector<Edge2>;
 
 /// A flat shape for a face: an outline, and holes inside it. The outline goes

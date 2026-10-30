@@ -35,7 +35,7 @@ endif()
 
 # The sketch library and the PlaneGCS solver. PlaneGCS is a shared library
 # (LGPL), so on Windows its DLL is copied next to the test program.
-add_executable(kh_sketch_tests sketch/test_sketch.cpp sketch/test_planegcs.cpp sketch/test_profiles.cpp)
+add_executable(kh_sketch_tests sketch/test_sketch.cpp sketch/test_planegcs.cpp sketch/test_profiles.cpp sketch/test_spline.cpp)
 target_link_libraries(kh_sketch_tests PRIVATE Catch2::Catch2WithMain kh::sketch kh::sketch_planegcs)
 kh_set_warnings(kh_sketch_tests)
 if(WIN32)

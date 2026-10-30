@@ -154,6 +154,26 @@ std::optional<model::ArgValue> parseArg(const model::ArgSpec& spec, const std::s
             why = spec.name + " must be two numbers in mm, like 10,20";
             return std::nullopt;
         }
+        case ArgType::Vec2List: {
+            // Points split by "/", so the shell needs no quotes: 0,0/0,30/40,30.
+            std::vector<sketch::Point2> points;
+            std::size_t from = 0;
+            for (;;) {
+                const auto slash = text.find('/', from);
+                const std::string item =
+                    text.substr(from, slash == std::string::npos ? std::string::npos : slash - from);
+                const auto c = item.find(',');
+                auto x = c == std::string::npos ? std::nullopt : toNumber(item.substr(0, c));
+                auto y = c == std::string::npos ? std::nullopt : toNumber(item.substr(c + 1));
+                if (!x || !y) {
+                    why = spec.name + " must be points in mm split by /, like 0,0/0,30/40,30/40,0";
+                    return std::nullopt;
+                }
+                points.push_back({*x, *y});
+                if (slash == std::string::npos) return points;
+                from = slash + 1;
+            }
+        }
         case ArgType::FeatureRef:
             for (std::size_t i = 0; i < doc.featureCount(); ++i) {
                 if (doc.featureAt(i).name() == text) return doc.featureAt(i).id();
@@ -216,6 +236,8 @@ const char* typeName(model::ArgType t) {
             return "x,y,z";
         case model::ArgType::Vec2:
             return "x,y";
+        case model::ArgType::Vec2List:
+            return "x,y/x,y/...";
         case model::ArgType::FeatureRef:
             return "step name";
         case model::ArgType::FeatureList:
@@ -459,12 +481,13 @@ int runCommand(int argc, char** argv) {
 }
 
 std::string sketchSummary(const sketch::Sketch& sketch, int freedom) {
-    int points = 0, lines = 0, circles = 0, arcs = 0;
+    int points = 0, lines = 0, circles = 0, arcs = 0, splines = 0;
     for (const auto& e : sketch.entities) {
         points += std::holds_alternative<sketch::PointShape>(e.shape) ? 1 : 0;
         lines += std::holds_alternative<sketch::LineShape>(e.shape) ? 1 : 0;
         circles += std::holds_alternative<sketch::CircleShape>(e.shape) ? 1 : 0;
         arcs += std::holds_alternative<sketch::ArcShape>(e.shape) ? 1 : 0;
+        splines += std::holds_alternative<sketch::SplineShape>(e.shape) ? 1 : 0;
     }
     auto count = [](int n, const char* one, const char* many) {
         return std::to_string(n) + " " + (n == 1 ? one : many);
@@ -474,6 +497,7 @@ std::string sketchSummary(const sketch::Sketch& sketch, int freedom) {
     if (lines) add(count(lines, "line", "lines"));
     if (circles) add(count(circles, "circle", "circles"));
     if (arcs) add(count(arcs, "arc", "arcs"));
+    if (splines) add(count(splines, "spline", "splines"));
     if (points) add(count(points, "point", "points"));
     if (out.empty()) return "empty";
     add(count(static_cast<int>(sketch.constraints.size()), "constraint", "constraints"));

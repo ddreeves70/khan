@@ -148,6 +148,17 @@ void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureR
             what = "line    " + xy(l->start) + " to " + xy(l->end);
         } else if (const auto* c = std::get_if<ks::CircleShape>(&e.shape)) {
             what = "circle  center " + xy(c->center) + "  radius " + length(c->radius, unit);
+        } else if (const auto* sp = std::get_if<ks::SplineShape>(&e.shape)) {
+            // "spline  degree 3, open  poles 0.00, 0.00 / 0.00, 30.00 / ..."
+            std::string poles;
+            for (const auto& pole : sp->poles) poles += (poles.empty() ? "" : " / ") + xy(pole);
+            what = "spline  degree " + std::to_string(sp->degree) + (sp->closed ? ", closed" : ", open") +
+                   "  poles " + poles;
+            if (!sp->weights.empty()) {
+                std::string w;
+                for (double x : sp->weights) w += (w.empty() ? "" : ", ") + mm(x);
+                what += "  weights " + w;
+            }
         } else if (const auto* a = std::get_if<ks::ArcShape>(&e.shape)) {
             what = "arc     center " + xy(a->center) + "  radius " + length(a->radius, unit) + "  from " +
                    mm(a->startAngle * 180 / std::numbers::pi) + " to " +
@@ -163,7 +174,7 @@ void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureR
         auto add = [&on](const std::string& part) { on += (on.empty() ? "" : ", ") + part; };
         for (const auto& p : c.points) {
             const auto* e = shown.find(p.entity);
-            const std::string role(ks::roleKey(p.role));
+            const std::string role = ks::pointKey(p);
             add((e ? e->name : "?") + (role.empty() ? "" : "." + role));
         }
         for (const auto& id : c.entities) {
@@ -209,7 +220,7 @@ void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureR
         std::string ends;
         for (const auto& r : found.openEnds) {
             const auto* x = shown.find(r.entity);
-            ends += (ends.empty() ? "" : ", ") + (x ? x->name : "?") + "." + std::string(ks::roleKey(r.role));
+            ends += (ends.empty() ? "" : ", ") + (x ? x->name : "?") + "." + ks::pointKey(r);
         }
         std::printf("open ends: %s\n", ends.c_str());
     }

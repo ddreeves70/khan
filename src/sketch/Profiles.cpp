@@ -36,6 +36,27 @@ double sweep(const Shape& shape, bool reversed) {
             2;
     } else if (const auto* c = std::get_if<CircleShape>(&shape)) {
         a = kPi * c->radius * c->radius;
+    } else if (const auto* s = std::get_if<SplineShape>(&shape)) {
+        // (x dy - y dx) / 2 along the curve, by 8-point Gauss-Legendre on each piece
+        // between knots: exact (to rounding) for an ordinary spline, whose pieces are
+        // polynomials of degree 5 or less, and very close for a weighted one.
+        static constexpr double kNode[4] = {0.1834346424956498, 0.5255324099163290, 0.7966664774136267,
+                                            0.9602898564975363};
+        static constexpr double kWeight[4] = {0.3626837833783620, 0.3137066458778873, 0.2223810344533745,
+                                              0.1012285362903763};
+        const int n = static_cast<int>(s->poles.size());
+        const int spans = s->closed ? n : std::max(1, n - s->degree);
+        const double h = 1e-7;  // for the slope, by central differences
+        for (int i = 0; i < spans; ++i) {
+            const double mid = (i + 0.5) / spans, half = 0.5 / spans;
+            for (int k = 0; k < 8; ++k) {
+                const double t = mid + (k < 4 ? -1 : 1) * kNode[k % 4] * half;
+                const auto p = splinePoint(*s, t);
+                const auto p0 = splinePoint(*s, t - h), p1 = splinePoint(*s, t + h);
+                const double dx = (p1.x - p0.x) / (2 * h), dy = (p1.y - p0.y) / (2 * h);
+                a += kWeight[k % 4] * half * (p.x * dy - p.y * dx) / 2;
+            }
+        }
     }
     return reversed ? -a : a;
 }
@@ -53,6 +74,9 @@ void sample(const Shape& shape, bool reversed, std::vector<Point2>& out) {
         for (int i = 0; i < 72; ++i)
             pts.push_back({c->center.x + c->radius * std::cos(2 * kPi * i / 72),
                            c->center.y + c->radius * std::sin(2 * kPi * i / 72)});
+    } else if (const auto* s = std::get_if<SplineShape>(&shape)) {
+        pts = splineSample(*s, 16);
+        pts.pop_back();  // its end is the next edge's start (or, closed, its own start)
     }
     if (reversed) {
         // The same points, walked the other way (starting from the other end).
@@ -120,6 +144,16 @@ Profiles findProfiles(const Sketch& sketch, double tolerance) {
                 pieces.push_back({&e, arcPoint(*a, a->startAngle), arcPoint(*a, a->endAngle)});
         } else if (const auto* c = std::get_if<CircleShape>(&e.shape)) {
             if (c->radius > tolerance) circles.push_back(&e);
+        } else if (const auto* s = std::get_if<SplineShape>(&e.shape)) {
+            // A closed spline is a loop on its own, like a circle; an open one is a
+            // piece from its first pole to its last.
+            if (s->poles.size() < 2) continue;
+            if (s->closed) {
+                circles.push_back(&e);
+            } else if (std::hypot(s->poles.back().x - s->poles.front().x,
+                                  s->poles.back().y - s->poles.front().y) > tolerance) {
+                pieces.push_back({&e, s->poles.front(), s->poles.back()});
+            }
         }
     }
     std::vector<Point2> vertices;
@@ -209,9 +243,11 @@ Profiles findProfiles(const Sketch& sketch, double tolerance) {
         firstEntity.push_back(firstIndex);
     }
     for (const auto* c : circles) {
-        Loop loop{{{c->id, false}}, sweep(c->shape, false)};
+        // Counterclockwise: a closed spline drawn clockwise is walked backwards.
+        const bool backwards = sweep(c->shape, false) < 0;
+        Loop loop{{{c->id, backwards}}, std::abs(sweep(c->shape, false))};
         std::vector<Point2> outline;
-        sample(c->shape, false, outline);
+        sample(c->shape, backwards, outline);
         loops.push_back(std::move(loop));
         outlines.push_back(std::move(outline));
         firstEntity.push_back(entityIndex(c));

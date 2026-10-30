@@ -1,0 +1,120 @@
+{
+  "name": "extrude-spline-hole",
+  "description": "A 40 x 40 mm plate with a hole shaped by a closed (periodic) uniform cubic spline round the square of poles (+-10, +-10), extruded 2 mm. The spline's area is 271.1111 mm^2 (exactly 2440/9, checked by integrating the B-spline), so the volume is (1600 - 2440/9) x 2 = 2657.78 mm^3. 7 faces: top, bottom, 4 sides, the hole's wall.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {
+          "line": [
+            [
+              -20,
+              -20
+            ],
+            [
+              20,
+              -20
+            ]
+          ]
+        },
+        {
+          "line": [
+            [
+              20,
+              -20
+            ],
+            [
+              20,
+              20
+            ]
+          ]
+        },
+        {
+          "line": [
+            [
+              20,
+              20
+            ],
+            [
+              -20,
+              20
+            ]
+          ]
+        },
+        {
+          "line": [
+            [
+              -20,
+              20
+            ],
+            [
+              -20,
+              -20
+            ]
+          ]
+        }
+      ],
+      "holes": [
+        [
+          {
+            "spline": {
+              "poles": [
+                [
+                  -10,
+                  -10
+                ],
+                [
+                  10,
+                  -10
+                ],
+                [
+                  10,
+                  10
+                ],
+                [
+                  -10,
+                  10
+                ]
+              ],
+              "degree": 3,
+              "closed": true
+            },
+            "reversed": true
+          }
+        ]
+      ]
+    },
+    {
+      "id": "plate",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        0,
+        2
+      ]
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 2657.777778,
+    "area": 3096.279543,
+    "bounds": [
+      [
+        -20.0,
+        -20.0,
+        -0.0
+      ],
+      [
+        20.0,
+        20.0,
+        2.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 7,
+    "edges": 15,
+    "vertices": 10
+  }
+}

@@ -103,10 +103,16 @@ again every time it opens or rebuilds the design.
 - Each entity has `id`, `name` (like `"Line1"`), `type` and its numbers (mm,
   angles in radians), and `"construction": true` if it's helper geometry:
   `point` (`at` [x, y]), `line` (`start`, `end`), `circle` (`center`, `radius`),
-  `arc` (`center`, `radius`, `start_angle`, `end_angle`, counterclockwise).
+  `arc` (`center`, `radius`, `start_angle`, `end_angle`, counterclockwise),
+  `spline` (`poles`: a list of [x, y] control points; `degree`, 1 to 5;
+  `weights`, one per pole, left out when they're all 1; `"closed": true` for a
+  closed loop, left out when false). A spline's knots aren't saved: they're spread
+  evenly, clamped at the ends of an open spline and periodic for a closed one (see
+  `kh::sketch::SplineShape`).
 - Each constraint has `id`, `name` (like `"Length1"`), `kind` (`"horizontal"`,
   `"point_on_line"`, ... as `sketch.constrain` spells them), `points` (each an
-  `entity` id and a `role`: `"start"`, `"end"`, `"center"`, or none for a point),
+  `entity` id and a `role`: `"start"`, `"end"`, `"center"`, `"pole"` with an
+  `index` from 0 for a spline's control point, or none for a point),
   `entities` (ids), `value` for dimensions (mm, or radians for `angle`), and
   `at` [x, y] for `fix`.
 

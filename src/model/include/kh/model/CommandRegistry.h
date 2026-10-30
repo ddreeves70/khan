@@ -34,11 +34,12 @@ enum class ArgType {
     FeatureList,  ///< A std::vector<FeatureId>: one or more steps in the document, in order.
     FolderRef,    ///< A FolderId of a folder in the document.
     Vec2,         ///< A sketch::Point2: a point on a sketch's plane, in millimeters.
+    Vec2List,     ///< A std::vector<sketch::Point2>: points on a sketch's plane, in order, in millimeters.
 };
 
 /// One argument value. Which alternative is allowed depends on the ArgSpec's ArgType.
 using ArgValue = std::variant<double, std::int64_t, bool, std::string, kernel::Vec3, FeatureId,
-                              std::vector<FeatureId>, FolderId, sketch::Point2>;
+                              std::vector<FeatureId>, FolderId, sketch::Point2, std::vector<sketch::Point2>>;
 
 /// Arguments for one command, by argument name.
 using Args = std::map<std::string, ArgValue>;
@@ -155,6 +156,12 @@ kernel::Vec3 argVec3(const Args& args, const std::string& name, const kernel::Ve
 /// @param fallback Returned if the argument is absent.
 /// @return The value (mm).
 sketch::Point2 argVec2(const Args& args, const std::string& name, const sketch::Point2& fallback = {});
+
+/// Reads a list of points on a sketch's plane (ArgType::Vec2List).
+/// @param args The arguments.
+/// @param name The argument's name.
+/// @return Its points, or an empty list if it's missing or isn't a list of points.
+std::vector<sketch::Point2> argVec2List(const Args& args, const std::string& name);
 
 /// Reads a feature argument, for use in a CommandFactory.
 /// @param args The checked arguments.

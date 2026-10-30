@@ -218,15 +218,140 @@ std::string_view roleKey(PointRole role) {
             return "end";
         case PointRole::Center:
             return "center";
+        case PointRole::Pole:
+            return "pole";
     }
     return "";
 }
 
 std::optional<PointRole> roleFromKey(std::string_view key) {
-    for (auto r : {PointRole::Self, PointRole::Start, PointRole::End, PointRole::Center}) {
+    for (auto r : {PointRole::Self, PointRole::Start, PointRole::End, PointRole::Center, PointRole::Pole}) {
         if (roleKey(r) == key) return r;
     }
     return std::nullopt;
+}
+
+std::string pointKey(const PointRef& ref) {
+    if (ref.role == PointRole::Pole) return "pole" + std::to_string(ref.index + 1);
+    return std::string(roleKey(ref.role));
+}
+
+std::optional<PointRef> pointFromKey(const EntityId& entity, std::string_view key) {
+    constexpr std::string_view pole = "pole";
+    if (key.size() > pole.size() && key.substr(0, pole.size()) == pole) {
+        int n = 0;
+        for (const char ch : key.substr(pole.size())) {
+            if (ch < '0' || ch > '9' || n > 100000) return std::nullopt;
+            n = n * 10 + (ch - '0');
+        }
+        if (n < 1) return std::nullopt;
+        return PointRef{entity, PointRole::Pole, n - 1};
+    }
+    const auto role = roleFromKey(key);
+    if (!role || *role == PointRole::Pole) return std::nullopt;  // "pole" needs its number
+    return PointRef{entity, *role, 0};
+}
+
+std::vector<PointRef> pointsOf(const Entity& entity) {
+    const auto id = entity.id;
+    if (std::holds_alternative<PointShape>(entity.shape)) return {{id, PointRole::Self}};
+    if (std::holds_alternative<LineShape>(entity.shape))
+        return {{id, PointRole::Start}, {id, PointRole::End}};
+    if (std::holds_alternative<CircleShape>(entity.shape)) return {{id, PointRole::Center}};
+    if (std::holds_alternative<ArcShape>(entity.shape))
+        return {{id, PointRole::Start}, {id, PointRole::End}, {id, PointRole::Center}};
+    std::vector<PointRef> out;
+    const auto& s = std::get<SplineShape>(entity.shape);
+    for (std::size_t i = 0; i < s.poles.size(); ++i)
+        out.push_back({id, PointRole::Pole, static_cast<int>(i)});
+    return out;
+}
+
+namespace {
+
+// A spline as an ordinary (unclamped) B-spline: its poles (a closed one's first
+// `degree` poles repeated at the end), their weights, its whole knot vector, and
+// the range of the knots it's drawn over.
+struct Flat {
+    std::vector<Point2> poles;
+    std::vector<double> weights;
+    std::vector<double> knots;
+    double from = 0, to = 0;
+};
+
+Flat flatten(const SplineShape& s) {
+    Flat f;
+    const int n = static_cast<int>(s.poles.size());
+    const int p = s.degree;
+    auto weight = [&](int i) { return s.weights.empty() ? 1.0 : s.weights[static_cast<std::size_t>(i)]; };
+    if (s.closed) {
+        for (int i = 0; i < n + p; ++i) {
+            f.poles.push_back(s.poles[static_cast<std::size_t>(i % n)]);
+            f.weights.push_back(weight(i % n));
+        }
+        for (int i = 0; i <= n + 2 * p; ++i) f.knots.push_back(i);
+        f.from = p;
+        f.to = n + p;
+    } else {
+        for (int i = 0; i < n; ++i) {
+            f.poles.push_back(s.poles[static_cast<std::size_t>(i)]);
+            f.weights.push_back(weight(i));
+        }
+        for (int i = 0; i <= p; ++i) f.knots.push_back(0);
+        for (int i = 1; i < n - p; ++i) f.knots.push_back(i);
+        for (int i = 0; i <= p; ++i) f.knots.push_back(n - p);
+        f.from = 0;
+        f.to = n - p;
+    }
+    return f;
+}
+
+// de Boor's algorithm, in homogeneous coordinates (x w, y w, w) for the weights.
+Point2 deBoor(const Flat& f, int p, double u) {
+    const int last = static_cast<int>(f.poles.size()) - 1;
+    int k = p;  // the span: knots[k] <= u < knots[k + 1]
+    while (k < last && f.knots[static_cast<std::size_t>(k + 1)] <= u) ++k;
+    std::vector<double> x, y, w;
+    for (int j = 0; j <= p; ++j) {
+        const auto i = static_cast<std::size_t>(j + k - p);
+        w.push_back(f.weights[i]);
+        x.push_back(f.poles[i].x * f.weights[i]);
+        y.push_back(f.poles[i].y * f.weights[i]);
+    }
+    for (int r = 1; r <= p; ++r) {
+        for (int j = p; j >= r; --j) {
+            const double a0 = f.knots[static_cast<std::size_t>(j + k - p)];
+            const double a1 = f.knots[static_cast<std::size_t>(j + 1 + k - r)];
+            const double a = a1 > a0 ? (u - a0) / (a1 - a0) : 0;
+            const auto J = static_cast<std::size_t>(j);
+            x[J] = (1 - a) * x[J - 1] + a * x[J];
+            y[J] = (1 - a) * y[J - 1] + a * y[J];
+            w[J] = (1 - a) * w[J - 1] + a * w[J];
+        }
+    }
+    const auto P = static_cast<std::size_t>(p);
+    return {x[P] / w[P], y[P] / w[P]};
+}
+
+}  // namespace
+
+Point2 splinePoint(const SplineShape& spline, double t) {
+    if (spline.poles.empty()) return {};
+    if (spline.degree < 1 || static_cast<int>(spline.poles.size()) <= spline.degree)
+        return spline.poles.front();
+    const Flat f = flatten(spline);
+    const double u = f.from + std::clamp(t, 0.0, 1.0) * (f.to - f.from);
+    return deBoor(f, spline.degree, u);
+}
+
+std::vector<Point2> splineSample(const SplineShape& spline, int perSpan) {
+    std::vector<Point2> out;
+    if (spline.poles.empty()) return out;
+    const int n = static_cast<int>(spline.poles.size());
+    const int spans = spline.closed ? n : std::max(1, n - spline.degree);
+    const int count = spans * std::max(1, perSpan);
+    for (int i = 0; i <= count; ++i) out.push_back(splinePoint(spline, static_cast<double>(i) / count));
+    return out;
 }
 
 bool isDimension(ConstraintKind kind) {
@@ -254,6 +379,14 @@ std::optional<Point2> pointOf(const Sketch& sketch, const PointRef& ref) {
         if (ref.role == PointRole::End) return l->end;
     } else if (const auto* c = std::get_if<CircleShape>(&e->shape)) {
         if (ref.role == PointRole::Center) return c->center;
+    } else if (const auto* s = std::get_if<SplineShape>(&e->shape)) {
+        if (ref.role == PointRole::Pole && ref.index >= 0 && ref.index < static_cast<int>(s->poles.size()))
+            return s->poles[static_cast<std::size_t>(ref.index)];
+        // An open spline starts at its first pole and ends at its last.
+        if (!s->closed && !s->poles.empty()) {
+            if (ref.role == PointRole::Start) return s->poles.front();
+            if (ref.role == PointRole::End) return s->poles.back();
+        }
     } else if (const auto* a = std::get_if<ArcShape>(&e->shape)) {
         if (ref.role == PointRole::Center) return a->center;
         if (ref.role == PointRole::Start) {
@@ -286,6 +419,29 @@ Diagnostics check(const Sketch& sketch) {
                 out.push_back(
                     problem("sketch.line_length",
                             "A line needs two different ends. Drag one end away, or delete the line."));
+            }
+        } else if (const auto* s = std::get_if<SplineShape>(&e.shape)) {
+            const auto n = s->poles.size();
+            bool numbers = std::all_of(s->poles.begin(), s->poles.end(), finite);
+            for (double w : s->weights) numbers = numbers && std::isfinite(w);
+            if (!numbers) {
+                out.push_back(problem("sketch.number", "A spline has a control point that isn't a number."));
+            } else if (s->degree < 1 || s->degree > 5) {
+                out.push_back(problem("sketch.spline_degree",
+                                      "A spline's degree must be 1 to 5. 3 is the usual: pick that."));
+            } else if (n < static_cast<std::size_t>(s->degree) + 1) {
+                out.push_back(
+                    problem("sketch.spline_poles", "A spline of degree " + std::to_string(s->degree) +
+                                                       " needs at least " + std::to_string(s->degree + 1) +
+                                                       " control points. Add more, or lower its degree."));
+            } else if (!s->weights.empty() && s->weights.size() != n) {
+                out.push_back(
+                    problem("sketch.spline_weights",
+                            "A spline needs one weight for each control point. The sketch is damaged."));
+            } else if (std::any_of(s->weights.begin(), s->weights.end(), [](double w) { return w <= 0; })) {
+                out.push_back(
+                    problem("sketch.spline_weights",
+                            "A spline's weights must be more than 0. Type a bigger weight, like 1."));
             }
         } else {
             Point2 center;
@@ -335,9 +491,8 @@ Diagnostics check(const Sketch& sketch) {
         bool badPoint = false;
         for (const auto& p : c.points) badPoint = badPoint || !pointOf(sketch, p);
         if (badPoint) {
-            out.push_back(problem(
-                "sketch.point",
-                name + " uses a point that its line, circle or arc doesn't have. The sketch is damaged."));
+            out.push_back(problem("sketch.point", name + " uses a point that its line, circle, arc or spline "
+                                                         "doesn't have. The sketch is damaged."));
             continue;
         }
         const auto np = c.points.size();
@@ -354,8 +509,7 @@ Diagnostics check(const Sketch& sketch) {
                     need = "a position that's a number";
                 break;
             case ConstraintKind::Coincident:
-                if (np != 2 || ne != 0 ||
-                    (c.points[0].entity == c.points[1].entity && c.points[0].role == c.points[1].role)) {
+                if (np != 2 || ne != 0 || c.points[0] == c.points[1]) {
                     need = "two different points";
                 }
                 break;

@@ -641,6 +641,9 @@ sketch::Sketch everyKind() {
     const auto l2 = add("Line2", LineShape{{0, 0}, {0, 20}}, true);
     const auto c = add("Circle1", CircleShape{{20, 10}, 5});
     const auto a = add("Arc1", ArcShape{{40, 10}, 10, -1.5707963, 1.5707963});
+    const auto sp =
+        add("Spline1", SplineShape{{{0, 30}, {10, 40}, {30, 40}, {40, 30}}, {1, 2.5, 1, 1}, 3, false});
+    add("Spline2", SplineShape{{{0, 50}, {10, 50}, {10, 60}, {0, 60}}, {}, 2, true});
     auto con = [&](std::string name, ConstraintKind k, std::vector<PointRef> pts, std::vector<EntityId> ents,
                    double v = 0, Point2 at = {}) {
         s.constraints.push_back(
@@ -666,6 +669,7 @@ sketch::Sketch everyKind() {
     con("Radius1", K::Radius, {}, {c}, 5);
     con("Diameter1", K::Diameter, {}, {a}, 20);
     con("Angle1", K::Angle, {}, {l1, l2}, 1.5707963);
+    con("Coincident2", K::Coincident, {{sp, PointRole::Pole, 2}, {sp, PointRole::Start}}, {});
     return s;
 }
 
@@ -677,6 +681,15 @@ bool sameSketch(const sketch::Sketch& a, const sketch::Sketch& b) {
         if (x.id != y.id || x.name != y.name || x.construction != y.construction ||
             x.shape.index() != y.shape.index())
             return false;
+        if (const auto* s = std::get_if<sketch::SplineShape>(&x.shape)) {
+            const auto& t = std::get<sketch::SplineShape>(y.shape);
+            if (s->weights != t.weights || s->degree != t.degree || s->closed != t.closed ||
+                s->poles.size() != t.poles.size())
+                return false;
+            for (std::size_t k = 0; k < s->poles.size(); ++k) {
+                if (s->poles[k].x != t.poles[k].x || s->poles[k].y != t.poles[k].y) return false;
+            }
+        }
     }
     for (std::size_t i = 0; i < a.constraints.size(); ++i) {
         const auto& x = a.constraints[i];
@@ -685,8 +698,7 @@ bool sameSketch(const sketch::Sketch& a, const sketch::Sketch& b) {
             x.entities != y.entities || x.points.size() != y.points.size())
             return false;
         for (std::size_t j = 0; j < x.points.size(); ++j) {
-            if (x.points[j].entity != y.points[j].entity || x.points[j].role != y.points[j].role)
-                return false;
+            if (!(x.points[j] == y.points[j])) return false;
         }
     }
     return true;
@@ -817,4 +829,32 @@ TEST_CASE("a unit Khan doesn't know opens in mm", "[io][units]") {
                                 "odd.khan");
     REQUIRE(opened.ok());
     CHECK(opened.document->lengthUnit() == LengthUnit::Millimeter);
+}
+
+TEST_CASE("a spline with too few poles, or a pole point without its number, is refused",
+          "[io][sketch][spline]") {
+    const std::string sketchId = "1a2b3c4d-1111-4222-8333-444455556666";
+    auto open = [&](const std::string& entities, const std::string& constraints) {
+        return io::readBytes(
+            makeZip({{"manifest.json", manifest()},
+                     {"timeline.json", R"({"features":[{"id":")" + sketchId + R"(","suppressed":false}]})"},
+                     {"features/" + sketchId + ".json",
+                      R"({"id":")" + sketchId +
+                          R"(","name":"Sketch1","type":"Sketch","params":{"plane":"xy","entities":[)" +
+                          entities + R"(],"constraints":[)" + constraints + "]}}"}}),
+            "odd.khan");
+    };
+    const std::string spline =
+        R"({"id":"2b2b3c4d-1111-4222-8333-444455556666","name":"Spline1","type":"spline","poles":[[0,0],[1,1],[2,0],[3,1]],"degree":3})";
+    CHECK(open(spline, "").ok());
+    const auto noDegree = open(
+        R"({"id":"2b2b3c4d-1111-4222-8333-444455556666","name":"Spline1","type":"spline","poles":[[0,0],[1,1]]})",
+        "");
+    REQUIRE_FALSE(noDegree.ok());
+    CHECK(noDegree.issues.at(0).detail.find("Spline1: bad or missing degree") != std::string::npos);
+    const auto badIndex = open(
+        spline,
+        R"({"id":"3c2b3c4d-1111-4222-8333-444455556666","name":"Fix1","kind":"fix","at":[0,0],"points":[{"entity":"2b2b3c4d-1111-4222-8333-444455556666","role":"pole","index":"two"}]})");
+    REQUIRE_FALSE(badIndex.ok());
+    CHECK(badIndex.issues.at(0).detail.find("Fix1: bad point") != std::string::npos);
 }

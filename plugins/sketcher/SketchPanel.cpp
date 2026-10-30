@@ -47,10 +47,12 @@ std::string onWhat(const sketch::Sketch& s, const sketch::Constraint& c) {
     for (const auto& p : c.points) {
         const auto* e = s.find(p.entity);
         if (!e) continue;
-        const char* role = p.role == sketch::PointRole::Start    ? "'s start"
-                           : p.role == sketch::PointRole::End    ? "'s end"
-                           : p.role == sketch::PointRole::Center ? "'s center"
-                                                                 : "";
+        const std::string role = p.role == sketch::PointRole::Start    ? "'s start"
+                                 : p.role == sketch::PointRole::End    ? "'s end"
+                                 : p.role == sketch::PointRole::Center ? "'s center"
+                                 : p.role == sketch::PointRole::Pole
+                                     ? "'s control point " + std::to_string(p.index + 1)
+                                     : std::string();
         add(e->name + role);
     }
     for (const auto& id : c.entities) {

@@ -61,6 +61,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command sketch.add_circle
            command sketch.add_line
            command sketch.add_point
+           command sketch.add_spline
            command sketch.constrain
            command sketch.delete
            command sketch.set_value
@@ -114,6 +115,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command sketch.add_circle
            command sketch.add_line
            command sketch.add_point
+           command sketch.add_spline
            command sketch.constrain
            command sketch.delete
            command sketch.set_value
@@ -151,7 +153,7 @@ failed   test.badname 1.0.0  Test badname
 failed   test.noentry 1.0.0  Test noentry
            error [plugin.library_bad]: The Test noentry plugin's program file isn't a Khan plugin (it has no KH_PLUGIN_ENTRY). Ask its author for a fixed version. (...)
 failed   test.oldapi 1.0.0  Test oldapi
-           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 19). Get a version of the plugin made for this Khan. (...)
+           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 20). Get a version of the plugin made for this Khan. (...)
 ```
 
 Every reason and its fix is listed in the plugin guide's
