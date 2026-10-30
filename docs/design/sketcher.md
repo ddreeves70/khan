@@ -161,7 +161,9 @@ after scattering the heap between solves.
   FreeCAD does), so the size changes, not the place. Every answer is checked
   with Khan's own `error()`, like solve(). It doesn't diagnose, so it's fast
   enough for every mouse move. The drop is one `EditSketchCommand` ("Move Line1",
-  "Move Line2's end"), only if something moved.
+  "Move Line2's end"), only if something moved. A dragged point that comes within
+  8 pixels of a point of another entity is pulled exactly onto it, and the drop
+  adds a Coincident too ("Join Line2's start to Line1's end").
 - **Free or fixed (`SolveResult::freePoints`, `freeEntities`).** After the
   diagnose step, PlaneGCS's *dependent* parameters are the numbers the
   constraints don't set. A point is free if its x or y is; an entity is free if

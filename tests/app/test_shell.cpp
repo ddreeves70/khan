@@ -879,6 +879,42 @@ TEST_CASE("dragging a corner moves it, and the lines joined to it follow", "[app
     CHECK(d.line(1).end.x == Approx(60).margin(1e-6));
 }
 
+TEST_CASE("dropping an end onto another point joins them, in one undo step", "[app][sketcher]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    app.menu("kh.sketcher.auto")->trigger();  // plain lines, to keep the count simple
+    auto* flat = app.flat();
+    clickAt(flat, {0, 0, 0});  // Line1, level
+    clickAt(flat, {40, 0, 0});
+    pressEscape(flat);
+    clickAt(flat, {50, 10, 0});  // Line2, separate: its start is 10 mm away
+    clickAt(flat, {50, 40, 0});
+    pressEscape(flat);
+    pressEscape(flat);  // to Select
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.constraints.empty());
+    // Drag Line2's start to 1.4 mm from Line1's end: within 8 pixels (2 mm), so it snaps.
+    dragAt(flat, {50, 10, 0}, {41, 1, 0});
+    const auto& l1 = std::get<sketch::LineShape>(s.entities[0].shape);
+    const auto& l2 = std::get<sketch::LineShape>(s.entities[1].shape);
+    CHECK(l2.start.x == Approx(l1.end.x).margin(1e-9));  // exactly on it
+    CHECK(l2.start.y == Approx(l1.end.y).margin(1e-9));
+    REQUIRE(s.constraints.size() == 1);
+    CHECK(s.constraints[0].kind == sketch::ConstraintKind::Coincident);
+    CHECK(app.doc().undoLabel() == "Join Line2's start to Line1's end");
+    const auto* ends = app.host.overlays().find("kh.sketcher.edit.open_ends");
+    REQUIRE(ends);
+    CHECK(ends->points.size() == 2);  // 4 open ends before, 2 now
+    app.shell->undoAction()->trigger();  // one step: back apart, no constraint
+    settle();
+    CHECK(s.constraints.empty());
+    CHECK(std::get<sketch::LineShape>(s.entities[1].shape).start.x == Approx(50));
+    // Dropped farther away, it just moves.
+    dragAt(flat, {50, 10, 0}, {44, 4, 0});
+    CHECK(s.constraints.empty());
+    CHECK(app.doc().undoLabel() == "Move Line2's start");
+}
+
 TEST_CASE("dragging a line moves all of it; dragging a circle's edge changes its size", "[app][sketcher]") {
     Drawn d;
     dragAt(d.flat, {30, 0, 0}, {30, -5, 0});  // Line1, down 5 mm

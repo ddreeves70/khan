@@ -590,7 +590,32 @@ public:
         const Item& item = drag_->item;
         const auto* e = start.find(item.entity);
         if (!e) return;
-        if (item.point) {
+        // A dragged point dropped within 8 pixels of another point (not one of its
+        // own entity's) lands exactly on it, and they're joined with a Coincident.
+        std::optional<sketch::PointRef> dragging;
+        if (item.point) dragging = sketch::PointRef{item.entity, *item.point};
+        if (!item.point && std::holds_alternative<sketch::PointShape>(e->shape))
+            dragging = sketch::PointRef{item.entity, sketch::PointRole::Self};
+        drag_->joinTo.reset();
+        hover_.reset();
+        if (dragging) {
+            if (const auto p = sketch::pointOf(start, *dragging)) {
+                const sketch::Point2 there{p->x + delta.x, p->y + delta.y};
+                double best = kSnapPixels * to.pixel;
+                for (const auto& [ref, q] : sketchPoints(start.entities)) {
+                    if (ref.entity == item.entity) continue;
+                    if (distance(there, q) < best) {
+                        best = distance(there, q);
+                        drag_->joinTo = ref;
+                    }
+                }
+            }
+        }
+        if (drag_->joinTo) {
+            const auto onto = *sketch::pointOf(start, *drag_->joinTo);
+            pulls.push_back({*dragging, onto});
+            hover_ = Pick{onto, drag_->joinTo};  // the orange snap dot shows it
+        } else if (item.point) {
             movePoint({item.entity, *item.point});
         } else if (std::holds_alternative<sketch::PointShape>(e->shape)) {
             movePoint({item.entity, sketch::PointRole::Self});
@@ -614,23 +639,51 @@ public:
         dragged(from, to);
         const auto d = std::move(*drag_);
         drag_.reset();
-        if (!d.now || moved(d.start.entities, *d.now) == 0) {
+        hover_.reset();
+        if (!d.now || (moved(d.start.entities, *d.now) == 0 && !d.joinTo)) {
             draw();
             return;
         }
         const auto moved = *d.now;
+        auto pointName = [&](const sketch::PointRef& r) {
+            const auto* x = d.start.find(r.entity);
+            if (!x) return std::string("a point");
+            return r.role == sketch::PointRole::Self ? x->name : x->name + "'s " + roleName(r.role);
+        };
         const auto* e = d.start.find(d.item.entity);
         const std::string what = !e ? std::string("sketch")
                                  : d.item.point && d.item.point != sketch::PointRole::Self
                                      ? e->name + "'s " + roleName(*d.item.point)
                                      : e->name;
-        run([moved, what](sketch::Sketch& s, std::string& label) -> Diagnostics {
+        // The point that was dragged, if it's being joined.
+        std::optional<sketch::PointRef> joining;
+        if (d.joinTo) {
+            joining = d.item.point ? sketch::PointRef{d.item.entity, *d.item.point}
+                                   : sketch::PointRef{d.item.entity, sketch::PointRole::Self};
+        }
+        const auto joinTo = d.joinTo;
+        const std::string label =
+            joining ? "Join " + pointName(*joining) + " to " + pointName(*joinTo) : "Move " + what;
+        run([moved, joining, joinTo, label](sketch::Sketch& s, std::string& undoLabel) -> Diagnostics {
             for (auto& entity : s.entities) {
                 for (const auto& m : moved) {
                     if (m.id == entity.id) entity.shape = m.shape;
                 }
             }
-            label = "Move " + what;
+            if (joining) {
+                sketch::Constraint c;
+                c.kind = sketch::ConstraintKind::Coincident;
+                c.points = {*joining, *joinTo};
+                const bool there = std::ranges::any_of(s.constraints, [&](const sketch::Constraint& x) {
+                    return sketcher::sameConstraint(x, c);
+                });
+                if (!there) {
+                    c.id = ConstraintId::generate();
+                    c.name = model::uniqueSketchName(s, "Coincident");
+                    s.constraints.push_back(std::move(c));
+                }
+            }
+            undoLabel = label;
             return {};
         });
         hint();
@@ -639,6 +692,7 @@ public:
     void cancelled() override {
         if (drag_) {  // Escape while dragging: put it back, and ignore the drop that follows
             drag_.reset();
+            hover_.reset();
             dragCancelled_ = true;
             draw();
             return;
@@ -706,6 +760,7 @@ private:
         Item item;                                         // what's dragged
         sketch::Sketch start;                              // the sketch when the drag started
         std::optional<std::vector<sketch::Entity>> now{};  // where the solver has it now
+        std::optional<sketch::PointRef> joinTo{};          // the point it will be joined to, if dropped now
     };
 
     // What's picked, sorted for the constraint rules. A picked constraint
@@ -1025,7 +1080,7 @@ private:
         // What will be added with the click, beside the mouse: "H", "V", "T" or "On".
         plugin::Overlay hintLabel{.shape = plugin::OverlayShape::Labels, .color = {230, 120, 20}, .size = 13};
         const auto* step = sketchStep(editing_);
-        if (step && hover_ && tool_ != Tool::Select) {
+        if (step && hover_ && (tool_ != Tool::Select || drag_)) {
             const auto plane = step->plane();
             const Pick& h = *hover_;
             auto show = [&](sketch::Shape shape) {
