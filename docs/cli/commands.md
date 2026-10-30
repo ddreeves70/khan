@@ -4,8 +4,10 @@ These are the commands [`kh_cli run`](run.md) runs. Each one adds or changes one
 step of a design. The desktop app's buttons, Python scripts and the AI assistant
 will run the same commands, by the same names.
 
-All lengths are in millimeters (mm). Positions and sizes are written `x,y,z`:
-**x** goes right, **y** goes back, **z** goes up.
+Commands always take lengths in millimeters (mm), whatever unit the design shows
+its lengths in (see [`document.set_units`](#documentset_units)); `kh_cli` prints
+volumes and sketch lengths in the design's unit. Positions and sizes are written
+`x,y,z`: **x** goes right, **y** goes back, **z** goes up.
 
 | Command | What it does |
 | --- | --- |
@@ -27,6 +29,7 @@ All lengths are in millimeters (mm). Positions and sizes are written `x,y,z`:
 | [`sketch.set_value`](#sketchset_value) | Changes a dimension |
 | [`sketch.delete`](#sketchdelete) | Deletes something from a sketch |
 | [`feature.add_extrude`](#featureadd_extrude) | Turns a sketch's closed shapes into a solid |
+| [`document.set_units`](#documentset_units) | Changes the unit the design shows lengths in |
 | [`material.define`](#materialdefine) | Adds a material of your own, or changes one |
 | [`material.delete`](#materialdelete) | Removes a material you added |
 
@@ -695,6 +698,53 @@ open: 2 steps
   Sketch1      ok  1 line, 0 constraints, free to move 4 ways
   Extrude1     failed
     error [extrude.no_shape]: The sketch has no closed shape to extrude. These ends aren't joined: Line1's start, Line1's end. Join them so the lines go all the way round.
+```
+
+## document.set_units
+
+Changes the unit the design shows its lengths in: millimeters, centimeters,
+meters, inches or feet. Nothing changes size: Khan keeps every length in mm
+inside, and commands still take mm. The desktop app shows and takes every
+length in the new unit (it's under **Document settings** in the feature tree),
+and `kh_cli` prints volumes and sketch lengths in it. See
+[Units](../user-guide/desktop-app.md#document-settings-and-units).
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `unit` | `mm`, `cm`, `m`, `in` or `ft` | yes | The unit |
+
+A 2 × 1 inch plate, 10 mm thick, shown in inches:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save plate.khan feature.add_box size=50.8,25.4,10
+plate: 1 step
+  Box1         ok  volume 12903.20 mm^3  mass 16.00 g (PLA)
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan document.set_units unit=in
+plate: 1 step
+  Box1         ok  volume 0.79 in^3  mass 16.00 g (PLA)
+wrote plate.khan
+```
+
+The volume is the same, written in cubic inches: 2 × 1 × 0.394 = 0.79 in^3. The
+mass doesn't change either. A new step's numbers are still mm, so a 1 inch cube
+is `size=25.4,25.4,25.4`:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open plate.khan feature.add_box name=Cube size=25.4,25.4,25.4
+plate: 2 steps
+  Box1         ok  volume 0.79 in^3  mass 16.00 g (PLA)
+  Cube         ok  volume 1.00 in^3  mass 20.32 g (PLA)
+```
+
+Only the five units are known:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open plate.khan document.set_units unit=yards
+error [command.arg_choice]: unit must be one of: mm, cm, m, in, ft.
 ```
 
 ## material.define

@@ -786,3 +786,35 @@ TEST_CASE("a damaged sketch is refused with a plain message", "[io][sketch]") {
     CHECK(opened.issues[0].detail.find("Horizontal uses something that isn't in the sketch") !=
           std::string::npos);
 }
+
+TEST_CASE("the design's unit survives saving and opening; designs in mm save as before", "[io][units]") {
+    auto doc = makeDesign();
+    io::Bytes before;
+    REQUIRE(io::writeBytes(*doc, before).empty());
+    CHECK(readZip(before).at("manifest.json").find("lengthUnit") == std::string::npos);
+
+    REQUIRE(doc->execute(std::make_unique<model::SetUnitsCommand>(LengthUnit::Inch)).empty());
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+    const auto manifestText = readZip(bytes).at("manifest.json");
+    CHECK(manifestText.find(R"("lengthUnit": "in")") != std::string::npos);
+    CHECK(manifestText.find(R"("length": "mm")") != std::string::npos);  // the numbers are still in mm
+    auto opened = io::readBytes(bytes, "tag.khan");
+    REQUIRE(opened.ok());
+    CHECK(opened.document->lengthUnit() == LengthUnit::Inch);
+    CHECK_FALSE(opened.document->canUndo());  // opening isn't an undoable step
+    // Every length is unchanged.
+    CHECK(static_cast<const model::BoxFeature&>(opened.document->featureAt(0)).size().x == 60);
+}
+
+TEST_CASE("a unit Khan doesn't know opens in mm", "[io][units]") {
+    std::string withUnit = manifest();
+    withUnit.replace(withUnit.find(R"("name":"Hand made")"), 18,
+                     R"("name":"Hand made","lengthUnit":"cubit")");
+    auto opened = io::readBytes(makeZip({{"manifest.json", withUnit},
+                                         {"timeline.json", timeline()},
+                                         {"features/" + kBoxId + ".json", boxFeature()}}),
+                                "odd.khan");
+    REQUIRE(opened.ok());
+    CHECK(opened.document->lengthUnit() == LengthUnit::Millimeter);
+}

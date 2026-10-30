@@ -239,7 +239,7 @@ bool sameConstraint(const sketch::Constraint& a, const sketch::Constraint& b) {
     return samePoints(a.points, b.points) && sameEntities(a.entities, b.entities);
 }
 
-std::string labelText(const sketch::Constraint& c) {
+std::string labelText(const sketch::Constraint& c, LengthUnit unit) {
     switch (c.kind) {
         case ConstraintKind::Coincident:
             return "";
@@ -264,15 +264,15 @@ std::string labelText(const sketch::Constraint& c) {
             return "T";
         case ConstraintKind::Distance:
         case ConstraintKind::Length:
-            return number(c.value) + " mm";
+            return lengthText(c.value, unit);
         case ConstraintKind::HorizontalDistance:
-            return "x " + number(c.value) + " mm";
+            return "x " + lengthText(c.value, unit);
         case ConstraintKind::VerticalDistance:
-            return "y " + number(c.value) + " mm";
+            return "y " + lengthText(c.value, unit);
         case ConstraintKind::Radius:
-            return "R" + number(c.value) + " mm";
+            return "R" + lengthText(c.value, unit);
         case ConstraintKind::Diameter:
-            return "Ø" + number(c.value) + " mm";
+            return "Ø" + lengthText(c.value, unit);
         case ConstraintKind::Angle:
             return number(c.value * 180 / kPi) + "°";
     }

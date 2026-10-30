@@ -15,6 +15,7 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <numbers>
@@ -180,8 +181,9 @@ private:
             status_->clear();
             return;
         }
-        if (f->id() != shown_) {
+        if (f->id() != shown_ || unitNow() != unit_) {
             shown_ = f->id();
+            unit_ = unitNow();  // the numbers are shown in the design's unit
             buildForm(*f);
         }
         filling_ = true;
@@ -216,9 +218,28 @@ private:
         auto* steps = new QLabel(count == 1 ? tr("1 step") : tr("%1 steps").arg(count), form_);
         steps->setObjectName(QStringLiteral("steps"));
         form->addRow(tr("Steps"), steps);
-        auto* units = new QLabel(tr("Millimeters (mm); angles in degrees"), form_);
+        auto* units = new QComboBox(form_);
         units->setObjectName(QStringLiteral("units"));
-        form->addRow(tr("Units"), units);
+        for (auto u : allLengthUnits()) {
+            units->addItem(tr("%1 (%2)").arg(qs(std::string(unitName(u))), qs(std::string(unitSymbol(u)))),
+                           qs(std::string(unitSymbol(u))));
+        }
+        units->setCurrentIndex(units->findData(qs(std::string(unitSymbol(design->lengthUnit())))));
+        units->setToolTip(
+            tr("The unit for every length you see and type in this design. Changing it "
+               "doesn't change anything's size."));
+        form->addRow(tr("Lengths"), units);
+        connect(units, &QComboBox::activated, this, [this, units](int index) {
+            const auto symbol = units->itemData(index).toString().toStdString();
+            const auto doc = ctx_.selection().doc();
+            const auto* d = ctx_.documents().find(doc);
+            if (!d || symbol == unitSymbol(d->lengthUnit())) return;
+            auto problems = ctx_.documents().run(doc, "document.set_units", {{"unit", symbol}});
+            if (!problems.empty()) ui_.showProblems(problems);
+        });
+        auto* angles = new QLabel(tr("Degrees"), form_);
+        angles->setObjectName(QStringLiteral("angles"));
+        form->addRow(tr("Angles"), angles);
     }
 
     bool eventFilter(QObject* watched, QEvent* event) override {
@@ -295,7 +316,7 @@ private:
                     [](model::Feature& g, kernel::Vec3 v) {
                         static_cast<model::CylinderFeature&>(g).setAxis(v);
                     },
-                    QString());
+                    false);
                 break;
             case model::FeatureType::Boolean: {
                 auto* op = new QComboBox(form_);
@@ -438,7 +459,7 @@ private:
                     [setMotion](model::Feature& g, kernel::Vec3 v) {
                         setMotion(g, [v](kernel::Motion& m) { m.axis = v; });
                     },
-                    QString());
+                    false);
                 addVec3(
                     form, QStringLiteral("center"), tr("Center"), false,
                     [motion](const model::Feature& g) { return motion(g).center; },
@@ -574,7 +595,10 @@ private:
                 return;
             }
             const auto b = model::bodyMass(*kernel, *shape, m);
-            volume->setText(tr("%1 mm³").arg(b.volume, 0, 'f', 2));
+            // "3748.67 mm³": the design's unit, cubed.
+            QString vol = qs(volumeText(b.volume, unit_));
+            vol.replace(QStringLiteral("^3"), QStringLiteral("³"));
+            volume->setText(vol);
             mass->setText(tr("%1 (weighs %2 N)").arg(massText(b.grams)).arg(b.newtons, 0, 'f', 3));
             cost->setText(m.costPerKg <= 0 ? tr("unknown: the material has no price")
                           : b.cost < 0.005 ? tr("less than $0.01")
@@ -608,11 +632,20 @@ private:
         setMaterial(m.name);
     }
 
-    QDoubleSpinBox* spin(const QString& name, bool positive, const QString& suffix) {
+    // The unit the shown design's lengths are in (its Document settings).
+    LengthUnit unitNow() const {
+        const auto* d = design();
+        return d ? d->lengthUnit() : LengthUnit::Millimeter;
+    }
+
+    // A box for a length in the design's unit (or, with `length` false, for a
+    // plain number, like an axis direction).
+    QDoubleSpinBox* spin(const QString& name, bool positive, const QString& suffix, bool length = true) {
         auto* s = new QDoubleSpinBox(form_);
         s->setObjectName(name);
-        s->setDecimals(2);
-        s->setRange(positive ? 0.01 : -10000.0, 10000.0);
+        const double most = length ? toUnit(10000.0, unit_) : 10000.0;  // 10 m
+        s->setDecimals(length ? unitDecimals(unit_) : 2);
+        s->setRange(positive ? std::pow(10.0, -s->decimals()) : -most, most);
         s->setSuffix(suffix);
         s->setKeyboardTracking(false);  // edit when Enter is pressed or focus leaves, not per key
         s->setAccelerated(true);
@@ -622,17 +655,18 @@ private:
     void addNumber(QFormLayout* form, const QString& key, const QString& label,
                    std::function<double(const model::Feature&)> get,
                    std::function<void(model::Feature&, double)> set) {
-        auto* s = spin(key, true, tr(" mm"));
+        auto* s = spin(key, true, QLatin1Char(' ') + qs(std::string(unitSymbol(unit_))));
         form->addRow(label, s);
-        connect(s, &QDoubleSpinBox::valueChanged, this,
-                [this, key, set](double v) { edit(key, [set, v](model::Feature& g) { set(g, v); }); });
-        updaters_.push_back([s, get](const model::Feature& g) { s->setValue(get(g)); });
+        connect(s, &QDoubleSpinBox::valueChanged, this, [this, key, set](double v) {
+            const double mm = fromUnit(v, unit_);
+            edit(key, [set, mm](model::Feature& g) { set(g, mm); });
+        });
+        updaters_.push_back([this, s, get](const model::Feature& g) { s->setValue(toUnit(get(g), unit_)); });
     }
 
     void addVec3(QFormLayout* form, const QString& key, const QString& label, bool positive,
                  std::function<kernel::Vec3(const model::Feature&)> get,
-                 std::function<void(model::Feature&, kernel::Vec3)> set,
-                 const QString& suffix = QStringLiteral(" mm")) {
+                 std::function<void(model::Feature&, kernel::Vec3)> set, bool length = true) {
         auto* row = new QWidget(form_);
         auto* h = new QHBoxLayout(row);
         h->setContentsMargins(0, 0, 0, 0);
@@ -642,28 +676,31 @@ private:
         for (int i = 0; i < 3; ++i) {
             // Compact: "x 20.00", no arrows (type, or scroll the mouse wheel); the
             // unit is in the row's label.
-            xyz[i] = spin(key + QLatin1Char('.') + QLatin1String(axes[i]), positive, QString());
+            xyz[i] = spin(key + QLatin1Char('.') + QLatin1String(axes[i]), positive, QString(), length);
             xyz[i]->setPrefix(QLatin1String(axes[i]) + QLatin1Char(' '));
             xyz[i]->setButtonSymbols(QAbstractSpinBox::NoButtons);
             xyz[i]->setMinimumWidth(72);
             h->addWidget(xyz[i]);
         }
-        form->addRow(suffix.isEmpty() ? label : label + QStringLiteral(" (mm)"), row);
+        form->addRow(length ? tr("%1 (%2)").arg(label, qs(std::string(unitSymbol(unit_)))) : label, row);
         for (int i = 0; i < 3; ++i) {
-            connect(xyz[i], &QDoubleSpinBox::valueChanged, this, [this, key, i, get, set](double v) {
-                const QString part = key + QLatin1Char('.') + QString::number(i);
-                edit(part, [i, v, get, set](model::Feature& g) {
-                    kernel::Vec3 p = get(g);
-                    (i == 0 ? p.x : i == 1 ? p.y : p.z) = v;
-                    set(g, p);
-                });
-            });
+            connect(xyz[i], &QDoubleSpinBox::valueChanged, this,
+                    [this, key, i, get, set, length](double shown) {
+                        const QString part = key + QLatin1Char('.') + QString::number(i);
+                        const double v = length ? fromUnit(shown, unit_) : shown;
+                        edit(part, [i, v, get, set](model::Feature& g) {
+                            kernel::Vec3 p = get(g);
+                            (i == 0 ? p.x : i == 1 ? p.y : p.z) = v;
+                            set(g, p);
+                        });
+                    });
         }
-        updaters_.push_back([xyz, get](const model::Feature& g) {
+        updaters_.push_back([this, xyz, get, length](const model::Feature& g) {
             const auto p = get(g);
-            xyz[0]->setValue(p.x);
-            xyz[1]->setValue(p.y);
-            xyz[2]->setValue(p.z);
+            auto shown = [&](double v) { return length ? toUnit(v, unit_) : v; };
+            xyz[0]->setValue(shown(p.x));
+            xyz[1]->setValue(shown(p.y));
+            xyz[2]->setValue(shown(p.z));
         });
     }
 
@@ -706,6 +743,7 @@ private:
     QWidget* form_ = nullptr;
     QLabel* status_ = nullptr;
     FeatureId shown_;
+    LengthUnit unit_ = LengthUnit::Millimeter;  // the unit the form was built for
     std::vector<std::function<void(const model::Feature&)>> updaters_;
     bool filling_ = false;
     bool pending_ = false;

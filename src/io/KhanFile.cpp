@@ -590,12 +590,19 @@ Diagnostics writeBytes(const Document& doc, Bytes& out) {
         entries.emplace_back("folders.json", dump(json{{"folders", list}}));
         files.push_back("folders.json");
     }
+    json document{{"id", doc.id().toString()}, {"kind", kindName(doc.kind())}, {"name", doc.name()}};
+    if (doc.lengthUnit() != LengthUnit::Millimeter) {
+        // The unit the design shows lengths in. Only designs that changed it get
+        // this, so other designs save exactly as before. (The numbers in the file
+        // are still in mm: see "units".)
+        document["lengthUnit"] = std::string(unitSymbol(doc.lengthUnit()));
+    }
     const json manifest{
         {"format", "khan"},
         {"schema", kFileSchemaVersion},
         {"app", std::string(version())},
         {"units", {{"length", "mm"}, {"angle", "rad"}}},
-        {"document", {{"id", doc.id().toString()}, {"kind", kindName(doc.kind())}, {"name", doc.name()}}},
+        {"document", document},
         {"files", files},
     };
     entries.emplace_front("timeline.json", dump(json{{"features", timeline}}));
@@ -744,6 +751,14 @@ OpenResult readBytes(const Bytes& data, std::string_view displayName) {
     const auto kind =
         docInfo.value("kind", "part") == "assembly" ? model::DocKind::Assembly : model::DocKind::Part;
     auto doc = std::make_unique<Document>(*docId, kind, docInfo.value("name", std::string(displayName)));
+    if (docInfo.contains("lengthUnit")) {
+        // A unit this Khan doesn't know (from a newer Khan) shows lengths in mm:
+        // it changes nothing's size, so the design still opens.
+        const auto& u = docInfo["lengthUnit"];
+        if (const auto unit = u.is_string() ? parseLengthUnit(u.get<std::string>()) : std::nullopt) {
+            doc->execute(std::make_unique<model::SetUnitsCommand>(*unit));
+        }
+    }
 
     // The design's own materials, before the steps that use them.
     // (A design without materials of its own has no materials.json.)

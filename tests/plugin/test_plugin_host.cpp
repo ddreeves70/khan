@@ -89,12 +89,12 @@ TEST_CASE("kh.modeling loads and its commands work", "[plugin][host]") {
     CHECK(modeling.builtin);
     CHECK(modeling.commands ==
           std::vector<std::string>{
-              "feature.add_boolean", "feature.add_box",      "feature.add_cylinder", "feature.add_extrude",
-              "feature.add_move",    "feature.add_sketch",   "feature.delete",       "feature.duplicate",
-              "feature.rename",      "feature.set_material", "feature.suppress",     "folder.add",
-              "folder.delete",       "folder.rename",        "material.define",      "material.delete",
-              "sketch.add_arc",      "sketch.add_circle",    "sketch.add_line",      "sketch.add_point",
-              "sketch.constrain",    "sketch.delete",        "sketch.set_value"});
+              "document.set_units",  "feature.add_boolean", "feature.add_box",      "feature.add_cylinder",
+              "feature.add_extrude", "feature.add_move",    "feature.add_sketch",   "feature.delete",
+              "feature.duplicate",   "feature.rename",      "feature.set_material", "feature.suppress",
+              "folder.add",          "folder.delete",       "folder.rename",        "material.define",
+              "material.delete",     "sketch.add_arc",      "sketch.add_circle",    "sketch.add_line",
+              "sketch.add_point",    "sketch.constrain",    "sketch.delete",        "sketch.set_value"});
 
     const DocId doc = host.documents().add(std::make_unique<model::Document>());
     REQUIRE(host.documents().run(doc, "feature.add_box", {{"size", kernel::Vec3{2, 3, 4}}}).empty());

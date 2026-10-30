@@ -50,4 +50,7 @@ works in either.
 ## Units
 
 Khan works in millimeters (mm). Volumes are in cubic millimeters (mm^3);
-1000 mm^3 is 1 cm^3.
+1000 mm^3 is 1 cm^3. A design can show its lengths in centimeters, meters,
+inches or feet instead: see
+[Document settings and units](desktop-app.md#document-settings-and-units).
+Commands typed into `kh_cli` always take mm.

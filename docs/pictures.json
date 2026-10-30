@@ -1065,6 +1065,32 @@
         800,
         698
       ]
+    },
+    {
+      "out": "docs/user-guide/images/app-units.png",
+      "size": "1280x800",
+      "commands": [
+        "run --save o.khan feature.add_box name=Base size=120,60,8",
+        "run --open o.khan --save o.khan feature.add_cylinder name=Cup base=30,30,0 radius=22 height=80",
+        "run --open o.khan --save o.khan feature.add_boolean name=Body operation=union a=Base b=Cup",
+        "run --open o.khan --save o.khan feature.add_cylinder name=PenHole base=30,30,6 radius=18 height=80",
+        "run --open o.khan --save o.khan feature.add_boolean name=Hollow operation=cut a=Body b=PenHole",
+        "run --open o.khan --save o.khan feature.add_box name=Slot corner=65,24,4 size=45,12,5",
+        "run --open o.khan --save o.khan feature.add_boolean name=Organizer operation=cut a=Hollow b=Slot",
+        "run --open o.khan --save o.khan document.set_units unit=in"
+      ],
+      "app": {
+        "open": "o.khan",
+        "select": [
+          "PenHole"
+        ]
+      },
+      "crop": [
+        900,
+        198,
+        380,
+        400
+      ]
     }
   ]
 }

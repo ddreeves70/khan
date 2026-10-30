@@ -51,6 +51,10 @@ std::vector<Folder>& DocumentEditor::folders() {
     return doc_.folders_;
 }
 
+void DocumentEditor::setLengthUnit(LengthUnit unit) {
+    doc_.lengthUnit_ = unit;
+}
+
 // ---------------------------------------------------------------------------
 // RebuildReport
 // ---------------------------------------------------------------------------

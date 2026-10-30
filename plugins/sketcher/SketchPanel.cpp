@@ -193,6 +193,8 @@ void SketchPanel::rebuild() {
     if (!step) return;
     const auto* last = lastResult(ctx_, *step);
     const auto& s = step->sketch();
+    const auto* design = ctx_.documents().find(ctx_.documents().active());
+    const auto unit = design ? design->lengthUnit() : LengthUnit::Millimeter;  // lengths are shown in it
     updating_ = true;
     table_->setRowCount(0);
     rows_.clear();
@@ -215,7 +217,7 @@ void SketchPanel::rebuild() {
         table_->setItem(row, 0, name);
         table_->setItem(row, 1, on);
         if (!sketch::isDimension(c.kind)) {
-            table_->setItem(row, 2, new QTableWidgetItem(qs(labelText(c))));
+            table_->setItem(row, 2, new QTableWidgetItem(qs(labelText(c, unit))));
             continue;
         }
         // A dimension: its number, ready to change. Enter (or clicking away) sets it.
@@ -228,8 +230,8 @@ void SketchPanel::rebuild() {
         const bool signedValue = angle || c.kind == sketch::ConstraintKind::HorizontalDistance ||
                                  c.kind == sketch::ConstraintKind::VerticalDistance;
         box->setRange(signedValue ? -100000 : 0, 100000);
-        box->setSuffix(angle ? QStringLiteral("°") : QStringLiteral(" mm"));
-        box->setValue(angle ? c.value / kDegrees : c.value);
+        box->setSuffix(angle ? QStringLiteral("°") : QLatin1Char(' ') + qs(std::string(unitSymbol(unit))));
+        box->setValue(angle ? c.value / kDegrees : toUnit(c.value, unit));
         box->setToolTip(tip);
         const std::string constraint = c.name;
         connect(box, &QDoubleSpinBox::editingFinished, this, [this, box, constraint] {
@@ -252,8 +254,13 @@ void SketchPanel::setValue(const std::string& name, double value) {
     if (!step) return;
     const auto* c = step->sketch().findConstraint(name);
     if (!c) return;
-    const double now = c->kind == sketch::ConstraintKind::Angle ? c->value / kDegrees : c->value;
+    // The box shows lengths in the design's unit; the command takes mm (and degrees).
+    const bool angle = c->kind == sketch::ConstraintKind::Angle;
+    const auto* design = ctx_.documents().find(ctx_.documents().active());
+    const auto unit = design ? design->lengthUnit() : LengthUnit::Millimeter;
+    const double now = angle ? c->value / kDegrees : toUnit(c->value, unit);
     if (std::abs(now - value) < 1e-9) return;  // nothing changed
+    if (!angle) value = fromUnit(value, unit);
     const auto problems =
         ctx_.documents().run(ctx_.documents().active(), "sketch.set_value",
                              {{"sketch", step->id()}, {"constraint", name}, {"value", value}});

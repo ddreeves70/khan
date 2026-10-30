@@ -144,8 +144,8 @@ Khan remembers all of this next time it starts.
 ## The feature tree
 
 At the top are the design's name and **Document settings**. Click
-**Document settings** to see the design's own settings in Properties: its name,
-how many steps it has, and its units (lengths in millimeters, angles in degrees).
+**Document settings** to see the design's own settings in Properties; see
+[Document settings and units](#document-settings-and-units).
 
 Under them, each row is one step: its name, its kind, and its status.
 
@@ -175,9 +175,29 @@ the body to keep first.
 
 ![Plate and Hole picked: Union, Cut and Intersect are on](images/app-combine.png)
 
+## Document settings and units
+
+**Document settings**, at the top of the feature tree, shows the design's own
+settings in Properties: its name, how many steps it has, and its **units**.
+
+**Lengths** picks the unit for every length you see and type in this design:
+millimeters (the usual one for 3D printing), centimeters, meters, inches or feet.
+Changing it doesn't change anything's size, only how the numbers are written: a
+box 25.4 mm wide shows as 1 in. After that, Properties, the Sketch panel and the
+labels on a sketch all use the new unit, and volumes are in it cubed (in³).
+Type `1` in a box in inches and it means 1 inch. Angles are always in degrees.
+
+![The desk organizer's pen hole in a design shown in inches: its radius is 0.709 in (18 mm)](images/app-units.png)
+
+The unit is saved with the design, so it opens in inches next time, and on a
+classmate's computer too. Changing it is one undo step, like any other change.
+The grid's spacing is a View option, not part of the design: it stays in mm.
+
 ## Properties
 
-Properties shows the picked step's name and numbers. Lengths are in mm.
+Properties shows the picked step's name and numbers. Lengths are in the design's
+unit, mm unless you picked another one in
+[Document settings](#document-settings-and-units).
 
 ![Properties for a cylinder](images/app-properties.png)
 
