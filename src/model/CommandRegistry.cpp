@@ -620,6 +620,20 @@ CommandRegistry makeBuiltin() {
                                                              parseColor(color) ? std::string() : color);
           });
 
+    r.add({"document.set_units",
+           "Set units",
+           "Changes the units the design shows lengths in. Nothing changes size: Khan keeps every length in "
+           "mm inside.",
+           {{"unit",
+             ArgType::Choice,
+             "mm (millimeters), cm (centimeters), m (meters), in (inches) or ft (feet).",
+             true,
+             {"mm", "cm", "m", "in", "ft"}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<SetUnitsCommand>(
+                  parseLengthUnit(argText(a, "unit")).value_or(LengthUnit::Millimeter));
+          });
+
     r.add({"material.delete",
            "Delete material",
            "Removes a material you added to the design. No step may be using it.",

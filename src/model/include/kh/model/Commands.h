@@ -234,6 +234,25 @@ private:
     std::string oldName_;
 };
 
+/// Changes the unit the design shows its lengths in: mm, cm, m, in or ft (its
+/// Document settings). Nothing changes size: every length in the design stays in
+/// mm inside; Properties, the Sketch panel and kh_cli show and take them in the
+/// new unit.
+class SetUnitsCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param unit The unit to show lengths in.
+    explicit SetUnitsCommand(LengthUnit unit);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    LengthUnit unit_;
+    LengthUnit old_ = LengthUnit::Millimeter;
+};
+
 /// Picks the material for a step's body, or clears it so the body gets its
 /// material from the step it was made from (see Document::materialOf()).
 class SetMaterialCommand final : public Command {

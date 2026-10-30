@@ -51,6 +51,7 @@ tag.khan
 | `document.id` | The design's UUID. It never changes, even when the file is renamed. |
 | `document.kind` | `"part"` (or `"assembly"`, from Phase 3). |
 | `document.name` | The design's name. |
+| `document.lengthUnit` | Only when the student picked another unit: the unit the design *shows* lengths in, `"cm"`, `"m"`, `"in"` or `"ft"`. The numbers in the file are still in mm (see `units`). A unit Khan doesn't know opens as mm. |
 | `files` | Every other entry in the zip. For information only; readers go by `timeline.json`. |
 
 ### timeline.json

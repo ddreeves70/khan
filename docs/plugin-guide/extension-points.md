@@ -589,6 +589,16 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
   keeping the `Subscription` as a member, so it disconnects when the panel
   closes).
 - Change designs only through `ctx.documents()`, like everywhere else.
+- **Lengths in the design's unit.** Khan keeps lengths in mm, but each design
+  shows them in its own unit (`design->lengthUnit()`: mm, cm, m, in or ft, from
+  its Document settings). Show and take lengths in that unit with the helpers in
+  `kh/core/Units.h`, and give commands mm:
+
+  ```cpp
+  const auto unit = design->lengthUnit();
+  label->setText(QString::fromStdString(kh::lengthText(radius, unit)));  // "0.709 in"
+  const double mm = kh::fromUnit(box->value(), unit);                   // what the student typed
+  ```
 - `ui->showProblems(problems)` shows what went wrong in the status bar.
 - **Status-bar items.** `ui->addStatusItem` puts a small widget at the bottom
   right of the window, like Khan's grid size. Khan calls your function once when

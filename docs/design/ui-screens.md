@@ -14,7 +14,10 @@ Four mockups show the shell, the plugins and the docking from [UI and plugin arc
 > of view buttons across the top of the viewer became a floating **view bar** at
 > its bottom middle, like Fusion's: Orbit, Pan and Zoom (what a left drag does),
 > Fit all, Views, Display (shaded with edges, shaded, wireframe, and the axes),
-> Grid (the grid's view options) and Panes.
+> Grid (the grid's view options) and Panes. Document settings picks the design's
+> length unit (mm, cm, m, in, ft; `Document::lengthUnit()`, saved in the file):
+> every length in the app is shown and typed in it, while the model, the file's
+> numbers and commands stay in mm.
 
 ## 1. Main window, Modeling layout
 
