@@ -21,6 +21,7 @@
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
+#include <Geom_BSplineCurve.hxx>
 #include <Message.hxx>
 #include <Message_Messenger.hxx>
 #include <Message_PrinterOStream.hxx>
@@ -29,6 +30,9 @@
 #include <STEPControl_Writer.hxx>
 #include <Standard_Failure.hxx>
 #include <StlAPI_Writer.hxx>
+#include <TColStd_Array1OfInteger.hxx>
+#include <TColStd_Array1OfReal.hxx>
+#include <TColgp_Array1OfPnt.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
@@ -47,6 +51,7 @@
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
 
+#include <algorithm>
 #include <cmath>
 #include <mutex>
 #include <optional>
@@ -115,6 +120,14 @@ public:
             why = "An outline has no lines, arcs or circles in it.";
             return std::nullopt;
         }
+        // One closed spline on its own is a closed loop already, like a circle.
+        if (const auto* s = std::get_if<Spline2>(&loop[0].curve); loop.size() == 1 && s && s->closed) {
+            const auto curve = spline(*s, why);
+            if (!curve) return std::nullopt;
+            TopoDS_Edge e = BRepBuilderAPI_MakeEdge(curve).Edge();
+            if (loop[0].reversed) e.Reverse();
+            return BRepBuilderAPI_MakeWire(e).Wire();
+        }
         // One circle on its own is a closed loop already.
         if (loop.size() == 1 && std::holds_alternative<Circle2>(loop[0].curve)) {
             const auto& c = std::get<Circle2>(loop[0].curve);
@@ -171,6 +184,15 @@ public:
                     return std::nullopt;
                 }
                 edge = mk.Edge();
+            } else if (const auto* s = std::get_if<Spline2>(&e.curve)) {
+                const auto curve = spline(*s, why);
+                if (!curve) return std::nullopt;
+                BRepBuilderAPI_MakeEdge mk(curve, first, last);
+                if (!mk.IsDone()) {
+                    why = "A spline in the outline couldn't be made.";
+                    return std::nullopt;
+                }
+                edge = mk.Edge();
             } else {
                 why = "A circle can only be an outline on its own.";
                 return std::nullopt;
@@ -206,6 +228,45 @@ private:
         return gp_Circ(gp_Ax2(at(center), axes_.Direction(), axes_.XDirection()), radius);
     }
 
+    // A spline as an OCCT B-spline curve in the plane, with the knots Spline2
+    // describes: clamped (end knots repeated degree + 1 times) for an open one,
+    // periodic for a closed one. Null, with why, if it can't be one.
+    Handle(Geom_BSplineCurve) spline(const Spline2& s, std::string& why) const {
+        const int n = static_cast<int>(s.poles.size());
+        const int p = s.degree;
+        if (p < 1 || p > 5 || n < p + 1) {
+            why =
+                "A spline in the outline needs a degree of 1 to 5 and at least one more control point than "
+                "its degree.";
+            return {};
+        }
+        if (!s.weights.empty() &&
+            (static_cast<int>(s.weights.size()) != n ||
+             std::any_of(s.weights.begin(), s.weights.end(), [](double w) { return !(w > 0); }))) {
+            why = "A spline in the outline needs one weight more than 0 for each control point.";
+            return {};
+        }
+        TColgp_Array1OfPnt poles(1, n);
+        TColStd_Array1OfReal weights(1, n);
+        for (int i = 0; i < n; ++i) {
+            poles.SetValue(i + 1, at(s.poles[static_cast<std::size_t>(i)]));
+            weights.SetValue(i + 1, s.weights.empty() ? 1.0 : s.weights[static_cast<std::size_t>(i)]);
+        }
+        const int count = s.closed ? n + 1 : n - p + 1;  // distinct knots: 0, 1, ...
+        TColStd_Array1OfReal knots(1, count);
+        TColStd_Array1OfInteger mults(1, count);
+        for (int i = 1; i <= count; ++i) {
+            knots.SetValue(i, i - 1);
+            mults.SetValue(i, !s.closed && (i == 1 || i == count) ? p + 1 : 1);
+        }
+        try {
+            return new Geom_BSplineCurve(poles, weights, knots, mults, p, s.closed);
+        } catch (const Standard_Failure& e) {
+            why = "A spline in the outline couldn't be made (" + describe(e) + ").";
+            return {};
+        }
+    }
+
     // Where an edge starts and ends, walking the loop's way.
     std::optional<std::pair<gp_Pnt, gp_Pnt>> endsOf(const Edge2& e, std::string& why) const {
         gp_Pnt s, t;
@@ -225,6 +286,21 @@ private:
                     a->center.y + a->radius * std::sin(a->startAngle)});
             t = at({a->center.x + a->radius * std::cos(a->endAngle),
                     a->center.y + a->radius * std::sin(a->endAngle)});
+        } else if (const auto* sp = std::get_if<Spline2>(&e.curve); sp && !sp->closed) {
+            if (sp->poles.size() < 2) {
+                why = "A spline in the outline has too few control points.";
+                return std::nullopt;
+            }
+            // A clamped spline starts at its first pole and ends at its last.
+            s = at(sp->poles.front());
+            t = at(sp->poles.back());
+            if (s.Distance(t) <= kSmall) {
+                why = "A spline that ends where it starts must be a closed spline on its own.";
+                return std::nullopt;
+            }
+        } else if (std::holds_alternative<Spline2>(e.curve)) {
+            why = "A closed spline can only be an outline on its own.";
+            return std::nullopt;
         } else {
             why = "A circle can only be an outline on its own.";
             return std::nullopt;
@@ -426,10 +502,13 @@ public:
         MassProps out;
         const TopoDS_Shape* s = unwrap(h);
         if (!s) return out;
+        // Integrated to a relative error of 1e-9 (volumes by Gauss-Kronrod): OCCT's quick default
+        // is exact for flat and round faces, but off by up to 1e-3 on free-form
+        // (spline) ones, like a solid with a closed spline hole.
         GProp_GProps vol;
-        BRepGProp::VolumeProperties(*s, vol);
+        BRepGProp::VolumePropertiesGK(*s, vol, 1e-9);
         GProp_GProps surf;
-        BRepGProp::SurfaceProperties(*s, surf);
+        BRepGProp::SurfaceProperties(*s, surf, 1e-9);
         gp_Pnt c = vol.CentreOfMass();
         out.volume = vol.Mass();
         out.area = surf.Mass();

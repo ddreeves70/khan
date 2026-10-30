@@ -6,6 +6,7 @@
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/model/CommandRegistry.h"
 #include "kh/model/Document.h"
+#include "kh/sketch_planegcs/PlaneGcsSolver.h"
 
 using namespace kh;
 using namespace kh::model;
@@ -66,4 +67,41 @@ TEST_CASE("a body's mass is its volume times its material's density", "[model][m
     CHECK(steel.volume == Approx(pla.volume));
     // An empty shape weighs nothing.
     CHECK(bodyMass(*kernel, kernel::ShapeHandle{}, defaultMaterial()).grams == 0);
+}
+
+TEST_CASE("a sketched spline arch extrudes to the area under the curve", "[model][rebuild][occt][spline]") {
+    Document doc;
+    const auto& reg = CommandRegistry::builtin();
+    auto run = [&](const std::string& name, Args args) {
+        auto made = reg.create(name, args, doc);
+        INFO(name << ": " << (made.issues.empty() ? std::string() : made.issues.front().message));
+        REQUIRE(made.ok());
+        const auto issues = doc.execute(std::move(made.command));
+        INFO((issues.empty() ? std::string() : issues.front().message));
+        REQUIRE(issues.empty());
+    };
+    run("feature.add_sketch", {});
+    const auto sketch = doc.featureAt(0).id();
+    run("sketch.add_spline",
+        {{"sketch", sketch}, {"poles", std::vector<sketch::Point2>{{0, 0}, {0, 30}, {40, 30}, {40, 0}}}});
+    run("sketch.add_line",
+        {{"sketch", sketch}, {"from", sketch::Point2{40, 0}}, {"to", sketch::Point2{0, 0}}});
+    // Its control points are named for constraints, like Spline1.pole2.
+    run("sketch.constrain",
+        {{"sketch", sketch}, {"kind", std::string("fix")}, {"on", std::string("Spline1.pole2")}});
+    run("feature.add_extrude", {{"sketch", sketch}, {"distance", 5.0}});
+    const auto& s = static_cast<const SketchFeature&>(doc.featureAt(0)).sketch();
+    REQUIRE(s.constraints.size() == 1);
+    CHECK(s.constraints[0].points[0] == sketch::PointRef{s.entities[0].id, sketch::PointRole::Pole, 1});
+    CHECK(std::get<sketch::SplineShape>(s.entities[0].shape).degree == 3);  // the default
+
+    auto k = kernel::makeOcctKernel();
+    auto solver = sketch::makePlaneGcsSolver();
+    const auto report = doc.regenerate(*k, solver.get());
+    REQUIRE(report.ok());
+    const auto* body = report.shapeOf(doc.featureAt(1).id());
+    REQUIRE(body);
+    // A Bezier arch's area is 3/5 of the 40 x 30 box around its poles: 720 mm^2.
+    CHECK(k->massProps(*body).volume == Approx(720 * 5).epsilon(1e-9));
+    CHECK(k->validate(*body).empty());
 }

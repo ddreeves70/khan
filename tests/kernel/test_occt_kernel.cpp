@@ -309,7 +309,8 @@ TEST_CASE("faces and extrudes that can't be made say why", "[kernel][occt][extru
     CHECK(k->makeFace({rectangle(0, 0, 1, 1), {}}, skew).issues.at(0).code == "kernel.face.plane");
     const auto face = k->makeFace({rectangle(0, 0, 10, 10), {}}, kGround);
     CHECK(k->extrude(face.shape, {0, 0, 0}).issues.at(0).code == "kernel.extrude.distance");
-    CHECK(k->extrude(face.shape, {5, 0, 0}).issues.at(0).code == "kernel.extrude.direction");  // along the face
+    CHECK(k->extrude(face.shape, {5, 0, 0}).issues.at(0).code ==
+          "kernel.extrude.direction");  // along the face
     const auto box = k->makeBox({0, 0, 0}, 1, 1, 1);
     CHECK(k->extrude(box.shape, {0, 0, 1}).issues.at(0).code == "kernel.extrude.input");  // not a face
 }
@@ -329,4 +330,67 @@ TEST_CASE("extruding the same face twice gives the same solid", "[kernel][occt][
     const auto meshA = k->tessellate(a, {}), meshB = k->tessellate(b, {});
     CHECK(meshA.triangles.size() == meshB.triangles.size());
     CHECK_FALSE(meshA.triangles.empty());  // and it meshes, for the viewer and STL
+}
+
+TEST_CASE("a spline arch closed by a line extrudes to the area under the curve",
+          "[kernel][occt][extrude][spline]") {
+    auto k = kh::kernel::makeOcctKernel();
+    // A cubic Bezier from (0, 0) up through poles (0, 30) and (40, 30) to (40, 0):
+    // the area under it is 3/5 of the 40 x 30 box, 720 mm^2. Closed by the line back.
+    const Loop2 arch{Edge2{Spline2{{{0, 0}, {0, 30}, {40, 30}, {40, 0}}, {}, 3, false}, true},
+                     Edge2{Line2{{0, 0}, {40, 0}}}};
+    const auto face = k->makeFace({arch, {}}, kGround);
+    REQUIRE(face.ok());
+    const auto solid = k->extrude(face.shape, {0, 0, 5});
+    REQUIRE(solid.ok());
+    CHECK(k->massProps(solid.shape).volume == Approx(720 * 5).epsilon(1e-9));
+    const auto b = k->bounds(solid.shape);
+    CHECK(b.max.y == Approx(22.5).margin(1e-6));  // the Bezier's top: 3/4 of the poles' height
+    CHECK(b.max.x == Approx(40).margin(1e-6));
+    CHECK(k->topology(solid.shape).faces == 4);  // top, bottom, the curved side, the flat side
+    CHECK(k->validate(solid.shape).empty());
+}
+
+TEST_CASE("a closed spline extrudes on its own, and as a hole", "[kernel][occt][extrude][spline]") {
+    auto k = kh::kernel::makeOcctKernel();
+    // A uniform cubic B-spline round a 20 x 20 square: a rounded square.
+    const Spline2 round{{{-10, -10}, {10, -10}, {10, 10}, {-10, 10}}, {}, 3, true};
+    const auto disc = k->extrude(k->makeFace({{Edge2{round}}, {}}, kGround).shape, {0, 0, 2});
+    REQUIRE(disc.ok());
+    const double area = k->massProps(disc.shape).volume / 2;
+    // Its x reaches 440/48 = 9.17 mm at most (see the sketch tests), so it's
+    // between the 13.3 x 13.3 square of its knot points and the 18.3 x 18.3 box.
+    CHECK(area > 13.3 * 13.3);
+    CHECK(area < 18.34 * 18.34);
+    CHECK(k->bounds(disc.shape).max.x == Approx(440.0 / 48).margin(1e-6));
+    CHECK(k->validate(disc.shape).empty());
+    // As a hole (clockwise) in a 40 x 40 plate.
+    const Profile2 plate{rectangle(-20, -20, 40, 40), {Loop2{Edge2{round, true}}}};
+    const auto holed = k->extrude(k->makeFace(plate, kGround).shape, {0, 0, 2});
+    REQUIRE(holed.ok());
+    CHECK(k->massProps(holed.shape).volume == Approx((1600 - area) * 2).epsilon(1e-9));
+    CHECK(k->validate(holed.shape).empty());
+}
+
+TEST_CASE("weights pull a spline edge; splines that can't be made say why",
+          "[kernel][occt][extrude][spline]") {
+    auto k = kh::kernel::makeOcctKernel();
+    auto arch = [](std::vector<double> weights) {
+        return Loop2{Edge2{Spline2{{{0, 0}, {0, 30}, {40, 30}, {40, 0}}, std::move(weights), 3, false}, true},
+                     Edge2{Line2{{0, 0}, {40, 0}}}};
+    };
+    const auto plain = k->massProps(k->extrude(k->makeFace({arch({}), {}}, kGround).shape, {0, 0, 1}).shape);
+    const auto pulled =
+        k->massProps(k->extrude(k->makeFace({arch({1, 3, 3, 1}), {}}, kGround).shape, {0, 0, 1}).shape);
+    CHECK(pulled.volume > plain.volume);  // pulled up towards the top poles
+    // Too few poles for its degree, and a closed spline among other edges.
+    const Loop2 few{Edge2{Spline2{{{0, 0}, {0, 30}, {40, 0}}, {}, 3, false}, true},
+                    Edge2{Line2{{0, 0}, {40, 0}}}};
+    const auto bad = k->makeFace({few, {}}, kGround);
+    REQUIRE_FALSE(bad.ok());
+    CHECK(bad.issues[0].code == "kernel.face.outline");
+    CHECK(bad.issues[0].message.find("degree") != std::string::npos);
+    const Loop2 mixed{Edge2{Spline2{{{0, 0}, {10, 0}, {10, 10}, {0, 10}}, {}, 3, true}},
+                      Edge2{Line2{{0, 0}, {1, 0}}}};
+    CHECK(k->makeFace({mixed, {}}, kGround).issues.at(0).message.find("on its own") != std::string::npos);
 }

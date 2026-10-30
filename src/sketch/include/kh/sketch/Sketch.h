@@ -48,7 +48,24 @@ struct ArcShape {
 };
 
 /// The geometry of one sketch entity.
-using Shape = std::variant<PointShape, LineShape, CircleShape, ArcShape>;
+/// A B-spline: a smooth curve pulled towards its control points (poles), like
+/// a flexible ruler bent by pins. It starts at its first pole and ends at its
+/// last (unless it's closed), and passes near the ones between.
+///
+/// Its knots aren't stored: they're spread evenly. An open spline is clamped
+/// (its knots are `degree + 1` zeros, then 1, 2, ..., up to `degree + 1` copies
+/// of `poles - degree`), so it touches its first and last poles. A closed one is
+/// periodic, with knots 0, 1, ..., `poles`: a smooth loop, with no corner.
+struct SplineShape {
+    std::vector<Point2> poles{};    ///< The control points (mm), in order: at least `degree + 1`.
+    std::vector<double> weights{};  ///< One per pole, each more than 0; bigger pulls the curve closer to
+                                    ///< that pole. Empty means every weight is 1 (an ordinary B-spline).
+    int degree = 3;                 ///< 1 (straight pieces, a polyline) to 5. 3 (cubic) is the usual.
+    bool closed = false;            ///< True for a closed loop with no start or end.
+};
+
+/// What an entity is: a point, line, circle, arc or spline.
+using Shape = std::variant<PointShape, LineShape, CircleShape, ArcShape, SplineShape>;
 
 /// One thing drawn in a sketch.
 struct Entity {
@@ -64,12 +81,18 @@ enum class PointRole {
     Start,   ///< A line's or arc's first end.
     End,     ///< A line's or arc's second end.
     Center,  ///< A circle's or arc's center.
+    Pole,    ///< One of a spline's control points: PointRef::index says which.
 };
 
 /// A point of an entity, for constraints.
 struct PointRef {
     EntityId entity{};                 ///< The entity.
     PointRole role = PointRole::Self;  ///< Which of its points.
+    int index = 0;                     ///< For PointRole::Pole: which pole, from 0. Otherwise 0.
+
+    /// Checks whether two references name the same point.
+    /// @return True if the entity, role and index all match.
+    bool operator==(const PointRef&) const = default;
 };
 
 /// What a constraint keeps true. Dimensions (Distance and below) have a value.
@@ -158,9 +181,43 @@ const std::vector<ConstraintKind>& allKinds();
 std::string_view roleKey(PointRole role);
 
 /// Finds a point role from its key.
-/// @param key "", "start", "end" or "center".
+/// @param key "", "start", "end", "center" or "pole".
 /// @return The role, or nothing if no role has that key.
 std::optional<PointRole> roleFromKey(std::string_view key);
+
+/// Gives the name a student types after an entity's name for one of its points:
+/// "start", "end", "center", or "pole1", "pole2", ... (counting from 1); "" for a
+/// point entity itself. "Spline1.pole2" is Spline1's second control point.
+/// @param ref The point.
+/// @return Its name.
+std::string pointKey(const PointRef& ref);
+
+/// Reads a point's name (see pointKey()).
+/// @param entity The entity it belongs to.
+/// @param key "", "start", "end", "center", or "pole" and a number from 1.
+/// @return The point, or nothing if the name isn't one.
+std::optional<PointRef> pointFromKey(const EntityId& entity, std::string_view key);
+
+/// Gives the points of an entity a constraint can use, in a fixed order: Self,
+/// Start, End, Center, then each pole (a spline's start and end are its first
+/// and last pole, so only its poles are listed).
+/// @param entity The entity.
+/// @return Its points.
+std::vector<PointRef> pointsOf(const Entity& entity);
+
+/// Finds a point on a spline.
+/// @param spline The spline (see SplineShape for its knots).
+/// @param t Where along it, from 0 (its start) to 1 (its end, or back at the
+///        start for a closed one).
+/// @return The point (mm).
+Point2 splinePoint(const SplineShape& spline, double t);
+
+/// Gives points along a spline, close enough together to draw it or measure it
+/// as straight pieces: `perSpan` per piece between knots, and the end.
+/// @param spline The spline.
+/// @param perSpan How many points per piece between knots, at least 1.
+/// @return The points, from its start to its end (a closed one ends where it starts).
+std::vector<Point2> splineSample(const SplineShape& spline, int perSpan = 16);
 
 /// Checks whether a kind is a dimension (it has a `value`).
 /// @param kind The kind.

@@ -50,7 +50,11 @@ class PluginContext;
 /// icons for plugins' own widgets (ui::UiRegistry::icon()). Version 19 added the
 /// unit a design shows lengths in (model::Document::lengthUnit(), kh::LengthUnit
 /// in kh/core/Units.h, model::SetUnitsCommand and the document.set_units command).
-inline constexpr int kPluginApiVersion = 19;
+/// Version 20 added splines: sketch::SplineShape in a sketch's shapes, its control
+/// points (sketch::PointRole::Pole and PointRef::index, sketch::pointsOf(),
+/// pointKey(), splinePoint()), kernel::Spline2 edges for faces, lists of points as
+/// command arguments (model::ArgType::Vec2List) and the sketch.add_spline command.
+inline constexpr int kPluginApiVersion = 20;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

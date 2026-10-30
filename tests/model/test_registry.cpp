@@ -40,7 +40,8 @@ TEST_CASE("The built-in registry lists its commands sorted by name", "[model][re
                 "feature.duplicate",   "feature.rename",      "feature.set_material", "feature.suppress",
                 "folder.add",          "folder.delete",       "folder.rename",        "material.define",
                 "material.delete",     "sketch.add_arc",      "sketch.add_circle",    "sketch.add_line",
-                "sketch.add_point",    "sketch.constrain",    "sketch.delete",        "sketch.set_value"});
+                "sketch.add_point",    "sketch.add_spline",   "sketch.constrain",     "sketch.delete",
+                "sketch.set_value"});
     for (const auto* c : cmds) {
         REQUIRE_FALSE(c->label.empty());
         REQUIRE_FALSE(c->description.empty());

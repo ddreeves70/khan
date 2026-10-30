@@ -114,6 +114,29 @@ black it's **fully constrained**: its size and place are completely set, which
 is what you want before you build a part from it. Dragging something black moves
 nothing. Properties shows the same thing as a number: **Free to move**.
 
+## Splines
+
+![An arch drawn with a spline: the blue curve, its 4 control points and the thin lines joining them](images/app-sketch-spline.png)
+
+A **spline** is a smooth curve for shapes lines and arcs can't make: a car's
+side, a handle, a wave. It's pulled towards its **control points** like a bendy
+ruler held by pins: an open spline starts at its first control point and ends at
+its last, and the ones between pull the curve towards them without it touching
+them. Its **degree** says how smooth it is: 3 (the usual) bends smoothly
+everywhere; 1 is just straight lines from point to point. A **closed** spline is
+a smooth loop, with no ends.
+
+- For now, add splines with [`sketch.add_spline`](../cli/commands.md#sketchadd_spline)
+  in `kh_cli`; drawing them with the mouse comes next.
+- In the app, a spline being edited shows its control points, joined by thin
+  lines (its *control polygon*). **Drag a control point** to reshape the curve;
+  drag the curve itself to move all of it.
+- Constraints work on its control points like on any point: join its end to a
+  line's end with `coincident`, `fix` a control point, or put two of them a
+  distance apart. Name them `Spline1.pole1`, `Spline1.pole2`, ... in `kh_cli`.
+- A closed shape can have spline edges, so [extrude](extrude.md) turns it into a
+  solid, and a closed spline is a shape on its own, like a circle.
+
 ## Constraints and dimensions
 
 ![Editing the plate: every constraint is labeled beside what it's on, and the Sketch panel lists them with their numbers](images/app-sketch-edit.png)
@@ -232,6 +255,7 @@ The line was drawn from 0, 0 to 38, 3. Now it runs from 0, 0 to 40, 0.
 | `sketch.add_line` | A straight line, `from` one end `to` the other | `.start`, `.end` |
 | `sketch.add_circle` | A circle, from its `center` and `radius` | `.center` |
 | `sketch.add_arc` | Part of a circle, counterclockwise from `start` to `end` (degrees: 0 points right, 90 up) | `.start`, `.end`, `.center` |
+| `sketch.add_spline` | A smooth curve pulled towards its control points (see [Splines](#splines)) | `.pole1`, `.pole2`, ...; `.start`, `.end` (its first and last) |
 | `sketch.add_point` | A single point | the point itself (`Point1`) |
 
 Each one gets a name: `Line1`, `Line2`, `Circle1`, ... Add `construction=true`

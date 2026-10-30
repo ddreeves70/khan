@@ -30,6 +30,8 @@ const char* typeName(ArgType t) {
             return "three numbers (x, y, z)";
         case ArgType::Vec2:
             return "two numbers (x, y)";
+        case ArgType::Vec2List:
+            return "points (x, y), at least one";
         case ArgType::FeatureRef:
             return "a step in the design";
         case ArgType::FeatureList:
@@ -57,6 +59,8 @@ bool matches(ArgType t, const ArgValue& v) {
             return std::holds_alternative<kernel::Vec3>(v);
         case ArgType::Vec2:
             return std::holds_alternative<sketch::Point2>(v);
+        case ArgType::Vec2List:
+            return std::holds_alternative<std::vector<sketch::Point2>>(v);
         case ArgType::FeatureRef:
             return std::holds_alternative<FeatureId>(v);
         case ArgType::FeatureList:
@@ -151,11 +155,22 @@ Diagnostics readOn(const sketch::Sketch& s, sketch::Constraint& c, const std::st
             return {
                 sketchProblem("sketch.on", "There's nothing called " + name + " in this sketch. " + like)};
         }
-        const auto role = sketch::roleFromKey(roleText);
-        if (!role) {
-            return {
-                sketchProblem("sketch.on", item + " isn't a point: use .start, .end or .center. " + like)};
+        const auto point = sketch::pointFromKey(e->id, roleText);
+        if (!point) {
+            return {sketchProblem("sketch.on",
+                                  item +
+                                      " isn't a point: use .start, .end, .center, or .pole1, .pole2, ... for "
+                                      "a spline's control points. " +
+                                      like)};
         }
+        if (const auto* sp = std::get_if<sketch::SplineShape>(&e->shape);
+            sp && point->role == sketch::PointRole::Pole &&
+            point->index >= static_cast<int>(sp->poles.size())) {
+            return {sketchProblem("sketch.on", name + " has " + std::to_string(sp->poles.size()) +
+                                                   " control points: use " + name + ".pole1 to " + name +
+                                                   ".pole" + std::to_string(sp->poles.size()) + ". " + like)};
+        }
+        const auto role = std::optional<sketch::PointRole>(point->role);
         if (slots[i] == 'E') {
             if (*role != sketch::PointRole::Self) {
                 return {
@@ -168,7 +183,7 @@ Diagnostics readOn(const sketch::Sketch& s, sketch::Constraint& c, const std::st
                                       name + " isn't a single point: say which of its points, like " + name +
                                           ".start or " + name + ".end.")};
             }
-            c.points.push_back({e->id, *role});
+            c.points.push_back(*point);
         }
     }
     return {};
@@ -460,6 +475,34 @@ CommandRegistry makeBuiltin() {
                   sketch::ArcShape{argVec2(a, "center"), argNumber(a, "radius"),
                                    argNumber(a, "start", 0) * kDegrees, argNumber(a, "end", 90) * kDegrees},
                   argBool(a, "construction", false), argText(a, "name"), "Arc");
+          });
+
+    r.add({"sketch.add_spline",
+           "Add spline",
+           "Adds a spline to a sketch: a smooth curve pulled towards its control points. An open one starts "
+           "at the first point and ends at the last.",
+           {sketchArg,
+            {"poles",
+             ArgType::Vec2List,
+             "Its control points, in mm, split by /, like 0,0/0,30/40,30/40,0.",
+             true,
+             {}},
+            {"degree",
+             ArgType::Integer,
+             "How smooth: 1 (straight pieces) to 5. Default 3, or less if there are only 2 or 3 points.",
+             false,
+             {}},
+            {"closed", ArgType::Bool, "true for a closed loop with no ends. Default false.", false, {}},
+            constructionArg,
+            {"name", ArgType::Text, "Its name. Default Spline1, Spline2, ...", false, {}}}},
+          [](const Document&, const Args& a) {
+              auto poles = argVec2List(a, "poles");
+              const int most = std::max(1, static_cast<int>(poles.size()) - 1);
+              const int degree =
+                  a.count("degree") ? static_cast<int>(argNumber(a, "degree")) : std::min(3, most);
+              return addEntity(argFeature(a, "sketch"),
+                               sketch::SplineShape{std::move(poles), {}, degree, argBool(a, "closed", false)},
+                               argBool(a, "construction", false), argText(a, "name"), "Spline");
           });
 
     std::vector<std::string> kinds;
@@ -761,6 +804,13 @@ sketch::Point2 argVec2(const Args& args, const std::string& name, const sketch::
     if (it == args.end()) return fallback;
     if (const auto* v = std::get_if<sketch::Point2>(&it->second)) return *v;
     return fallback;
+}
+
+std::vector<sketch::Point2> argVec2List(const Args& args, const std::string& name) {
+    auto it = args.find(name);
+    if (it == args.end()) return {};
+    if (const auto* v = std::get_if<std::vector<sketch::Point2>>(&it->second)) return *v;
+    return {};
 }
 
 FeatureId argFeature(const Args& args, const std::string& name) {

@@ -24,7 +24,7 @@ volumes and sketch lengths in the design's unit. Positions and sizes are written
 | [`folder.rename`](#folderrename) | Renames a folder |
 | [`folder.delete`](#folderdelete) | Removes a folder, keeping its steps |
 | [`feature.add_sketch`](#featureadd_sketch) | Adds an empty sketch on a plane |
-| [`sketch.add_point`](#sketchadd_point), [`sketch.add_line`](#sketchadd_line), [`sketch.add_circle`](#sketchadd_circle), [`sketch.add_arc`](#sketchadd_arc) | Draw in a sketch |
+| [`sketch.add_point`](#sketchadd_point), [`sketch.add_line`](#sketchadd_line), [`sketch.add_circle`](#sketchadd_circle), [`sketch.add_arc`](#sketchadd_arc), [`sketch.add_spline`](#sketchadd_spline) | Draw in a sketch |
 | [`sketch.constrain`](#sketchconstrain) | Adds a constraint or dimension to a sketch |
 | [`sketch.set_value`](#sketchset_value) | Changes a dimension |
 | [`sketch.delete`](#sketchdelete) | Deletes something from a sketch |
@@ -549,6 +549,91 @@ s: 1 step
 wrote s.khan
 ```
 
+## sketch.add_spline
+
+Adds a spline: a smooth curve pulled towards its **control points** (poles), like
+a bendy ruler held by pins. An open spline starts at its first control point and
+ends at its last; the ones between pull the curve towards them without it going
+through them. Its points are `.pole1`, `.pole2`, ... (and `.start` and `.end`,
+the same as its first and last). See
+[Splines](../user-guide/sketches.md#splines).
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `poles` | x,y/x,y/... (mm) | yes | Its control points, in order, split by `/` |
+| `degree` | whole number | no | How smooth: `1` (straight pieces) to `5`. Default `3`, or less with only 2 or 3 points. A spline needs one more control point than its degree |
+| `closed` | true or false | no | `true` for a smooth loop with no ends. Default `false` |
+| `construction` | true or false | no | `true` for helper geometry. Default `false` |
+| `name` | text | no | Its name. Default `Spline1`, `Spline2`, ... |
+
+An arch: a spline from (0, 0) up and over to (40, 0), closed by a line along the
+bottom, then extruded 5 mm:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save arch.khan feature.add_sketch
+arch: 1 step
+  Sketch1      ok  empty
+wrote arch.khan
+$ kh_cli run --open arch.khan --save arch.khan sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0
+arch: 1 step
+  Sketch1      ok  1 spline, 0 constraints, free to move 8 ways
+wrote arch.khan
+$ kh_cli run --open arch.khan --save arch.khan sketch.add_line sketch=Sketch1 from=40,0 to=0,0
+arch: 1 step
+  Sketch1      ok  1 line, 1 spline, 0 constraints, free to move 12 ways
+wrote arch.khan
+$ kh_cli run --open arch.khan --save arch.khan sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start
+arch: 1 step
+  Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
+wrote arch.khan
+$ kh_cli run --open arch.khan --save arch.khan feature.add_extrude sketch=Sketch1 distance=5
+arch: 2 steps
+  Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
+  Extrude1     ok  volume 3600.00 mm^3  mass 4.46 g (PLA)
+wrote arch.khan
+```
+
+A spline with 4 control points and degree 3 is a Bézier curve: the area under
+this one is 3/5 of the 40 × 30 mm box around its points, 720 mm², so the volume
+is 720 × 5 = 3600 mm³. The middle control points never touch the curve: its top
+is 22.5 mm high, not 30.
+
+A closed spline is a smooth loop, and a shape on its own, like a circle. Round
+4 control points at the corners of a 30 × 20 mm box it makes a rounded rectangle
+covering 61/90 of the box, 406.67 mm²:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save blob.khan feature.add_sketch
+blob: 1 step
+  Sketch1      ok  empty
+wrote blob.khan
+$ kh_cli run --open blob.khan --save blob.khan sketch.add_spline sketch=Sketch1 poles=0,0/30,0/30,20/0,20 closed=true
+blob: 1 step
+  Sketch1      ok  1 spline, 0 constraints, free to move 8 ways
+wrote blob.khan
+$ kh_cli run --open blob.khan feature.add_extrude sketch=Sketch1 distance=2
+blob: 2 steps
+  Sketch1      ok  1 spline, 0 constraints, free to move 8 ways
+  Extrude1     ok  volume 813.33 mm^3  mass 1.01 g (PLA)
+```
+
+A spline needs enough control points for its degree, and a control point it has:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open arch.khan sketch.add_spline sketch=Sketch1 poles=0,0/10,10/20,0 degree=3
+error [sketch.spline_poles]: A spline of degree 3 needs at least 4 control points. Add more, or lower its degree.
+```
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open arch.khan sketch.constrain sketch=Sketch1 kind=fix on=Spline1.pole9
+error [sketch.on]: Spline1 has 4 control points: use Spline1.pole1 to Spline1.pole4. Fix needs one point, like on=Line1.start.
+```
+
 ## sketch.constrain
 
 Adds a constraint (`kind=horizontal`, `tangent`, ...) or a dimension
@@ -559,7 +644,7 @@ page lists every kind and what it needs.
 | --- | --- | --- | --- |
 | `sketch` | step name | yes | The sketch |
 | `kind` | `fix`, `coincident`, `horizontal`, `vertical`, `parallel`, `perpendicular`, `equal`, `point_on_line`, `point_on_circle`, `midpoint`, `tangent`, `distance`, `length`, `horizontal_distance`, `vertical_distance`, `radius`, `diameter`, `angle` | yes | What to keep true |
-| `on` | text | yes | What it's on, separated by commas: `Line1`, or points like `Line1.end`, `Circle1.center`, `Point1` |
+| `on` | text | yes | What it's on, separated by commas: `Line1`, or points like `Line1.end`, `Circle1.center`, `Spline1.pole2` (a spline's second control point), `Point1` |
 | `value` | number | for dimensions | mm, or degrees for `angle` |
 | `name` | text | no | Its name. Default like `Horizontal1`, `Length1` |
 

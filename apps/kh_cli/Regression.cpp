@@ -34,8 +34,9 @@ Vec3 vec3(const json& j) {
 
 // A flat outline in a case: edges like {"line": [[0, 0], [40, 0]]},
 // {"arc": {"center": [x, y], "radius": r, "from": 0, "to": 90}} (degrees,
-// counterclockwise) or {"circle": {"center": [x, y], "radius": r}}, each with an
-// optional "reversed": true.
+// counterclockwise), {"circle": {"center": [x, y], "radius": r}} or {"spline":
+// {"poles": [[x, y], ...], "degree": 3, "weights": [...], "closed": false}}, each
+// with an optional "reversed": true.
 kernel::Loop2 loop2(const json& edges) {
     kernel::Loop2 out;
     const double deg = std::numbers::pi / 180.0;
@@ -45,6 +46,14 @@ kernel::Loop2 loop2(const json& edges) {
         edge.reversed = e.value("reversed", false);
         if (e.contains("line")) {
             edge.curve = kernel::Line2{p2(e.at("line").at(0)), p2(e.at("line").at(1))};
+        } else if (e.contains("spline")) {
+            const auto& s = e.at("spline");
+            kernel::Spline2 sp;
+            for (const auto& p : s.at("poles")) sp.poles.push_back(p2(p));
+            for (const auto& w : s.value("weights", json::array())) sp.weights.push_back(w.get<double>());
+            sp.degree = s.value("degree", 3);
+            sp.closed = s.value("closed", false);
+            edge.curve = std::move(sp);
         } else if (e.contains("arc")) {
             const auto& a = e.at("arc");
             edge.curve = kernel::Arc2{p2(a.at("center")), a.at("radius").get<double>(),

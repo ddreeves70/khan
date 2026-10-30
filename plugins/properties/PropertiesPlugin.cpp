@@ -379,17 +379,19 @@ private:
                             plane->setText(tr("YZ (standing, seen from the right)"));
                             break;
                     }
-                    int points = 0, lines = 0, circles = 0, arcs = 0;
+                    int points = 0, lines = 0, circles = 0, arcs = 0, splines = 0;
                     for (const auto& e : sk.sketch().entities) {
                         points += std::holds_alternative<sketch::PointShape>(e.shape) ? 1 : 0;
                         lines += std::holds_alternative<sketch::LineShape>(e.shape) ? 1 : 0;
                         circles += std::holds_alternative<sketch::CircleShape>(e.shape) ? 1 : 0;
                         arcs += std::holds_alternative<sketch::ArcShape>(e.shape) ? 1 : 0;
+                        splines += std::holds_alternative<sketch::SplineShape>(e.shape) ? 1 : 0;
                     }
                     QStringList parts;
                     if (lines) parts << tr("%n line(s)", nullptr, lines);
                     if (circles) parts << tr("%n circle(s)", nullptr, circles);
                     if (arcs) parts << tr("%n arc(s)", nullptr, arcs);
+                    if (splines) parts << tr("%n spline(s)", nullptr, splines);
                     if (points) parts << tr("%n point(s)", nullptr, points);
                     drawn->setText(parts.isEmpty() ? tr("nothing yet") : parts.join(QStringLiteral(", ")));
                     constraints->setText(QString::number(sk.sketch().constraints.size()));

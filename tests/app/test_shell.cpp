@@ -904,7 +904,7 @@ TEST_CASE("dropping an end onto another point joins them, in one undo step", "[a
     CHECK(app.doc().undoLabel() == "Join Line2's start to Line1's end");
     const auto* ends = app.host.overlays().find("kh.sketcher.edit.open_ends");
     REQUIRE(ends);
-    CHECK(ends->points.size() == 2);  // 4 open ends before, 2 now
+    CHECK(ends->points.size() == 2);     // 4 open ends before, 2 now
     app.shell->undoAction()->trigger();  // one step: back apart, no constraint
     settle();
     CHECK(s.constraints.empty());
@@ -1729,6 +1729,41 @@ TEST_CASE("Document settings in the feature tree shows the design's settings in 
     CHECK_FALSE(settings->isChecked());
     CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("kh.properties.title"))->text() ==
           QStringLiteral("Box1"));
+}
+
+TEST_CASE("a spline made with kh_cli's command shows in the sketcher; its control points can be dragged",
+          "[app][sketcher][spline]") {
+    App app;
+    app.click("kh.sketcher.new_xy");  // Sketch1, being edited
+    auto* flat = app.flat();
+    const auto sketchId = app.doc().featureAt(0).id();
+    REQUIRE(app.host.documents()
+                .run(app.shell->activeDesign(), "sketch.add_spline",
+                     {{"sketch", sketchId},
+                      {"poles", std::vector<sketch::Point2>{{0, 0}, {0, 30}, {40, 30}, {40, 0}}}})
+                .empty());
+    settle();
+    app.click("kh.sketcher.select");
+    // Drawn as a curve, with its control polygon and its 4 control points.
+    const auto* free = app.host.overlays().find("kh.sketcher.edit.points");
+    REQUIRE(free);
+    CHECK(free->points.size() == 4);  // blue: nothing holds them yet
+    const auto* helpers = app.host.overlays().find("kh.sketcher.edit.helpers");
+    REQUIRE(helpers);
+    CHECK(helpers->points.size() == 6);  // the control polygon: 3 lines, 2 ends each
+    const auto* lines = app.host.overlays().find("kh.sketcher.edit.lines");
+    REQUIRE(lines);
+    CHECK(lines->points.size() == 2 * 16);  // the curve, as 16 short lines
+    // Drag the second control point from (0, 30) to (10, 40).
+    dragAt(flat, {0, 30, 0}, {10, 40, 0});
+    const auto& sp = std::get<sketch::SplineShape>(sketchAt(app, 0).sketch().entities[0].shape);
+    CHECK(sp.poles[1].x == Approx(10).margin(1e-6));
+    CHECK(sp.poles[1].y == Approx(40).margin(1e-6));
+    CHECK(app.doc().undoLabel() == "Move Spline1's control point 2");
+    // Picking it names it.
+    clickAt(flat, {10, 40, 0});
+    CHECK(app.shell->statusBar()->currentMessage().startsWith(
+        QStringLiteral("Picked Spline1's control point 2")));
 }
 
 TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",

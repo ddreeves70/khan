@@ -1,0 +1,79 @@
+{
+  "name": "extrude-spline-arch",
+  "description": "A cubic Bezier arch (a clamped spline with poles (0,0), (0,30), (40,30), (40,0)) closed by a line along the bottom, extruded 5 mm. The area under a Bezier with these poles is 3/5 of the 40 x 30 box, 720 mm^2, so the volume is 3600 mm^3; its top is 3/4 of the poles' height, 22.5 mm. 4 faces: top, bottom, the curved side, the flat side.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {
+          "spline": {
+            "poles": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                30
+              ],
+              [
+                40,
+                30
+              ],
+              [
+                40,
+                0
+              ]
+            ],
+            "degree": 3
+          },
+          "reversed": true
+        },
+        {
+          "line": [
+            [
+              0,
+              0
+            ],
+            [
+              40,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arch",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        0,
+        5
+      ]
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 3600.0,
+    "area": 1977.217824,
+    "bounds": [
+      [
+        -0.0,
+        -0.0,
+        -0.0
+      ],
+      [
+        40.0,
+        22.5,
+        5.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 4,
+    "edges": 6,
+    "vertices": 4
+  }
+}

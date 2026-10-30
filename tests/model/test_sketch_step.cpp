@@ -131,9 +131,9 @@ TEST_CASE("sketch commands explain what's wrong in plain words", "[model][sketch
     CHECK(message("horizontal", "Line1", 3.0) == "Horizontal has no number. Leave out value.");
     CHECK(message("horizontal", "Circle1") == "Horizontal needs one line.");
     CHECK(message("radius", "Circle1", 0.0) == "A Radius must be more than 0 mm. Type a bigger number.");
-    CHECK(
-        message("fix", "Line1.middle") ==
-        "Line1.middle isn't a point: use .start, .end or .center. Fix needs one point, like on=Line1.start.");
+    CHECK(message("fix", "Line1.middle") ==
+          "Line1.middle isn't a point: use .start, .end, .center, or .pole1, .pole2, ... for a spline's "
+          "control points. Fix needs one point, like on=Line1.start.");
 
     const auto taken =
         d.sk("sketch.add_point", {{"at", sketch::Point2{1, 1}}, {"name", std::string("Line1")}});

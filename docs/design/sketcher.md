@@ -21,7 +21,7 @@ revolve).
 | 4b. Constraints in the app | Add constraints and dimensions from the toolbar and by typing numbers; show them on the drawing; conflicts highlighted with a plain message | Built |
 | 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | Built |
 | 6. Extrude | Profiles become solids (Phase 2 starts properly here). A: the kernel's faces and extrude; B: the Extrude step | Built |
-| 7. B-splines | Full spline support, as the roadmap lists | |
+| 7. B-splines | Full spline support, as the roadmap lists. A: splines in the model, solver, files and kernel, through to extrude (built); B: drawing them in the app; C: spline constraints; D: import from a file of points | A built |
 
 Each step is its own pull request, with tests and guide pages.
 
@@ -280,6 +280,45 @@ Two pull requests, so each is small enough to review line by line:
   `extrude` operations.
 - Join and cut keep going through Combine for now; an Extrude option for them
   can come with the Phase 2 feature work.
+
+## B-splines (step 7)
+
+Four pull requests:
+
+**A. Splines in the model, through to extrude** (`kh_sketch`, `kh_sketch_planegcs`,
+`kh_kernel`, `kh_kernel_occt`, `kh_model`, `kh_io`, `kh_cli`; built):
+
+- `sketch::SplineShape`: control points (poles), optional weights, a degree (1 to
+  5) and closed or open. Knots aren't stored: they're spread evenly, clamped at
+  the ends of an open spline (so it starts and ends at its first and last pole)
+  and periodic for a closed one. Even knots cover the curves students draw and
+  keep the file and the commands simple; custom knots can come with fit-point
+  splines if they need them.
+- Control points are points constraints can use: `PointRole::Pole` with
+  `PointRef::index`, named `Spline1.pole1`, `.pole2`, ... (counting from 1 for
+  students; the file stores the index from 0). An open spline's `.start` and
+  `.end` are its first and last pole.
+- Solving: each pole is a PlaneGCS point. No constraint uses the curve itself yet,
+  so the curve isn't in PlaneGCS; step C adds PlaneGCS's `BSpline` for point on
+  spline and tangency.
+- `splinePoint()` and `splineSample()` evaluate the curve (de Boor, in homogeneous
+  coordinates for weights). Closed shapes take spline edges; their area is
+  integrated exactly (8-point Gauss-Legendre per knot span).
+- `kernel::Spline2` becomes an OCCT `Geom_BSplineCurve` with the same knots. Mass
+  properties now integrate to 1e-9 (volumes by Gauss-Kronrod): OCCT's quick
+  default was off by up to 1e-3 on solids with spline faces.
+- `sketch.add_spline poles=0,0/0,30/40,30/40,0 degree=3 closed=false`, with a new
+  argument type for lists of points.
+- The app shows splines, their control polygons and control points, and drags them.
+
+**B. Drawing splines in the app:** a Spline tool by control points and one by fit
+points (the curve goes through the clicks); adding and removing points; degree and
+weights in Properties.
+
+**C. Spline constraints:** point on spline, tangent (G1) and curvature-continuous
+(G2) where curves meet, dimensions on control and fit points, with property tests.
+
+**D. Import a spline from a file of points,** with Reload from file.
 
 ## Choices
 
