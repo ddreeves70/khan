@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <variant>
 #include <vector>
 
 #include "kh/core/Diagnostic.h"
@@ -31,6 +32,60 @@ struct Motion {
     Point3 center{};     ///< A point on the line to turn about (mm).
     Vec3 axis{0, 0, 1};  ///< The direction of that line; any length except zero when `angle` isn't 0.
     double angle = 0;    ///< How far to turn (radians), counterclockwise looking down `axis` toward `center`.
+};
+
+/// A point on a flat plane, in the plane's own x and y (mm).
+struct Point2 {
+    double x = 0;  ///< Along the plane's x direction (mm).
+    double y = 0;  ///< Along the plane's y direction (mm).
+};
+
+/// A flat plane in space. Seen from the side `xAxis` × `yAxis` points to (its
+/// normal), the plane's x goes right and its y goes up.
+struct Plane {
+    Point3 origin{};      ///< Where the plane's x and y are 0 (mm).
+    Vec3 xAxis{1, 0, 0};  ///< The plane's x direction (a unit vector).
+    Vec3 yAxis{0, 1, 0};  ///< The plane's y direction (a unit vector, square to xAxis).
+};
+
+/// A straight piece of a flat outline, from `start` to `end`.
+struct Line2 {
+    Point2 start{};  ///< Where it starts (mm, in the plane).
+    Point2 end{};    ///< Where it ends (mm, in the plane).
+};
+
+/// A piece of a circle in a flat outline, going counterclockwise (seen from the
+/// plane's normal) from `startAngle` to `endAngle`. Angles are measured from the
+/// plane's x direction.
+struct Arc2 {
+    Point2 center{};        ///< The circle's center (mm, in the plane).
+    double radius = 0;      ///< The circle's radius (mm). Must be greater than 0.
+    double startAngle = 0;  ///< Where it starts (radians).
+    double endAngle = 0;    ///< Where it ends (radians): more than startAngle, by less than a full turn.
+};
+
+/// A whole circle in a flat outline (counterclockwise unless reversed).
+struct Circle2 {
+    Point2 center{};    ///< The center (mm, in the plane).
+    double radius = 0;  ///< The radius (mm). Must be greater than 0.
+};
+
+/// One piece of a closed outline, and which way the outline runs along it.
+struct Edge2 {
+    std::variant<Line2, Arc2, Circle2> curve{};  ///< The line, arc or circle.
+    bool reversed = false;                       ///< True if the outline goes from its end to its start.
+};
+
+/// A closed outline: edges joined end to end, the last back to the first. A
+/// circle is a loop of one edge.
+using Loop2 = std::vector<Edge2>;
+
+/// A flat shape for a face: an outline, and holes inside it. The outline goes
+/// counterclockwise and the holes clockwise (seen from the plane's normal), as
+/// kh::sketch::findProfiles() gives them.
+struct Profile2 {
+    Loop2 outer{};               ///< The outline.
+    std::vector<Loop2> holes{};  ///< Loops cut out of it.
 };
 
 /// An axis-aligned bounding box, in millimeters.

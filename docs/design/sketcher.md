@@ -20,7 +20,7 @@ revolve).
 | 4a. Picking and dragging | Pick sketch lines and points in the viewer (Select), drag them with the solver keeping every constraint true, delete them; what can still move shown by color (free blue, fixed black) | Built |
 | 4b. Constraints in the app | Add constraints and dimensions from the toolbar and by typing numbers; show them on the drawing; conflicts highlighted with a plain message | Built |
 | 5. Auto-constraints and profiles | Horizontal, vertical, coincident and tangent added while drawing; closed loops found as profiles | Built |
-| 6. Extrude | Profiles become solids (Phase 2 starts properly here) | Next |
+| 6. Extrude | Profiles become solids (Phase 2 starts properly here). A: the kernel's faces and extrude (built); B: the Extrude step | Next |
 | 7. B-splines | Full spline support, as the roadmap lists | |
 
 Each step is its own pull request, with tests and guide pages.
@@ -238,6 +238,41 @@ after scattering the heap between solves.
 - **The second toolbar row** stays while a mode's buttons don't all fit, so
   picking never moves the view; while none of its buttons show, it says "Pick
   something in the view to see what you can add here."
+
+## Extrude (step 6)
+
+Two pull requests, so each is small enough to review line by line:
+
+**A. The kernel** (`kh_kernel`, `kh_kernel_occt`):
+
+- Value types, OCCT-free: `Point2`, `Plane` (origin, x and y directions; normal
+  x × y), `Line2`, `Arc2` (counterclockwise from startAngle to endAngle, angles
+  from the plane's x), `Circle2`, `Edge2` (a curve and `reversed`), `Loop2`
+  (edges end to end), `Profile2` (an outline, counterclockwise, and holes,
+  clockwise, as `findProfiles()` gives them).
+- `IKernel::makeFace(profile, plane)`: each loop becomes an OCCT wire. Neighbor
+  edges share one vertex put halfway between their ends, with its tolerance
+  raised to cover the gap, so ends a hair apart (up to 1e-5 mm, as the solver
+  leaves them) join; farther apart is "the outline isn't closed". Arcs are
+  `gp_Circ` on the plane's axes, so their angles mean the same as in a sketch. The
+  face is checked with `BRepCheck_Analyzer`.
+- `IKernel::extrude(face, vector)`: `BRepPrimAPI_MakePrism`. A vector of 0, 0, 0,
+  or one lying in the face, is refused in plain words.
+- New operations go at the end of `IKernel`, as before.
+
+**B. The Extrude step** (`kh_model`, `kh_io`, commands, `kh_cli`, the app):
+
+- `ExtrudeFeature`: which Sketch step it uses (a `FeatureId`), a distance (mm),
+  and a side: one side (along the sketch plane's normal), flipped, or both sides
+  (half each way). Every closed shape of the sketch becomes a solid; several are
+  joined into one body. It fails with a plain message when the sketch has no
+  closed shape (naming its open ends) or didn't solve.
+- Saved in the `.khan` file as a new step type; the command
+  `feature.add_extrude sketch=Sketch1 distance=10 side=one|flip|both`; the
+  modeling toolbar gets **Extrude** (with a sketch picked), Properties edits the
+  distance and side, and a corpus case pins the geometry.
+- Join and cut keep going through Combine for now; an Extrude option for them
+  can come with the Phase 2 feature work.
 
 ## Choices
 

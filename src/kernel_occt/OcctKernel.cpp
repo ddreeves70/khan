@@ -5,12 +5,19 @@
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeVertex.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
+#include <BRepGProp_Face.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepPrimAPI_MakePrism.hxx>
+#include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
@@ -18,6 +25,7 @@
 #include <Message_Messenger.hxx>
 #include <Message_PrinterOStream.hxx>
 #include <Poly_Triangulation.hxx>
+#include <Precision.hxx>
 #include <STEPControl_Writer.hxx>
 #include <Standard_Failure.hxx>
 #include <StlAPI_Writer.hxx>
@@ -28,15 +36,23 @@
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
+#include <TopoDS_Vertex.hxx>
+#include <TopoDS_Wire.hxx>
 #include <gp_Ax1.hxx>
 #include <gp_Ax2.hxx>
+#include <gp_Ax3.hxx>
+#include <gp_Circ.hxx>
+#include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
 
+#include <cmath>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace kh::kernel {
 
@@ -85,6 +101,141 @@ void silenceOcctConsole() {
     std::call_once(
         once, [] { Message::DefaultMessenger()->RemovePrinters(STANDARD_TYPE(Message_PrinterOStream)); });
 }
+
+// Turns a flat outline (in a plane's x and y) into an OCCT wire. Neighboring
+// edges share one vertex, put halfway between their ends, so ends a hair apart
+// (as a solver leaves them) still join; the vertex's tolerance covers the gap.
+class WireMaker {
+public:
+    WireMaker(const Plane& plane, const gp_Ax3& axes) : plane_(plane), axes_(axes) {}
+
+    // The wire, or why it can't be made (a plain sentence).
+    std::optional<TopoDS_Wire> make(const Loop2& loop, std::string& why) const {
+        if (loop.empty()) {
+            why = "An outline has no lines, arcs or circles in it.";
+            return std::nullopt;
+        }
+        // One circle on its own is a closed loop already.
+        if (loop.size() == 1 && std::holds_alternative<Circle2>(loop[0].curve)) {
+            const auto& c = std::get<Circle2>(loop[0].curve);
+            if (!(c.radius > kSmall)) {
+                why = "A circle in the outline has no size.";
+                return std::nullopt;
+            }
+            TopoDS_Edge e = BRepBuilderAPI_MakeEdge(circle(c.center, c.radius)).Edge();
+            if (loop[0].reversed) e.Reverse();
+            return BRepBuilderAPI_MakeWire(e).Wire();
+        }
+        // Where each edge starts and ends along the loop, and the shared vertices.
+        const std::size_t n = loop.size();
+        std::vector<gp_Pnt> from(n), to(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            const auto ends = endsOf(loop[i], why);
+            if (!ends) return std::nullopt;
+            from[i] = ends->first;
+            to[i] = ends->second;
+        }
+        std::vector<TopoDS_Vertex> joints(n);  // joints[i]: where edge i starts (and edge i-1 ends)
+        for (std::size_t i = 0; i < n; ++i) {
+            const gp_Pnt& a = to[(i + n - 1) % n];
+            const gp_Pnt& b = from[i];
+            const double gap = a.Distance(b);
+            if (gap > kJoin) {
+                why = "The outline isn't closed: two of its pieces end " + std::to_string(gap) +
+                      " mm apart. Join their ends in the sketch.";
+                return std::nullopt;
+            }
+            joints[i] = BRepBuilderAPI_MakeVertex(gp_Pnt((a.XYZ() + b.XYZ()) / 2)).Vertex();
+            if (gap > Precision::Confusion()) BRep_Builder().UpdateVertex(joints[i], gap);
+        }
+        BRepBuilderAPI_MakeWire wire;
+        for (std::size_t i = 0; i < n; ++i) {
+            const TopoDS_Vertex& v0 = joints[i];
+            const TopoDS_Vertex& v1 = joints[(i + 1) % n];
+            const Edge2& e = loop[i];
+            // The edge is made the way its curve goes, then flipped if the loop runs backwards.
+            const TopoDS_Vertex& first = e.reversed ? v1 : v0;
+            const TopoDS_Vertex& last = e.reversed ? v0 : v1;
+            TopoDS_Edge edge;
+            if (std::holds_alternative<Line2>(e.curve)) {
+                BRepBuilderAPI_MakeEdge mk(first, last);
+                if (!mk.IsDone()) {
+                    why = "A line in the outline has no length.";
+                    return std::nullopt;
+                }
+                edge = mk.Edge();
+            } else if (const auto* a = std::get_if<Arc2>(&e.curve)) {
+                BRepBuilderAPI_MakeEdge mk(circle(a->center, a->radius), first, last);
+                if (!mk.IsDone()) {
+                    why = "An arc in the outline couldn't be made.";
+                    return std::nullopt;
+                }
+                edge = mk.Edge();
+            } else {
+                why = "A circle can only be an outline on its own.";
+                return std::nullopt;
+            }
+            if (e.reversed) edge.Reverse();
+            wire.Add(edge);
+            if (!wire.IsDone()) {
+                why = "The pieces of the outline don't join end to end.";
+                return std::nullopt;
+            }
+        }
+        if (!wire.Wire().Closed()) {
+            why = "The outline isn't closed.";
+            return std::nullopt;
+        }
+        return wire.Wire();
+    }
+
+    gp_Pnt at(Point2 p) const {
+        const auto& o = plane_.origin;
+        const auto& x = plane_.xAxis;
+        const auto& y = plane_.yAxis;
+        return {o.x + x.x * p.x + y.x * p.y, o.y + x.y * p.x + y.y * p.y, o.z + x.z * p.x + y.z * p.y};
+    }
+
+private:
+    static constexpr double kSmall = 1e-9;  // a size smaller than this is no size (mm)
+    static constexpr double kJoin = 1e-5;   // ends closer than this join (mm)
+
+    gp_Circ circle(Point2 center, double radius) const {
+        // Its angle 0 is the plane's x direction, and it goes counterclockwise seen
+        // from the plane's normal, like an Arc2.
+        return gp_Circ(gp_Ax2(at(center), axes_.Direction(), axes_.XDirection()), radius);
+    }
+
+    // Where an edge starts and ends, walking the loop's way.
+    std::optional<std::pair<gp_Pnt, gp_Pnt>> endsOf(const Edge2& e, std::string& why) const {
+        gp_Pnt s, t;
+        if (const auto* l = std::get_if<Line2>(&e.curve)) {
+            s = at(l->start);
+            t = at(l->end);
+            if (s.Distance(t) <= kSmall) {
+                why = "A line in the outline has no length.";
+                return std::nullopt;
+            }
+        } else if (const auto* a = std::get_if<Arc2>(&e.curve)) {
+            if (!(a->radius > kSmall) || !(a->endAngle > a->startAngle)) {
+                why = "An arc in the outline has no size.";
+                return std::nullopt;
+            }
+            s = at({a->center.x + a->radius * std::cos(a->startAngle),
+                    a->center.y + a->radius * std::sin(a->startAngle)});
+            t = at({a->center.x + a->radius * std::cos(a->endAngle),
+                    a->center.y + a->radius * std::sin(a->endAngle)});
+        } else {
+            why = "A circle can only be an outline on its own.";
+            return std::nullopt;
+        }
+        if (e.reversed) std::swap(s, t);
+        return std::pair{s, t};
+    }
+
+    Plane plane_;
+    gp_Ax3 axes_;
+};
 
 class OcctKernel final : public IKernel {
 public:
@@ -145,6 +296,74 @@ public:
             return {wrap(mk.Shape()), {}};
         } catch (const Standard_Failure& e) {
             return failed("kernel.move.failed", "The body could not be moved.", describe(e));
+        }
+    }
+
+    OpResult makeFace(const Profile2& profile, const Plane& plane) override {
+        const Vec3& x = plane.xAxis;
+        const Vec3& y = plane.yAxis;
+        const double lx = std::sqrt(x.x * x.x + x.y * x.y + x.z * x.z);
+        const double ly = std::sqrt(y.x * y.x + y.y * y.y + y.z * y.z);
+        if (lx < 1e-9 || ly < 1e-9 || std::abs(x.x * y.x + x.y * y.y + x.z * y.z) > 1e-9 * lx * ly) {
+            return failed(
+                "kernel.face.plane",
+                "A sketch plane's x and y directions must be square to each other and not 0, 0, 0.");
+        }
+        try {
+            const gp_Dir dx(x.x, x.y, x.z), dy(y.x, y.y, y.z);
+            const gp_Ax3 axes(gp_Pnt(plane.origin.x, plane.origin.y, plane.origin.z), dx.Crossed(dy), dx);
+            const WireMaker wires(plane, axes);
+            std::string why;
+            const auto outer = wires.make(profile.outer, why);
+            if (!outer) return failed("kernel.face.outline", why + " (the outside of the shape)");
+            BRepBuilderAPI_MakeFace mk(gp_Pln(axes), *outer, Standard_True);
+            if (!mk.IsDone()) return failed("kernel.face.failed", "The shape's face couldn't be made.");
+            for (const auto& hole : profile.holes) {
+                const auto w = wires.make(hole, why);
+                if (!w) return failed("kernel.face.outline", why + " (a hole in the shape)");
+                mk.Add(*w);
+            }
+            const TopoDS_Face face = mk.Face();
+            if (!BRepCheck_Analyzer(face).IsValid()) {
+                return failed(
+                    "kernel.face.invalid",
+                    "The shape's face isn't valid: its outline may cross itself, or a hole may poke "
+                    "outside it. Check the sketch.");
+            }
+            return {wrap(face), {}};
+        } catch (const Standard_Failure& e) {
+            return failed("kernel.face.failed", "The shape's face couldn't be made.", describe(e));
+        }
+    }
+
+    OpResult extrude(const ShapeHandle& face, const Vec3& v) override {
+        const TopoDS_Shape* s = unwrap(face);
+        if (!s || s->ShapeType() != TopAbs_FACE)
+            return failed("kernel.extrude.input", "Extrude needs a flat face.");
+        const double length = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+        if (length < 1e-9) {
+            return failed("kernel.extrude.distance", "Extrude needs a distance that isn't 0 mm.");
+        }
+        try {
+            // Sweeping along the face (not out of it) makes no solid.
+            BRepGProp_Face props(TopoDS::Face(*s));
+            Standard_Real u0 = 0, u1 = 0, v0 = 0, v1 = 0;
+            props.Bounds(u0, u1, v0, v1);
+            gp_Pnt p;
+            gp_Vec normal;
+            props.Normal((u0 + u1) / 2, (v0 + v1) / 2, p, normal);
+            if (normal.Magnitude() > 0 &&
+                std::abs(normal.Normalized().Dot(gp_Vec(v.x, v.y, v.z)) / length) < 1e-6) {
+                return failed(
+                    "kernel.extrude.direction",
+                    "Extrude can't sweep a shape along its own flat side: give it a direction out of "
+                    "the sketch.");
+            }
+            BRepPrimAPI_MakePrism mk(*s, gp_Vec(v.x, v.y, v.z), Standard_True);
+            if (!mk.IsDone()) return failed("kernel.extrude.failed", "The shape couldn't be extruded.");
+            return {wrap(mk.Shape()), {}};
+        } catch (const Standard_Failure& e) {
+            return failed("kernel.extrude.failed", "The shape couldn't be extruded.", describe(e));
         }
     }
 
