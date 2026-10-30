@@ -1585,13 +1585,156 @@ TEST_CASE("opening a file that isn't a design explains why", "[app]") {
 
 TEST_CASE("named layouts save and open", "[app]") {
     App app;
-    const auto before = app.shell->saveLayout();
     app.shell->saveNamedLayout(QStringLiteral("Mine"));
     CHECK(app.shell->layoutNames() == QStringList{QStringLiteral("Mine")});
+    // Opening it gives the same layout every time. (Not byte for byte the one
+    // saved: the panels floating over the view leave their docks closed, and
+    // which closed tab is "current" in a dock area isn't kept.)
     CHECK(app.shell->openNamedLayout(QStringLiteral("Mine")));
-    CHECK(app.shell->saveLayout() == before);
+    const auto opened = app.shell->saveLayout();
+    app.shell->resetLayout();
+    CHECK(app.shell->openNamedLayout(QStringLiteral("Mine")));
+    CHECK(app.shell->saveLayout() == opened);
+    CHECK(app.shell->overView(QStringLiteral("kh.featuretree.panel")));
     CHECK_FALSE(app.shell->openNamedLayout(QStringLiteral("Nope")));
     CHECK(app.shell->lastProblems()[0].code == "layout.bad");
+}
+
+TEST_CASE("the feature tree floats over the view, folds, docks, and Khan remembers", "[app][overlay]") {
+    App app;
+    const QString id = QStringLiteral("kh.featuretree.panel");
+    auto* frame = app.shell->overlay(id);
+    REQUIRE(frame);
+    CHECK(app.shell->overView(id));  // it starts over the view, like Fusion's browser
+    CHECK(frame->isVisible());
+    CHECK(app.tree()->window() == app.shell.get());
+    CHECK(frame->isAncestorOf(app.tree()));
+    auto* viewer = app.shell->panelWidget(QStringLiteral("kh.viewer.main"));
+    CHECK(frame->parentWidget()->isAncestorOf(viewer));  // it floats over the view's panel
+    CHECK(frame->x() == 8);
+    // Below the view's toolbar, so it doesn't cover its buttons (with no 3D
+    // graphics here, the flat view has no toolbar, so it's at the top).
+    auto* bar = viewer->findChild<QToolBar*>(QStringLiteral("kh.viewer.toolbar"));
+    REQUIRE(bar);
+    if (bar->isVisible()) {
+        CHECK(frame->mapTo(app.shell.get(), QPoint(0, 0)).y() >=
+              bar->mapTo(app.shell.get(), QPoint(0, bar->height())).y());
+    } else {
+        CHECK(frame->mapTo(app.shell.get(), QPoint(0, 0)).y() - viewer->mapTo(app.shell.get(), QPoint(0, 0)).y() ==
+              8);
+    }
+    // Its dock stays closed; Window > Feature tree shows and hides the frame instead.
+    auto* show = app.menu("kh.shell.show.kh.featuretree.panel");
+    auto* over = app.menu("kh.shell.overview.kh.featuretree.panel");
+    REQUIRE(show);
+    REQUIRE(over);
+    CHECK(show->isVisible());
+    CHECK(show->isChecked());
+    CHECK(over->isChecked());
+    show->trigger();
+    CHECK_FALSE(frame->isVisible());
+    show->trigger();
+    CHECK(frame->isVisible());
+
+    // Folding leaves the title bar.
+    const int tall = frame->height();
+    frame->findChild<QToolButton*>(QStringLiteral("kh.shell.overlay.fold"))->click();
+    CHECK(frame->height() < tall / 2);
+    CHECK_FALSE(app.tree()->isVisible());
+
+    // The dock button puts it beside the view as an ordinary panel.
+    frame->findChild<QToolButton*>(QStringLiteral("kh.shell.overlay.dock"))->click();
+    settle();
+    CHECK_FALSE(app.shell->overView(id));
+    CHECK_FALSE(frame->isVisible());
+    CHECK_FALSE(frame->isAncestorOf(app.tree()));
+    CHECK(app.tree()->isVisible());
+    CHECK_FALSE(show->isVisible());
+    CHECK_FALSE(over->isChecked());
+    // It still works there.
+    app.click("kh.modeling.box");
+    CHECK(app.tree()->topLevelItemCount() == 1);
+
+    // Next time Khan starts, it's still docked; Window > ... over the view floats it again.
+    app.shell.reset();
+    app.open();
+    CHECK_FALSE(app.shell->overView(id));
+    app.menu("kh.shell.overview.kh.featuretree.panel")->trigger();
+    settle();
+    CHECK(app.shell->overView(id));
+    CHECK(app.shell->overlay(id)->isAncestorOf(app.tree()));
+    CHECK(app.shell->overlay(id)->height() < tall / 2);  // still folded
+    // Opening a layout saved while it was docked keeps it floating.
+    app.shell->resetLayout();
+    settle();
+    CHECK(app.shell->overView(id));
+    CHECK(app.shell->overlay(id)->height() > tall / 2);  // reset unfolds it
+}
+
+TEST_CASE("Properties and the Sketch panel float at the view's top right, one under the other",
+          "[app][overlay]") {
+    App app;
+    const QString props = QStringLiteral("kh.properties.panel");
+    const QString sketch = QStringLiteral("kh.sketcher.panel");
+    auto* p = app.shell->overlay(props);
+    auto* s = app.shell->overlay(sketch);
+    REQUIRE(p);
+    REQUIRE(s);
+    CHECK(app.shell->overView(props));
+    CHECK(p->isVisible());
+    CHECK_FALSE(s->isVisible());  // the Sketch panel waits for a sketch to be edited
+    CHECK_FALSE(app.shell->overlay(QStringLiteral("kh.viewoptions.panel"))->isVisible());
+    auto* host = p->parentWidget();
+    CHECK(p->geometry().right() == host->width() - 1 - 8);  // at the right
+    CHECK(p->y() >= 118);                                   // below the view cube
+
+    // Editing a sketch opens the Sketch panel under Properties; finishing puts it away.
+    app.click("kh.sketcher.new_xy");
+    CHECK(s->isVisible());
+    CHECK(s->y() > p->geometry().bottom());
+    CHECK(s->geometry().right() == p->geometry().right());
+    CHECK(app.menu("kh.shell.show.kh.sketcher.panel")->isChecked());
+    app.click("kh.sketcher.finish");
+    CHECK_FALSE(s->isVisible());
+    CHECK_FALSE(app.menu("kh.shell.show.kh.sketcher.panel")->isChecked());
+
+    // Properties can be docked beside the view like before, and still works there.
+    p->findChild<QToolButton*>(QStringLiteral("kh.shell.overlay.dock"))->click();
+    settle();
+    CHECK_FALSE(app.shell->overView(props));
+    CHECK(app.properties()->isVisible());
+    app.click("kh.modeling.box");
+    CHECK(app.field<QLineEdit>("name")->text() == QStringLiteral("Box1"));
+    // A closed panel stays closed when it's docked: the Sketch panel isn't open.
+    app.menu("kh.shell.overview.kh.sketcher.panel")->trigger();
+    settle();
+    CHECK_FALSE(app.shell->overView(sketch));
+    CHECK_FALSE(app.shell->panelWidget(sketch)->isVisible());
+}
+
+TEST_CASE("Document settings in the feature tree shows the design's settings in Properties",
+          "[app][overlay]") {
+    App app;
+    app.click("kh.modeling.box");
+    auto* panel = app.shell->panelWidget(QStringLiteral("kh.featuretree.panel"));
+    CHECK(panel->findChild<QLabel*>(QStringLiteral("kh.featuretree.design"))->text() ==
+          QStringLiteral("Untitled"));
+    auto* settings = panel->findChild<QToolButton*>(QStringLiteral("kh.featuretree.settings"));
+    REQUIRE(settings);
+    settings->click();
+    settle();
+    CHECK(settings->isChecked());
+    CHECK(app.host.selection().designPicked());
+    CHECK_FALSE(app.tree()->topLevelItem(0)->isSelected());
+    CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("kh.properties.title"))->text() ==
+          QStringLiteral("Document settings"));
+    CHECK(app.field<QLabel>("units")->text() == QStringLiteral("Millimeters (mm); angles in degrees"));
+    CHECK(app.field<QLabel>("steps")->text() == QStringLiteral("1 step"));
+    // Picking a step goes back to the step.
+    app.pickRows({0});
+    CHECK_FALSE(settings->isChecked());
+    CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("kh.properties.title"))->text() ==
+          QStringLiteral("Box1"));
 }
 
 TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {

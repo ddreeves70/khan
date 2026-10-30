@@ -30,6 +30,7 @@ class CDockWidget;
 namespace kh::app {
 
 class AppUi;
+class ViewOverlay;
 
 // The main window. It owns no features of its own: panels (the viewer too), menu
 // items and toolbar buttons come from plugins (through AppUi and PluginHost::actions()).
@@ -81,6 +82,11 @@ public:
     // Panels and layouts.
     QStringList dockIds() const;
     QWidget* panelWidget(const QString& id) const;
+    // A panel that can float over the view (ui::PanelSpec::floatsOverView):
+    // floating there, or docked as an ordinary panel. Khan remembers which.
+    void setOverView(const QString& id, bool over);
+    bool overView(const QString& id) const;
+    QWidget* overlay(const QString& id) const;  // its floating frame (shown or not)
     // Opens another copy of a panel that allows it (Window > New viewer).
     // Returns the new panel's id, e.g. "kh.viewer.main.2", or empty if it can't.
     QString openAnotherPanel(const QString& id);
@@ -112,13 +118,27 @@ private:
     bool confirmLoseChanges();
     void replaceActive(std::unique_ptr<model::Document> doc, std::filesystem::path path);
     void rebuildLayoutMenu();
+    void showPanel(const QString& id, bool show = true);
+    void showOverlay(const QString& id, bool show);  // a floating panel's frame
+    void placeOverlaysAfter(const QString& id);      // the floating panels under it on its side
+    void keepOverlaysOut();                          // docks of panels floating over the view stay closed
 
     plugin::PluginHost& host_;
     AppUi& ui_;
     QSettings& settings_;
     ads::CDockManager* docks_ = nullptr;
     ads::CDockAreaWidget* centerArea_ = nullptr;
-    std::map<QString, int> copies_;  // panel id -> how many copies were opened
+    std::map<QString, int> copies_;
+    struct Overlay {
+        ads::CDockWidget* dock = nullptr;
+        ViewOverlay* frame = nullptr;
+        QAction* show = nullptr;  // Window > Feature tree, while it floats
+        QAction* over = nullptr;  // Window > Feature tree over the view
+        bool shown = true;        // open (floating or docked), as opposed to closed
+    };
+    std::map<QString, Overlay> overlays_;
+    std::vector<QString> overlayOrder_;  // as the plugins added them: the order they stack in  // panel id ->
+                                         // how many copies were opened
     QLabel* problemLabel_ = nullptr;
     QToolBar* toolbar_ = nullptr;
     // The second row: plugin buttons that don't fit on the first (hidden when empty).

@@ -3,11 +3,13 @@
 /// @file
 /// The desktop app's service for plugins that add panels (Qt).
 
+#include <QIcon>
 #include <QString>
 #include <QWidget>
 
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include "kh/core/Diagnostic.h"
 
@@ -35,6 +37,14 @@ struct PanelSpec {
     /// Starts closed: the student opens it from the Window menu (or the plugin
     /// opens it with UiRegistry::showPanel()).
     bool startHidden = false;
+    /// Floats over the 3D view, see-through, at its top left, like the browser
+    /// in Fusion, instead of taking room beside it. The student can fold it up to
+    /// its title, resize it, or dock it as an ordinary panel (the button on its
+    /// title bar, or **Window > *title* over the view**); Khan remembers which.
+    /// While it floats, it's as tall as the widget's `sizeHint()` (so it covers
+    /// no more of the view than its rows need; call `updateGeometry()` when they
+    /// change), up to the size the student drags it to.
+    bool floatsOverView = false;
 };
 
 /// Something a plugin shows in the desktop app's status bar, at the bottom right.
@@ -92,6 +102,23 @@ public:
     /// has this id.
     /// @param id The panel's id, e.g. "kh.viewoptions.panel".
     virtual void showPanel(const std::string& id) = 0;
+
+    /// Closes a panel, e.g. the Sketch panel when the student finishes the
+    /// sketch. The student can open it again from the Window menu. Does nothing
+    /// before the main window exists, or if no panel has this id.
+    /// @param id The panel's id, e.g. "kh.sketcher.panel".
+    virtual void hidePanel(const std::string& id) = 0;
+
+    /// Makes an icon from an SVG picture, for a plugin's own buttons and rows
+    /// (toolbar items get theirs from ActionSpec::icon). Drawn the way Khan's
+    /// toolbar icons are (see the plugin guide, "Icons"): `currentColor` becomes
+    /// the theme's text color.
+    /// @code
+    /// button->setIcon(ui->icon(kh::icons::featuretree::settings_svg));
+    /// @endcode
+    /// @param svg The SVG text, usually built in with kh_embed_files().
+    /// @return The icon, or an empty one if the text isn't a picture.
+    virtual QIcon icon(std::string_view svg) const = 0;
 };
 
 }  // namespace kh::ui

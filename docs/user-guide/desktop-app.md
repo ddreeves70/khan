@@ -10,9 +10,9 @@ step's numbers in Properties. Everything you do can be undone.
 | --- | --- | --- |
 | 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, folders, delete), Create (shapes), Combine (union, cut, intersect), Modify (move), Sketch (new, edit, draw), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away, each with a picture and its name. While you edit a sketch it shows the sketch tools instead, plus the constraint buttons that fit what you picked. If they don't all fit across the window, the rest go on a second row |
-| 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built |
+| 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built. It floats over the viewer, see-through, and starts with the design's **Document settings** |
 | 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse or the view cube, and click a body to pick it |
-| 5 | **Properties** | The selected step's name and numbers. Change them here |
+| 5 | **Properties** | The selected step's name and numbers. Change them here. It floats over the viewer's top right, under the view cube |
 | 6 | **Status bar** | Messages, and what went wrong when something does |
 | 7 | **Grid status** | The grid's spacing and style, and whether snapping is on |
 
@@ -98,9 +98,33 @@ If the 3D view crashes or draws garbage on your computer, you can turn it off:
 set the environment variable `KH_NO_3D` to `1` before starting Khan (on Windows:
 `set KH_NO_3D=1`, then `kh_app`).
 
+## Panels over the viewer
+
+The feature tree, Properties, the Sketch panel and View options float over the
+viewer, like the browser and dialogs in other CAD programs, so your part gets the
+whole window. They're see-through, and only as tall as what's in them, so they
+cover as little of your part as they can. The feature tree is at the top left;
+Properties is at the top right, under the view cube, with the Sketch panel
+(while you edit a sketch) and View options under it.
+
+- **Fold one up** with the arrow on its title bar, so only the title shows.
+  Click the arrow again to open it.
+- **Make it bigger or smaller** by dragging its inner side edge or its bottom
+  edge.
+- **Dock it** beside the viewer as an ordinary panel with the button at the right
+  of its title bar (or untick **Window > *panel* over the view**). Tick that menu
+  item again to float it over the viewer once more.
+- **Window > *panel*** hides it and shows it again.
+
+Khan remembers all of this next time it starts.
+
 ## The feature tree
 
-Each row is one step: its name, its kind, and its status.
+At the top are the design's name and **Document settings**. Click
+**Document settings** to see the design's own settings in Properties: its name,
+how many steps it has, and its units (lengths in millimeters, angles in degrees).
+
+Under them, each row is one step: its name, its kind, and its status.
 
 | Status | Meaning |
 | --- | --- |
@@ -345,6 +369,8 @@ Every panel can be moved:
 - **Drag it out** of the window to make it a window of its own, for example on a
   second monitor.
 - **Window** lists every panel: tick one to show it again after closing it.
+- The feature tree, Properties, the Sketch panel and View options float over the
+  viewer until you dock them; see [Panels over the viewer](#panels-over-the-viewer).
 
 Khan remembers where your panels were and puts them back next time. If a panel
 was on a monitor that's no longer plugged in, it comes back onto your main screen.
@@ -353,7 +379,8 @@ was on a monitor that's no longer plugged in, it comes back onto your main scree
 
 - **Save layout as...** saves the current arrangement under a name.
 - Pick a saved name to switch to it.
-- **Reset layout** puts every panel back where it started.
+- **Reset layout** puts every panel back where it started, with the floating
+  panels over the viewer again.
 
 ## Plugins in the app
 

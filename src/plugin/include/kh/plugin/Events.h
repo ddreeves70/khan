@@ -65,6 +65,7 @@ struct SelectionChanged {
     static constexpr std::string_view kType = "kh.SelectionChanged";  ///< Stable event type name.
     DocId doc;                                                        ///< The document the selection is in.
     std::vector<FeatureId> features;  ///< The selected steps, in the order they were picked.
+    bool design = false;  ///< The design itself is picked (Document settings), not steps; see Selection::pickDesign().
 };
 
 /// A plugin's remembered setting changed (see PluginSettings).

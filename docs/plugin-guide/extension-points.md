@@ -259,6 +259,18 @@ sel.set(docId, {boxId});   // select the box everywhere
 Every change sends `SelectionChanged`. The selection keeps itself valid: steps
 that are deleted or undone drop out, and closing the design clears it.
 
+The design itself can be picked too, instead of any of its steps: that's what the
+feature tree's **Document settings** row does, and Properties then shows the
+design's settings.
+
+```cpp
+sel.pickDesign(docId);                  // Document settings
+if (sel.designPicked()) { /* show the design's settings, not a step's */ }
+```
+
+`SelectionChanged::design` says which kind of selection it is. Picking steps
+with `set()` un-picks the design.
+
 ## Add view options (desktop app only)
 
 If your plugin draws something in the viewer that the student may want to turn on
@@ -495,7 +507,7 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `ActiveDocumentChanged` | The student switches to another design | `doc` (nil if none is open) |
 | `DocumentChanged` | A command runs, or a step is undone or redone | `doc`, `kind` (`Executed`, `Undone`, `Redone`), `label` |
 | `RebuildFinished` | A design was rebuilt after a change | `doc`, `ok` (did every step build?) |
-| `SelectionChanged` | The selection changes | `doc`, `features` (in picking order) |
+| `SelectionChanged` | The selection changes | `doc`, `features` (in picking order), `design` (the design itself is picked: Document settings) |
 | `kh::viewoptions::ViewOptionChanged` | A view option changes (sent by `kh.viewoptions`, desktop app) | `option` (its id) |
 | `kh::grid::GridChanged` | The grid settings change (sent by `kh.grid`, desktop app) | `grid`: visible, spacing in mm, snap, style |
 | `OverlaysChanged` | An overlay is added, changed or removed | `id` |
@@ -569,9 +581,10 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
 
 - Khan calls the function when the main window opens and owns the widget it
   returns. The student can move the panel anywhere; Khan remembers where.
-- Panels on the same side share it as tabs (Properties, Sketch, ...), so the
-  viewer keeps its room. `ui->showPanel(id)` opens yours and brings its tab to
-  the front.
+- Docked panels on the same side share it as tabs, so the viewer keeps its room.
+  `ui->showPanel(id)` opens yours and brings its tab to the front;
+  `ui->hidePanel(id)` closes it again (the Sketch panel does this when the
+  student finishes a sketch).
 - Keep the panel up to date by listening to events (`ctx.events().subscribe`,
   keeping the `Subscription` as a member, so it disconnects when the panel
   closes).
@@ -595,6 +608,30 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
                          [&ctx] { return new NotesPanel(ctx); }};
   spec.allowMultiple = true;  // Window > New notes
   ui->addPanel(std::move(spec));
+  ```
+
+- **Floating over the view.** Set `floatsOverView` and the panel floats over the
+  3D view, see-through, like the feature tree and Properties (and like the
+  browser in Fusion): `PanelArea::Left` panels at its top left, `Right` ones at
+  its top right under the view cube, one under the other in the order they were
+  added. The student can fold it up, resize it, or dock it as an
+  ordinary panel, and Khan remembers which. While it floats it's as tall as your
+  widget's `sizeHint()`, so give it one that fits its content, and call
+  `updateGeometry()` when that changes:
+
+  ```cpp
+  kh::ui::PanelSpec spec{"sam.notes.panel", QObject::tr("Notes"), kh::ui::PanelArea::Left,
+                         [&ctx] { return new NotesPanel(ctx); }};
+  spec.floatsOverView = true;  // Window > Notes over the view docks it
+  ui->addPanel(std::move(spec));
+  ```
+
+- **Icons on your own buttons.** `ui->icon(svg)` turns an SVG picture into an
+  icon drawn like Khan's toolbar icons (`currentColor` becomes the theme's text
+  color). Build the SVG in with `kh_embed_files()`, as for toolbar icons:
+
+  ```cpp
+  button->setIcon(ui->icon(sam::icons::notes::pin_svg));
   ```
 
 - `PanelArea::Center` puts the panel in the middle of the window. The first

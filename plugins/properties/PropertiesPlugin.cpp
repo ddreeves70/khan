@@ -6,6 +6,7 @@
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
+#include <QEvent>
 #include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -167,6 +168,10 @@ private:
         pending_ = false;
         const auto* f = selected();
         const auto count = ctx_.selection().features().size();
+        if (ctx_.selection().designPicked()) {
+            showDesign();
+            return;
+        }
         if (!f) {
             shown_ = FeatureId{};
             clearForm();
@@ -194,7 +199,38 @@ private:
         status_->setText(problems.trimmed());
     }
 
+    // The design's own settings (the feature tree's Document settings row).
+    void showDesign() {
+        const auto* design = ctx_.documents().find(ctx_.selection().doc());
+        shown_ = FeatureId{};
+        clearForm();
+        status_->clear();
+        title_->setText(tr("Document settings"));
+        if (!design) return;
+        auto* form = new QFormLayout(form_);
+        form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+        auto* name = new QLabel(QString::fromStdString(design->name()), form_);
+        name->setObjectName(QStringLiteral("design"));
+        form->addRow(tr("Design"), name);
+        const auto count = static_cast<int>(design->featureCount());
+        auto* steps = new QLabel(count == 1 ? tr("1 step") : tr("%1 steps").arg(count), form_);
+        steps->setObjectName(QStringLiteral("steps"));
+        form->addRow(tr("Steps"), steps);
+        auto* units = new QLabel(tr("Millimeters (mm); angles in degrees"), form_);
+        units->setObjectName(QStringLiteral("units"));
+        form->addRow(tr("Units"), units);
+    }
+
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        if (watched == wrapped_ && event->type() == QEvent::Resize) {
+            const int needs = wrapped_->heightForWidth(wrapped_->width());
+            if (needs > 0 && needs != wrapped_->minimumHeight()) wrapped_->setMinimumHeight(needs);
+        }
+        return QWidget::eventFilter(watched, event);
+    }
+
     void clearForm() {
+        wrapped_ = nullptr;
         updaters_.clear();
         delete form_->layout();
         for (auto* child : form_->findChildren<QWidget*>(Qt::FindDirectChildrenOnly)) delete child;
@@ -466,6 +502,11 @@ private:
         info->setObjectName(QStringLiteral("materialinfo"));
         info->setWordWrap(true);
         info->setStyleSheet(QStringLiteral("color: #57606a"));
+        // A form lays out wrapped text at the height of its size hint, which
+        // cuts off lines when it's narrower than that (floating over the view,
+        // say): keep it as tall as its lines need at the width it has.
+        info->installEventFilter(this);
+        wrapped_ = info;
         form->addRow(QString(), info);
         auto* volume = new QLabel(form_);
         volume->setObjectName(QStringLiteral("volume"));
@@ -658,6 +699,7 @@ private:
         }
     }
 
+    QLabel* wrapped_ = nullptr;  // the material's description, kept as tall as its lines
     plugin::PluginContext& ctx_;
     ui::UiRegistry& ui_;
     QLabel* title_ = nullptr;
@@ -678,8 +720,10 @@ void registerProperties(plugin::PluginContext& ctx) {
         ctx.log("No desktop app here, so the Properties panel isn't shown.");
         return;
     }
-    ui->addPanel({"kh.properties.panel", QObject::tr("Properties"), ui::PanelArea::Right,
-                  [&ctx, ui] { return new Properties(ctx, *ui); }});
+    ui::PanelSpec spec{"kh.properties.panel", QObject::tr("Properties"), ui::PanelArea::Right,
+                       [&ctx, ui] { return new Properties(ctx, *ui); }};
+    spec.floatsOverView = true;  // at the view's top right
+    ui->addPanel(std::move(spec));
 }
 
 }  // namespace

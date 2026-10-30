@@ -43,8 +43,12 @@ class PluginContext;
 /// Extrude steps (model::ExtrudeFeature), steps that use sketches
 /// (model::Feature::sketchInputs(), model::ResultLookup::resultOf(), the sketch's
 /// plane in model::FeatureResult::plane), and faces and extrude in the kernel
-/// (kernel::IKernel::makeFace(), kernel::IKernel::extrude()).
-inline constexpr int kPluginApiVersion = 17;
+/// (kernel::IKernel::makeFace(), kernel::IKernel::extrude()). Version 18 added
+/// picking a design's settings (Selection::pickDesign(), SelectionChanged::design),
+/// panels that float over the 3D view (ui::PanelSpec::floatsOverView), closing a
+/// panel (ui::UiRegistry::hidePanel()) and SVG
+/// icons for plugins' own widgets (ui::UiRegistry::icon()).
+inline constexpr int kPluginApiVersion = 18;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

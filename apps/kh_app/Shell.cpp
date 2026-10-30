@@ -33,6 +33,7 @@
 #include "AppIcons.h"
 #include "AppUi.h"
 #include "Icons.h"
+#include "ViewOverlay.h"
 #include "kh/core/Version.h"
 #include "kh/io/KhanFile.h"
 #include "kh/io/Steps.h"
@@ -47,6 +48,13 @@ constexpr int kLayoutVersion = 2;  // bump when panel ids change, so old layouts
 const char* kLastLayout = "layouts/last";
 const char* kNamedLayouts = "layouts/named";
 const char* kGeometry = "window/geometry";
+constexpr int kViewCubeRoom = 118;  // pixels at the view's top right kept clear for the view cube
+constexpr int kOverlayGap = 6;      // pixels between floating panels on the same side
+// Per panel that can float over the view: "panels/<id>/overView" (true or
+// false), ".../overlaySize" and ".../overlayFolded".
+QString panelKey(const QString& id, const char* what) {
+    return QStringLiteral("panels/%1/%2").arg(id, QLatin1String(what));
+}
 
 QString qs(const std::string& s) {
     return QString::fromStdString(s);
@@ -125,13 +133,7 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* 
         new QLabel(tr("Khan %1").arg(QString::fromUtf8(v.data(), static_cast<qsizetype>(v.size()))), this));
     ui_.setSinks([this](const Diagnostics& d) { showProblems(d); },
                  [this](const QString& m) { showMessage(m); });
-    ui_.setPanelSink([this](const std::string& id) {
-        if (auto* dock = docks_->findDockWidget(qs(id))) {
-            dock->toggleView(true);
-            dock->raise();
-            dock->setAsCurrentTab();
-        }
-    });
+    ui_.setPanelSink([this](const std::string& id, bool show) { showPanel(qs(id), show); });
 
     buildMenus();
     buildPanels();
@@ -369,8 +371,76 @@ void Shell::buildPanels() {
         if (spec->startHidden) dock->toggleView(false);
     }
 
+    // Panels that float over the view: a frame over the view's dock, which the
+    // panel's widget moves into while it floats there. Left panels stack down
+    // the view's top left; right ones down its top right, below the view cube.
+    auto* viewDock = centerArea_ ? centerArea_->currentDockWidget() : nullptr;
+    for (const auto* spec : specs) {
+        if (!spec->floatsOverView || !viewDock) continue;
+        const QString id = qs(spec->id);
+        auto* dock = docks_->findDockWidget(id);
+        if (!dock) continue;
+        const bool right = spec->area == ui::PanelArea::Right;
+        Overlay o;
+        o.dock = dock;
+        o.shown = !spec->startHidden;
+        o.frame = new ViewOverlay(spec->title, viewDock, right);
+        o.frame->setObjectName(QStringLiteral("kh.shell.overlay.") + id);
+        o.frame->topInset = [this, viewDock, id, right] {
+            // Below a toolbar across the top of the view, if it has one.
+            auto* view = viewDock->widget();
+            if (!view) return 0;
+            const int viewTop = view->mapTo(viewDock, QPoint(0, 0)).y();
+            int top = viewTop;
+            for (auto* bar : view->findChildren<QToolBar*>()) {
+                if (!bar->isVisibleTo(view)) continue;
+                const int barTop = bar->mapTo(viewDock, QPoint(0, 0)).y();
+                if (barTop <= viewTop + 2) top = std::max(top, barTop + bar->height());
+            }
+            if (right) top += kViewCubeRoom;
+            // Below the floating panels before it on the same side.
+            for (const auto& other : overlayOrder_) {
+                if (other == id) break;
+                const auto* f = overlays_.at(other).frame;
+                // (place() adds its own 8 px margin to this.)
+                if (f->right() == right && f->isVisible()) top = f->geometry().bottom() + 1 + kOverlayGap - 8;
+            }
+            return top;
+        };
+        o.frame->onPlaced = [this, id] { placeOverlaysAfter(id); };
+        o.frame->onDock = [this, id] { setOverView(id, false); };
+        o.frame->onChanged = [this, id] {
+            const auto& f = *overlays_.at(id).frame;
+            settings_.setValue(panelKey(id, "overlaySize"), f.wantedSize());
+            settings_.setValue(panelKey(id, "overlayFolded"), f.folded());
+        };
+        const QSize size = settings_.value(panelKey(id, "overlaySize")).toSize();
+        if (size.isValid()) o.frame->setWantedSize(size);
+        o.frame->setFolded(settings_.value(panelKey(id, "overlayFolded"), false).toBool());
+        o.show = new QAction(spec->title, this);
+        o.show->setObjectName(QStringLiteral("kh.shell.show.") + id);
+        o.show->setCheckable(true);
+        connect(o.show, &QAction::triggered, this, [this, id](bool on) { showOverlay(id, on); });
+        o.over = new QAction(tr("%1 over the view").arg(spec->title), this);
+        o.over->setObjectName(QStringLiteral("kh.shell.overview.") + id);
+        o.over->setCheckable(true);
+        o.over->setStatusTip(
+            tr("Float %1 over the 3D view, see-through, instead of beside it.").arg(spec->title.toLower()));
+        connect(o.over, &QAction::triggered, this, [this, id](bool on) { setOverView(id, on); });
+        overlays_[id] = o;
+        overlayOrder_.push_back(id);
+    }
+
     for (const auto& id : dockIds()) {
-        if (auto* dock = docks_->findDockWidget(id)) windowMenu_->addAction(dock->toggleViewAction());
+        auto* dock = docks_->findDockWidget(id);
+        if (!dock) continue;
+        windowMenu_->addAction(dock->toggleViewAction());
+        if (auto it = overlays_.find(id); it != overlays_.end()) windowMenu_->addAction(it->second.show);
+    }
+    if (!overlayOrder_.empty()) windowMenu_->addSeparator();
+    for (const auto& id : overlayOrder_) {
+        windowMenu_->addAction(overlays_.at(id).over);
+        setOverView(id, settings_.value(panelKey(id, "overView"), true).toBool());
     }
     windowMenu_->addSeparator();
     for (const auto* spec : specs) {
@@ -939,8 +1009,84 @@ QStringList Shell::dockIds() const {
 }
 
 QWidget* Shell::panelWidget(const QString& id) const {
+    if (auto it = overlays_.find(id); it != overlays_.end() && it->second.frame->body()) {
+        return it->second.frame->body();
+    }
     auto* dock = docks_->findDockWidget(id);
     return dock ? dock->widget() : nullptr;
+}
+
+void Shell::setOverView(const QString& id, bool over) {
+    auto it = overlays_.find(id);
+    if (it == overlays_.end()) return;
+    auto& o = it->second;
+    if (over && !o.frame->body()) o.shown = !o.dock->isClosed();  // open docked, open floating
+    if (over && !o.frame->body()) {
+        if (QWidget* w = o.dock->takeWidget()) o.frame->setBody(w);
+    } else if (!over && o.frame->body()) {
+        o.dock->setWidget(o.frame->takeBody(), ads::CDockWidget::ForceNoScrollArea);
+    }
+    // While it floats, its dock stays closed, and Window > title shows or hides
+    // the floating frame instead.
+    o.dock->toggleView(!over && o.shown);
+    o.dock->toggleViewAction()->setVisible(!over);
+    o.show->setVisible(over);
+    o.over->setChecked(over);
+    showOverlay(id, over && o.shown);
+    settings_.setValue(panelKey(id, "overView"), over);
+}
+
+bool Shell::overView(const QString& id) const {
+    auto it = overlays_.find(id);
+    return it != overlays_.end() && it->second.frame->body();
+}
+
+QWidget* Shell::overlay(const QString& id) const {
+    auto it = overlays_.find(id);
+    return it == overlays_.end() ? nullptr : it->second.frame;
+}
+
+void Shell::showPanel(const QString& id, bool show) {
+    if (auto it = overlays_.find(id); it != overlays_.end() && it->second.frame->body()) {
+        if (show) it->second.frame->setFolded(false);
+        showOverlay(id, show);
+        return;
+    }
+    if (auto* dock = docks_->findDockWidget(id)) {
+        dock->toggleView(show);
+        if (!show) return;
+        dock->raise();
+        dock->setAsCurrentTab();
+    }
+}
+
+void Shell::showOverlay(const QString& id, bool show) {
+    auto& o = overlays_.at(id);
+    if (o.frame->body()) o.shown = show;
+    o.show->setChecked(show);
+    o.frame->setVisible(show);
+    if (show) o.frame->place();
+    placeOverlaysAfter(id);  // the ones under it move up or down
+}
+
+void Shell::placeOverlaysAfter(const QString& id) {
+    auto it = std::find(overlayOrder_.begin(), overlayOrder_.end(), id);
+    if (it == overlayOrder_.end()) return;
+    const bool right = overlays_.at(id).frame->right();
+    // The next visible one on the same side; placing it places the ones after it.
+    for (++it; it != overlayOrder_.end(); ++it) {
+        auto* f = overlays_.at(*it).frame;
+        if (f->right() == right && f->isVisible()) {
+            f->place();
+            return;
+        }
+    }
+}
+
+void Shell::keepOverlaysOut() {
+    for (auto& [id, o] : overlays_) {
+        if (o.frame->body() && !o.dock->isClosed()) o.dock->toggleView(false);
+    }
 }
 
 QByteArray Shell::saveLayout() const {
@@ -949,6 +1095,7 @@ QByteArray Shell::saveLayout() const {
 
 bool Shell::restoreLayout(const QByteArray& layout) {
     if (!docks_->restoreState(layout, kLayoutVersion)) return false;
+    keepOverlaysOut();
     bringPanelsOnScreen();
     return true;
 }
@@ -984,6 +1131,13 @@ QStringList Shell::layoutNames() const {
 
 void Shell::resetLayout() {
     restoreLayout(defaultLayout_);
+    for (auto& [id, o] : overlays_) {
+        o.frame->setFolded(false);
+        o.frame->setWantedSize({o.frame->right() ? 360 : 300, ViewOverlay::kAsTallAsItNeeds});
+        settings_.remove(panelKey(id, "overlaySize"));
+        settings_.remove(panelKey(id, "overlayFolded"));
+        setOverView(id, true);
+    }
 }
 
 int Shell::bringPanelsOnScreen() {

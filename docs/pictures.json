@@ -577,8 +577,8 @@
         },
         {
           "at": [
-            1110,
-            520
+            1180,
+            608
           ],
           "n": 5
         },
@@ -609,10 +609,10 @@
         ]
       },
       "crop": [
-        936,
-        78,
-        344,
-        360
+        900,
+        228,
+        380,
+        400
       ]
     },
     {
@@ -650,9 +650,9 @@
       },
       "crop": [
         0,
-        78,
+        110,
         1280,
-        290
+        560
       ],
       "check": false
     },
@@ -665,13 +665,17 @@
         "settings": {
           "plugins/kh.viewoptions/kh.grid.style": "dots",
           "plugins/kh.viewoptions/kh.grid.spacing": "5"
-        }
+        },
+        "trigger": [
+          "kh.shell.show.kh.featuretree.panel",
+          "kh.shell.show.kh.properties.panel"
+        ]
       },
       "crop": [
-        264,
-        100,
-        672,
-        520
+        0,
+        110,
+        1280,
+        668
       ]
     },
     {
@@ -685,10 +689,10 @@
         ]
       },
       "crop": [
-        938,
-        78,
-        342,
-        340
+        900,
+        228,
+        380,
+        450
       ]
     },
     {
@@ -707,10 +711,10 @@
         ]
       },
       "crop": [
-        264,
+        0,
         78,
-        672,
-        722
+        1280,
+        700
       ]
     },
     {
@@ -718,13 +722,17 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan"
+        "open": "tag.khan",
+        "trigger": [
+          "kh.shell.show.kh.featuretree.panel",
+          "kh.shell.show.kh.properties.panel"
+        ]
       },
       "crop": [
-        264,
-        100,
-        672,
-        520
+        0,
+        110,
+        1280,
+        668
       ]
     },
     {
@@ -734,14 +742,16 @@
       "app": {
         "open": "tag.khan",
         "trigger": [
-          "kh.viewer.layout.fourpanes"
+          "kh.viewer.layout.fourpanes",
+          "kh.shell.show.kh.featuretree.panel",
+          "kh.shell.show.kh.properties.panel"
         ]
       },
       "crop": [
-        262,
-        78,
-        676,
-        722
+        0,
+        110,
+        1280,
+        668
       ]
     },
     {
@@ -750,13 +760,17 @@
       "script": "tag",
       "app": {
         "open": "tag.khan",
-        "flat": true
+        "flat": true,
+        "trigger": [
+          "kh.shell.show.kh.featuretree.panel",
+          "kh.shell.show.kh.properties.panel"
+        ]
       },
       "crop": [
-        262,
-        78,
-        676,
-        500
+        0,
+        110,
+        1280,
+        668
       ]
     },
     {
@@ -775,14 +789,16 @@
         "open": "cubes.khan",
         "trigger": [
           "kh.viewer.view.front",
-          "kh.viewer.view.iso"
+          "kh.viewer.view.iso",
+          "kh.shell.show.kh.featuretree.panel",
+          "kh.shell.show.kh.properties.panel"
         ]
       },
       "crop": [
-        268,
-        114,
-        664,
-        600
+        0,
+        110,
+        1280,
+        668
       ]
     },
     {
@@ -799,10 +815,10 @@
         ]
       },
       "crop": [
-        936,
-        78,
-        344,
-        330
+        900,
+        228,
+        380,
+        380
       ]
     },
     {
@@ -824,9 +840,9 @@
       },
       "crop": [
         0,
-        78,
-        262,
-        170
+        110,
+        310,
+        260
       ]
     },
     {
@@ -843,14 +859,16 @@
         ],
         "trigger": [
           "kh.viewer.view.top",
-          "kh.viewer.fit"
+          "kh.viewer.fit",
+          "kh.shell.show.kh.featuretree.panel",
+          "kh.shell.show.kh.properties.panel"
         ]
       },
       "crop": [
-        262,
-        78,
-        1018,
-        660
+        0,
+        110,
+        1280,
+        668
       ]
     },
     {
@@ -896,10 +914,10 @@
         ]
       },
       "crop": [
-        262,
+        0,
         136,
-        676,
-        560
+        1280,
+        640
       ]
     },
     {
@@ -920,10 +938,10 @@
         ]
       },
       "crop": [
-        262,
-        136,
-        1018,
-        500
+        300,
+        170,
+        980,
+        600
       ]
     },
     {
@@ -943,10 +961,10 @@
         ]
       },
       "crop": [
-        262,
-        136,
-        1018,
-        500
+        300,
+        170,
+        980,
+        600
       ]
     },
     {

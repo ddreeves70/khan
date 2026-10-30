@@ -169,6 +169,8 @@ public:
             message("Finished the sketch.");
             refreshPanels();
             ctx_.setToolbarMode({});  // back to the usual toolbar
+            // The Sketch panel is only for editing: put it away, so it doesn't cover the view.
+            if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->hidePanel("kh.sketcher.panel");
             ctx_.publish(plugin::ActionsChanged{});
         }
     }
@@ -1438,7 +1440,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
                           sketcher->addPanel(panel);
                           return panel;
                       },
-                      false, true});  // starts closed; it opens when a sketch is edited
+                      false, true, true});  // starts closed; it opens over the view when a sketch is edited
     }
 
     // Constraints and dimensions: a button for each, shown only when it fits
