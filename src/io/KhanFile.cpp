@@ -320,7 +320,10 @@ std::optional<sketch::Sketch> sketchFromJson(const json& j, std::string& why) {
                 why = "sketch constraint " + c.name + ": bad point";
                 return std::nullopt;
             }
-            c.points.push_back({*entity, *role, *role == sketch::PointRole::Pole ? index.get<int>() : 0});
+            // value_or, not *role: GCC's -O3 can't see the check above and warns
+            // that the optional may be uninitialized.
+            const sketch::PointRole r = role.value_or(sketch::PointRole::Self);
+            c.points.push_back({*entity, r, r == sketch::PointRole::Pole ? index.get<int>() : 0});
         }
         for (const auto& ij : cj.value("entities", json::array())) {
             const auto entity = ij.is_string() ? EntityId::parse(ij.get<std::string>()) : std::nullopt;
