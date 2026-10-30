@@ -84,3 +84,34 @@ TEST_CASE("closing the design clears the selection", "[plugin][selection]") {
     CHECK(f.selection.features().empty());
     CHECK(f.selection.doc().isNil());
 }
+
+TEST_CASE("the design itself can be picked, for its settings; picking steps un-picks it",
+          "[plugin][selection]") {
+    Fixture f;
+    const auto a = f.addBox();
+    f.selection.set(f.doc, {a});
+    f.selection.pickDesign(f.doc);
+    CHECK(f.selection.designPicked());
+    CHECK(f.selection.doc() == f.doc);
+    CHECK(f.selection.features().empty());
+    CHECK(f.heard.back().design);
+    const auto heard = f.heard.size();
+    f.selection.pickDesign(f.doc);  // no change, no event
+    CHECK(f.heard.size() == heard);
+
+    // A change to the design keeps it picked.
+    REQUIRE(f.docs.run(f.doc, "feature.delete", {{"feature", a}}).empty());
+    CHECK(f.selection.designPicked());
+
+    f.selection.set(f.doc, {f.addBox()});
+    CHECK_FALSE(f.selection.designPicked());
+    CHECK_FALSE(f.heard.back().design);
+
+    f.selection.pickDesign(DocId::generate());  // not an open design
+    CHECK_FALSE(f.selection.designPicked());
+    CHECK(f.selection.doc().isNil());
+
+    f.selection.pickDesign(f.doc);
+    f.docs.close(f.doc);
+    CHECK_FALSE(f.selection.designPicked());
+}

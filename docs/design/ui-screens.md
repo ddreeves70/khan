@@ -4,6 +4,14 @@
 
 Four mockups show the shell, the plugins and the docking from [UI and plugin architecture](architecture.md#ui-and-plugin-architecture). Each numbered marker matches a row in the table under its screen. The part is the 40 × 30 × 10 mm block with a 5 mm radius hole from PR #3's test, so the numbers shown are real.
 
+> **Built since these mockups (Oct 29, 2026):** the feature tree, Properties, the
+> Sketch panel and View options float over the 3D view, see-through, like the
+> browser and dialogs in Fusion (`ui::PanelSpec::floatsOverView`): the tree at
+> its top left, the others stacked at its top right under the view cube. Each can
+> fold to its title, be resized, or be docked as an ordinary Qt ADS panel, and
+> Khan remembers which. The tree starts with the design's name and **Document
+> settings** (`Selection::pickDesign()`), where units will be chosen.
+
 ## 1. Main window, Modeling layout
 
 ![Main window in the Modeling layout with a four-pane viewer](images/ui-main-window.png)

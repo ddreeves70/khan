@@ -137,7 +137,8 @@ the window, the rest go on a second row.
 | **Width**, **Height** | two points, or a line | how far apart they are from left to right, or bottom to top |
 
 - **Typing a number.** A new dimension starts at the size the drawing already
-  has, so nothing jumps. The **Sketch** panel opens with the cursor in its
+  has, so nothing jumps. The **Sketch** panel (over the viewer, under
+  Properties, while you edit a sketch) opens with the cursor in its
   number: type the size you want and press **Enter**, and the sketch changes to
   match. You can change any dimension there later, the same way.
 - **Labels.** Every constraint has a label beside what it's on: **H**, **V**,

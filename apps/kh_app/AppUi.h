@@ -18,8 +18,13 @@ public:
     void showProblems(const Diagnostics& problems) override;
     void showMessage(const QString& message) override;
     void showPanel(const std::string& id) override {
-        if (panelSink_) panelSink_(id);
+        if (panelSink_) panelSink_(id, true);
     }
+    void hidePanel(const std::string& id) override {
+        if (panelSink_) panelSink_(id, false);
+    }
+
+    QIcon icon(std::string_view svg) const override;
 
     const std::vector<ui::PanelSpec>& panels() const { return panels_; }
     const std::vector<ui::StatusItemSpec>& statusItems() const { return statusItems_; }
@@ -34,11 +39,11 @@ private:
     std::vector<ui::StatusItemSpec> statusItems_;
     std::function<void(const Diagnostics&)> problemSink_;
     std::function<void(const QString&)> messageSink_;
-    std::function<void(const std::string&)> panelSink_;
+    std::function<void(const std::string&, bool)> panelSink_;
 
 public:
-    // Where showPanel() goes: the main window, once it exists.
-    void setPanelSink(std::function<void(const std::string&)> sink) { panelSink_ = std::move(sink); }
+    // Where showPanel() and hidePanel() go (true to show): the main window, once it exists.
+    void setPanelSink(std::function<void(const std::string&, bool)> sink) { panelSink_ = std::move(sink); }
 
 private:
     Diagnostics heldProblems_;

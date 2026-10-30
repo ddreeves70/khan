@@ -2,7 +2,9 @@
 
 #include <QAction>
 #include <QHeaderView>
+#include <QLabel>
 #include <QMenu>
+#include <QToolButton>
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
@@ -12,6 +14,7 @@
 #include <set>
 #include <vector>
 
+#include "FeatureTreeIcons.h"
 #include "kh/model/Document.h"
 #include "kh/plugin/Events.h"
 #include "kh/ui/UiRegistry.h"
@@ -59,12 +62,31 @@ const char* kindName(const model::Feature& f) {
     return "Step";
 }
 
-// The panel. One row per step, in build order: name, kind, status.
+// The panel: the design's name, its Document settings, then one row per step,
+// in build order: name, kind, status.
 class FeatureTree final : public QWidget {
 public:
     FeatureTree(plugin::PluginContext& ctx, ui::UiRegistry& ui) : ctx_(ctx), ui_(ui) {
         setObjectName(QStringLiteral("kh.featuretree.widget"));
         setMinimumWidth(260);
+        design_ = new QLabel(this);
+        design_->setObjectName(QStringLiteral("kh.featuretree.design"));
+        QFont bold = design_->font();
+        bold.setBold(true);
+        design_->setFont(bold);
+        design_->setContentsMargins(4, 2, 4, 0);
+        settings_ = new QToolButton(this);
+        settings_->setObjectName(QStringLiteral("kh.featuretree.settings"));
+        settings_->setText(tr("Document settings"));
+        settings_->setIcon(ui_.icon(icons::featuretree::settings_svg));
+        settings_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        settings_->setAutoRaise(true);
+        settings_->setCheckable(true);
+        settings_->setToolTip(tr("The design's own settings, like its units. Click to see them in Properties."));
+        connect(settings_, &QToolButton::clicked, this, [this] {
+            ctx_.selection().pickDesign(ctx_.documents().active());
+            showSelection();
+        });
         tree_ = new QTreeWidget(this);
         tree_->setObjectName(QStringLiteral("kh.featuretree.tree"));
         tree_->setColumnCount(3);
@@ -79,6 +101,9 @@ public:
         tree_->setContextMenuPolicy(Qt::CustomContextMenu);
         auto* layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        layout->addWidget(design_);
+        layout->addWidget(settings_, 0, Qt::AlignLeft);
         layout->addWidget(tree_);
 
         connect(tree_, &QTreeWidget::itemSelectionChanged, this, [this] { pickedRows(); });
@@ -90,7 +115,9 @@ public:
         });
         connect(tree_, &QTreeWidget::itemExpanded, this, [this](QTreeWidgetItem* item) {
             if (!filling_) collapsed_.erase(folderIdOf(item));
+            updateGeometry();
         });
+        connect(tree_, &QTreeWidget::itemCollapsed, this, [this] { updateGeometry(); });
         connect(tree_, &QWidget::customContextMenuRequested, this, [this](const QPoint& at) { menu(at); });
 
         using namespace plugin;
@@ -100,6 +127,22 @@ public:
         subs_.push_back(ctx_.events().subscribe<RebuildFinished>([this](const auto&) { scheduleRefill(); }));
         subs_.push_back(ctx_.events().subscribe<SelectionChanged>([this](const auto&) { showSelection(); }));
         refill();
+    }
+
+    // As tall as its rows, so floating over the view it covers no more than it
+    // needs (docked, it fills its dock anyway).
+    QSize sizeHint() const override {
+        int rows = 0;
+        for (QTreeWidgetItemIterator it(tree_); *it; ++it) {
+            bool shown = true;
+            for (auto* p = (*it)->parent(); p; p = p->parent()) shown = shown && p->isExpanded();
+            rows += shown ? 1 : 0;
+        }
+        const int rowHeight = tree_->topLevelItemCount() > 0 ? tree_->sizeHintForRow(0) : 0;
+        const int height = design_->sizeHint().height() + settings_->sizeHint().height() +
+                           tree_->header()->sizeHint().height() + std::max(rows, 1) * std::max(rowHeight, 18) +
+                           2 * tree_->frameWidth() + 10;
+        return {minimumWidth(), height};
     }
 
 private:
@@ -125,6 +168,8 @@ private:
         const DocId doc = ctx_.documents().active();
         const auto* design = ctx_.documents().find(doc);
         const auto* report = ctx_.documents().lastRebuild(doc);
+        design_->setText(design ? QString::fromStdString(design->name()) : QString());
+        settings_->setEnabled(design != nullptr);
         const auto folders = design ? design->folders() : std::vector<model::Folder>{};
         tree_->setRootIsDecorated(!folders.empty());
         if (design) {
@@ -182,6 +227,7 @@ private:
             }
         }
         filling_ = false;
+        updateGeometry();  // as tall as its rows
         showSelection();
     }
 
@@ -245,6 +291,7 @@ private:
             if (all) pickedFolders_.insert(folder);
         }
         picked_ = here ? sel.features() : std::vector<FeatureId>{};
+        settings_->setChecked(here && sel.designPicked());
         filling_ = false;
     }
 
@@ -362,6 +409,8 @@ private:
     plugin::PluginContext& ctx_;
     ui::UiRegistry& ui_;
     QTreeWidget* tree_ = nullptr;
+    QLabel* design_ = nullptr;         // the design's name, at the top
+    QToolButton* settings_ = nullptr;  // Document settings
     std::vector<FeatureId> picked_;
     std::set<FolderId> pickedFolders_;  // folder rows shown picked
     std::set<FolderId> collapsed_;      // folders the student closed
@@ -376,8 +425,10 @@ void registerFeatureTree(plugin::PluginContext& ctx) {
         ctx.log("No desktop app here, so the feature tree panel isn't shown.");
         return;
     }
-    ui->addPanel({"kh.featuretree.panel", QObject::tr("Feature tree"), ui::PanelArea::Left,
-                  [&ctx, ui] { return new FeatureTree(ctx, *ui); }});
+    ui::PanelSpec spec{"kh.featuretree.panel", QObject::tr("Feature tree"), ui::PanelArea::Left,
+                       [&ctx, ui] { return new FeatureTree(ctx, *ui); }};
+    spec.floatsOverView = true;  // like Fusion's browser
+    ui->addPanel(std::move(spec));
 }
 
 }  // namespace

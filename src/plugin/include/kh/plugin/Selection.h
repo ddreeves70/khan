@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file
-/// The shared selection: which steps the student has picked.
+/// The shared selection: which steps (or which design's settings) the student has picked.
 
 #include <vector>
 
@@ -56,6 +56,20 @@ public:
     /// Selects nothing. Sends SelectionChanged if something was selected.
     void clear();
 
+    /// Picks the design itself instead of any of its steps, as the feature
+    /// tree's **Document settings** row does: Properties then shows the design's
+    /// settings. Sends SelectionChanged if it differs. Picking steps with set()
+    /// (or clear()) un-picks it.
+    /// @code
+    /// ctx.selection().pickDesign(ctx.documents().active());
+    /// @endcode
+    /// @param doc The design. An id that isn't an open design selects nothing.
+    void pickDesign(const DocId& doc);
+
+    /// Checks whether the design itself is picked (see pickDesign()).
+    /// @return True if it is; doc() says which design, and features() is empty.
+    bool designPicked() const { return design_; }
+
 private:
     void prune();
 
@@ -63,6 +77,7 @@ private:
     const DocumentList& docs_;
     DocId doc_;
     std::vector<FeatureId> features_;
+    bool design_ = false;
     std::vector<Subscription> subscriptions_;
 };
 

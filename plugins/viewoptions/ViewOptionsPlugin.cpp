@@ -349,6 +349,7 @@ void registerViewOptions(plugin::PluginContext& ctx) {
     ui::PanelSpec panel{"kh.viewoptions.panel", QObject::tr("View options"), ui::PanelArea::Right,
                         [options, &bus] { return new Panel(*options, bus); }};
     panel.startHidden = true;
+    panel.floatsOverView = true;
     ui->addPanel(std::move(panel));
     ctx.addAction({.id = "kh.viewoptions.show",
                    .text = "View options...",

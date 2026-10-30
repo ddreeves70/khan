@@ -7,3 +7,5 @@ kh_add_library(kh_plugin_featuretree
     kh::plugin
     kh::model
 )
+kh_embed_files(kh_plugin_featuretree HEADER FeatureTreeIcons.h NAMESPACE kh::icons::featuretree
+  FILES icons/settings.svg)

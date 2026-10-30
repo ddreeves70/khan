@@ -29,10 +29,23 @@ void Selection::set(const DocId& doc, std::vector<FeatureId> features) {
         }
     }
     const DocId newDoc = kept.empty() ? DocId{} : doc;
-    if (newDoc == doc_ && kept == features_) return;
+    if (newDoc == doc_ && kept == features_ && !design_) return;
     doc_ = newDoc;
     features_ = std::move(kept);
-    bus_.publish(SelectionChanged{doc_, features_});
+    design_ = false;
+    bus_.publish(SelectionChanged{doc_, features_, false});
+}
+
+void Selection::pickDesign(const DocId& doc) {
+    if (!docs_.find(doc)) {
+        clear();
+        return;
+    }
+    if (design_ && doc_ == doc) return;
+    doc_ = doc;
+    features_.clear();
+    design_ = true;
+    bus_.publish(SelectionChanged{doc_, features_, true});
 }
 
 void Selection::clear() {
@@ -40,6 +53,7 @@ void Selection::clear() {
 }
 
 void Selection::prune() {
+    if (design_) return;   // the design is still there
     set(doc_, features_);  // drops steps that are gone
 }
 
