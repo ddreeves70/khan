@@ -19,8 +19,9 @@ namespace kh::kernel {
 ///  - Never expose kernel-specific types in this header.
 ///  - Be deterministic: same inputs, same output.
 ///
-/// Phase 0 covers primitives, Booleans, meshing and export. Sketch faces,
-/// extrude, fillet, sub-shape queries and shape history follow in Phases 1-2.
+/// Phase 0 covers primitives, Booleans, meshing and export; moving came next, then
+/// faces from sketch shapes and extrude. Fillet, sub-shape queries and shape history
+/// follow in Phase 2.
 class IKernel {
 public:
     /// Destroys the kernel. Shapes it made stay valid.
@@ -92,6 +93,30 @@ public:
     /// @param motion The turn (radians, about a line in mm), then the slide (mm).
     /// @return The moved shape, or diagnostics if the axis is 0, 0, 0 while turning.
     virtual OpResult transform(const ShapeHandle& shape, const Motion& motion) = 0;
+
+    /// Makes a flat face from an outline and its holes, on a plane (a sketch's
+    /// closed shape, ready to extrude).
+    ///
+    /// Ends of neighboring edges may be a hair apart (up to about 1e-5 mm, as a
+    /// solver leaves them); they're joined where they meet.
+    /// @param profile The outline (counterclockwise) and holes (clockwise), in the
+    ///        plane's x and y (mm).
+    /// @param plane Where the face lies.
+    /// @return The face, or diagnostics if the outline doesn't close, a piece has no
+    ///         length or size, or the plane's directions aren't square to each other.
+    virtual OpResult makeFace(const Profile2& profile, const Plane& plane) = 0;
+
+    /// Sweeps a flat face along a straight line, making a solid: a rectangle
+    /// becomes a block, a circle a cylinder.
+    /// @code
+    /// auto face = kernel.makeFace(profile, plane);
+    /// auto solid = kernel.extrude(face.shape, {0, 0, 10});  // 10 mm straight up
+    /// @endcode
+    /// @param face A flat face, like one from makeFace().
+    /// @param vector Which way and how far to sweep it (mm). Not 0, 0, 0, and not
+    ///        lying flat in the face.
+    /// @return The solid, or diagnostics if the face or the vector won't do.
+    virtual OpResult extrude(const ShapeHandle& face, const Vec3& vector) = 0;
 };
 
 }  // namespace kh::kernel

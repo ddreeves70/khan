@@ -187,3 +187,146 @@ TEST_CASE("A moved shape exports and meshes", "[kernel][occt][move]") {
     const auto mesh = k->tessellate(moved.shape, MeshQuality{});
     CHECK(mesh.triangles.size() == 12);
 }
+
+// --- Faces from flat outlines, and extrude ------------------------------------------
+
+namespace {
+
+constexpr double kPi = std::numbers::pi;
+
+// A w by h rectangle from (x, y), counterclockwise.
+Loop2 rectangle(double x, double y, double w, double h) {
+    return {Edge2{Line2{{x, y}, {x + w, y}}}, Edge2{Line2{{x + w, y}, {x + w, y + h}}},
+            Edge2{Line2{{x + w, y + h}, {x, y + h}}}, Edge2{Line2{{x, y + h}, {x, y}}}};
+}
+
+const Plane kGround{};  // XY: x right, y up, normal +z
+
+}  // namespace
+
+TEST_CASE("a rectangle extruded 10 mm is a 40 x 20 x 10 block", "[kernel][occt][extrude]") {
+    auto k = kh::kernel::makeOcctKernel();
+    const auto face = k->makeFace({rectangle(0, 0, 40, 20), {}}, kGround);
+    REQUIRE(face.ok());
+    const auto solid = k->extrude(face.shape, {0, 0, 10});
+    REQUIRE(solid.ok());
+    CHECK(k->massProps(solid.shape).volume == Approx(8000));
+    const auto b = k->bounds(solid.shape);
+    CHECK(b.min.x == Approx(0).margin(1e-7));
+    CHECK(b.max.x == Approx(40));
+    CHECK(b.max.y == Approx(20));
+    CHECK(b.min.z == Approx(0).margin(1e-7));
+    CHECK(b.max.z == Approx(10));
+    const auto t = k->topology(solid.shape);
+    CHECK(t.solids == 1);
+    CHECK(t.faces == 6);
+    CHECK(k->validate(solid.shape).empty());
+}
+
+TEST_CASE("a hole in the face goes through the solid", "[kernel][occt][extrude]") {
+    auto k = kh::kernel::makeOcctKernel();
+    // The hole runs clockwise, as findProfiles() gives holes.
+    const Profile2 plate{rectangle(0, 0, 40, 20), {Loop2{Edge2{Circle2{{10, 10}, 4}, true}}}};
+    const auto solid = k->extrude(k->makeFace(plate, kGround).shape, {0, 0, 5});
+    REQUIRE(solid.ok());
+    CHECK(k->massProps(solid.shape).volume == Approx((800 - kPi * 16) * 5));
+    CHECK(k->topology(solid.shape).faces == 7);  // 6 sides of the block and the hole's wall
+    CHECK(k->validate(solid.shape).empty());
+}
+
+TEST_CASE("a slot of lines and arcs extrudes to its exact volume", "[kernel][occt][extrude]") {
+    auto k = kh::kernel::makeOcctKernel();
+    // 30 mm lines 10 mm apart, closed by half circles of radius 5, counterclockwise.
+    const Loop2 slot{Edge2{Line2{{0, 0}, {30, 0}}}, Edge2{Arc2{{30, 5}, 5, -kPi / 2, kPi / 2}},
+                     Edge2{Line2{{30, 10}, {0, 10}}}, Edge2{Arc2{{0, 5}, 5, kPi / 2, 3 * kPi / 2}}};
+    const auto solid = k->extrude(k->makeFace({slot, {}}, kGround).shape, {0, 0, 2});
+    REQUIRE(solid.ok());
+    CHECK(k->massProps(solid.shape).volume == Approx((300 + kPi * 25) * 2));
+    CHECK(k->validate(solid.shape).empty());
+}
+
+TEST_CASE("an outline that runs backwards along some edges still makes a face", "[kernel][occt][extrude]") {
+    auto k = kh::kernel::makeOcctKernel();
+    // The triangle (0,0) -> (10,0) -> (0,10), with two of its lines stored the other way round.
+    const Loop2 tri{Edge2{Line2{{10, 0}, {0, 0}}, true}, Edge2{Line2{{10, 0}, {0, 10}}},
+                    Edge2{Line2{{0, 0}, {0, 10}}, true}};
+    const auto solid = k->extrude(k->makeFace({tri, {}}, kGround).shape, {0, 0, 3});
+    REQUIRE(solid.ok());
+    CHECK(k->massProps(solid.shape).volume == Approx(150));
+}
+
+TEST_CASE("extrude goes either way, and works on any plane", "[kernel][occt][extrude]") {
+    auto k = kh::kernel::makeOcctKernel();
+    SECTION("downwards") {
+        const auto solid = k->extrude(k->makeFace({rectangle(0, 0, 10, 10), {}}, kGround).shape, {0, 0, -4});
+        REQUIRE(solid.ok());
+        CHECK(k->massProps(solid.shape).volume == Approx(400));
+        CHECK(k->bounds(solid.shape).min.z == Approx(-4));
+        CHECK(k->validate(solid.shape).empty());
+    }
+    SECTION("on XZ (standing, seen from the front), out towards the viewer") {
+        const Plane front{{0, 0, 0}, {1, 0, 0}, {0, 0, 1}};  // normal: x * z = -y
+        const auto face = k->makeFace({rectangle(0, 0, 30, 10), {}}, front);
+        REQUIRE(face.ok());
+        const auto b = k->bounds(face.shape);
+        CHECK(b.max.z == Approx(10));  // the sketch's y is the design's z
+        const auto solid = k->extrude(face.shape, {0, -6, 0});
+        REQUIRE(solid.ok());
+        CHECK(k->massProps(solid.shape).volume == Approx(1800));
+        CHECK(k->bounds(solid.shape).min.y == Approx(-6));
+    }
+    SECTION("on a plane away from the origin") {
+        const Plane up{{5, 5, 20}, {1, 0, 0}, {0, 1, 0}};
+        const auto solid = k->extrude(k->makeFace({rectangle(0, 0, 10, 10), {}}, up).shape, {0, 0, 1});
+        REQUIRE(solid.ok());
+        CHECK(k->bounds(solid.shape).min.x == Approx(5));
+        CHECK(k->bounds(solid.shape).min.z == Approx(20));
+    }
+}
+
+TEST_CASE("ends a hair apart join; ends far apart get a plain message", "[kernel][occt][extrude]") {
+    auto k = kh::kernel::makeOcctKernel();
+    auto loop = rectangle(0, 0, 10, 10);
+    std::get<Line2>(loop[1].curve).start.x += 2e-6;  // as a solver might leave it
+    const auto ok = k->makeFace({loop, {}}, kGround);
+    REQUIRE(ok.ok());
+    CHECK(k->validate(k->extrude(ok.shape, {0, 0, 1}).shape).empty());
+
+    std::get<Line2>(loop[1].curve).start.x += 0.5;  // a real gap
+    const auto gap = k->makeFace({loop, {}}, kGround);
+    CHECK_FALSE(gap.ok());
+    REQUIRE(gap.issues.size() == 1);
+    CHECK(gap.issues[0].code == "kernel.face.outline");
+    CHECK(gap.issues[0].message.find("isn't closed") != std::string::npos);
+}
+
+TEST_CASE("faces and extrudes that can't be made say why", "[kernel][occt][extrude]") {
+    auto k = kh::kernel::makeOcctKernel();
+    CHECK(k->makeFace({}, kGround).issues.at(0).code == "kernel.face.outline");
+    const Loop2 dot{Edge2{Line2{{1, 1}, {1, 1}}}, Edge2{Line2{{1, 1}, {1, 1}}}};
+    CHECK(k->makeFace({dot, {}}, kGround).issues.at(0).message.find("no length") != std::string::npos);
+    const Plane skew{{0, 0, 0}, {1, 0, 0}, {1, 1, 0}};  // not square
+    CHECK(k->makeFace({rectangle(0, 0, 1, 1), {}}, skew).issues.at(0).code == "kernel.face.plane");
+    const auto face = k->makeFace({rectangle(0, 0, 10, 10), {}}, kGround);
+    CHECK(k->extrude(face.shape, {0, 0, 0}).issues.at(0).code == "kernel.extrude.distance");
+    CHECK(k->extrude(face.shape, {5, 0, 0}).issues.at(0).code == "kernel.extrude.direction");  // along the face
+    const auto box = k->makeBox({0, 0, 0}, 1, 1, 1);
+    CHECK(k->extrude(box.shape, {0, 0, 1}).issues.at(0).code == "kernel.extrude.input");  // not a face
+}
+
+TEST_CASE("extruding the same face twice gives the same solid", "[kernel][occt][extrude]") {
+    auto k = kh::kernel::makeOcctKernel();
+    const Profile2 plate{rectangle(0, 0, 40, 20), {Loop2{Edge2{Circle2{{10, 10}, 4}, true}}}};
+    auto make = [&] { return k->extrude(k->makeFace(plate, kGround).shape, {0, 0, 5}).shape; };
+    const auto a = make(), b = make();
+    const auto ma = k->massProps(a), mb = k->massProps(b);
+    CHECK(ma.volume == mb.volume);  // exactly
+    CHECK(ma.area == mb.area);
+    CHECK(ma.centerOfMass.x == mb.centerOfMass.x);
+    const auto ta = k->topology(a), tb = k->topology(b);
+    CHECK(ta.faces == tb.faces);
+    CHECK(ta.edges == tb.edges);
+    const auto meshA = k->tessellate(a, {}), meshB = k->tessellate(b, {});
+    CHECK(meshA.triangles.size() == meshB.triangles.size());
+    CHECK_FALSE(meshA.triangles.empty());  // and it meshes, for the viewer and STL
+}
