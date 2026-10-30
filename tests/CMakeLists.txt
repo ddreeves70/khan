@@ -1,5 +1,6 @@
 add_executable(kh_tests
   core/test_id.cpp
+  core/test_units.cpp
   model/test_document.cpp
   model/test_commands.cpp
   model/test_rebuild.cpp
@@ -11,6 +12,7 @@ add_executable(kh_tests
   model/test_move.cpp
   model/test_sketch_step.cpp
   model/test_extrude.cpp
+  model/test_units_command.cpp
   io/test_khan_file.cpp
   plugin/test_event_bus.cpp
   plugin/test_manifest.cpp

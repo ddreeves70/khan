@@ -47,8 +47,10 @@ class PluginContext;
 /// picking a design's settings (Selection::pickDesign(), SelectionChanged::design),
 /// panels that float over the 3D view (ui::PanelSpec::floatsOverView), closing a
 /// panel (ui::UiRegistry::hidePanel()) and SVG
-/// icons for plugins' own widgets (ui::UiRegistry::icon()).
-inline constexpr int kPluginApiVersion = 18;
+/// icons for plugins' own widgets (ui::UiRegistry::icon()). Version 19 added the
+/// unit a design shows lengths in (model::Document::lengthUnit(), kh::LengthUnit
+/// in kh/core/Units.h, model::SetUnitsCommand and the document.set_units command).
+inline constexpr int kPluginApiVersion = 19;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

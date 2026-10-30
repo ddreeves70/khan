@@ -1721,13 +1721,78 @@ TEST_CASE("Document settings in the feature tree shows the design's settings in 
     CHECK_FALSE(app.tree()->topLevelItem(0)->isSelected());
     CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("kh.properties.title"))->text() ==
           QStringLiteral("Document settings"));
-    CHECK(app.field<QLabel>("units")->text() == QStringLiteral("Millimeters (mm); angles in degrees"));
+    CHECK(app.field<QComboBox>("units")->currentText() == QStringLiteral("Millimeters (mm)"));
+    CHECK(app.field<QLabel>("angles")->text() == QStringLiteral("Degrees"));
     CHECK(app.field<QLabel>("steps")->text() == QStringLiteral("1 step"));
     // Picking a step goes back to the step.
     app.pickRows({0});
     CHECK_FALSE(settings->isChecked());
     CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("kh.properties.title"))->text() ==
           QStringLiteral("Box1"));
+}
+
+TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",
+          "[app][units]") {
+    App app;
+    app.click("kh.modeling.box");  // 20 x 20 x 20 mm
+    auto* settings = app.shell->panelWidget(QStringLiteral("kh.featuretree.panel"))
+                         ->findChild<QToolButton*>(QStringLiteral("kh.featuretree.settings"));
+    settings->click();
+    settle();
+    auto* units = app.field<QComboBox>("units");
+    REQUIRE(units);
+    QStringList names;
+    for (int i = 0; i < units->count(); ++i) names << units->itemText(i);
+    CHECK(names ==
+          QStringList({"Millimeters (mm)", "Centimeters (cm)", "Meters (m)", "Inches (in)", "Feet (ft)"}));
+    units->setCurrentIndex(3);
+    emit units->activated(3);
+    settle();
+    CHECK(app.doc().lengthUnit() == LengthUnit::Inch);
+    CHECK(app.doc().undoLabel() == "Use inches");
+    CHECK(app.field<QComboBox>("units")->currentText() == QStringLiteral("Inches (in)"));
+
+    // The box's numbers are in inches now; it's still 20 mm.
+    app.pickRows({0});
+    auto* x = app.field<QDoubleSpinBox>("size.x");
+    REQUIRE(x);
+    CHECK(x->value() == Approx(20 / 25.4).margin(0.001));
+    CHECK(x->decimals() == 3);
+    CHECK(app.field<QLabel>("volume")->text() == QStringLiteral("0.49 in³"));  // 8000 mm³
+    QStringList labels;
+    for (auto* l : app.properties()->findChildren<QLabel*>()) labels << l->text();
+    CHECK(labels.contains(QStringLiteral("Size (in)")));
+    // Typing 1 makes it an inch: 25.4 mm inside.
+    x->setValue(1.0);
+    settle();
+    CHECK(static_cast<const model::BoxFeature&>(app.doc().featureAt(0)).size().x == Approx(25.4));
+
+    // Undo the edit, then the units: back to mm, and the form follows.
+    app.shell->undoAction()->trigger();
+    settle();
+    app.shell->undoAction()->trigger();
+    settle();
+    CHECK(app.doc().lengthUnit() == LengthUnit::Millimeter);
+    CHECK(app.field<QDoubleSpinBox>("size.x")->value() == Approx(20));
+    CHECK(app.field<QLabel>("volume")->text() == QStringLiteral("8000.00 mm³"));
+}
+
+TEST_CASE("units: sketch dimensions are labeled and typed in the design's unit", "[app][units][sketcher]") {
+    Drawn d;
+    REQUIRE(d.app.host.documents()
+                .run(d.app.shell->activeDesign(), "document.set_units", {{"unit", std::string("cm")}})
+                .empty());
+    settle();
+    clickAt(d.flat, {30, 0, 0});
+    d.app.click("kh.sketcher.dimension");
+    CHECK(labelTexts(d.app, "edit.labels") == std::vector<std::string>{"6 cm"});  // 60 mm
+    auto* box = numberBox(d.app, "Length1");
+    REQUIRE(box);
+    CHECK(box->value() == Approx(6));
+    CHECK(box->suffix() == QStringLiteral(" cm"));
+    typeNumber(box, 4.5);
+    CHECK(d.sketch().findConstraint("Length1")->value == Approx(45));  // mm inside
+    CHECK(labelTexts(d.app, "edit.labels") == std::vector<std::string>{"4.5 cm"});
 }
 
 TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {

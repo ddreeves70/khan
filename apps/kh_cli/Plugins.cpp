@@ -424,7 +424,7 @@ int runCommand(int argc, char** argv) {
         } else if (r->status == model::FeatureStatus::Ok) {
             const auto& material = design.materialOf(f.id());
             const auto mass = model::bodyMass(*kernel, r->shape, material);
-            std::printf("  volume %.2f mm^3", mass.volume);
+            std::printf("  volume %s", volumeText(mass.volume, design.lengthUnit()).c_str());
             // Finished bodies also get their mass and material.
             const auto& bodies = report->bodies();
             if (std::find(bodies.begin(), bodies.end(), f.id()) != bodies.end()) {

@@ -107,12 +107,23 @@ std::string mm(double v) {
     return buf;
 }
 
-std::string xy(kh::sketch::Point2 p) {
-    return mm(p.x) + ", " + mm(p.y);
+// A length for printing, in the design's unit: as many decimals as the unit
+// shows (2 for mm), and never "-0".
+std::string length(double v, kh::LengthUnit unit) {
+    const int decimals = kh::unitDecimals(unit);
+    const double shown = kh::toUnit(v, unit);
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%.*f", decimals,
+                  std::abs(shown) < 0.5 * std::pow(10.0, -decimals) ? 0.0 : shown);
+    return buf;
 }
 
 // Lists a sketch: each entity where the solver put it, then each constraint.
-void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureResult& result) {
+// Lengths are in the design's unit.
+void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureResult& result,
+                 kh::LengthUnit unit) {
+    auto xy = [unit](kh::sketch::Point2 p) { return length(p.x, unit) + ", " + length(p.y, unit); };
+    const std::string symbol(kh::unitSymbol(unit));
     namespace ks = kh::sketch;
     const auto& drawn = step.sketch();
     const auto* solved = result.sketch.get();
@@ -136,9 +147,9 @@ void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureR
         } else if (const auto* l = std::get_if<ks::LineShape>(&e.shape)) {
             what = "line    " + xy(l->start) + " to " + xy(l->end);
         } else if (const auto* c = std::get_if<ks::CircleShape>(&e.shape)) {
-            what = "circle  center " + xy(c->center) + "  radius " + mm(c->radius);
+            what = "circle  center " + xy(c->center) + "  radius " + length(c->radius, unit);
         } else if (const auto* a = std::get_if<ks::ArcShape>(&e.shape)) {
-            what = "arc     center " + xy(a->center) + "  radius " + mm(a->radius) + "  from " +
+            what = "arc     center " + xy(a->center) + "  radius " + length(a->radius, unit) + "  from " +
                    mm(a->startAngle * 180 / std::numbers::pi) + " to " +
                    mm(a->endAngle * 180 / std::numbers::pi) + " degrees";
         }
@@ -163,7 +174,7 @@ void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureR
         if (c.kind == ks::ConstraintKind::Angle) {
             value = "  " + mm(c.value * 180 / std::numbers::pi) + " degrees";
         } else if (ks::isDimension(c.kind)) {
-            value = "  " + mm(c.value) + " mm";
+            value = "  " + length(c.value, unit) + " " + symbol;
         }
         std::string note;
         if (solved && has(solved->conflicting, c.id)) note = "  (conflicts)";
@@ -190,8 +201,9 @@ void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureR
         const auto& p = found.shapes[i];
         std::string holes;
         for (const auto& h : p.holes) holes += (holes.empty() ? "  holes: " : "; ") + names(h);
-        std::printf("  shape %zu  %s  area %.2f mm^2%s\n", i + 1, names(p.outer).c_str(), p.area(),
-                    holes.c_str());
+        const double per = kh::mmPerUnit(unit);
+        std::printf("  shape %zu  %s  area %.2f %s^2%s\n", i + 1, names(p.outer).c_str(),
+                    p.area() / (per * per), symbol.c_str(), holes.c_str());
     }
     if (!found.openEnds.empty()) {
         std::string ends;
@@ -238,7 +250,7 @@ int openDesign(int argc, char** argv) {
         } else if (r->status == kh::model::FeatureStatus::Ok) {
             const auto& material = doc.materialOf(f.id());
             const auto mass = kh::model::bodyMass(*kernel, r->shape, material);
-            std::printf("  volume %.2f mm^3", mass.volume);
+            std::printf("  volume %s", kh::volumeText(mass.volume, doc.lengthUnit()).c_str());
             // Finished bodies also get their mass and material.
             const auto& bodies = report.bodies();
             if (std::find(bodies.begin(), bodies.end(), f.id()) != bodies.end()) {
@@ -257,7 +269,8 @@ int openDesign(int argc, char** argv) {
             std::fprintf(stderr, "error: this design has no sketch called %s.\n", argv[4]);
             return 1;
         }
-        printSketch(static_cast<const kh::model::SketchFeature&>(*found), *report.result(found->id()));
+        printSketch(static_cast<const kh::model::SketchFeature&>(*found), *report.result(found->id()),
+                    doc.lengthUnit());
     }
     if (!report.ok()) return 1;
 

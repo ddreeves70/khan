@@ -13,6 +13,7 @@
 
 #include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
+#include "kh/core/Units.h"
 #include "kh/kernel/IKernel.h"
 #include "kh/model/Command.h"
 #include "kh/model/Feature.h"
@@ -123,6 +124,12 @@ public:
     /// @param id The feature that may be used.
     /// @return The ids of the features that use it, in document order.
     std::vector<FeatureId> dependents(const FeatureId& id) const;
+
+    /// Gives the unit the design shows its lengths in (its Document settings).
+    /// Only what the student sees and types changes: every length in the design
+    /// is still in mm. Change it with SetUnitsCommand.
+    /// @return Millimeters unless the student picked another unit.
+    LengthUnit lengthUnit() const { return lengthUnit_; }
 
     /// Gives the materials this design added to Khan's built-in ones.
     /// @return The design's own materials, in the order they were added.
@@ -248,10 +255,11 @@ private:
     DocKind kind_;
     std::string name_;
     std::vector<std::unique_ptr<Feature>> features_;
-    std::vector<Material> materials_;  // the design's own materials
-    std::vector<Folder> folders_;      // as the commands left them; folders() hides deleted steps
-    std::vector<Folder> shown_;        // folders(), kept so findFolder() can hand out pointers
-    void updateFolders();              // recomputes shown_ after every change
+    LengthUnit lengthUnit_ = LengthUnit::Millimeter;  // what lengths are shown in
+    std::vector<Material> materials_;                 // the design's own materials
+    std::vector<Folder> folders_;  // as the commands left them; folders() hides deleted steps
+    std::vector<Folder> shown_;    // folders(), kept so findFolder() can hand out pointers
+    void updateFolders();          // recomputes shown_ after every change
 
     std::vector<Entry> done_;
     std::vector<Entry> undone_;
