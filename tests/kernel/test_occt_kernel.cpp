@@ -372,6 +372,41 @@ TEST_CASE("a closed spline extrudes on its own, and as a hole", "[kernel][occt][
     CHECK(k->validate(holed.shape).empty());
 }
 
+TEST_CASE("surface areas of spline walls are right: kinks, weights and seams", "[kernel][occt][spline]") {
+    // Each wall's area is its curve's length times the height, so a solid's surface
+    // is 2 x its section's area + its outline's length x the height.
+    auto k = kh::kernel::makeOcctKernel();
+    auto surface = [&](const Loop2& loop, double height) {
+        const auto solid = k->extrude(k->makeFace({loop, {}}, kGround).shape, {0, 0, height});
+        REQUIRE(solid.ok());
+        return k->massProps(solid.shape).area;
+    };
+    // Degree 1: straight pieces with corners, all in one B-spline. Exact by arithmetic:
+    // OCCT's own measure was 4.35 mm^2 (0.2%) off, missing the corners.
+    const std::vector<Point2> zig{{0, 0}, {10, 20}, {25, 15}, {40, 30}, {50, 0}};
+    double length = 50, area = 0;  // the closing line, and the shoelace sum
+    for (std::size_t i = 0; i + 1 < zig.size(); ++i)
+        length += std::hypot(zig[i + 1].x - zig[i].x, zig[i + 1].y - zig[i].y);
+    for (std::size_t i = 0; i < zig.size(); ++i) {
+        const auto& a = zig[i];
+        const auto& b = zig[(i + 1) % zig.size()];
+        area += (a.x * b.y - b.x * a.y) / 2;
+    }
+    const Loop2 zigzag{Edge2{Spline2{zig, {}, 1, false}}, Edge2{Line2{{50, 0}, {0, 0}}}};
+    CHECK(surface(zigzag, 4) == Approx(2 * std::abs(area) + length * 4).epsilon(1e-9));
+    // Weighted (rational): its length, 77.271424561 mm, worked out independently
+    // (adaptive integration, and a million-piece polyline). OCCT alone was 1e-4 off.
+    const Loop2 weighted{Edge2{Spline2{{{0, 0}, {0, 30}, {40, 30}, {40, 0}}, {1, 3, 3, 1}, 3, false}},
+                         Edge2{Line2{{40, 0}, {0, 0}}}};
+    const auto solid = k->extrude(k->makeFace({weighted, {}}, kGround).shape, {0, 0, 5});
+    const double section = k->massProps(solid.shape).volume / 5;
+    CHECK(k->massProps(solid.shape).area == Approx(2 * section + (40 + 77.27142456098656) * 5).epsilon(1e-9));
+    // A closed spline's wall has a seam (an edge on it twice): length 58.411469733 mm,
+    // worked out the same way.
+    const Spline2 round{{{-10, -10}, {10, -10}, {10, 10}, {-10, 10}}, {}, 3, true};
+    CHECK(surface(Loop2{Edge2{round}}, 2) == Approx(2 * 2440.0 / 9 + 58.41146973333846 * 2).epsilon(1e-9));
+}
+
 TEST_CASE("weights pull a spline edge; splines that can't be made say why",
           "[kernel][occt][extrude][spline]") {
     auto k = kh::kernel::makeOcctKernel();

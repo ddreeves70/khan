@@ -1,0 +1,118 @@
+{
+  "name": "extrude-spline-smooth-chain",
+  "description": "An outline of four edges: a line, then two cubic splines, back down a line. The first spline leaves the line straight on (its first leg carries on along the line) and meets the second one tangentially at (40,20) (their legs line up), as Tangent joins in a sketch do. Extruded 2.5 mm. Area 1331.2500 mm^2 and perimeter 134.4482 mm, worked out independently of Khan. 6 faces, with the side faces meeting smoothly at the tangent joins.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {
+          "line": [
+            [
+              0.0,
+              0.0
+            ],
+            [
+              20.0,
+              0.0
+            ]
+          ]
+        },
+        {
+          "spline": {
+            "poles": [
+              [
+                20.0,
+                0.0
+              ],
+              [
+                30.0,
+                0.0
+              ],
+              [
+                40.0,
+                10.0
+              ],
+              [
+                40.0,
+                20.0
+              ]
+            ],
+            "degree": 3
+          }
+        },
+        {
+          "spline": {
+            "poles": [
+              [
+                40.0,
+                20.0
+              ],
+              [
+                40.0,
+                30.0
+              ],
+              [
+                30.0,
+                40.0
+              ],
+              [
+                10.0,
+                40.0
+              ],
+              [
+                0.0,
+                30.0
+              ]
+            ],
+            "degree": 3
+          }
+        },
+        {
+          "line": [
+            [
+              0.0,
+              30.0
+            ],
+            [
+              0.0,
+              0.0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "corner",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        0,
+        2.5
+      ]
+    }
+  ],
+  "result": "corner",
+  "expect": {
+    "valid": true,
+    "volume": 3328.125,
+    "area": 2998.62058,
+    "solids": 1,
+    "faces": 6,
+    "edges": 12,
+    "vertices": 8,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        40.0,
+        38.888889,
+        2.5
+      ]
+    ]
+  }
+}

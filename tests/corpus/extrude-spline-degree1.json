@@ -1,0 +1,83 @@
+{
+  "name": "extrude-spline-degree1",
+  "description": "A degree 1 spline is straight pieces: through (0,0) (10,20) (25,15) (40,30) (50,0), closed by a line, extruded 4 mm. Its area is exactly 850 mm^2 by the shoelace formula, so the volume is 3400 mm^3. It's still one edge (one B-spline with corners at its knots), so 4 faces: top, bottom, the bent side, the flat side.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {
+          "spline": {
+            "poles": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                10.0,
+                20.0
+              ],
+              [
+                25.0,
+                15.0
+              ],
+              [
+                40.0,
+                30.0
+              ],
+              [
+                50.0,
+                0.0
+              ]
+            ],
+            "degree": 1
+          }
+        },
+        {
+          "line": [
+            [
+              50.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zigzag",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        0,
+        4
+      ]
+    }
+  ],
+  "result": "zigzag",
+  "expect": {
+    "valid": true,
+    "volume": 3400.0,
+    "area": 2264.032192,
+    "solids": 1,
+    "faces": 4,
+    "edges": 6,
+    "vertices": 4,
+    "bounds": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        50,
+        30,
+        4
+      ]
+    ]
+  }
+}

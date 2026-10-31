@@ -1,0 +1,85 @@
+{
+  "name": "extrude-spline-weighted",
+  "description": "A rational (weighted) cubic arch: poles (0,0) (0,30) (40,30) (40,0), weights 1 3 3 1, closed by a line along the bottom, extruded 5 mm. The middle weights pull the curve towards the top poles, so it covers 913.3014 mm^2 (more than the 720 mm^2 of the unweighted arch) and reaches 27.0000 mm high. Expected values worked out independently of Khan: the NURBS evaluated with SciPy, the area by Green's theorem and the perimeter (117.2714 mm) by adaptive integration, per knot span. 4 faces: top, bottom, the curved side, the flat side.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {
+          "spline": {
+            "poles": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                30.0
+              ],
+              [
+                40.0,
+                30.0
+              ],
+              [
+                40.0,
+                0.0
+              ]
+            ],
+            "degree": 3,
+            "weights": [
+              1.0,
+              3.0,
+              3.0,
+              1.0
+            ]
+          }
+        },
+        {
+          "line": [
+            [
+              40.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arch",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        0,
+        5
+      ]
+    }
+  ],
+  "result": "arch",
+  "expect": {
+    "valid": true,
+    "volume": 4566.507225,
+    "area": 2412.960013,
+    "solids": 1,
+    "faces": 4,
+    "edges": 6,
+    "vertices": 4,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        40.0,
+        27.0,
+        5.0
+      ]
+    ]
+  }
+}

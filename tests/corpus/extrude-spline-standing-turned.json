@@ -1,0 +1,107 @@
+{
+  "name": "extrude-spline-standing-turned",
+  "description": "A cubic arch drawn standing up (on the XZ plane), extruded 8 mm along y, then turned 30 degrees about the z axis: spline faces off the ground plane and moved. Area 562.5000 mm^2, perimeter 99.5966 mm; the bounds are the arch's extremes turned, worked out independently of Khan. 4 faces.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {
+          "spline": {
+            "poles": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                5.0,
+                25.0
+              ],
+              [
+                35.0,
+                25.0
+              ],
+              [
+                40.0,
+                0.0
+              ]
+            ],
+            "degree": 3
+          }
+        },
+        {
+          "line": [
+            [
+              40.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0
+            ]
+          ]
+        }
+      ],
+      "plane": {
+        "origin": [
+          0,
+          0,
+          0
+        ],
+        "x": [
+          1,
+          0,
+          0
+        ],
+        "y": [
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "id": "slab",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "id": "turned",
+      "op": "move",
+      "body": "slab",
+      "turn": 30,
+      "axis": [
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "result": "turned",
+  "expect": {
+    "valid": true,
+    "volume": 4500.0,
+    "area": 1921.772936,
+    "solids": 1,
+    "faces": 4,
+    "edges": 6,
+    "vertices": 4,
+    "bounds": [
+      [
+        -4.0,
+        0.0,
+        0.0
+      ],
+      [
+        34.641016,
+        26.928203,
+        18.75
+      ]
+    ]
+  }
+}

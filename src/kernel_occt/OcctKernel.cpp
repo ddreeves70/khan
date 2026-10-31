@@ -1,6 +1,7 @@
 #include "kh/kernel_occt/OcctKernel.h"
 #include "kh/kernel_occt/OcctShape.h"
 
+#include <BRepAdaptor_Surface.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
@@ -9,6 +10,7 @@
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_NurbsConvert.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
@@ -21,7 +23,9 @@
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
+#include <Geom2d_Curve.hxx>
 #include <Geom_BSplineCurve.hxx>
+#include <Geom_BSplineSurface.hxx>
 #include <Message.hxx>
 #include <Message_Messenger.hxx>
 #include <Message_PrinterOStream.hxx>
@@ -313,6 +317,68 @@ private:
     gp_Ax3 axes_;
 };
 
+// A copy of a face as a B-spline surface, each knot span cut into 8 (the same
+// shape), so OCCT's surface integration measures it accurately (see massProps()).
+TopoDS_Shape finelySplit(const TopoDS_Face& face) {
+    TopoDS_Shape copy = BRepBuilderAPI_NurbsConvert(face).Shape();
+    BRep_Builder b;
+    for (TopExp_Explorer x(copy, TopAbs_FACE); x.More(); x.Next()) {
+        // Forward, so a seam's two curves are read and written the same way round
+        // (OCCT swaps them for a reversed face).
+        TopoDS_Face f = TopoDS::Face(x.Current().Oriented(TopAbs_FORWARD));
+        TopLoc_Location loc;
+        Handle(Geom_BSplineSurface) g = Handle(Geom_BSplineSurface)::DownCast(BRep_Tool::Surface(f, loc));
+        if (g.IsNull()) continue;
+        g = Handle(Geom_BSplineSurface)::DownCast(g->Copy());
+        constexpr int kPieces = 8;
+        for (const bool u : {true, false}) {
+            std::vector<double> at;
+            const int n = u ? g->NbUKnots() : g->NbVKnots();
+            for (int k = 1; k < n; ++k) {
+                const double a = u ? g->UKnot(k) : g->VKnot(k), c = u ? g->UKnot(k + 1) : g->VKnot(k + 1);
+                for (int j = 1; j < kPieces; ++j) at.push_back(a + (c - a) * j / kPieces);
+            }
+            for (double t : at) {
+                if (u)
+                    g->InsertUKnot(t, 1, Precision::PConfusion());
+                else
+                    g->InsertVKnot(t, 1, Precision::PConfusion());
+            }
+        }
+        // The edges' curves on the face stay right (nothing moved), but they're
+        // stored per surface, so they're given again for the new one.
+        struct OnFace {
+            TopoDS_Edge edge;
+            Handle(Geom2d_Curve) curve, other;  // `other` for a seam (an edge on the face twice)
+            double first, last;
+        };
+        std::vector<OnFace> curves;
+        TopTools_IndexedMapOfShape edges;  // each edge once, though a seam is on the face twice
+        TopExp::MapShapes(f, TopAbs_EDGE, edges);
+        for (int k = 1; k <= edges.Extent(); ++k) {
+            // Forward, then reversed for a seam's second curve, as UpdateEdge() takes them.
+            const TopoDS_Edge e = TopoDS::Edge(edges(k).Oriented(TopAbs_FORWARD));
+            OnFace o{e, {}, {}, 0, 0};
+            o.curve = BRep_Tool::CurveOnSurface(e, f, o.first, o.last);
+            if (BRep_Tool::IsClosed(e, f)) {
+                double a = 0, c = 0;
+                o.other = BRep_Tool::CurveOnSurface(TopoDS::Edge(e.Reversed()), f, a, c);
+            }
+            curves.push_back(o);
+        }
+        b.UpdateFace(f, g, loc, BRep_Tool::Tolerance(f));
+        for (const auto& o : curves) {
+            if (o.curve.IsNull()) continue;
+            if (o.other.IsNull())
+                b.UpdateEdge(o.edge, o.curve, f, BRep_Tool::Tolerance(o.edge));
+            else
+                b.UpdateEdge(o.edge, o.curve, o.other, f, BRep_Tool::Tolerance(o.edge));
+            b.Range(o.edge, f, o.first, o.last);
+        }
+    }
+    return copy;
+}
+
 class OcctKernel final : public IKernel {
 public:
     OcctKernel() { silenceOcctConsole(); }
@@ -507,11 +573,28 @@ public:
         // (spline) ones, like a solid with a closed spline hole.
         GProp_GProps vol;
         BRepGProp::VolumePropertiesGK(*s, vol, 1e-9);
-        GProp_GProps surf;
-        BRepGProp::SurfaceProperties(*s, surf, 1e-9);
+        // Areas face by face. OCCT's surface integration is exact for flat and
+        // round faces, but on free-form ones it uses a fixed number of points per
+        // knot span (or all of a swept surface at once), which misses kinks and
+        // sudden bends: 1% off on an extruded degree 1 spline, 1e-4 on a weighted
+        // one, even asked for 1e-12. So a free-form face is measured as a copy cut
+        // into B-spline pieces 8 times shorter, the same shape, which comes out
+        // right to 1e-9. Only the measuring copy changes.
+        double area = 0;
+        TopTools_IndexedMapOfShape faces;
+        TopExp::MapShapes(*s, TopAbs_FACE, faces);
+        for (int i = 1; i <= faces.Extent(); ++i) {
+            const TopoDS_Face& face = TopoDS::Face(faces(i));
+            const auto type = BRepAdaptor_Surface(face, Standard_False).GetType();
+            const bool exact = type == GeomAbs_Plane || type == GeomAbs_Cylinder || type == GeomAbs_Cone ||
+                               type == GeomAbs_Sphere || type == GeomAbs_Torus;
+            GProp_GProps surf;
+            BRepGProp::SurfaceProperties(exact ? TopoDS_Shape(face) : finelySplit(face), surf, 1e-9);
+            area += surf.Mass();
+        }
         gp_Pnt c = vol.CentreOfMass();
         out.volume = vol.Mass();
-        out.area = surf.Mass();
+        out.area = area;
         out.centerOfMass = {c.X(), c.Y(), c.Z()};
         return out;
     }
