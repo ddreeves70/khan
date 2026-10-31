@@ -5,6 +5,7 @@ kh_add_library(kh_view
   SOURCES
     FlatView.cpp
     Graphics.cpp
+    Handles.cpp
     Layout.cpp
     OcctGl.cpp
     OcctGl.h

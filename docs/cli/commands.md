@@ -19,6 +19,7 @@ volumes and sketch lengths in the design's unit. Positions and sizes are written
 | [`feature.delete`](#featuredelete) | Deletes a step |
 | [`feature.duplicate`](#featureduplicate) | Copies a step, and the steps it uses |
 | [`feature.set_material`](#featureset_material) | Picks what a body is made of |
+| [`feature.slide`](#featureslide) | Slides a body by a distance, as dragging its arrows does |
 | [`feature.set_value`](#featureset_value) | Changes a step's number, like an extrude's distance, to a number or a formula |
 | [`feature.suppress`](#featuresuppress) | Turns steps off, or back on |
 | [`folder.add`](#folderadd) | Puts steps in a folder in the feature tree |
@@ -385,6 +386,55 @@ error [feature.number]: Box1 has no number called radius. Its numbers are: corne
 ```console
 $ kh_cli run --open plate.khan parameter.set name=wall value="0 mm"
 error [parameter.breaks]: Changing wall to 0 mm would stop size_z in Box1 working: size_z in Box1 would be 0 mm (wall * 4), but it must be more than 0 mm.
+```
+
+## feature.slide
+
+Slides a body by a distance along x, y and z: what dragging its arrows in the
+desktop app does (see [Dragging a body](../user-guide/moving.md#dragging-a-body)).
+A box moves its corner, a cylinder its base, and a Move step slides further.
+Any other body gets a new Move step at the end of the design.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `feature` | step name | yes | The body's step |
+| `by` | `x,y,z` | yes | How far, in mm |
+
+A box slides by changing its corner:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save s.khan feature.add_box size=20,10,5
+s: 1 step
+  Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
+wrote s.khan
+$ kh_cli run --open s.khan --save s.khan feature.slide feature=Box1 by=15,0,0
+s: 1 step
+  Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
+wrote s.khan
+```
+
+The demo tag is a cut, so sliding it adds a Move step:
+
+<!-- cli-example -->
+```console
+$ kh_cli demo tag.khan
+wrote tag.khan
+$ kh_cli run --open tag.khan --save tag.khan feature.slide feature=Tag by=0,0,10
+Demo tag: 4 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3
+  Move1        ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+wrote tag.khan
+```
+
+A body that a later step uses can't slide on its own:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open tag.khan feature.slide feature=Tag by=5,0,0
+error [slide.used]: Tag is used by Move1, so moving it alone would leave Move1 behind. Move Move1 instead.
 ```
 
 ## feature.suppress

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "kh/core/Id.h"
+#include "kh/view/Handles.h"
 #include "kh/view/Layout.h"
 #include "kh/view/Scene.h"
 
@@ -52,6 +53,22 @@ public:
     /// Changes what is drawn over the design (the grid, guide lines, ...).
     /// @param overlays The overlays, drawn in this order.
     void setOverlays(const std::vector<ViewOverlay>& overlays);
+
+    /// Changes the handles drawn on top of everything, like the arrows on a picked
+    /// body. Pressing the left button on one and dragging reports how far it was
+    /// dragged (handleDragged(), then handleDropped()) instead of orbiting or
+    /// selecting. While drawing (see setDrawingPlane()) no handles are shown.
+    /// @param handles The handles.
+    void setHandles(const std::vector<ViewHandle>& handles);
+
+    /// Gives the handles the view draws.
+    /// @return The handles last given to setHandles().
+    const std::vector<ViewHandle>& handles() const;
+
+    /// Gives where a point is drawn in the view, for tests that drag a handle.
+    /// @param point A point, in mm.
+    /// @return Where, in widget coordinates, or nothing before the view has drawn.
+    std::optional<QPoint> toScreen(const kernel::Vec3& point) const;
 
     /// Gives how many overlays the view draws.
     /// @return The number of overlays.
@@ -143,6 +160,20 @@ signals:
 
     /// While drawing: the student pressed Escape.
     void planeCancelled();
+
+    /// The student is dragging a handle (see setHandles()). Sent on every move
+    /// until handleDropped() or handleCancelled().
+    /// @param id The handle's id.
+    /// @param by How far it has been dragged since the button went down, along x, y and z (mm).
+    void handleDragged(const std::string& id, const kernel::Vec3& by);
+
+    /// A handle drag ended: the left button came up.
+    /// @param id The handle's id.
+    /// @param by How far it was dragged, along x, y and z (mm).
+    void handleDropped(const std::string& id, const kernel::Vec3& by);
+
+    /// The student pressed Escape while dragging a handle: put back what the drag changed.
+    void handleCancelled();
 
     /// The student clicked in the view and the selection should change.
     /// @param selection The steps that should be selected, in picking order.

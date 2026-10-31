@@ -76,7 +76,7 @@ endif()
 target_compile_definitions(kh_tests PRIVATE KH_TEST_FILES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/files")
 
 if(KH_WITH_OCCT)
-  target_sources(kh_tests PRIVATE kernel/test_occt_kernel.cpp model/test_rebuild_occt.cpp)
+  target_sources(kh_tests PRIVATE kernel/test_occt_kernel.cpp model/test_rebuild_occt.cpp model/test_slide.cpp)
   target_link_libraries(kh_tests PRIVATE kh::kernel_occt)
 endif()
 
@@ -113,7 +113,7 @@ catch_discover_tests(kh_tests DISCOVERY_MODE PRE_TEST)
 # The 3D view: its plain logic everywhere, and its drawing where there is
 # OpenGL. CI's Linux machine draws on a virtual screen (xvfb-run) with Mesa.
 if(TARGET kh_view)
-  add_executable(kh_view_tests view/test_layout.cpp)
+  add_executable(kh_view_tests view/test_layout.cpp view/test_handles.cpp)
   target_link_libraries(kh_view_tests PRIVATE Catch2::Catch2WithMain kh::view)
   kh_set_warnings(kh_view_tests)
   if(WIN32)
@@ -139,12 +139,12 @@ endif()
 # The desktop shell and its panels, driven without a screen.
 if(TARGET kh_app_core)
   add_executable(kh_app_tests app/main.cpp app/test_shell.cpp app/test_grid_plugin.cpp app/test_axes.cpp
-  app/test_view_options.cpp app/test_constrain.cpp)
+  app/test_view_options.cpp app/test_constrain.cpp app/test_movehandles.cpp)
   # The sketcher's constraint rules (Constrain.h) are tested on their own too.
   target_include_directories(kh_app_tests PRIVATE "${PROJECT_SOURCE_DIR}/plugins/sketcher")
   target_link_libraries(kh_app_tests PRIVATE Catch2::Catch2 kh_app_core kh::kernel_occt kh::view
     kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewoptions kh::plugin_axes kh::plugin_grid kh::plugin_viewer
-    kh::plugin_sketcher kh::sketch_planegcs)
+    kh::plugin_sketcher kh::plugin_movehandles kh::sketch_planegcs)
   kh_set_warnings(kh_app_tests)
   if(WIN32)
     # Qt's DLLs and plugins (including the offscreen platform) and ADS, next to the .exe.

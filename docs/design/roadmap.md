@@ -65,6 +65,8 @@ phases, asked for once Phase 0 was done (see [Copying and grouping steps](copy-a
 - Duplicate, Copy and Paste steps, between designs too (not on the roadmap before).
 - A Move step that slides and turns a body (not on the roadmap before; Phase 2's
   mirror and patterns build on it).
+- Dragging a picked body with arrow handles in the 3D view (asked for Oct 31,
+  2026; built then, with `feature.slide`).
 
 Phase 1 started Oct 28, 2026.
 

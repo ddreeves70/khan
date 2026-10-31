@@ -385,7 +385,7 @@ all-panes grid changed.
 
 A **view tool** lets the student draw with the mouse on a plane, the way the
 sketcher's Line and Circle tools do. The viewer (`kh.viewer`) offers it as the
-`kh.viewer/2` service, described by its contract header `kh/viewer/Viewer.h`.
+`kh.viewer/3` service, described by its contract header `kh/viewer/Viewer.h`.
 While your tool runs, a left click in any pane tells you the point on the plane
 (in mm) instead of turning the view or picking; moving the mouse tells you too, so
 you can draw a preview with an overlay. Panning and zooming still work, and Escape
@@ -449,6 +449,44 @@ with `stopTool()` when you're done, so clicks pick and turn the view again.
 pulled points follow the mouse, fast enough to call on every move; the
 sketcher's Select tool is built on it. A solved sketch's
 `freePoints` and `freeEntities` (in the rebuild result) say what can still move.
+
+## Handles to drag (desktop app only)
+
+A **handle** is an arrow or a small square drawn in every viewer for the student
+to drag, like the arrows Khan's own `kh.movehandles` plugin puts on a picked
+body. The viewer draws handles over the design, so they can always be grabbed,
+lights up the one under the mouse, and tells you how far it's been dragged (in
+mm): along an arrow, or across a square's flat plane. It changes nothing itself:
+you decide what a drag does. Handles use the same `kh.viewer/3` service as
+tools, and aren't shown while a tool runs.
+
+```cpp
+#include "kh/viewer/Viewer.h"
+
+struct Slider final : kh::viewer::IHandleUser {
+    void dragged(const std::string& id, const kh::kernel::Vec3& by) override {
+        // by: how far since the button went down, in mm. Show a preview, or run a
+        // command with continuesPrevious, so the drag is one undo step.
+    }
+    void dropped(const std::string& id, const kh::kernel::Vec3& by) override {}
+    void cancelled() override {}  // Escape: put back what the drag changed
+};
+
+auto slider = std::make_shared<Slider>();
+if (auto* viewer = ctx.service<kh::viewer::IViewer>()) {
+    kh::viewer::Handle up{.id = "up", .at = {0, 0, 10}, .direction = {0, 0, 1}, .length = 30, .b = 230};
+    viewer->setHandles(*slider, {up});  // replaces the handles that were there
+}
+```
+
+`setHandles()` replaces the handles shown, even another plugin's; give yours
+again when the thing they move moves, and `clearHandles()` to take them away.
+While a drag goes on, the viewer works it out from the handle as it was when the
+button went down, so moving the handles with the body doesn't upset it.
+`Handle::kind` is `Arrow` (drags along `direction`) or `Square` (drags across the
+plane square to `direction`, with sides `length` mm long). Commands like
+`model::SlideBodyCommand` take `continuesPrevious`, so each part of a drag joins
+the one before into one undo step.
 
 ## Draw in the viewer
 

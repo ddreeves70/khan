@@ -30,6 +30,7 @@ Commands for kh_cli run:
   feature.rename           Rename step
   feature.set_material     Set material
   feature.set_value        Change a step's number
+  feature.slide            Slide body
   feature.suppress         Turn steps off or on
   folder.add               New folder
   folder.delete            Remove folder

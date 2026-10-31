@@ -415,3 +415,90 @@ TEST_CASE("drawing mode: clicks report points on the plane, and the left button 
     click({200, 150});
     CHECK(clicks.size() == 3);
 }
+
+TEST_CASE("handles are drawn on top, and dragging one reports how far along it, without orbiting",
+          "[view][gl][handles]") {
+    Fixture f;
+    f.view.setContent({{{f.boxId, f.box, false}}, {}});
+    settle(f.view);
+    // An arrow along x from the middle of the box (from -10, -10, 0 to 10, 10, 20).
+    ViewHandle x;
+    x.id = "x";
+    x.at = {0, 0, 10};
+    x.direction = {1, 0, 0};
+    x.length = 30;
+    x.color = {220, 50, 50};
+    f.view.setHandles({x});
+    settle(f.view);
+    REQUIRE(f.view.handles().size() == 1);
+
+    // Its tip is red even though the box is behind it: handles are drawn over bodies.
+    const auto shaft = f.view.toScreen({20, 0, 10});
+    const auto tip = f.view.toScreen({30, 0, 10});
+    REQUIRE(shaft);
+    REQUIRE(tip);
+    const QImage image = f.view.grabFramebuffer();
+    bool red = false;
+    for (int dx = -2; dx <= 2; ++dx) {
+        for (int dy = -2; dy <= 2; ++dy) {
+            const QColor c = image.pixelColor(shaft->x() + dx, shaft->y() + dy);
+            if (c.red() > 150 && c.green() < 120 && c.blue() < 120) red = true;
+        }
+    }
+    CHECK(red);
+
+    std::vector<kernel::Vec3> drags;
+    std::vector<kernel::Vec3> drops;
+    int picks = 0;
+    bool cancelled = false;
+    QObject::connect(&f.view, &ViewWidget::handleDragged, [&](const std::string& id, const kernel::Vec3& by) {
+        CHECK(id == "x");
+        drags.push_back(by);
+    });
+    QObject::connect(&f.view, &ViewWidget::handleDropped,
+                     [&](const std::string&, const kernel::Vec3& by) { drops.push_back(by); });
+    QObject::connect(&f.view, &ViewWidget::handleCancelled, [&] { cancelled = true; });
+    QObject::connect(&f.view, &ViewWidget::picked, [&](const std::vector<FeatureId>&) { ++picks; });
+    auto send = [&](QEvent::Type type, QPoint at, Qt::MouseButton button, Qt::MouseButtons held) {
+        QMouseEvent e(type, QPointF(at), f.view.mapToGlobal(QPointF(at)), button, held, Qt::NoModifier);
+        QApplication::sendEvent(&f.view, &e);
+        settle(f.view);
+    };
+
+    // Press on the shaft and pull the mouse out to where the tip was: 10 mm along x.
+    const auto before = f.view.camera();
+    send(QEvent::MouseMove, *shaft, Qt::NoButton, Qt::NoButton);
+    send(QEvent::MouseButtonPress, *shaft, Qt::LeftButton, Qt::LeftButton);
+    for (int i = 1; i <= 4; ++i) {
+        const QPoint at = *shaft + (*tip - *shaft) * i / 4;
+        send(QEvent::MouseMove, at, Qt::LeftButton, Qt::LeftButton);
+    }
+    send(QEvent::MouseButtonRelease, *tip, Qt::LeftButton, Qt::NoButton);
+    REQUIRE(drags.size() == 4);
+    REQUIRE(drops.size() == 1);
+    CHECK(drops[0].x == Approx(10).margin(0.6));  // within about a pixel
+    CHECK(drops[0].y == Approx(0).margin(1e-9));
+    CHECK(drops[0].z == Approx(0).margin(1e-9));
+    CHECK(drags[1].x < drags[3].x);  // growing as the mouse goes
+    const auto after = f.view.camera();
+    CHECK(after.toEye.x == Approx(before.toEye.x).margin(1e-9));  // no orbit
+    settle(f.view);
+    CHECK(picks == 0);  // and no pick
+
+    // Escape during a drag cancels it, with no drop.
+    send(QEvent::MouseButtonPress, *shaft, Qt::LeftButton, Qt::LeftButton);
+    send(QEvent::MouseMove, *tip, Qt::LeftButton, Qt::LeftButton);
+    QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    QApplication::sendEvent(&f.view, &esc);
+    CHECK(cancelled);
+    send(QEvent::MouseButtonRelease, *tip, Qt::LeftButton, Qt::NoButton);
+    CHECK(drops.size() == 1);
+
+    // While drawing on a sketch, handles aren't there: a press there doesn't drag.
+    f.view.setDrawingPlane(DrawingPlane{{0, 0, 0}, {0, 0, 1}});
+    send(QEvent::MouseButtonPress, *shaft, Qt::LeftButton, Qt::LeftButton);
+    send(QEvent::MouseMove, *tip, Qt::LeftButton, Qt::LeftButton);
+    send(QEvent::MouseButtonRelease, *tip, Qt::LeftButton, Qt::NoButton);
+    CHECK(drops.size() == 1);
+    CHECK(drags.size() == 5);  // just the one from before the Escape
+}

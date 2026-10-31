@@ -1,6 +1,6 @@
 # kh.sketcher: draws sketches in the viewers, and edits them with the mouse
 # (Line, Circle, Arc, Point; Select, drag) through the viewer's drawing tools
-# (kh.viewer/2), and adds constraints and dimensions to what's picked.
+# (kh.viewer/3), and adds constraints and dimensions to what's picked.
 # Built only with the desktop app.
 kh_add_library(kh_plugin_sketcher
   SOURCES

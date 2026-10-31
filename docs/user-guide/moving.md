@@ -50,7 +50,42 @@ Demo tag: 4 steps
 wrote tag.khan
 ```
 
-## In the desktop app
+## Dragging a body
+
+The quickest way to move a body is to drag it. Click a body in the 3D viewer to
+pick it: three arrows and a small square appear in its middle.
+
+![The demo tag picked, with its red, green and blue arrows and the purple square](images/app-drag-handles.png)
+
+| Drag | And the body |
+| --- | --- |
+| The **red** arrow | slides along x (left and right) |
+| The **green** arrow | slides along y (back and forth) |
+| The **blue** arrow | slides along z (up and down) |
+| The **purple** square | slides flat along the ground, in x and y at once |
+
+The arrow under the mouse turns yellow, so you can see which one you'll grab.
+Arrows are drawn over the body, so you can always grab them, even from inside.
+The body moves as you drag, in steps of 1 mm (0.1 in in a design shown in
+inches or feet), and the whole drag is one step of Edit > Undo. Press **Escape**
+before you let go to put it back.
+
+What a drag changes depends on the body:
+
+- A **box** or **cylinder** gets a new corner or base, as if you'd typed it in
+  Properties. A number that came from a [formula](parameters.md) is typed over.
+- A **Move** step slides further.
+- Any other body (an extrude, a union, a cut) gets a new **Move** step at the end
+  of the design, which is then picked; dragging again moves that same step.
+
+A body that a later step uses can't be dragged on its own (dragging the Hole out
+of the Tag would leave the Tag behind): drag the finished body instead. You can
+do the same from `kh_cli` with [`feature.slide`](../cli/commands.md#featureslide).
+The arrows are a plugin too, `kh.movehandles`, built into Khan; a plugin of your
+own can put [handles](../plugin-guide/extension-points.md#handles-to-drag-desktop-app-only)
+in the viewer the same way.
+
+## Moving by numbers in the desktop app
 
 1. Pick a step in the feature tree.
 2. **Modify > Move** (Ctrl+M), or the **Move** button. A `Move1` step is added and

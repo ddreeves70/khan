@@ -896,6 +896,23 @@
       ]
     },
     {
+      "out": "docs/user-guide/images/app-drag-handles.png",
+      "size": "1280x800",
+      "commands": [
+        "demo m.khan"
+      ],
+      "app": {
+        "open": "m.khan",
+        "select": [
+          "Tag"
+        ],
+        "trigger": [
+          "kh.viewer.view.iso",
+          "kh.viewer.fit"
+        ]
+      }
+    },
+    {
       "out": "docs/user-guide/images/sketch-plate.png",
       "size": "760x300",
       "script": "plate-sketch",

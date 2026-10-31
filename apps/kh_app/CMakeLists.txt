@@ -24,7 +24,7 @@ kh_embed_files(kh_app_core HEADER AppIcons.h NAMESPACE kh::icons::app
 qt_add_executable(kh_app main.cpp)
 target_link_libraries(kh_app PRIVATE
   kh_app_core kh::kernel_occt kh::view kh::sketch_planegcs
-  kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewoptions kh::plugin_axes kh::plugin_grid kh::plugin_viewer kh::plugin_sketcher)
+  kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewoptions kh::plugin_axes kh::plugin_grid kh::plugin_viewer kh::plugin_sketcher kh::plugin_movehandles)
 kh_set_warnings(kh_app)
 
 set_target_properties(kh_app PROPERTIES

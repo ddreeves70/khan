@@ -67,13 +67,22 @@ view::DrawingPlane drawingPlane(const viewer::ToolPlane& p) {
     return {p.origin, cross(p.xAxis, p.yAxis)};
 }
 
-// The kh.viewer/2 service: one drawing tool for every pane of every viewer.
+// The kh.viewer/3 service: one drawing tool, and one set of handles, for every
+// pane of every viewer.
 class ViewerService final : public viewer::IViewer {
 public:
     void startTool(viewer::IViewTool& tool, const viewer::ToolPlane& plane) override;
     void stopTool(const viewer::IViewTool& tool) override;
     viewer::IViewTool* tool() const override { return tool_; }
     void face(const viewer::ToolPlane& plane) override;
+    void setHandles(viewer::IHandleUser& user, std::vector<viewer::Handle> handles) override;
+    void clearHandles(const viewer::IHandleUser& user) override;
+
+    std::vector<viewer::Handle> handles() const override { return given_; }
+    viewer::IHandleUser* handleUser() const override { return handleUser_; }
+
+    // The handles to draw, as the view draws them.
+    const std::vector<view::ViewHandle>& viewHandles() const { return handles_; }
 
     // Where the running tool draws, for panes made while it runs.
     std::optional<view::DrawingPlane> plane() const {
@@ -85,8 +94,13 @@ public:
 private:
     void applyAll();
 
+    void showHandlesAll();
+
     viewer::IViewTool* tool_ = nullptr;
     viewer::ToolPlane plane_{};
+    viewer::IHandleUser* handleUser_ = nullptr;
+    std::vector<view::ViewHandle> handles_;
+    std::vector<viewer::Handle> given_;
     std::vector<ViewerPanel*> panels_;
 };
 
@@ -223,6 +237,11 @@ public:
         if (flat_) flat_->setDrawingPlane(plane);
     }
 
+    // The handles in every pane.
+    void applyHandles() {
+        for (auto* pane : panes_) pane->setHandles(service_.viewHandles());
+    }
+
     // Turns the active pane to look straight at a plane.
     void face(const viewer::ToolPlane& plane) {
         if (auto* pane = activePane()) pane->lookAlong({drawingPlane(plane).normal, plane.yAxis});
@@ -251,6 +270,21 @@ private:
                 });
         connect(view, &View::planeCancelled, this, [this] {
             if (auto* t = service_.tool()) t->cancelled();
+        });
+    }
+
+    // Sends a pane's handle drags to whoever put the handles there.
+    void forwardHandles(view::ViewWidget* pane) {
+        connect(pane, &view::ViewWidget::handleDragged, this,
+                [this](const std::string& id, const kernel::Vec3& by) {
+                    if (auto* u = service_.handleUser()) u->dragged(id, by);
+                });
+        connect(pane, &view::ViewWidget::handleDropped, this,
+                [this](const std::string& id, const kernel::Vec3& by) {
+                    if (auto* u = service_.handleUser()) u->dropped(id, by);
+                });
+        connect(pane, &view::ViewWidget::handleCancelled, this, [this] {
+            if (auto* u = service_.handleUser()) u->cancelled();
         });
     }
 
@@ -599,7 +633,9 @@ private:
             QMetaObject::invokeMethod(this, [this] { showFlat(); }, Qt::QueuedConnection);
         });
         forward(pane, paneKey(index));
+        forwardHandles(pane);
         pane->setDrawingPlane(service_.plane());
+        pane->setHandles(service_.viewHandles());
         frames_.push_back(frame);
         panes_.push_back(pane);
     }
@@ -733,6 +769,35 @@ void ViewerService::face(const viewer::ToolPlane& plane) {
 
 void ViewerService::applyAll() {
     for (auto* panel : panels_) panel->applyTool();
+}
+
+void ViewerService::setHandles(viewer::IHandleUser& user, std::vector<viewer::Handle> handles) {
+    handleUser_ = &user;
+    given_ = handles;
+    handles_.clear();
+    for (const auto& h : handles) {
+        handles_.push_back(
+            {h.id,
+             h.kind == viewer::HandleKind::Square ? view::HandleKind::Square : view::HandleKind::Arrow,
+             h.at,
+             h.direction,
+             h.length,
+             {h.r, h.g, h.b},
+             true});
+    }
+    showHandlesAll();
+}
+
+void ViewerService::clearHandles(const viewer::IHandleUser& user) {
+    if (handleUser_ != &user) return;
+    handleUser_ = nullptr;
+    handles_.clear();
+    given_.clear();
+    showHandlesAll();
+}
+
+void ViewerService::showHandlesAll() {
+    for (auto* panel : panels_) panel->applyHandles();
 }
 
 void registerViewer(plugin::PluginContext& ctx) {

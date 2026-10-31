@@ -23,6 +23,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command feature.rename
            command feature.set_material
            command feature.set_value
+           command feature.slide
            command feature.suppress
            command folder.add
            command folder.delete

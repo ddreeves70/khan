@@ -1285,3 +1285,81 @@ void EditSketchCommand::revert(DocumentEditor& editor) {
 }
 
 }  // namespace kh::model
+
+namespace kh::model {
+
+// ---------------------------------------------------------------------------
+// SlideBodyCommand
+// ---------------------------------------------------------------------------
+
+SlideBodyCommand::SlideBodyCommand(FeatureId step, kernel::Vec3 by, bool continuesPrevious, FeatureId moveId)
+    : step_(step), by_(by), continuesPrevious_(continuesPrevious), moveId_(moveId) {}
+
+Diagnostics SlideBodyCommand::check(const Document& doc, const FeatureId& step) {
+    const Feature* f = doc.find(step);
+    if (!f) return {error("feature.not_found", "That step isn't in the design anymore.")};
+    const auto type = f->type();
+    if (type == FeatureType::Sketch) {
+        return {error("slide.sketch", f->name() + " is a sketch, not a body. Drag its lines with Select, or "
+                                                  "move the step made from it.")};
+    }
+    if (type == FeatureType::Box || type == FeatureType::Cylinder || type == FeatureType::Move) return {};
+    if (const auto users = doc.dependents(step); !users.empty()) {
+        const std::string user = doc.find(users.front()) ? doc.find(users.front())->name() : "a later step";
+        return {error("slide.used", f->name() + " is used by " + user + ", so moving it alone would leave " +
+                                        user + " behind. Move " + user + " instead.")};
+    }
+    return {};
+}
+
+Diagnostics SlideBodyCommand::apply(DocumentEditor& editor) {
+    const auto& doc = editor.document();
+    if (auto issues = check(doc, step_); !issues.empty()) return issues;
+    const Feature& f = *doc.find(step_);
+    name_ = f.name();
+    // Which numbers slide, by key: a Box's corner, a Cylinder's base, a Move's offset.
+    const char* start = f.type() == FeatureType::Box        ? "corner"
+                        : f.type() == FeatureType::Cylinder ? "base"
+                        : f.type() == FeatureType::Move     ? "offset"
+                                                            : nullptr;
+    if (!start) {
+        // Any other body: a new Move step at the end slides it.
+        kernel::Motion motion;
+        motion.offset = by_;
+        auto move = std::make_unique<MoveFeature>(moveId_, doc.uniqueName("Move"), step_, motion);
+        editor.insert(doc.featureCount(), std::move(move));
+        added_ = true;
+        return {};
+    }
+    auto copy = f.clone();
+    const double along[3] = {by_.x, by_.y, by_.z};
+    const char* axes[3] = {"_x", "_y", "_z"};
+    for (int i = 0; i < 3; ++i) {
+        if (along[i] == 0) continue;
+        const std::string key = std::string(start) + axes[i];
+        copy->setNumber(key, copy->number(key).value_or(0) + along[i]);
+        copy->setFormula(key, {});  // moved by hand: no longer from its formula
+    }
+    added_ = false;
+    other_ = editor.replace(std::move(copy));
+    return {};
+}
+
+void SlideBodyCommand::revert(DocumentEditor& editor) {
+    if (added_) {
+        editor.remove(moveId_);
+    } else if (other_) {
+        other_ = editor.replace(std::move(other_));
+    }
+}
+
+bool SlideBodyCommand::mergeWith(const Command& next) {
+    const auto* slide = dynamic_cast<const SlideBodyCommand*>(&next);
+    if (!slide || !slide->continuesPrevious_) return false;
+    // The rest of the drag slides the same step, or the Move step this one added.
+    if (slide->step_ != step_ && !(added_ && slide->step_ == moveId_)) return false;
+    by_ = {by_.x + slide->by_.x, by_.y + slide->by_.y, by_.z + slide->by_.z};
+    return true;
+}
+
+}  // namespace kh::model
