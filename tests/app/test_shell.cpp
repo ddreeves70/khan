@@ -929,6 +929,41 @@ TEST_CASE("dragging a line moves all of it; dragging a circle's edge changes its
     CHECK(c.center.x == Approx(20).margin(0.1));  // it grows where it is
 }
 
+TEST_CASE("dragging inside a closed shape moves all of it, in one undo step", "[app][sketcher]") {
+    Drawn d;
+    const auto undo = d.app.doc().undoLabel();
+    // Inside the rectangle, away from its lines and the circle: the rectangle moves.
+    dragAt(d.flat, {45, 30, 0}, {50, 25, 0});
+    for (std::size_t i = 0; i < 4; ++i) {
+        INFO("Line" << i + 1);
+        const auto& l = d.line(i);
+        const kernel::Vec3 was[4] = {{0, 0, 0}, {60, 0, 0}, {60, 40, 0}, {0, 40, 0}};
+        CHECK(l.start.x == Approx(was[i].x + 5).margin(0.1));
+        CHECK(l.start.y == Approx(was[i].y - 5).margin(0.1));
+    }
+    auto circle = [&] { return std::get<sketch::CircleShape>(d.sketch().entities[4].shape); };
+    CHECK(circle().center.x == Approx(20).margin(1e-6));  // the circle isn't part of it
+    CHECK(d.app.doc().undoLabel() == "Move shape (Line1 to Line4)");
+    CHECK(d.overlayPoints("edit.picked") == 8);  // its four lines are picked
+    d.app.shell->undoAction()->trigger();        // one step
+    settle();
+    CHECK(d.line(0).start.x == Approx(0).margin(1e-6));
+
+    // Inside the circle (not on its center): the circle moves; it keeps its size.
+    dragAt(d.flat, {24, 24, 0}, {28, 22, 0});
+    CHECK(circle().center.x == Approx(24).margin(0.1));
+    CHECK(circle().center.y == Approx(18).margin(0.1));
+    CHECK(circle().radius == Approx(10).margin(1e-6));
+    CHECK(d.line(0).start.x == Approx(0).margin(1e-6));
+    CHECK(d.app.doc().undoLabel() == "Move Circle1");
+
+    // Outside every shape: nothing to drag.
+    d.app.shell->undoAction()->trigger();
+    settle();
+    dragAt(d.flat, {80, 60, 0}, {90, 70, 0});
+    CHECK(d.app.doc().undoLabel() == undo);
+}
+
 TEST_CASE("a fully constrained sketch is drawn black, and dragging it moves nothing", "[app][sketcher]") {
     Drawn d;
     CHECK(d.overlayPoints("edit.lines") > 0);  // all blue: free to move

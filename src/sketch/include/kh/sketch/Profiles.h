@@ -4,6 +4,7 @@
 /// Closed shapes in a sketch: loops of lines and arcs joined end to end, and
 /// circles, sorted into outlines and the holes inside them.
 
+#include <optional>
 #include <vector>
 
 #include "kh/core/Diagnostic.h"
@@ -63,5 +64,14 @@ struct Profiles {
 /// @param tolerance How close two ends must be to count as joined, in mm.
 /// @return The shapes, the open ends, and any problems.
 Profiles findProfiles(const Sketch& sketch, double tolerance = 1e-6);
+
+/// Finds the smallest closed loop around a point: the shape a click inside it
+/// (not on its lines) is in. A point in a hole gets the hole's loop; a point in
+/// a shape but outside its holes gets the shape's outline.
+/// @param sketch The sketch, with its geometry where it is (solved).
+/// @param point The point, in the sketch's x and y (mm).
+/// @param tolerance How close two ends must be to count as joined, in mm.
+/// @return The loop, or nothing if the point isn't inside one.
+std::optional<Loop> loopAround(const Sketch& sketch, Point2 point, double tolerance = 1e-6);
 
 }  // namespace kh::sketch
