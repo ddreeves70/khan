@@ -71,6 +71,7 @@ private:
 
     QWidget* host_ = nullptr;
     QWidget* body_ = nullptr;
+    QWidget* bar_ = nullptr;  // the title bar
     QVBoxLayout* layout_ = nullptr;
     QToolButton* fold_ = nullptr;
     QLabel* title_ = nullptr;
