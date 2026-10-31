@@ -73,6 +73,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command sketch.set_spline
            command sketch.set_value
            command sketch.set_weight
+           command sketch.trim
            action  Create > Box  (feature.add_box)
            action  Create > Cylinder  (feature.add_cylinder)
            action  Combine > Union  (feature.add_boolean)
@@ -135,6 +136,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command sketch.set_spline
            command sketch.set_value
            command sketch.set_weight
+           command sketch.trim
            action  Create > Box  (feature.add_box)
            action  Create > Cylinder  (feature.add_cylinder)
            action  Combine > Union  (feature.add_boolean)
@@ -169,7 +171,7 @@ failed   test.badname 1.0.0  Test badname
 failed   test.noentry 1.0.0  Test noentry
            error [plugin.library_bad]: The Test noentry plugin's program file isn't a Khan plugin (it has no KH_PLUGIN_ENTRY). Ask its author for a fixed version. (...)
 failed   test.oldapi 1.0.0  Test oldapi
-           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 26). Get a version of the plugin made for this Khan. (...)
+           error [plugin.api_version]: The Test oldapi plugin was built for a different version of Khan (plugin API 0; this Khan uses 27). Get a version of the plugin made for this Khan. (...)
 ```
 
 Every reason and its fix is listed in the plugin guide's

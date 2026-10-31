@@ -418,7 +418,25 @@ under 5 minutes. These tools cut the clicks for that, one pull request each:
   biggest radius that fits (`largestCornerRadius()`), rounded down to a whole mm,
   and puts the cursor in its Radius in the Sketch panel.
 
-**C. Trim:** click the part of a line or arc past where it crosses something.
+**C. Trim** (`kh_model`, the sketcher plugin; built):
+
+- `model::trim()` (and `sketch.trim item= near=`) finds where other lines,
+  circles and arcs cross the line, circle or arc (exact line-line, line-circle
+  and circle-circle crossings, on the other's actual piece, not at the target's
+  own ends), and removes the piece between the two nearest the point, or from one
+  of them to the end.
+- A cut end stays on what cut it (Point on line, or Point on circle for circles
+  and arcs). A line cut in the middle becomes two, the second kept in line with
+  the first (both its ends on the first's line); an arc becomes two arcs with the
+  same center and an Equal radius; a circle crossed twice or more becomes the arc
+  that's left. Something nothing crosses is deleted.
+- Constraints on a removed end go, and so does a trimmed line's Length (it no
+  longer says what it said); constraints on the far end of a split line move to
+  the new piece. Splines aren't trimmed, or used to trim, yet.
+- The **Trim** tool shows the piece under the mouse in red (`trimmedPiece()`)
+  and cuts it on a click.
+- Constraint names made by these helpers are spelled like the buttons'
+  (`PointOnLine1`, not `Pointonline1`, which rounding corners made before).
 
 **D. Symmetric:** two points mirrored about a line.
 

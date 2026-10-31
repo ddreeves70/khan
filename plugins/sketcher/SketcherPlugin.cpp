@@ -88,7 +88,7 @@ struct Item {
 
 using sketcher::Rule;
 
-enum class Tool { Select, Line, Rectangle, Circle, Arc, Point, Spline, SplineThrough, RoundCorner };
+enum class Tool { Select, Line, Rectangle, Circle, Arc, Point, Spline, SplineThrough, RoundCorner, Trim };
 
 bool isSpline(Tool tool) {
     return tool == Tool::Spline || tool == Tool::SplineThrough;
@@ -106,6 +106,8 @@ const char* toolHint(Tool tool, std::size_t clicks) {
         case Tool::RoundCorner:
             return "Round corner: click a corner where two lines meet. Then type its radius in the Sketch "
                    "panel.";
+        case Tool::Trim:
+            return "Trim: click the piece of a line, circle or arc to cut away (it shows red). Esc stops.";
         case Tool::Circle:
             return clicks == 0 ? "Circle: click its center." : "Circle: click to set its size. Esc stops.";
         case Tool::Arc:
@@ -624,6 +626,7 @@ public:
         }
         hover_ = where(point);
         hoverPixel_ = point.pixel;
+        trimAt_ = tool_ == Tool::Trim ? trimTarget(point) : std::nullopt;
         drawPreview();
     }
 
@@ -659,6 +662,20 @@ public:
                     // Keep going from the end, unless it closed onto a point already there.
                     if (line && !here.ref)
                         pending_.push_back({here.at, sketch::PointRef{*line, sketch::PointRole::End}});
+                }
+                break;
+            case Tool::Trim:
+                if (const auto target = trimTarget(point)) {
+                    trimAt_.reset();
+                    const auto [id, at] = *target;
+                    run([id, at](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                        const auto* e = s.find(id);
+                        const std::string name = e ? e->name : std::string("it");
+                        const std::size_t before = s.entities.size();
+                        if (auto problems = model::trim(s, id, at); !problems.empty()) return problems;
+                        label = (s.entities.size() < before ? "Delete " : "Trim ") + name;
+                        return {};
+                    });
                 }
                 break;
             case Tool::RoundCorner:
@@ -938,6 +955,7 @@ private:
     void reset() {
         pending_.clear();
         hover_.reset();
+        trimAt_.reset();
         hoverItem_.reset();
         picked_.clear();
         drag_.reset();
@@ -1283,6 +1301,7 @@ private:
                     case Tool::Select:
                     case Tool::Point:
                     case Tool::RoundCorner:
+                    case Tool::Trim:
                         break;
                 }
             }
@@ -1298,6 +1317,16 @@ private:
                 hintLabel.texts.emplace_back(word);
             }
         }
+        // Trim: the piece a click would cut away, in red.
+        plugin::Overlay cut{.shape = plugin::OverlayShape::Lines, .color = kConflict, .size = 3.5};
+        if (step && tool_ == Tool::Trim && trimAt_) {
+            const sketch::Sketch now{shown(*step), step->sketch().constraints};
+            if (const auto piece = model::trimmedPiece(now, trimAt_->first, trimAt_->second)) {
+                auto add = sketchLines(step->plane(), {sketch::Entity{{}, {}, *piece, false}});
+                cut.points.insert(cut.points.end(), add.begin(), add.end());
+            }
+        }
+        show(overlays, "edit.trim", std::move(cut));
         show(overlays, "edit.preview", std::move(preview));
         show(overlays, "edit.preview_guides", std::move(guides));
         show(overlays, "edit.preview_points", std::move(dots));
@@ -1383,6 +1412,28 @@ private:
     std::optional<EntityId> addLine(const Pick& from, const Pick& to) {
         return add("Line", sketch::LineShape{from.at, to.at},
                    {{sketch::PointRole::Start, from}, {sketch::PointRole::End, to}});
+    }
+
+    // Trim: the line, circle or arc under the mouse (within 6 pixels of its edge),
+    // and where on the sketch's plane the mouse is.
+    std::optional<std::pair<EntityId, sketch::Point2>> trimTarget(const viewer::ToolPoint& point) const {
+        const auto* step = sketchStep(editing_);
+        if (!step) return std::nullopt;
+        const auto at = model::toSketch(step->plane(), point.at);
+        std::optional<std::pair<EntityId, sketch::Point2>> best;
+        double bestDistance = kEdgePixels * point.pixel;
+        for (const auto& e : shown(*step)) {
+            const bool trimmable = std::holds_alternative<sketch::LineShape>(e.shape) ||
+                                   std::holds_alternative<sketch::CircleShape>(e.shape) ||
+                                   std::holds_alternative<sketch::ArcShape>(e.shape);
+            if (!trimmable) continue;
+            const auto d = edgeDistance(e.shape, at);
+            if (d && *d < bestDistance) {
+                bestDistance = *d;
+                best.emplace(e.id, at);
+            }
+        }
+        return best;
     }
 
     // Rounds the corner at a line's end with a radius that fits (a quarter of the
@@ -1548,6 +1599,7 @@ private:
     Tool tool_ = Tool::Line;
     std::vector<Pick> pending_;                                    // the clicks of the shape being drawn
     std::optional<Pick> hover_;                                    // where the mouse is (drawing tools)
+    std::optional<std::pair<EntityId, sketch::Point2>> trimAt_;    // what Trim would cut, under the mouse
     double hoverPixel_ = 0.1;                                      // how many mm a screen pixel covers there
     std::optional<Item> hoverItem_;                                // what's under the mouse (Select)
     std::vector<Item> picked_;                                     // what's picked (Select), in picking order
@@ -1682,6 +1734,11 @@ void registerSketcher(plugin::PluginContext& ctx) {
                    "Sizes "
                    "that were to the sharp corner still measure to it.",
                    icons::sketcher::round_corner_svg},
+          ToolItem{"kh.sketcher.trim", "Trim", Tool::Trim,
+                   "Cut away the piece of a line, circle or arc between the places where other lines cross "
+                   "it. The "
+                   "piece under the mouse shows red; click to cut it.",
+                   icons::sketcher::trim_svg},
           ToolItem{"kh.sketcher.circle", "Circle", Tool::Circle,
                    "Draw a circle: click its center, then its edge.", icons::sketcher::circle_svg},
           ToolItem{"kh.sketcher.arc", "Arc", Tool::Arc,
