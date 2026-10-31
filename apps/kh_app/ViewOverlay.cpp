@@ -21,6 +21,7 @@ constexpr int kMargin = 8;  // from the view's edges, in pixels
 constexpr int kEdge = 6;    // the draggable border, in pixels
 constexpr int kMinWidth = 200;
 constexpr int kMinHeight = 120;
+constexpr int kBackAlpha = 90;  // how solid the back is, 0 to 255
 
 // See-through: what's under it shows, and its rows stay readable.
 const char* kStyle = R"(
@@ -70,6 +71,8 @@ ViewOverlay::ViewOverlay(const QString& title, QWidget* host, bool right)
     barLayout->addWidget(title_, 1);
     barLayout->addWidget(dock);
     layout_->addWidget(bar);
+    bar_ = bar;
+    bar_->installEventFilter(this);
 
     host_->installEventFilter(this);
     hide();
@@ -151,14 +154,19 @@ bool ViewOverlay::eventFilter(QObject* watched, QEvent* event) {
         place();
     }
     if (watched == body_ && event->type() == QEvent::LayoutRequest) place();
+    // The mouse went from the border straight onto the panel or the title bar.
+    // This frame gets no move or leave for that, and the panel would keep the
+    // border's resize arrows (it uses its parent's cursor).
+    if ((watched == body_ || watched == bar_) && event->type() == QEvent::Enter && !dragging_) unsetCursor();
     return QWidget::eventFilter(watched, event);
 }
 
 void ViewOverlay::paintEvent(QPaintEvent*) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
+    // Mostly clear, so the design shows through; just enough tint to read the words.
     QColor back = palette().color(QPalette::Window);
-    back.setAlpha(200);
+    back.setAlpha(kBackAlpha);
     QColor line = palette().color(QPalette::Mid);
     line.setAlpha(160);
     p.setPen(line);

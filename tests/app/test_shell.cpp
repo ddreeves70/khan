@@ -1602,6 +1602,27 @@ TEST_CASE("named layouts save and open", "[app]") {
     CHECK(app.shell->lastProblems()[0].code == "layout.bad");
 }
 
+TEST_CASE("leaving a floating panel's border for the panel puts the arrow back", "[app][overlay]") {
+    App app;
+    auto* frame = app.shell->overlay(QStringLiteral("kh.featuretree.panel"));
+    REQUIRE(frame);
+    // On the bottom border: the up-down resize arrows.
+    const QPointF edge(frame->width() / 2.0, frame->height() - 2.0);
+    QMouseEvent move(QEvent::MouseMove, edge, frame->mapToGlobal(edge), Qt::NoButton, Qt::NoButton,
+                     Qt::NoModifier);
+    QApplication::sendEvent(frame, &move);
+    CHECK(frame->cursor().shape() == Qt::SizeVerCursor);
+    CHECK(app.tree()->cursor().shape() == Qt::SizeVerCursor);  // what the student saw stick
+
+    // Straight up onto the tree: the frame gets no move or leave, only the tree's enter.
+    for (QWidget* w = app.tree(); w && w != frame; w = w->parentWidget()) {
+        QEnterEvent enter(QPointF(5, 5), QPointF(5, 5), w->mapToGlobal(QPointF(5, 5)));
+        QApplication::sendEvent(w, &enter);
+    }
+    CHECK(frame->cursor().shape() == Qt::ArrowCursor);
+    CHECK(app.tree()->cursor().shape() == Qt::ArrowCursor);
+}
+
 TEST_CASE("the feature tree floats over the view, folds, docks, and Khan remembers", "[app][overlay]") {
     App app;
     const QString id = QStringLiteral("kh.featuretree.panel");
