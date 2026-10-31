@@ -253,7 +253,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 7 + 2 + 10 + 14);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
+    CHECK(buttons == 5 + 7 + 2 + 11 + 14);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
 }
@@ -2138,6 +2138,39 @@ TEST_CASE("Round corner: click a rectangle's corner, then type the radius", "[ap
     // Somewhere that isn't a corner: nothing happens.
     clickAt(flat, {20, 10, 0});
     CHECK(sketchAt(app, 0).sketch().entities.size() == 6);  // 4 lines, the arc, the corner's helper point
+}
+
+TEST_CASE("Trim: the piece under the mouse shows red; a click cuts it away", "[app][sketcher][trim]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.line");
+    clickAt(flat, {0, 0, 0});
+    clickAt(flat, {40, 0, 0});
+    pressEscape(flat);
+    clickAt(flat, {30, -10, 0});
+    clickAt(flat, {30, 10, 0});
+    pressEscape(flat);
+    app.click("kh.sketcher.trim");
+    CHECK(app.shell->statusBar()->currentMessage().contains(QStringLiteral("Trim: click the piece")));
+    // Over the bit of Line1 past Line2: that bit (30 to 40 mm) shows red.
+    const QPointF p = flat->toScreen({36, 0, 0});
+    QMouseEvent move(QEvent::MouseMove, p, flat->mapToGlobal(p), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(flat, &move);
+    settle();
+    const auto* red = app.host.overlays().find("kh.sketcher.edit.trim");
+    REQUIRE(red);
+    REQUIRE(red->points.size() == 2);
+    CHECK(std::min(red->points[0].x, red->points[1].x) == Approx(30));
+    CHECK(std::max(red->points[0].x, red->points[1].x) == Approx(40));
+    clickAt(flat, {36, 0, 0});
+    const auto& line = std::get<sketch::LineShape>(sketchAt(app, 0).sketch().findEntity("Line1")->shape);
+    CHECK(line.end.x == Approx(30));
+    CHECK(app.doc().undoLabel() == "Trim Line1");
+    // Nothing under the mouse: nothing red, and a click does nothing.
+    clickAt(flat, {20, 20, 0});
+    CHECK(app.host.overlays().find("kh.sketcher.edit.trim") == nullptr);
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 2);
 }
 
 TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",

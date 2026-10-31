@@ -51,6 +51,7 @@ Commands for kh_cli run:
   sketch.set_spline        Change spline
   sketch.set_value         Change dimension
   sketch.set_weight        Change control point weight
+  sketch.trim              Trim
 Run "kh_cli help <command>" to see a command's settings.
 ```
 

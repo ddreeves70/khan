@@ -44,6 +44,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command sketch.set_spline
            command sketch.set_value
            command sketch.set_weight
+           command sketch.trim
            action  Create > Box  (feature.add_box)
            action  Create > Cylinder  (feature.add_cylinder)
            action  Combine > Union  (feature.add_boolean)

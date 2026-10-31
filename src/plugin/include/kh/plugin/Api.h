@@ -67,8 +67,9 @@ class PluginContext;
 /// commands) and asking the student for a file (ui::UiRegistry::askOpenFile()).
 /// Version 25 added rectangles (model::addRectangle() and sketch.add_rectangle).
 /// Version 26 added rounding corners (model::roundCorner(), largestCornerRadius()
-/// and sketch.round_corner).
-inline constexpr int kPluginApiVersion = 26;
+/// and sketch.round_corner). Version 27 added trimming (model::trim(),
+/// trimmedPiece() and sketch.trim).
+inline constexpr int kPluginApiVersion = 27;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

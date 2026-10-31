@@ -237,6 +237,30 @@ Diagnostics roundCorner(sketch::Sketch& sketch, const sketch::PointRef& at, doub
 ///         if `at` isn't a corner that can be rounded.
 std::optional<double> largestCornerRadius(const sketch::Sketch& sketch, const sketch::PointRef& at);
 
+/// Finds the piece trim() would remove, to show it before the click.
+/// @param sketch The sketch.
+/// @param entity A line, circle or arc.
+/// @param near A point near the piece (mm), like where the mouse is.
+/// @return The piece (a line or an arc), or nothing if there's nothing to trim.
+std::optional<sketch::Shape> trimmedPiece(const sketch::Sketch& sketch, const EntityId& entity,
+                                          sketch::Point2 near);
+
+/// Trims a line, circle or arc: removes the piece near a point, between the two
+/// places nearest it where other lines, circles and arcs cross it (or from one of
+/// them to the end). A cut end stays on the curve that cut it (a Point on line or
+/// Point on circle). A line cut in the middle becomes two pieces kept in line; an
+/// arc, two arcs of the same circle; a circle cut twice or more, an arc. Something
+/// nothing crosses is deleted. Constraints on a removed end go, and so does a
+/// trimmed line's Length.
+/// @code
+/// auto problems = kh::model::trim(sketch, line1, {35, 0});  // the bit of Line1 near (35, 0)
+/// @endcode
+/// @param sketch The sketch.
+/// @param entity A line, circle or arc.
+/// @param near A point near the piece to remove (mm).
+/// @return What's wrong, in plain words; empty if it worked.
+Diagnostics trim(sketch::Sketch& sketch, const EntityId& entity, sketch::Point2 near);
+
 /// Makes a name no entity or constraint in a sketch has yet.
 /// @param sketch The sketch.
 /// @param base The start of the name, e.g. "Line".
