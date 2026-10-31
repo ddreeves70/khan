@@ -207,6 +207,47 @@ TEST_CASE("overlays are drawn, never picked, and left out of Fit all", "[view][g
     CHECK(f.view.ready());
 }
 
+TEST_CASE("an overlay on the view cube is drawn by the cube, in pixels, and doesn't zoom", "[view][gl]") {
+    Fixture f;
+    f.view.setStandardView(StandardView::Top);  // x to the right, y up
+    ViewOverlay line;  // magenta, along x, 30 pixels below the cube's middle (just outside it)
+    line.points = {{-20, -30, 0}, {20, -30, 0}};
+    line.color = {220, 0, 220};
+    line.size = 3;
+    line.onViewCube = true;
+    f.view.setOverlays({line});
+    // Where it should be: the cube's middle is kViewCubeOffset pixels from the top
+    // and right edges.
+    auto magentaAt = [&](const QImage& img) {
+        const double ratio = double(img.width()) / f.view.width();
+        const int y = static_cast<int>((kViewCubeOffset + 30) * ratio);
+        const int middle = img.width() - static_cast<int>(kViewCubeOffset * ratio);
+        int n = 0;
+        for (int dy = -3; dy <= 3; ++dy) {
+            for (int x = middle - static_cast<int>(15 * ratio); x <= middle + static_cast<int>(15 * ratio);
+                 ++x) {
+                const QColor c = img.pixelColor(x, y + dy);
+                if (c.red() > 150 && c.blue() > 150 && c.green() < 90) ++n;
+            }
+        }
+        return n;
+    };
+    settle(f.view);
+    CHECK(magentaAt(f.view.grabFramebuffer()) > 10);
+
+    // Fitting a body zooms and pans the design, not the cube.
+    f.view.setContent({{{f.boxId, f.box, false}}, {}});
+    f.view.fitAll();
+    settle(f.view);
+    const QImage img = f.view.grabFramebuffer();
+    CHECK(magentaAt(img) > 10);
+    // Nothing magenta in the design's middle: it isn't drawn at (-20..20, -30) mm.
+    for (int x = 0; x < img.width() / 2; ++x) {
+        const QColor c = img.pixelColor(x, img.height() / 2);
+        CHECK_FALSE((c.red() > 150 && c.blue() > 150 && c.green() < 90));
+    }
+}
+
 TEST_CASE("dragging with the left button orbits, with the right button pans", "[view][gl]") {
     Fixture f;
     f.view.setContent({{{f.boxId, f.box, false}}, {}});

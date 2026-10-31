@@ -1054,6 +1054,20 @@
       ]
     },
     {
+      "out": "docs/user-guide/images/app-cube-axes.png",
+      "size": "1280x800",
+      "script": "organizer",
+      "app": {
+        "open": "o.khan"
+      },
+      "crop": [
+        1130,
+        85,
+        150,
+        135
+      ]
+    },
+    {
       "out": "docs/user-guide/images/app-wireframe.png",
       "size": "1280x800",
       "script": "organizer",

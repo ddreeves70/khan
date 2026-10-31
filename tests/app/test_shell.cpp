@@ -2039,12 +2039,15 @@ TEST_CASE("the flat view's words can be read in dark mode", "[app][viewer]") {
     CHECK(darkPixels > 50);
 }
 
-TEST_CASE("the axes are drawn with their letters, and View can hide either", "[app][axes]") {
+TEST_CASE("the axes are drawn on the view cube with their letters, and View can hide either", "[app][axes]") {
     App app;
     auto* view = app.flat();
     REQUIRE(view);
     CHECK(countShape(view, view::OverlayShape::Lines) == 3);   // x, y and z
     CHECK(countShape(view, view::OverlayShape::Labels) == 3);  // X, Y and Z
+    for (const auto& o : view->overlays()) {
+        if (o.shape != view::OverlayShape::Lattice) CHECK(o.onViewCube);
+    }
     auto* axes = app.menu("kh.axes.show");
     auto* labels = app.menu("kh.axes.labels");
     REQUIRE(axes);
@@ -2069,6 +2072,16 @@ TEST_CASE("the axes are drawn with their letters, and View can hide either", "[a
     axes->trigger();
     settle();
     CHECK(countShape(view, view::OverlayShape::Labels) == 3);
+
+    auto* origin = app.menu("kh.axes.origin");  // View > Show axes at the origin
+    REQUIRE(origin);
+    CHECK_FALSE(origin->isChecked());
+    origin->trigger();
+    settle();
+    CHECK(countShape(view, view::OverlayShape::Lines) == 6);  // the cube's and the origin's
+    int atOrigin = 0;
+    for (const auto& o : view->overlays()) atOrigin += o.shape == view::OverlayShape::Lines && !o.onViewCube;
+    CHECK(atOrigin == 3);
 }
 
 TEST_CASE("the View options panel starts closed, opens from View, and changes options",

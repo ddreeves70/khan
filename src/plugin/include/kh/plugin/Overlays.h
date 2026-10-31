@@ -33,6 +33,15 @@ enum class OverlayShape {
     Labels,   ///< Words: `texts[i]` is written at `points[i]`, always facing the screen.
 };
 
+/// How far each side of the view cube is from its middle, in screen pixels.
+/// Overlays with Overlay::onViewCube use it to draw just outside the cube.
+inline constexpr double kViewCubeHalfSize = 26;
+
+/// How far in from the view cube's sides its edges and corners are cut off
+/// (bevelled), in screen pixels. A line along an edge clears the bevel when it's
+/// more than kViewCubeHalfSize - kViewCubeBevel / 2 from the middle on both sides.
+inline constexpr double kViewCubeBevel = 6;
+
 /// A lattice: lines every `spacing` mm on a plane, like graph paper.
 struct OverlayLattice {
     kernel::Vec3 origin{};        ///< A crossing point, in mm.
@@ -56,7 +65,13 @@ struct Overlay {
     OverlayColor color{};                      ///< Its color.
     double size = 1;      ///< Line width, dot size or the height of a label's letters, in screen pixels.
     bool visible = true;  ///< False to hide it without removing it.
-    std::string id{};     ///< Set by Khan: the plugin id and the overlay's name.
+    /// True to draw it on the view cube instead of in the design. Then `points`
+    /// are in screen pixels from the cube's middle, along the design's x, y and z:
+    /// it turns with the view like the cube does, but doesn't pan or zoom, and the
+    /// cube hides what's behind it. The cube's sides are kViewCubeHalfSize pixels
+    /// from its middle. Lattices are never drawn on the cube.
+    bool onViewCube = false;
+    std::string id{};  ///< Set by Khan: the plugin id and the overlay's name.
     std::string
         pane{};  ///< Set by Khan: the pane it's for (see PluginOverlays::set()), or empty for every pane.
 };

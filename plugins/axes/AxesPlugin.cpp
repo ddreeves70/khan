@@ -14,28 +14,35 @@ constexpr const char* kManifest = R"({
   "id": "kh.axes",
   "name": "Axes",
   "version": "0.1.0",
-  "description": "The x, y and z axes at the origin, with their letters.",
+  "description": "The x, y and z axes on the view cube (and at the origin if you like), with their letters.",
   "tier": "ui",
   "requires": ["kh.viewoptions"]
 })";
+
+constexpr const char* kIds[] = {"kh.axes.show", "kh.axes.labels", "kh.axes.origin"};
+
+// The axes as the options say, for every pane (an empty key) or for one.
+std::vector<AxesOverlay> overlaysFor(const viewoptions::IViewOptions& options, const std::string& pane) {
+    return axesOverlays(options.flag(kIds[0], pane), options.flag(kIds[1], pane),
+                        options.flag(kIds[2], pane));
+}
 
 // Draws (or hides) the axes as the options say: for every pane, and again for
 // each pane that has its own axes options. `drawn` lists those panes.
 void show(plugin::PluginContext& ctx, const viewoptions::IViewOptions& options,
           std::set<std::string>& drawn) {
-    for (auto& a : axesOverlays(options.flag("kh.axes.show"), options.flag("kh.axes.labels")))
-        ctx.overlays().set(a.name, std::move(a.overlay));
+    for (auto& a : overlaysFor(options, {})) ctx.overlays().set(a.name, std::move(a.overlay));
     std::set<std::string> now;
     for (const auto& p : options.panes()) {
-        if (!options.hasOwn("kh.axes.show", p.key) && !options.hasOwn("kh.axes.labels", p.key)) continue;
-        for (auto& a :
-             axesOverlays(options.flag("kh.axes.show", p.key), options.flag("kh.axes.labels", p.key)))
-            ctx.overlays().set(a.name, std::move(a.overlay), p.key);
+        bool own = false;
+        for (const char* id : kIds) own = own || options.hasOwn(id, p.key);
+        if (!own) continue;
+        for (auto& a : overlaysFor(options, p.key)) ctx.overlays().set(a.name, std::move(a.overlay), p.key);
         now.insert(p.key);
     }
     for (const auto& pane : drawn) {
         if (now.count(pane)) continue;
-        for (const auto& a : axesOverlays(true, true)) ctx.overlays().remove(a.name, pane);
+        for (const auto& a : axesOverlays(true, true, true)) ctx.overlays().remove(a.name, pane);
     }
     drawn = std::move(now);
 }
@@ -66,36 +73,60 @@ void registerAxes(plugin::PluginContext& ctx) {
 
 }  // namespace
 
-std::vector<AxesOverlay> axesOverlays(bool axes, bool labels) {
+std::vector<AxesOverlay> axesOverlays(bool onCube, bool labels, bool atOrigin) {
     struct Axis {
-        const char* line;
-        const char* label;
+        const char* name;
         const char* letter;
-        kernel::Vec3 end;
+        kernel::Vec3 along;
         plugin::OverlayColor color;
     };
-    const double L = kAxisLength;
-    const Axis list[] = {{"x", "x_label", "X", {L, 0, 0}, {209, 69, 59}},
-                         {"y", "y_label", "Y", {0, L, 0}, {46, 155, 79}},
-                         {"z", "z_label", "Z", {0, 0, L}, {52, 101, 196}}};
+    const Axis list[] = {{"x", "X", {1, 0, 0}, {209, 69, 59}},
+                         {"y", "Y", {0, 1, 0}, {46, 155, 79}},
+                         {"z", "Z", {0, 0, 1}, {52, 101, 196}}};
+    // On the cube, in pixels: from the corner nearest (-x, -y, -z), along its
+    // edges just outside their bevels, and a little past them, like Fusion's.
+    const double corner = -(plugin::kViewCubeHalfSize - plugin::kViewCubeBevel / 2 + kCubeAxisGap);
+    const double cubeEnd = plugin::kViewCubeHalfSize + kCubeAxisOvershoot;
+    struct Set {
+        const char* prefix;
+        bool shown;
+        kernel::Vec3 start;
+        double end;        // how far along the axis the line ends
+        double labelAt;    // and where its letter goes
+        double labelSize;  // pixels
+        bool onViewCube;
+    };
+    const Set sets[] = {
+        {"", onCube, {corner, corner, corner}, cubeEnd, cubeEnd + 9, 12, true},
+        {"origin_", atOrigin, {0, 0, 0}, kAxisLength, kAxisLength * 1.2, 14, false},
+    };
     std::vector<AxesOverlay> out;
-    for (const auto& a : list) {
-        plugin::Overlay line;
-        line.points = {{0, 0, 0}, a.end};
-        line.color = a.color;
-        line.size = 2;
-        line.visible = axes;
-        out.push_back({a.line, std::move(line)});
-    }
-    for (const auto& a : list) {
-        plugin::Overlay label;
-        label.shape = plugin::OverlayShape::Labels;
-        label.points = {{a.end.x * 1.2, a.end.y * 1.2, a.end.z * 1.2}};  // just past the end
-        label.texts = {a.letter};
-        label.color = a.color;
-        label.size = 14;
-        label.visible = axes && labels;
-        out.push_back({a.label, std::move(label)});
+    for (const auto& set : sets) {
+        auto at = [&set](const Axis& a, double t) {
+            // The start, moved to `t` along the axis.
+            return kernel::Vec3{a.along.x ? t : set.start.x, a.along.y ? t : set.start.y,
+                                a.along.z ? t : set.start.z};
+        };
+        for (const auto& a : list) {
+            plugin::Overlay line;
+            line.points = {set.start, at(a, set.end)};
+            line.color = a.color;
+            line.size = 2;
+            line.visible = set.shown;
+            line.onViewCube = set.onViewCube;
+            out.push_back({std::string(set.prefix) + a.name, std::move(line)});
+        }
+        for (const auto& a : list) {
+            plugin::Overlay label;
+            label.shape = plugin::OverlayShape::Labels;
+            label.points = {at(a, set.labelAt)};  // just past the end
+            label.texts = {a.letter};
+            label.color = a.color;
+            label.size = set.labelSize;
+            label.visible = set.shown && labels;
+            label.onViewCube = set.onViewCube;
+            out.push_back({std::string(set.prefix) + a.name + "_label", std::move(label)});
+        }
     }
     return out;
 }
@@ -104,7 +135,7 @@ std::vector<viewoptions::OptionSpec> axesOptions() {
     return {{.id = "kh.axes.show",
              .text = "Show axes",
              .group = "Axes",
-             .tip = "Show or hide the x, y and z axes at the origin.",
+             .tip = "Show or hide the x, y and z axes on the view cube.",
              .kind = viewoptions::OptionKind::Flag,
              .initial = true},
             {.id = "kh.axes.labels",
@@ -112,7 +143,13 @@ std::vector<viewoptions::OptionSpec> axesOptions() {
              .group = "Axes",
              .tip = "Write X, Y and Z at the ends of the axes.",
              .kind = viewoptions::OptionKind::Flag,
-             .initial = true}};
+             .initial = true},
+            {.id = "kh.axes.origin",
+             .text = "Show axes at the origin",
+             .group = "Axes",
+             .tip = "Also draw the axes at the origin (0, 0, 0), 25 mm long.",
+             .kind = viewoptions::OptionKind::Flag,
+             .initial = false}};
 }
 
 plugin::BuiltinPlugin axesPlugin() {

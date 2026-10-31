@@ -783,6 +783,10 @@ view::SceneContent viewerScene(const plugin::DocumentList& docs, const plugin::S
     return out;
 }
 
+// Plugins draw just outside the cube with the plugin API's number, so it must be the view's.
+static_assert(plugin::kViewCubeHalfSize == view::kViewCubeHalfSize);
+static_assert(plugin::kViewCubeBevel == view::kViewCubeBevel);
+
 std::vector<view::ViewOverlay> viewOverlays(const std::vector<plugin::Overlay>& overlays) {
     std::vector<view::ViewOverlay> out;
     for (const auto& o : overlays) {
@@ -813,6 +817,7 @@ std::vector<view::ViewOverlay> viewOverlays(const std::vector<plugin::Overlay>& 
         v.color = {o.color.r, o.color.g, o.color.b};
         v.alpha = o.color.a;
         v.size = o.size;
+        v.onViewCube = o.onViewCube;
         out.push_back(std::move(v));
     }
     return out;
