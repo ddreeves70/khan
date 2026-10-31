@@ -312,4 +312,22 @@ Profiles findProfiles(const Sketch& sketch, double tolerance) {
     return out;
 }
 
+std::optional<Loop> loopAround(const Sketch& sketch, Point2 point, double tolerance) {
+    const auto found = findProfiles(sketch, tolerance);
+    std::optional<Loop> best;
+    auto consider = [&](const Loop& loop) {
+        std::vector<Point2> outline;
+        for (const auto& e : loop.edges) {
+            if (const auto* entity = sketch.find(e.entity)) sample(entity->shape, e.reversed, outline);
+        }
+        if (outline.size() < 3 || !inside(point, outline)) return;
+        if (!best || loop.area < best->area) best = loop;
+    };
+    for (const auto& shape : found.shapes) {
+        consider(shape.outer);
+        for (const auto& hole : shape.holes) consider(hole);
+    }
+    return best;
+}
+
 }  // namespace kh::sketch

@@ -102,7 +102,10 @@ With **Select** (the arrow on the toolbar, or **Sketch > Draw > Select**):
   - drag a **point** (an end, a center) to move it, and whatever is joined to it
     follows;
   - drag a **line** to move all of it;
-  - drag the **edge of a circle or arc** to make it bigger or smaller.
+  - drag the **edge of a circle or arc** to make it bigger or smaller;
+  - drag **inside a closed shape** (not on its lines) to move the whole shape,
+    like a rectangle, all at once. A circle inside it is a shape of its own:
+    drag inside the circle to move just the circle.
 
   - drop a **point** within a few pixels of another point (an orange dot shows
     it) and it lands exactly there, and the two are **joined** with a

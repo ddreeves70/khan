@@ -172,3 +172,26 @@ TEST_CASE("ends a hair apart (as solved) still join", "[sketch][profiles]") {
     CHECK(findProfiles(b.sketch).shapes.size() == 1);
     CHECK(findProfiles(b.sketch, 1e-12).shapes.empty());  // unless the tolerance is tighter
 }
+
+TEST_CASE("the loop around a point is the smallest one: a hole, or the outline outside it",
+          "[sketch][profiles]") {
+    SketchBuilder b;
+    const auto outline = rectangle(b, 0, 0, 60, 40);
+    const auto hole = b.circle(20, 20, 10);
+    rectangle(b, 100, 0, 10, 10);                // another shape, off to the side
+    auto loop = loopAround(b.sketch, {45, 30});  // in the plate, outside the hole
+    REQUIRE(loop);
+    REQUIRE(loop->edges.size() == 4);
+    for (const auto& e : loop->edges)
+        CHECK(std::find(outline.begin(), outline.end(), e.entity) != outline.end());
+    CHECK(loop->area == Approx(2400));
+    loop = loopAround(b.sketch, {24, 24});  // in the hole
+    REQUIRE(loop);
+    REQUIRE(loop->edges.size() == 1);
+    CHECK(loop->edges[0].entity == hole);
+    loop = loopAround(b.sketch, {105, 5});
+    REQUIRE(loop);
+    CHECK(loop->area == Approx(100));
+    CHECK_FALSE(loopAround(b.sketch, {80, 20}));  // between the shapes
+    CHECK_FALSE(loopAround(b.sketch, {-5, -5}));  // outside everything
+}

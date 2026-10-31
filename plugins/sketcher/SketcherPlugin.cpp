@@ -97,7 +97,9 @@ bool isSpline(Tool tool) {
 const char* toolHint(Tool tool, std::size_t clicks) {
     switch (tool) {
         case Tool::Select:
-            return "Click a line or point to pick it, or drag it to move it. Esc finishes the sketch.";
+            return "Click a line or point to pick it, or drag it to move it. Drag inside a closed shape to "
+                   "move "
+                   "all of it. Esc finishes the sketch.";
         case Tool::Line:
             return clicks == 0 ? "Line: click where it starts." : "Line: click where it ends. Esc stops.";
         case Tool::Rectangle:
@@ -725,16 +727,30 @@ public:
         const auto* step = sketchStep(editing_);
         auto* solver = ctx_.documents().solver();
         if (!step || !solver) return;
-        if (!drag_) {
-            const auto item = itemAt(from);
-            if (!item || item->isConstraint()) return;  // nothing under the mouse to drag
-            drag_ = Drag{*item, sketch::Sketch{current(*step), step->sketch().constraints}};
-            if (std::ranges::find(picked_, *item) == picked_.end()) picked_ = {*item};
-            ctx_.publish(plugin::ActionsChanged{});
-        }
         const auto plane = step->plane();
         const auto a = model::toSketch(plane, from.at);
         const auto b = model::toSketch(plane, to.at);
+        if (!drag_) {
+            const auto item = itemAt(from);
+            if (item && item->isConstraint()) return;  // a label: nothing to drag
+            sketch::Sketch start{current(*step), step->sketch().constraints};
+            if (!item) {
+                // Inside a closed shape, not on its lines: the whole shape moves.
+                const auto loop = sketch::loopAround(sketch::Sketch{start.entities, {}}, a);
+                if (!loop) return;  // nothing under the mouse to drag
+                Drag whole{Item{}, std::move(start)};
+                picked_.clear();
+                for (const auto& edge : loop->edges) {
+                    whole.shape.push_back(edge.entity);
+                    picked_.push_back(Item{edge.entity});
+                }
+                drag_ = std::move(whole);
+            } else {
+                drag_ = Drag{*item, std::move(start)};
+                if (std::ranges::find(picked_, *item) == picked_.end()) picked_ = {*item};
+            }
+            ctx_.publish(plugin::ActionsChanged{});
+        }
         const sketch::Point2 delta{b.x - a.x, b.y - a.y};
         const auto& start = drag_->start;
         std::vector<sketch::Pull> pulls;
@@ -742,6 +758,23 @@ public:
             if (const auto p = sketch::pointOf(start, ref))
                 pulls.push_back({ref, {p->x + delta.x, p->y + delta.y}});
         };
+        if (!drag_->shape.empty()) {
+            // Every point of every piece of the shape moves the same way.
+            std::vector<sketch::PointRef> refs;
+            for (const auto& id : drag_->shape) {
+                if (const auto* piece = start.find(id)) {
+                    for (const auto& ref : sketch::pointsOf(*piece)) {
+                        if (std::ranges::find(refs, ref) == refs.end()) refs.push_back(ref);
+                    }
+                }
+            }
+            for (const auto& ref : refs) movePoint(ref);
+            hover_.reset();
+            const auto r = solver->drag(start, pulls);
+            if (r.ok()) drag_->now = r.entities;
+            draw();
+            return;
+        }
         const Item& item = drag_->item;
         const auto* e = start.find(item.entity);
         if (!e) return;
@@ -806,7 +839,17 @@ public:
             return r.role == sketch::PointRole::Self ? x->name : x->name + "'s " + pointName(r);
         };
         const auto* e = d.start.find(d.item.entity);
-        const std::string what = !e ? std::string("sketch")
+        std::string shapeName;  // for a whole shape: "Circle1", or "shape (Line1 to Line4)"
+        if (!d.shape.empty()) {
+            const auto* first = d.start.find(d.shape.front());
+            const auto* last = d.start.find(d.shape.back());
+            if (first && last) {
+                shapeName =
+                    d.shape.size() == 1 ? first->name : "shape (" + first->name + " to " + last->name + ")";
+            }
+        }
+        const std::string what = !shapeName.empty() ? shapeName
+                                 : !e               ? std::string("sketch")
                                  : d.item.point && d.item.point != sketch::PointRole::Self
                                      ? e->name + "'s " + pointName(d.item.ref())
                                      : e->name;
@@ -924,6 +967,7 @@ private:
         sketch::Sketch start;                              // the sketch when the drag started
         std::optional<std::vector<sketch::Entity>> now{};  // where the solver has it now
         std::optional<sketch::PointRef> joinTo{};          // the point it will be joined to, if dropped now
+        std::vector<EntityId> shape{};                     // a whole closed shape, dragged from inside it
     };
 
     // What's picked, sorted for the constraint rules. A picked constraint
