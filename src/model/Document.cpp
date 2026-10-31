@@ -6,6 +6,8 @@
 #include <set>
 #include <utility>
 
+#include "kh/model/Formulas.h"
+
 namespace kh::model {
 
 // ---------------------------------------------------------------------------
@@ -252,6 +254,7 @@ bool Document::isModified() const {
 RebuildReport Document::regenerate(kernel::IKernel& kernel, sketch::ISketchSolver* solver) const {
     RebuildReport report;
     std::set<FeatureId> usedAsInput;
+    const ParameterValues values = parameters_.evaluate();  // before any step, as the design says
 
     for (const auto& f : features_) {
         FeatureResult r;
@@ -313,6 +316,23 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel, sketch::ISketchSolve
                         solver->solve(static_cast<const SketchFeature&>(*f).sketch()));
                     r.status = solved->ok() ? FeatureStatus::Ok : FeatureStatus::Failed;
                     r.issues = solved->issues;
+                    // A dimension whose formula can't be worked out keeps the
+                    // number it last had, and says why.
+                    const auto& step = static_cast<const SketchFeature&>(*f);
+                    for (const auto& c : step.sketch().constraints) {
+                        if (c.expression.empty() || !sketch::isDimension(c.kind)) continue;
+                        const std::string what = c.name + " in " + step.name();
+                        auto worked = evalDimension(c.kind, c.expression, values, what);
+                        if (worked.ok()) continue;
+                        r.issues.push_back({"dimension.formula",
+                                            Severity::Warning,
+                                            worked.issues.front().message + " It keeps its last value, " +
+                                                (c.kind == sketch::ConstraintKind::Angle
+                                                     ? quantityText({c.value, kAngle}, lengthUnit_)
+                                                     : lengthText(c.value, lengthUnit_)) +
+                                                ".",
+                                            {}});
+                    }
                     r.sketch = std::move(solved);
                     r.plane = static_cast<const SketchFeature&>(*f).plane();
                 }

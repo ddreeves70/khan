@@ -5,9 +5,9 @@ sizes of a part names, and other values can be worked out from them, like
 `height = wall * 4`. Change `wall`, and everything worked out from it changes
 too. That's what makes a design *parametric*: you change one number, not ten.
 
-Parameters are saved in the design. Soon sketch dimensions and step sizes will
-use them too (that's next in Phase 2), and a **Parameters** panel in the desktop
-app will list them. Today you add them with
+Parameters are saved in the design, and [sketch dimensions](#using-parameters-in-a-sketch)
+can use them. Soon step sizes (like how far an extrude goes) will too, and a
+**Parameters** panel in the desktop app will list them. Today you add them with
 [`kh_cli`](../cli/commands.md#parameterset).
 
 ## An example
@@ -84,6 +84,69 @@ like `mm` and `in`, functions like `sin`, and `pi`) can't be names.
 
 [`parameter.rename`](../cli/commands.md#parameterrename) changes a parameter's
 name and every formula that uses it, so nothing breaks.
+
+## Using parameters in a sketch
+
+A dimension in a [sketch](sketches.md) can have a formula instead of a number:
+give `sketch.constrain` or `sketch.set_value` a `formula` instead of a `value`.
+Here a plate is 10 walls wide:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open stand.khan --save stand.khan feature.add_sketch
+stand: 1 step
+  Sketch1      ok  empty
+Parameters:
+  wall   = 2 mm
+  height = wall * 4 + 1 in  (33.4 mm)
+wrote stand.khan
+$ kh_cli run --open stand.khan --save stand.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=20,30
+stand: 1 step
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+Parameters:
+  wall   = 2 mm
+  height = wall * 4 + 1 in  (33.4 mm)
+wrote stand.khan
+$ kh_cli run --open stand.khan --save stand.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 formula="wall * 10"
+stand: 1 step
+  Sketch1      ok  4 lines, 9 constraints, free to move 3 ways
+Parameters:
+  wall   = 2 mm
+  height = wall * 4 + 1 in  (33.4 mm)
+wrote stand.khan
+$ kh_cli run --open stand.khan --save stand.khan sketch.constrain sketch=Sketch1 kind=length on=Line2 formula=height
+stand: 1 step
+  Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
+Parameters:
+  wall   = 2 mm
+  height = wall * 4 + 1 in  (33.4 mm)
+wrote stand.khan
+```
+
+The plate is 20 mm wide (10 × 2 mm) and 33.4 mm tall. Change `wall`, and both
+dimensions follow, because `height` uses `wall` too:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open stand.khan --save stand.khan parameter.set name=wall value="3 mm"
+stand: 1 step
+  Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
+Parameters:
+  wall   = 3 mm
+  height = wall * 4 + 1 in  (37.4 mm)
+wrote stand.khan
+$ kh_cli open stand.khan --sketch Sketch1
+...
+  Length1        length              Line1  30.00 mm = wall * 10
+  Length2        length              Line2  37.40 mm = height
+...
+```
+
+A length dimension needs a length and an angle dimension an angle, so a plain
+number like `12` is refused: write `12 mm`. Khan also refuses a parameter
+change that would make a length 0 mm or less. In the desktop app, a dimension
+with a formula says so when you point at its number; typing a new number there
+replaces the formula.
 
 ## Tips
 

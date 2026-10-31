@@ -16,7 +16,7 @@ kh_cli open <file.khan> --sketch <name>
 | `--export <out.stl>` | Write the finished shape as an STL mesh, for slicers and 3D printing |
 | `--export <out.step>` | Write the finished shape as a STEP file, for other CAD programs (`.stp` works too) |
 | `--step <name>` | Export the shape of this step instead, even if later steps use it |
-| `--sketch <name>` | Also list this sketch: each line, circle, arc, spline and point where the solver put it (in the design's unit, angles in degrees; a spline lists its degree and control points), each constraint, then its closed shapes (with their areas) and any ends that aren't joined |
+| `--sketch <name>` | Also list this sketch: each line, circle, arc, spline and point where the solver put it (in the design's unit, angles in degrees; a spline lists its degree and control points), each constraint (a dimension with a formula shows it after its number, like `40.00 mm = wall * 10`), then its closed shapes (with their areas) and any ends that aren't joined |
 
 Each step shows one of these:
 

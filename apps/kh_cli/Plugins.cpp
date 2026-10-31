@@ -462,17 +462,9 @@ int runCommand(int argc, char** argv) {
     }
 
     if (savePath) {
-        io::Bytes bytes;
-        if (auto issues = io::writeBytes(design, bytes); !issues.empty()) {
+        // Through a temporary file, so a save that's cut short never leaves a broken design.
+        if (auto issues = io::writeFile(design, *savePath); !issues.empty()) {
             printIssues(issues);
-            return 1;
-        }
-        std::ofstream out(*savePath, std::ios::binary | std::ios::trunc);
-        out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-        if (!out) {
-            std::fprintf(stderr,
-                         "error: Khan couldn't save %s. Check the folder exists and isn't read-only.\n",
-                         savePath->c_str());
             return 1;
         }
         docs.markSaved(id);

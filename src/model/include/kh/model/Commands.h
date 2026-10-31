@@ -397,11 +397,12 @@ private:
 };
 
 /// Adds a parameter, like `wall = 3 mm`, or changes the one with that name.
+/// Sketch dimensions whose formulas use it change to their new values.
 ///
 /// Refused if the name can't be a parameter's (see ParameterTable::checkName()),
 /// differs from another parameter's only in upper and lower case, or the
 /// formula can't be read or worked out; and if the change would stop another
-/// parameter that uses it from being worked out.
+/// parameter or a sketch dimension that uses it from being worked out.
 class SetParameterCommand final : public Command {
 public:
     /// Prepares the change.
@@ -418,11 +419,13 @@ public:
 private:
     std::string name_, expression_;
     std::optional<std::string> note_;
-    ParamId id_;                    // a new parameter's id, the same on redo
-    std::optional<Parameter> old_;  // the version it changed, if it changed one
+    ParamId id_;                                   // a new parameter's id, the same on redo
+    std::optional<Parameter> old_;                 // the version it changed, if it changed one
+    std::vector<std::unique_ptr<Feature>> steps_;  // sketches whose dimensions it changed, swapped in and out
 };
 
-/// Renames a parameter, and every formula that uses it, so they still use it.
+/// Renames a parameter, and every formula that uses it (other parameters' and
+/// sketch dimensions'), so they still use it.
 class RenameParameterCommand final : public Command {
 public:
     /// Prepares the change.
@@ -436,10 +439,11 @@ public:
 
 private:
     std::string name_, to_;
-    std::vector<Parameter> old_;  // every parameter it changed, as it was
+    std::vector<Parameter> old_;                   // every parameter it changed, as it was
+    std::vector<std::unique_ptr<Feature>> steps_;  // sketches whose formulas it changed, swapped in and out
 };
 
-/// Removes a parameter. Refused while another parameter uses it.
+/// Removes a parameter. Refused while another parameter or a sketch dimension uses it.
 class DeleteParameterCommand final : public Command {
 public:
     /// Prepares the change.

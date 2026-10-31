@@ -71,8 +71,10 @@ class PluginContext;
 /// trimmedPiece() and sketch.trim). Version 28 added the Symmetric constraint
 /// (sketch::ConstraintKind::Symmetric). Version 29 added parameters
 /// (model::Expression, model::ParameterTable, Document::parameters(), and the
-/// parameter.set, parameter.rename and parameter.delete commands).
-inline constexpr int kPluginApiVersion = 29;
+/// parameter.set, parameter.rename and parameter.delete commands). Version 30
+/// added dimensions worked out from formulas (sketch::Constraint::expression,
+/// kh/model/Formulas.h, and formula= on sketch.constrain and sketch.set_value).
+inline constexpr int kPluginApiVersion = 30;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

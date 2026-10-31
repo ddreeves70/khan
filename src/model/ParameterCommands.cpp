@@ -4,6 +4,7 @@
 
 #include "kh/model/Commands.h"
 #include "kh/model/Document.h"
+#include "kh/model/Formulas.h"
 
 namespace kh::model {
 
@@ -30,6 +31,63 @@ Diagnostic noSuchParameter(const ParameterTable& table, const std::string& name)
                  "There's no parameter called " + name +
                      (close ? ". Did you mean " + close->name + "? Upper and lower case must match."
                             : ". Check the spelling."));
+}
+
+// Finds the sketch steps whose dimensions change when the parameters go from
+// `before` to `after`, and makes their new versions, ready to swap in. With
+// `renaming`, formulas that use renaming->first use renaming->second instead.
+// A dimension that worked before and wouldn't now is a problem, named in words
+// that start with `change`; one that didn't work before is left as it is.
+Diagnostics updateDimensions(const Document& doc, const ParameterValues& before, const ParameterValues& after,
+                             const std::string& change, const std::pair<std::string, std::string>* renaming,
+                             std::vector<std::unique_ptr<Feature>>& out) {
+    out.clear();
+    for (std::size_t i = 0; i < doc.featureCount(); ++i) {
+        const Feature& f = doc.featureAt(i);
+        if (f.type() != FeatureType::Sketch) continue;
+        const auto& step = static_cast<const SketchFeature&>(f);
+        sketch::Sketch s = step.sketch();
+        bool changed = false;
+        for (auto& c : s.constraints) {
+            if (c.expression.empty() || !sketch::isDimension(c.kind)) continue;
+            std::string formula = c.expression;
+            if (renaming) {
+                const auto e = Expression::parse(formula);
+                const auto refs = e.references();
+                if (std::find(refs.begin(), refs.end(), renaming->first) != refs.end()) {
+                    formula = e.renamed(renaming->first, renaming->second);
+                }
+            }
+            const std::string what = c.name + " in " + step.name();
+            const auto now = evalDimension(c.kind, formula, after, what);
+            if (now.ok()) {
+                if (now.value->value != c.value) {
+                    c.value = now.value->value;
+                    changed = true;
+                }
+            } else if (evalDimension(c.kind, c.expression, before, what).ok()) {
+                out.clear();
+                return {error("parameter.breaks",
+                              change + " would stop " + what + " working: " + now.issues.front().message)};
+            }
+            if (formula != c.expression) {
+                c.expression = std::move(formula);
+                changed = true;
+            }
+        }
+        if (changed) {
+            auto copy = step.clone();
+            static_cast<SketchFeature&>(*copy).setSketch(std::move(s));
+            out.push_back(std::move(copy));
+        }
+    }
+    return {};
+}
+
+// Swaps steps into the design for the ones with the same ids; afterwards
+// `steps` holds the versions they replaced.
+void swapIn(DocumentEditor& editor, std::vector<std::unique_ptr<Feature>>& steps) {
+    for (auto& f : steps) f = editor.replace(std::move(f));
 }
 
 }  // namespace
@@ -81,14 +139,22 @@ Diagnostics SetParameterCommand::apply(DocumentEditor& editor) {
                                                   p.name + " working: " + now->issues.front().message)};
         }
     }
+    // Sketch dimensions that use it follow.
+    if (auto issues = updateDimensions(editor.document(), before, after,
+                                       "Changing " + name_ + " to " + expression_, nullptr, steps_);
+        !issues.empty()) {
+        return issues;
+    }
 
     old_ = existing ? std::optional<Parameter>(*existing) : std::nullopt;
     id_ = next.id;
     table.define(std::move(next));
+    swapIn(editor, steps_);
     return {};
 }
 
 void SetParameterCommand::revert(DocumentEditor& editor) {
+    swapIn(editor, steps_);
     if (old_) {
         editor.parameters().define(*old_);
     } else {
@@ -132,11 +198,21 @@ Diagnostics RenameParameterCommand::apply(DocumentEditor& editor) {
         if (uses) next.expression = formula.renamed(name_, to_);
         changed.push_back(std::move(next));
     }
+    ParameterTable trial = table;
+    for (const auto& p : changed) trial.define(p);
+    const std::pair<std::string, std::string> names{name_, to_};
+    if (auto issues = updateDimensions(editor.document(), table.evaluate(), trial.evaluate(),
+                                       "Renaming " + name_ + " to " + to_, &names, steps_);
+        !issues.empty()) {
+        return issues;
+    }
     for (auto& p : changed) table.define(std::move(p));
+    swapIn(editor, steps_);
     return {};
 }
 
 void RenameParameterCommand::revert(DocumentEditor& editor) {
+    swapIn(editor, steps_);
     for (const auto& p : old_) editor.parameters().define(p);
 }
 
@@ -156,6 +232,14 @@ Diagnostics DeleteParameterCommand::apply(DocumentEditor& editor) {
     if (!p) return {noSuchParameter(table, name_)};
     auto users = table.dependents(name_);
     users.erase(std::remove(users.begin(), users.end(), name_), users.end());
+    const auto& doc = editor.document();
+    for (std::size_t i = 0; i < doc.featureCount(); ++i) {
+        const Feature& f = doc.featureAt(i);
+        if (f.type() != FeatureType::Sketch) continue;
+        for (const auto& d : dimensionsUsing(static_cast<const SketchFeature&>(f).sketch(), name_)) {
+            users.push_back(d + " in " + f.name());
+        }
+    }
     if (!users.empty()) {
         const bool one = users.size() == 1;
         const std::string them = one ? users.front() : "them";

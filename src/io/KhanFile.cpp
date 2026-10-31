@@ -233,6 +233,9 @@ json sketchToJson(const sketch::Sketch& s) {
             j["entities"] = ids;
         }
         if (sketch::isDimension(c.kind)) j["value"] = c.value;
+        // Only dimensions with a formula get this, so other sketches save exactly
+        // as before. "value" is still what it works out to, for an older Khan.
+        if (sketch::isDimension(c.kind) && !c.expression.empty()) j["expression"] = c.expression;
         if (c.kind == sketch::ConstraintKind::Fix) j["at"] = vec2(c.at);
         constraints.push_back(j);
     }
@@ -357,6 +360,13 @@ std::optional<sketch::Sketch> sketchFromJson(const json& j, std::string& why) {
                 return std::nullopt;
             }
             c.value = *v;
+            if (cj.contains("expression")) {
+                if (!cj["expression"].is_string()) {
+                    why = "sketch constraint " + c.name + ": bad expression";
+                    return std::nullopt;
+                }
+                c.expression = cj["expression"].get<std::string>();
+            }
         }
         if (c.kind == sketch::ConstraintKind::Fix) {
             const auto at = readVec2(cj.value("at", json()));

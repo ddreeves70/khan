@@ -117,8 +117,12 @@ again every time it opens or rebuilds the design.
   `"point_on_line"`, ... as `sketch.constrain` spells them), `points` (each an
   `entity` id and a `role`: `"start"`, `"end"`, `"center"`, `"pole"` with an
   `index` from 0 for a spline's control point, or none for a point),
-  `entities` (ids), `value` for dimensions (mm, or radians for `angle`), and
-  `at` [x, y] for `fix`.
+  `entities` (ids), `value` for dimensions (mm, or radians for `angle`),
+  `expression` for a dimension whose number comes from a formula (like
+  `"wall * 2"`, exactly as typed; left out for a typed number), and `at` [x, y]
+  for `fix`. A dimension with a formula still has its `value`: what the formula
+  last worked out to, which is what the solver uses (and what an older Khan,
+  which skips `expression`, uses).
 
 ```json
 {
@@ -285,7 +289,9 @@ failed save never damages the last good copy.
   for `symmetric`. A spline's
   `source` is an optional key an older Khan skips (and drops if it saves).
   Parameters were added like materials (Oct 2026): an older Khan opens the
-  design without them, and drops them if it saves the file again.
+  design without them, and drops them if it saves the file again. The same
+  goes for a dimension's `expression`: an older Khan keeps the number, not the
+  formula.
 - Anything an older Khan would read wrongly bumps `schema` (in
   `src/core/include/kh/core/Version.h`) and adds a migration from the old schema.
 - `tests/files/` holds files saved with each schema. They are checked in and never
@@ -298,7 +304,7 @@ failed save never damages the last good copy.
 From the design document's file format plan, these come later:
 
 - `components.json` (assemblies, Phase 3).
-- Sketch dimensions and step values that use parameters (Phase 2, next).
+- Step values (like an extrude's distance) that use parameters (Phase 2, next).
 - A `cache/` folder with built geometry for faster opening.
 - Keeping keys this Khan doesn't understand when it saves a file from a newer
   minor version. Today they are dropped.
