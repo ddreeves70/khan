@@ -106,8 +106,8 @@ std::vector<AxesOverlay> axesOverlays(bool onCube, bool labels, bool atOrigin) {
     for (const auto& set : sets) {
         auto at = [&set](const Axis& a, double t) {
             // The start, moved to `t` along the axis.
-            return kernel::Vec3{a.along.x ? t : set.start.x, a.along.y ? t : set.start.y,
-                                a.along.z ? t : set.start.z};
+            return kernel::Vec3{a.along.x != 0 ? t : set.start.x, a.along.y != 0 ? t : set.start.y,
+                                a.along.z != 0 ? t : set.start.z};
         };
         for (const auto& a : list) {
             plugin::Overlay line;
