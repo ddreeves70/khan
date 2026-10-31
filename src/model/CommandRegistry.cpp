@@ -608,6 +608,35 @@ CommandRegistry makeBuiltin() {
                   });
           });
 
+    r.add(
+        {"sketch.trim",
+         "Trim",
+         "Cuts away the piece of a line, circle or arc between the places nearest a point where other lines, "
+         "circles and arcs cross it (or from one of them to its end). Something nothing crosses is deleted.",
+         {sketchArg,
+          {"item", ArgType::Text, "The line, circle or arc, like Line1.", true, {}},
+          {"near",
+           ArgType::Vec2,
+           "A point on (or near) the piece to cut away, in mm, like 35,0.",
+           true,
+           {}}}},
+        [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+            const std::string name = argText(a, "item");
+            const auto near = argVec2(a, "near");
+            return std::make_unique<EditSketchCommand>(
+                argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                    const auto* e = s.findEntity(name);
+                    if (!e) {
+                        return {sketchProblem("sketch.not_found",
+                                              "There's nothing called " + name + " in this sketch.")};
+                    }
+                    const std::size_t before = s.entities.size();
+                    if (auto problems = trim(s, e->id, near); !problems.empty()) return problems;
+                    label = (s.entities.size() < before ? "Delete " : "Trim ") + name;
+                    return {};
+                });
+        });
+
     r.add({"sketch.add_circle",
            "Add circle",
            "Adds a circle to a sketch.",

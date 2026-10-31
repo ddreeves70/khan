@@ -577,6 +577,7 @@ TEST_CASE("sketch.round_corner rounds a rectangle's corner; its sizes still meas
 
     REQUIRE(d.sk("sketch.round_corner", {{"at", std::string("Line1.end")}, {"radius", 5.0}}).empty());
     CHECK(d.doc.undoLabel() == "Round the corner at Line1.end (Arc1)");
+    CHECK(d.step().sketch().findConstraint("PointOnLine1"));  // named as the buttons name them
     const auto& s = d.step().sketch();
     const auto* arc = s.findEntity("Arc1");
     const auto* sharp = s.findEntity("Point2");
@@ -647,4 +648,142 @@ TEST_CASE("round_corner says what's wrong: not a joined corner, a radius too big
           "Line5 and Line6 carry straight on at that corner (or fold back on each other), so there's nothing "
           "to round.");
     CHECK(d.step().sketch().entities.size() == 6);  // nothing changed
+}
+
+namespace {
+
+const sketch::LineShape& lineIn(const Drawing& d, const char* name) {
+    return std::get<sketch::LineShape>(d.step().sketch().findEntity(name)->shape);
+}
+
+void solves(Drawing& d) {
+    const auto report = d.rebuild();
+    INFO((report.result(d.sketchId)->sketch->issues.empty()
+              ? std::string()
+              : report.result(d.sketchId)->sketch->issues[0].message));
+    REQUIRE(report.ok());
+    CHECK(report.result(d.sketchId)->sketch->conflicting.empty());
+}
+
+}  // namespace
+
+TEST_CASE("sketch.trim cuts a line back to where another crosses it, and keeps the cut end there",
+          "[model][sketch][trim]") {
+    Drawing d;
+    REQUIRE(d.sk("sketch.add_line", {{"from", sketch::Point2{0, 0}}, {"to", sketch::Point2{40, 0}}}).empty());
+    REQUIRE(
+        d.sk("sketch.add_line", {{"from", sketch::Point2{30, -10}}, {"to", sketch::Point2{30, 10}}}).empty());
+    REQUIRE(d.sk("sketch.constrain",
+                 {{"kind", std::string("length")}, {"on", std::string("Line1")}, {"value", 40.0}})
+                .empty());
+    REQUIRE(
+        d.sk("sketch.constrain", {{"kind", std::string("fix")}, {"on", std::string("Line1.end")}}).empty());
+    REQUIRE(d.sk("sketch.trim", {{"item", std::string("Line1")}, {"near", sketch::Point2{35, 1}}}).empty());
+    CHECK(d.doc.undoLabel() == "Trim Line1");
+    CHECK(lineIn(d, "Line1").end.x == Approx(30));
+    CHECK(lineIn(d, "Line1").end.y == Approx(0).margin(1e-12));
+    const auto& s = d.step().sketch();
+    CHECK(s.findConstraint("Length1") == nullptr);  // it was about the whole line
+    CHECK(s.findConstraint("Fix1") == nullptr);     // it was on the end that was cut away
+    const auto* on = s.findConstraint("PointOnLine1");
+    REQUIRE(on);
+    CHECK(on->points[0] == sketch::PointRef{s.findEntity("Line1")->id, sketch::PointRole::End});
+    CHECK(on->entities[0] == s.findEntity("Line2")->id);
+    solves(d);
+    // The other side: cut the start back instead.
+    REQUIRE(d.doc.undo());
+    REQUIRE(d.sk("sketch.trim", {{"item", std::string("Line1")}, {"near", sketch::Point2{10, 0}}}).empty());
+    CHECK(lineIn(d, "Line1").start.x == Approx(30));
+    CHECK(lineIn(d, "Line1").end.x == Approx(40));
+}
+
+TEST_CASE("sketch.trim in the middle of a line leaves two pieces in line", "[model][sketch][trim]") {
+    Drawing d;
+    REQUIRE(d.sk("sketch.add_line", {{"from", sketch::Point2{0, 0}}, {"to", sketch::Point2{40, 0}}}).empty());
+    REQUIRE(
+        d.sk("sketch.add_line", {{"from", sketch::Point2{10, -10}}, {"to", sketch::Point2{10, 10}}}).empty());
+    REQUIRE(
+        d.sk("sketch.add_line", {{"from", sketch::Point2{30, -10}}, {"to", sketch::Point2{30, 10}}}).empty());
+    REQUIRE(
+        d.sk("sketch.constrain", {{"kind", std::string("fix")}, {"on", std::string("Line1.end")}}).empty());
+    const int before = d.rebuild().result(d.sketchId)->sketch->freedom;
+    {
+        const auto p = d.sk("sketch.trim", {{"item", std::string("Line1")}, {"near", sketch::Point2{20, 0}}});
+        INFO((p.empty() ? std::string() : p[0].message));
+        REQUIRE(p.empty());
+    }
+    CHECK(lineIn(d, "Line1").start.x == Approx(0));
+    CHECK(lineIn(d, "Line1").end.x == Approx(10));
+    CHECK(lineIn(d, "Line4").start.x == Approx(30));
+    CHECK(lineIn(d, "Line4").end.x == Approx(40));
+    // The Fix that was on Line1's end is on Line4's end now: it's the same point.
+    const auto& s = d.step().sketch();
+    CHECK(s.findConstraint("Fix1")->points[0] ==
+          sketch::PointRef{s.findEntity("Line4")->id, sketch::PointRole::End});
+    solves(d);
+    // A new line (4 ways), held at its start by Line3 and in line with Line1 (3), and Line1's new end
+    // held by Line2 (1): just as many ways to move as before.
+    CHECK(d.rebuild().result(d.sketchId)->sketch->freedom == before);
+}
+
+TEST_CASE("sketch.trim turns a circle crossed twice into an arc, and cuts arcs back",
+          "[model][sketch][trim]") {
+    Drawing d;
+    REQUIRE(d.sk("sketch.add_circle", {{"center", sketch::Point2{0, 0}}, {"radius", 10.0}}).empty());
+    REQUIRE(
+        d.sk("sketch.add_line", {{"from", sketch::Point2{-20, 0}}, {"to", sketch::Point2{20, 0}}}).empty());
+    REQUIRE(d.sk("sketch.trim", {{"item", std::string("Circle1")}, {"near", sketch::Point2{1, 10}}}).empty());
+    const auto* e = d.step().sketch().findEntity("Circle1");
+    REQUIRE(e);
+    const auto& a = std::get<sketch::ArcShape>(e->shape);  // the bottom half is left
+    CHECK(a.startAngle == Approx(std::numbers::pi));
+    CHECK(a.endAngle == Approx(2 * std::numbers::pi));
+    CHECK(d.step().sketch().constraints.size() == 2);  // both ends stay on the line
+    solves(d);
+
+    // That arc, crossed by an upright line, cut back to it.
+    REQUIRE(
+        d.sk("sketch.add_line", {{"from", sketch::Point2{5, -20}}, {"to", sketch::Point2{5, 0}}}).empty());
+    REQUIRE(d.sk("sketch.trim", {{"item", std::string("Circle1")}, {"near", sketch::Point2{9, -3}}}).empty());
+    const auto& b = std::get<sketch::ArcShape>(d.step().sketch().findEntity("Circle1")->shape);
+    CHECK(b.startAngle == Approx(std::numbers::pi));
+    CHECK(10 * std::cos(b.endAngle) == Approx(5));  // ends where x = 5
+    solves(d);
+
+    // A line cut by a circle.
+    REQUIRE(d.sk("sketch.add_circle", {{"center", sketch::Point2{50, 0}}, {"radius", 5.0}}).empty());
+    REQUIRE(
+        d.sk("sketch.add_line", {{"from", sketch::Point2{40, 0}}, {"to", sketch::Point2{50, 0}}}).empty());
+    {
+        const auto p = d.sk("sketch.trim", {{"item", std::string("Line3")}, {"near", sketch::Point2{48, 0}}});
+        INFO((p.empty() ? std::string() : p[0].message));
+        REQUIRE(p.empty());
+    }
+    CHECK(lineIn(d, "Line3").end.x == Approx(45));
+    solves(d);
+}
+
+TEST_CASE("sketch.trim deletes what nothing crosses, and says when a circle can't be trimmed",
+          "[model][sketch][trim]") {
+    Drawing d;
+    REQUIRE(d.sk("sketch.add_line", {{"from", sketch::Point2{0, 0}}, {"to", sketch::Point2{40, 0}}}).empty());
+    REQUIRE(d.sk("sketch.constrain", {{"kind", std::string("horizontal")}, {"on", std::string("Line1")}})
+                .empty());
+    REQUIRE(d.sk("sketch.trim", {{"item", std::string("Line1")}, {"near", sketch::Point2{20, 0}}}).empty());
+    CHECK(d.doc.undoLabel() == "Delete Line1");
+    CHECK(d.step().sketch().entities.empty());
+    CHECK(d.step().sketch().constraints.empty());
+
+    REQUIRE(d.sk("sketch.add_circle", {{"center", sketch::Point2{0, 0}}, {"radius", 10.0}}).empty());
+    REQUIRE(
+        d.sk("sketch.add_line", {{"from", sketch::Point2{0, -20}}, {"to", sketch::Point2{0, 0}}}).empty());
+    auto problems = d.sk("sketch.trim", {{"item", std::string("Circle1")}, {"near", sketch::Point2{10, 0}}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message ==
+          "Circle1 is crossed in only one place, so there's no piece to cut off. Draw something else across "
+          "it first.");
+    REQUIRE(d.sk("sketch.add_point", {{"at", sketch::Point2{3, 3}}}).empty());
+    problems = d.sk("sketch.trim", {{"item", std::string("Point1")}, {"near", sketch::Point2{3, 3}}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message == "Trim works on lines, circles and arcs. Point1 isn't one of those.");
 }

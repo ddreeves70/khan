@@ -16,6 +16,26 @@ namespace kh::model {
 
 namespace {
 
+// A constraint's name base, as the sketcher's buttons name them: "Point on line"
+// becomes "PointOnLine".
+std::string constraintBaseOf(sketch::ConstraintKind kind) {
+    std::string base;
+    bool upper = true;
+    for (char ch : sketch::kindName(kind)) {
+        if (ch == ' ') {
+            upper = true;
+            continue;
+        }
+        base += upper ? static_cast<char>(std::toupper(static_cast<unsigned char>(ch))) : ch;
+        upper = false;
+    }
+    return base;
+}
+
+}  // namespace
+
+namespace {
+
 Diagnostic error(std::string code, std::string message) {
     return {std::move(code), Severity::Error, std::move(message), {}};
 }
@@ -642,12 +662,7 @@ RectangleLines addRectangle(sketch::Sketch& s, sketch::Point2 a, sketch::Point2 
         k.kind = kind;
         k.points = std::move(points);
         k.entities = std::move(entities);
-        // "Horizontal" for Horizontal, as the sketcher's buttons name them.
-        std::string base;
-        for (char ch : sketch::kindName(kind)) {
-            if (ch != ' ') base += ch;
-        }
-        k.name = uniqueSketchName(s, base);
+        k.name = uniqueSketchName(s, constraintBaseOf(kind));
         s.constraints.push_back(std::move(k));
     };
     const auto& l = out.lines;
@@ -837,11 +852,7 @@ Diagnostics roundCorner(sketch::Sketch& s, const sketch::PointRef& at, double ra
         k.points = std::move(points);
         k.entities = std::move(entities);
         k.value = value;
-        std::string base;
-        for (char ch : sketch::kindName(kind)) {
-            if (ch != ' ') base += ch;
-        }
-        k.name = uniqueSketchName(s, base);
+        k.name = uniqueSketchName(s, constraintBaseOf(kind));
         s.constraints.push_back(std::move(k));
         return s.constraints.back().id;
     };
@@ -853,6 +864,388 @@ Diagnostics roundCorner(sketch::Sketch& s, const sketch::PointRef& at, double ra
     add(ConstraintKind::Tangent, {}, {arcId, second.entity});
     const auto radiusId = add(ConstraintKind::Radius, {}, {arcId}, radius);
     if (made) *made = {arcId, cornerId, radiusId};
+    return {};
+}
+
+namespace {
+
+constexpr double kTwoPi = 2 * std::numbers::pi;
+
+// An angle moved into [0, 2 pi).
+double turn(double a) {
+    a = std::fmod(a, kTwoPi);
+    return a < 0 ? a + kTwoPi : a;
+}
+
+// Where an arc's sweep (from its start, counterclockwise) reaches an angle, or
+// nothing if the angle isn't on the arc.
+std::optional<double> onArc(const sketch::ArcShape& arc, double angle) {
+    const double along = turn(angle - arc.startAngle);
+    const double sweep = arc.endAngle - arc.startAngle;
+    if (along > sweep + 1e-12) return std::nullopt;
+    return along;
+}
+
+// The points where a line through a and b (all of it, both ways) meets a circle.
+std::vector<sketch::Point2> lineMeetsCircle(sketch::Point2 a, sketch::Point2 b, sketch::Point2 c, double r) {
+    const double dx = b.x - a.x, dy = b.y - a.y;
+    const double fx = a.x - c.x, fy = a.y - c.y;
+    const double A = dx * dx + dy * dy, B = 2 * (fx * dx + fy * dy), C = fx * fx + fy * fy - r * r;
+    const double disc = B * B - 4 * A * C;
+    if (A <= 0 || disc < 0) return {};
+    std::vector<sketch::Point2> out;
+    for (double sign : {-1.0, 1.0}) {
+        const double t = (-B + sign * std::sqrt(disc)) / (2 * A);
+        out.push_back({a.x + t * dx, a.y + t * dy});
+        if (disc == 0) break;
+    }
+    return out;
+}
+
+// The points where two circles meet.
+std::vector<sketch::Point2> circlesMeet(sketch::Point2 c0, double r0, sketch::Point2 c1, double r1) {
+    const double d = std::hypot(c1.x - c0.x, c1.y - c0.y);
+    if (d <= 0 || d > r0 + r1 || d < std::abs(r0 - r1)) return {};
+    const double a = (r0 * r0 - r1 * r1 + d * d) / (2 * d);
+    const double h = std::sqrt(std::max(0.0, r0 * r0 - a * a));
+    const sketch::Point2 m{c0.x + a * (c1.x - c0.x) / d, c0.y + a * (c1.y - c0.y) / d};
+    const sketch::Point2 off{-(c1.y - c0.y) * h / d, (c1.x - c0.x) * h / d};
+    if (h == 0) return {m};
+    return {{m.x + off.x, m.y + off.y}, {m.x - off.x, m.y - off.y}};
+}
+
+// A circle's or arc's center and radius.
+bool roundOf(const sketch::Shape& s, sketch::Point2& c, double& r) {
+    if (const auto* ci = std::get_if<sketch::CircleShape>(&s)) {
+        c = ci->center;
+        r = ci->radius;
+        return true;
+    }
+    if (const auto* a = std::get_if<sketch::ArcShape>(&s)) {
+        c = a->center;
+        r = a->radius;
+        return true;
+    }
+    return false;
+}
+
+// Whether a point found on another entity's line or circle is on its actual
+// piece: between a line's ends, within an arc's sweep.
+bool onPiece(const sketch::Shape& s, sketch::Point2 p) {
+    if (const auto* l = std::get_if<sketch::LineShape>(&s)) {
+        const double dx = l->end.x - l->start.x, dy = l->end.y - l->start.y, len2 = dx * dx + dy * dy;
+        if (len2 <= 0) return false;
+        const double u = ((p.x - l->start.x) * dx + (p.y - l->start.y) * dy) / len2;
+        return u >= -1e-9 && u <= 1 + 1e-9;
+    }
+    if (const auto* a = std::get_if<sketch::ArcShape>(&s))
+        return onArc(*a, std::atan2(p.y - a->center.y, p.x - a->center.x)).has_value();
+    return std::holds_alternative<sketch::CircleShape>(s);
+}
+
+// Where something crosses the entity being trimmed: how far along it (a line's
+// 0 to 1, an arc's angle from its start, a circle's angle) and what crosses it.
+struct Crossing {
+    double at;
+    EntityId by;
+};
+
+// How far along an entity a point is, in the terms Crossing uses.
+double alongOf(const sketch::Shape& s, sketch::Point2 p) {
+    if (const auto* l = std::get_if<sketch::LineShape>(&s)) {
+        const double dx = l->end.x - l->start.x, dy = l->end.y - l->start.y, len2 = dx * dx + dy * dy;
+        return len2 > 0 ? ((p.x - l->start.x) * dx + (p.y - l->start.y) * dy) / len2 : 0;
+    }
+    sketch::Point2 c;
+    double r = 0;
+    roundOf(s, c, r);
+    const double angle = std::atan2(p.y - c.y, p.x - c.x);
+    if (const auto* a = std::get_if<sketch::ArcShape>(&s)) {
+        const double sweep = a->endAngle - a->startAngle;
+        const double along = turn(angle - a->startAngle);
+        // Off the arc: count it from whichever end is nearer.
+        return along <= sweep ? along : (along - sweep < kTwoPi - along ? sweep : 0.0);
+    }
+    return turn(angle);
+}
+
+std::vector<Crossing> crossings(const sketch::Sketch& s, const sketch::Entity& target) {
+    std::vector<Crossing> out;
+    const auto& t = target.shape;
+    for (const auto& other : s.entities) {
+        if (other.id == target.id) continue;
+        const auto& o = other.shape;
+        std::vector<sketch::Point2> points;
+        sketch::Point2 tc, oc;
+        double tr = 0, orr = 0;
+        const auto* tl = std::get_if<sketch::LineShape>(&t);
+        const auto* ol = std::get_if<sketch::LineShape>(&o);
+        if (tl && ol) {
+            const double dx = tl->end.x - tl->start.x, dy = tl->end.y - tl->start.y;
+            const double ex = ol->end.x - ol->start.x, ey = ol->end.y - ol->start.y;
+            const double den = dx * ey - dy * ex;
+            if (std::abs(den) > 1e-12) {
+                const double u = ((ol->start.x - tl->start.x) * dy - (ol->start.y - tl->start.y) * dx) / den;
+                if (u >= -1e-9 && u <= 1 + 1e-9)
+                    points.push_back({ol->start.x + u * ex, ol->start.y + u * ey});
+            }
+        } else if (tl && roundOf(o, oc, orr)) {
+            points = lineMeetsCircle(tl->start, tl->end, oc, orr);
+        } else if (ol && roundOf(t, tc, tr)) {
+            points = lineMeetsCircle(ol->start, ol->end, tc, tr);
+        } else if (roundOf(t, tc, tr) && roundOf(o, oc, orr)) {
+            points = circlesMeet(tc, tr, oc, orr);
+        }
+        for (const auto& p : points) {
+            if (!onPiece(o, p)) continue;
+            // On the target's own piece, and not at one of its ends (nothing to cut there).
+            if (std::holds_alternative<sketch::LineShape>(t)) {
+                const double u = alongOf(t, p);
+                if (u <= 1e-9 || u >= 1 - 1e-9) continue;
+            } else if (const auto* a = std::get_if<sketch::ArcShape>(&t)) {
+                const auto along = onArc(*a, std::atan2(p.y - a->center.y, p.x - a->center.x));
+                if (!along || *along <= 1e-9 || *along >= a->endAngle - a->startAngle - 1e-9) continue;
+            }
+            out.push_back({alongOf(t, p), other.id});
+        }
+    }
+    std::sort(out.begin(), out.end(), [](const Crossing& a, const Crossing& b) { return a.at < b.at; });
+    return out;
+}
+
+// What trimming would do.
+struct TrimPlan {
+    enum Kind { Delete, CutStart, CutEnd, Split, CircleToArc } kind = Delete;
+    double from = 0, to = 0;    // the removed piece, in Crossing terms
+    EntityId byFrom{}, byTo{};  // what cuts it there
+};
+
+std::optional<TrimPlan> planTrim(const sketch::Sketch& s, const sketch::Entity& e, sketch::Point2 near,
+                                 Diagnostics& problems) {
+    const auto& shape = e.shape;
+    const bool line = std::holds_alternative<sketch::LineShape>(shape);
+    const bool arc = std::holds_alternative<sketch::ArcShape>(shape);
+    const bool circle = std::holds_alternative<sketch::CircleShape>(shape);
+    if (!line && !arc && !circle) {
+        problems.push_back({"sketch.trim",
+                            Severity::Error,
+                            "Trim works on lines, circles and arcs. " + e.name + " isn't one of those.",
+                            {}});
+        return std::nullopt;
+    }
+    const auto cuts = crossings(s, e);
+    TrimPlan plan;
+    if (circle) {
+        if (cuts.empty()) return plan;  // nothing crosses it: delete it
+        if (cuts.size() == 1) {
+            problems.push_back({"sketch.trim",
+                                Severity::Error,
+                                e.name +
+                                    " is crossed in only one place, so there's no piece to cut off. Draw "
+                                    "something else across it first.",
+                                {}});
+            return std::nullopt;
+        }
+        // The gap between crossings (going round) that the point is in.
+        const double here = alongOf(shape, near);
+        std::size_t k = 0;
+        while (k < cuts.size() && cuts[k].at <= here) ++k;
+        const auto& before = k == 0 ? cuts.back() : cuts[k - 1];
+        const auto& after = k == cuts.size() ? cuts.front() : cuts[k];
+        plan.kind = TrimPlan::CircleToArc;
+        plan.from = before.at;
+        plan.byFrom = before.by;
+        plan.to = after.at;
+        plan.byTo = after.by;
+        return plan;
+    }
+    const double here = alongOf(shape, near);
+    const double end =
+        line ? 1.0
+             : std::get<sketch::ArcShape>(shape).endAngle - std::get<sketch::ArcShape>(shape).startAngle;
+    std::optional<Crossing> below, above;
+    for (const auto& c : cuts) {
+        if (c.at < here) below = c;
+        if (c.at > here && !above) above = c;
+    }
+    if (!below && !above) return plan;  // nothing crosses it: delete it
+    if (below && above) {
+        plan.kind = TrimPlan::Split;
+        plan.from = below->at;
+        plan.byFrom = below->by;
+        plan.to = above->at;
+        plan.byTo = above->by;
+    } else if (above) {
+        plan.kind = TrimPlan::CutStart;
+        plan.from = 0;
+        plan.to = above->at;
+        plan.byTo = above->by;
+    } else {
+        plan.kind = TrimPlan::CutEnd;
+        plan.from = below->at;
+        plan.byFrom = below->by;
+        plan.to = end;
+    }
+    return plan;
+}
+
+// The point a distance along an entity (in Crossing terms).
+sketch::Point2 pointAlong(const sketch::Shape& s, double at) {
+    if (const auto* l = std::get_if<sketch::LineShape>(&s))
+        return {l->start.x + at * (l->end.x - l->start.x), l->start.y + at * (l->end.y - l->start.y)};
+    sketch::Point2 c;
+    double r = 0;
+    roundOf(s, c, r);
+    const double base =
+        std::holds_alternative<sketch::ArcShape>(s) ? std::get<sketch::ArcShape>(s).startAngle : 0.0;
+    return {c.x + r * std::cos(base + at), c.y + r * std::sin(base + at)};
+}
+
+// The piece between two distances along an entity.
+sketch::Shape pieceOf(const sketch::Shape& s, double from, double to) {
+    if (std::holds_alternative<sketch::LineShape>(s))
+        return sketch::LineShape{pointAlong(s, from), pointAlong(s, to)};
+    sketch::Point2 c;
+    double r = 0;
+    roundOf(s, c, r);
+    const double base =
+        std::holds_alternative<sketch::ArcShape>(s) ? std::get<sketch::ArcShape>(s).startAngle : 0.0;
+    double a0 = base + from, a1 = base + to;
+    while (a1 <= a0) a1 += kTwoPi;  // a circle's gap can run past 0
+    return sketch::ArcShape{c, r, a0, a1};
+}
+
+}  // namespace
+
+std::optional<sketch::Shape> trimmedPiece(const sketch::Sketch& s, const EntityId& id, sketch::Point2 near) {
+    const auto* e = s.find(id);
+    if (!e) return std::nullopt;
+    Diagnostics problems;
+    const auto plan = planTrim(s, *e, near, problems);
+    if (!plan) return std::nullopt;
+    if (plan->kind == TrimPlan::Delete) return e->shape;
+    return pieceOf(e->shape, plan->from, plan->to);
+}
+
+Diagnostics trim(sketch::Sketch& s, const EntityId& entityId, sketch::Point2 near) {
+    // A copy: the caller's id may live in the sketch, which moves when a piece is added.
+    const EntityId id = entityId;
+    using sketch::ConstraintKind;
+    using sketch::PointRef;
+    using sketch::PointRole;
+    const auto* found = s.find(id);
+    if (!found) return {{"sketch.not_found", Severity::Error, "That isn't in the sketch anymore.", {}}};
+    Diagnostics problems;
+    const auto planned = planTrim(s, *found, near, problems);
+    if (!planned) return problems;
+    const auto plan = *planned;
+    auto uses = [](const sketch::Constraint& c, const EntityId& e) {
+        return std::ranges::find(c.entities, e) != c.entities.end() ||
+               std::ranges::any_of(c.points, [&](const PointRef& p) { return p.entity == e; });
+    };
+    if (plan.kind == TrimPlan::Delete) {
+        std::erase_if(s.constraints, [&](const sketch::Constraint& c) { return uses(c, id); });
+        std::erase_if(s.entities, [&](const sketch::Entity& e) { return e.id == id; });
+        return {};
+    }
+    auto entity = [&](const EntityId& e) -> sketch::Entity& {
+        return *std::ranges::find_if(s.entities, [&](const sketch::Entity& x) { return x.id == e; });
+    };
+    auto add = [&](ConstraintKind kind, std::vector<PointRef> points, std::vector<EntityId> entities) {
+        sketch::Constraint k;
+        k.id = ConstraintId::generate();
+        k.kind = kind;
+        k.points = std::move(points);
+        k.entities = std::move(entities);
+        k.name = uniqueSketchName(s, constraintBaseOf(kind));
+        s.constraints.push_back(std::move(k));
+    };
+    // A cut end stays on what cut it.
+    auto keepOn = [&](const PointRef& p, const EntityId& by) {
+        const auto* cutter = s.find(by);
+        if (!cutter) return;
+        add(std::holds_alternative<sketch::LineShape>(cutter->shape) ? ConstraintKind::PointOnLine
+                                                                     : ConstraintKind::PointOnCircle,
+            {p}, {by});
+    };
+    auto dropOn = [&](const PointRef& p) {
+        std::erase_if(s.constraints, [&](const sketch::Constraint& c) {
+            return std::ranges::any_of(c.points, [&](const PointRef& q) { return q == p; });
+        });
+    };
+    const sketch::Shape before = found->shape;
+    const bool line = std::holds_alternative<sketch::LineShape>(before);
+    // A trimmed line's Length no longer says what it said.
+    if (line) {
+        std::erase_if(s.constraints, [&](const sketch::Constraint& c) {
+            return c.kind == ConstraintKind::Length && c.entities.size() == 1 && c.entities[0] == id;
+        });
+    }
+    auto setStart = [&](sketch::Shape& shape, double at) {
+        if (auto* l = std::get_if<sketch::LineShape>(&shape)) l->start = pointAlong(before, at);
+        if (auto* a = std::get_if<sketch::ArcShape>(&shape)) {
+            const double base = std::get<sketch::ArcShape>(before).startAngle;
+            a->startAngle = base + at;
+        }
+    };
+    auto setEnd = [&](sketch::Shape& shape, double at) {
+        if (auto* l = std::get_if<sketch::LineShape>(&shape)) l->end = pointAlong(before, at);
+        if (auto* a = std::get_if<sketch::ArcShape>(&shape)) {
+            const double base = std::get<sketch::ArcShape>(before).startAngle;
+            a->endAngle = base + at;
+        }
+    };
+    switch (plan.kind) {
+        case TrimPlan::Delete:
+            break;
+        case TrimPlan::CutStart:
+            dropOn({id, PointRole::Start});
+            setStart(entity(id).shape, plan.to);
+            keepOn({id, PointRole::Start}, plan.byTo);
+            break;
+        case TrimPlan::CutEnd:
+            dropOn({id, PointRole::End});
+            setEnd(entity(id).shape, plan.from);
+            keepOn({id, PointRole::End}, plan.byFrom);
+            break;
+        case TrimPlan::Split: {
+            // This one keeps the start; a new one takes the end, and what was on the end.
+            const EntityId piece = EntityId::generate();
+            sketch::Shape second = before;
+            setStart(second, plan.to);
+            const auto& original = entity(id);
+            s.entities.push_back(
+                {piece, uniqueSketchName(s, line ? "Line" : "Arc"), second, original.construction});
+            for (auto& c : s.constraints) {
+                for (auto& q : c.points) {
+                    if (q == PointRef{id, PointRole::End}) q = {piece, PointRole::End};
+                }
+            }
+            setEnd(entity(id).shape, plan.from);
+            keepOn({id, PointRole::End}, plan.byFrom);
+            keepOn({piece, PointRole::Start}, plan.byTo);
+            if (line) {
+                // Kept in line with the first piece.
+                add(ConstraintKind::PointOnLine, {{piece, PointRole::End}}, {id});
+                add(ConstraintKind::PointOnLine, {{piece, PointRole::Start}}, {id});
+            } else {
+                // On the same circle.
+                add(ConstraintKind::Coincident, {{piece, PointRole::Center}, {id, PointRole::Center}}, {});
+                add(ConstraintKind::Equal, {}, {id, piece});
+            }
+            break;
+        }
+        case TrimPlan::CircleToArc: {
+            // What's left goes from where the gap ends round to where it starts.
+            const auto& c = std::get<sketch::CircleShape>(before);
+            double a0 = plan.to, a1 = plan.from;
+            while (a1 <= a0) a1 += kTwoPi;
+            entity(id).shape = sketch::ArcShape{c.center, c.radius, a0, a1};
+            keepOn({id, PointRole::Start}, plan.byTo);
+            keepOn({id, PointRole::End}, plan.byFrom);
+            break;
+        }
+    }
     return {};
 }
 

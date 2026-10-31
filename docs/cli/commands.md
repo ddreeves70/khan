@@ -602,6 +602,62 @@ $ kh_cli run --open rounded.khan sketch.round_corner sketch=Sketch1 at=Line1.end
 error [sketch.round_corner]: A 25 mm radius doesn't fit that corner: it would cut back past the end of Line2. Use a radius under 20 mm.
 ```
 
+## sketch.trim
+
+Cuts away the piece of a line, circle or arc between the places nearest a point
+where other lines, circles and arcs cross it, or from one of them to its end. The
+cut end stays on whatever cut it (`point_on_line` or `point_on_circle`), so the
+pieces stay joined. A line cut in the middle becomes two pieces kept in line; an
+arc, two arcs of the same circle; a circle crossed in two places or more, an arc.
+Something nothing crosses is deleted. Constraints on an end that's cut away go,
+and so does a trimmed line's `length`.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `item` | text | yes | The line, circle or arc, like `Line1` |
+| `near` | x,y (mm) | yes | A point on (or near) the piece to cut away |
+
+A plate with a round tab: a 40 × 20 rectangle and a circle of radius 10 on its
+right side. Trimming the circle inside the plate leaves the half that sticks
+out, an arc. The plate's right side runs from one end of that arc to the other,
+with nothing crossing it in between, so trimming it deletes it. That leaves one
+outline, 800 + 50π = 957.08 mm², so 3 mm thick it's 2871.24 mm³:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save tab.khan feature.add_sketch
+tab: 1 step
+  Sketch1      ok  empty
+wrote tab.khan
+$ kh_cli run --open tab.khan --save tab.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
+tab: 1 step
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+wrote tab.khan
+$ kh_cli run --open tab.khan --save tab.khan sketch.add_circle sketch=Sketch1 center=40,10 radius=10
+tab: 1 step
+  Sketch1      ok  4 lines, 1 circle, 8 constraints, free to move 7 ways
+wrote tab.khan
+$ kh_cli run --open tab.khan --save tab.khan sketch.trim sketch=Sketch1 item=Circle1 near=30,10
+tab: 1 step
+  Sketch1      ok  4 lines, 1 arc, 10 constraints, free to move 7 ways
+wrote tab.khan
+$ kh_cli run --open tab.khan --save tab.khan sketch.trim sketch=Sketch1 item=Line2 near=40,10
+tab: 1 step
+  Sketch1      ok  3 lines, 1 arc, 7 constraints, free to move 8 ways
+wrote tab.khan
+$ kh_cli run --open tab.khan feature.add_extrude sketch=Sketch1 distance=3
+tab: 2 steps
+  Sketch1      ok  3 lines, 1 arc, 7 constraints, free to move 8 ways
+  Extrude1     ok  volume 2871.24 mm^3  mass 3.56 g (PLA)
+```
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open tab.khan sketch.trim sketch=Sketch1 item=Line9 near=0,0
+error [sketch.not_found]: There's nothing called Line9 in this sketch.
+```
+
 ## sketch.add_circle
 
 Adds a circle. Its point is `.center`.
