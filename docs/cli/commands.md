@@ -554,14 +554,16 @@ wrote s.khan
 Adds a spline: a smooth curve pulled towards its **control points** (poles), like
 a bendy ruler held by pins. An open spline starts at its first control point and
 ends at its last; the ones between pull the curve towards them without it going
-through them. Its points are `.pole1`, `.pole2`, ... (and `.start` and `.end`,
+through them. Or give it points to pass **through**, and Khan works out the
+control points. Its points are `.pole1`, `.pole2`, ... (and `.start` and `.end`,
 the same as its first and last). See
 [Splines](../user-guide/sketches.md#splines).
 
 | Setting | Kind | Needed | Meaning |
 | --- | --- | --- | --- |
 | `sketch` | step name | yes | The sketch |
-| `poles` | x,y/x,y/... (mm) | yes | Its control points, in order, split by `/` |
+| `poles` | x,y/x,y/... (mm) | this or `through` | Its control points, in order, split by `/` |
+| `through` | x,y/x,y/... (mm) | this or `poles` | Points it passes through, in order. Khan works out one control point for each |
 | `degree` | whole number | no | How smooth: `1` (straight pieces) to `5`. Default `3`, or less with only 2 or 3 points. A spline needs one more control point than its degree |
 | `closed` | true or false | no | `true` for a smooth loop with no ends. Default `false` |
 | `construction` | true or false | no | `true` for helper geometry. Default `false` |
@@ -620,6 +622,29 @@ blob: 2 steps
   Extrude1     ok  volume 813.33 mm^3  mass 1.01 g (PLA)
 ```
 
+A spline through points goes exactly through each one. This one passes through
+(0, 0), (20, 15) and (40, 0), so its top is 15 mm high. With 3 points its degree
+is 2:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save hump.khan feature.add_sketch
+hump: 1 step
+  Sketch1      ok  empty
+wrote hump.khan
+$ kh_cli run --open hump.khan sketch.add_spline sketch=Sketch1 through=0,0/20,15/40,0
+hump: 1 step
+  Sketch1      ok  1 spline, 0 constraints, free to move 6 ways
+```
+
+Give `poles` or `through`, not both:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open arch.khan sketch.add_spline sketch=Sketch1 poles=0,0/1,1/2,0 through=0,0/1,1/2,0
+error [sketch.spline_points]: Give a spline either its control points (poles=0,0/0,30/40,30/40,0) or points it passes through (through=0,0/20,15/40,0), not both.
+```
+
 A spline needs enough control points for its degree, and a control point it has:
 
 <!-- cli-example exit=1 -->
@@ -632,6 +657,110 @@ error [sketch.spline_poles]: A spline of degree 3 needs at least 4 control point
 ```console
 $ kh_cli run --open arch.khan sketch.constrain sketch=Sketch1 kind=fix on=Spline1.pole9
 error [sketch.on]: Spline1 has 4 control points: use Spline1.pole1 to Spline1.pole4. Fix needs one point, like on=Line1.start.
+```
+
+## sketch.set_spline
+
+Changes a spline's degree, or turns it into a closed loop (or opens one). Its
+control points stay where they are, so the curve changes shape.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `spline` | text | yes | The spline, like `Spline1` |
+| `degree` | whole number | one of these | How smooth: `1` (straight pieces) to `5`. It needs one more control point than its degree |
+| `closed` | true or false | one of these | `true` for a closed loop, `false` for a curve with two ends |
+
+Degree 1 joins the control points with straight pieces, so the arch becomes three
+sides of its 40 × 30 mm box, and the extrude grows to 40 × 30 × 5 = 6000 mm³:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open arch.khan sketch.set_spline sketch=Sketch1 spline=Spline1 degree=1
+arch: 2 steps
+  Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
+  Extrude1     ok  volume 6000.00 mm^3  mass 7.44 g (PLA)
+```
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open arch.khan sketch.set_spline sketch=Sketch1 spline=Spline1 degree=4
+error [sketch.spline_poles]: A spline of degree 4 needs at least 5 control points. Add more, or lower its degree.
+```
+
+## sketch.set_weight
+
+Changes how hard one control point pulls the curve. `1` is normal; a bigger
+weight pulls the curve closer to that point, a smaller one lets it go.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `point` | text | yes | The control point, like `Spline1.pole2` |
+| `weight` | number | yes | More than 0. `1` is normal |
+
+Pulling harder on the arch's two top control points makes it fuller, so it
+covers more of its box:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open arch.khan --save arch-full.khan sketch.set_weight sketch=Sketch1 point=Spline1.pole2 weight=3
+arch: 2 steps
+  Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
+  Extrude1     ok  volume 3958.44 mm^3  mass 4.91 g (PLA)
+wrote arch-full.khan
+$ kh_cli run --open arch-full.khan sketch.set_weight sketch=Sketch1 point=Spline1.pole3 weight=3
+arch: 2 steps
+  Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
+  Extrude1     ok  volume 4566.51 mm^3  mass 5.66 g (PLA)
+```
+
+## sketch.add_pole
+
+Adds a control point to a spline, between two that are next to each other, so
+you can shape it more finely. Constraints on the later control points stay on
+the same points (their numbers go up by one).
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `spline` | text | yes | The spline, like `Spline1` |
+| `after` | whole number | yes | Which control point it goes after: `1` puts it between `pole1` and `pole2`. A closed spline can take one after its last |
+| `at` | x,y (mm) | no | Where. Default halfway to the next control point |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open arch.khan --save arch5.khan sketch.add_pole sketch=Sketch1 spline=Spline1 after=2 at=20,40
+arch: 2 steps
+  Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 12 ways
+  Extrude1     ok  volume 5900.00 mm^3  mass 7.32 g (PLA)
+wrote arch5.khan
+```
+
+## sketch.remove_pole
+
+Removes one of a spline's control points, and the constraints on it.
+Constraints on the later control points stay on the same points.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `point` | text | yes | The control point, like `Spline1.pole3` |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open arch5.khan sketch.remove_pole sketch=Sketch1 point=Spline1.pole3
+arch: 2 steps
+  Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
+  Extrude1     ok  volume 3600.00 mm^3  mass 4.46 g (PLA)
+```
+
+A spline can't have fewer control points than its degree needs:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open arch.khan sketch.remove_pole sketch=Sketch1 point=Spline1.pole2
+error [sketch.spline_poles]: Spline1 has only 4 control points, the fewest a spline of degree 3 can have. Lower its degree first (sketch.set_spline degree=2), or delete the whole spline.
 ```
 
 ## sketch.constrain

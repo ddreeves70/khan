@@ -39,10 +39,14 @@ Commands for kh_cli run:
   sketch.add_circle        Add circle
   sketch.add_line          Add line
   sketch.add_point         Add point
+  sketch.add_pole          Add control point
   sketch.add_spline        Add spline
   sketch.constrain         Add constraint
   sketch.delete            Delete from sketch
+  sketch.remove_pole       Remove control point
+  sketch.set_spline        Change spline
   sketch.set_value         Change dimension
+  sketch.set_weight        Change control point weight
 Run "kh_cli help <command>" to see a command's settings.
 ```
 

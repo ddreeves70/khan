@@ -32,10 +32,14 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command sketch.add_circle
            command sketch.add_line
            command sketch.add_point
+           command sketch.add_pole
            command sketch.add_spline
            command sketch.constrain
            command sketch.delete
+           command sketch.remove_pole
+           command sketch.set_spline
            command sketch.set_value
+           command sketch.set_weight
            action  Create > Box  (feature.add_box)
            action  Create > Cylinder  (feature.add_cylinder)
            action  Combine > Union  (feature.add_boolean)

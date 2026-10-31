@@ -1,9 +1,15 @@
 #include "SketchPanel.h"
 
 #include <QAbstractSpinBox>
+#include <QCheckBox>
 #include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QPushButton>
+#include <QSignalBlocker>
+#include <QSpinBox>
 #include <QTableWidget>
 #include <QVBoxLayout>
 
@@ -92,6 +98,111 @@ SketchPanel::SketchPanel(plugin::PluginContext& ctx, PanelHooks hooks, QWidget* 
     status_->setObjectName(QStringLiteral("status"));
     status_->setWordWrap(true);
     layout->addWidget(status_);
+
+    // A picked spline's settings: shown only while one is picked.
+    splineBox_ = new QWidget(this);
+    splineBox_->setObjectName(QStringLiteral("spline"));
+    auto* form = new QFormLayout(splineBox_);
+    form->setContentsMargins(0, 4, 0, 4);
+    splineTitle_ = new QLabel(splineBox_);
+    QFont bold = splineTitle_->font();
+    bold.setBold(true);
+    splineTitle_->setFont(bold);
+    form->addRow(splineTitle_);
+    degree_ = new QSpinBox(splineBox_);
+    degree_->setObjectName(QStringLiteral("spline.degree"));
+    degree_->setRange(1, 5);
+    degree_->setKeyboardTracking(false);
+    degree_->setToolTip(
+        tr("How smooth: 1 joins the control points with straight pieces, 3 is the usual. "
+           "It needs one more control point than its degree."));
+    form->addRow(tr("Degree"), degree_);
+    closed_ = new QCheckBox(tr("Closed loop"), splineBox_);
+    closed_->setObjectName(QStringLiteral("spline.closed"));
+    closed_->setToolTip(
+        tr("A smooth loop with no ends, instead of a curve from its first control point to its "
+           "last."));
+    form->addRow(closed_);
+    weightLabel_ = new QLabel(splineBox_);
+    weight_ = new NumberBox(splineBox_);
+    weight_->setObjectName(QStringLiteral("spline.weight"));
+    weight_->setRange(0.01, 100);
+    weight_->setDecimals(3);
+    weight_->setSingleStep(0.5);
+    weight_->setKeyboardTracking(false);
+    weight_->setToolTip(
+        tr("How hard this control point pulls the curve: 1 is normal, bigger pulls it closer, "
+           "smaller lets it go."));
+    form->addRow(weightLabel_, weight_);
+    auto* buttons = new QHBoxLayout;
+    addPole_ = new QPushButton(tr("Add control point"), splineBox_);
+    addPole_->setObjectName(QStringLiteral("spline.add_pole"));
+    addPole_->setToolTip(
+        tr("Add a control point after the picked one (halfway to the next), to shape the curve "
+           "more finely."));
+    removePole_ = new QPushButton(tr("Remove control point"), splineBox_);
+    removePole_->setObjectName(QStringLiteral("spline.remove_pole"));
+    removePole_->setToolTip(tr("Remove the picked control point, and the constraints on it."));
+    buttons->addWidget(addPole_);
+    buttons->addWidget(removePole_);
+    form->addRow(buttons);
+    splineBox_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    layout->addWidget(splineBox_);
+    splineBox_->hide();
+
+    connect(degree_, &QSpinBox::valueChanged, this, [this](int degree) {
+        if (updating_ || !spline_) return;
+        runSpline("sketch.set_spline", {{"degree", std::int64_t{degree}}});
+    });
+    connect(closed_, &QCheckBox::toggled, this, [this](bool closed) {
+        if (updating_ || !spline_) return;
+        runSpline("sketch.set_spline", {{"closed", closed}});
+    });
+    connect(weight_, &QDoubleSpinBox::editingFinished, this, [this] {
+        if (updating_ || !spline_ || !spline_->pole) return;
+        const double value = weight_->value();
+        const auto pick = *spline_;
+        // Just after this returns, as for dimensions: the rebuild redraws the box.
+        QMetaObject::invokeMethod(
+            this,
+            [this, value, pick] {
+                const auto* step = sketchStep(ctx_, hooks_.editing ? hooks_.editing() : std::nullopt);
+                const auto* e = step ? step->sketch().find(pick.spline) : nullptr;
+                const auto* sp = e ? std::get_if<sketch::SplineShape>(&e->shape) : nullptr;
+                if (!sp || !pick.pole) return;
+                const auto i = static_cast<std::size_t>(*pick.pole);
+                const double now = sp->weights.empty() ? 1.0 : sp->weights[i];
+                if (std::abs(now - value) < 1e-9) return;
+                runSpline("sketch.set_weight",
+                          {{"point", e->name + ".pole" + std::to_string(*pick.pole + 1)}, {"weight", value}});
+            },
+            Qt::QueuedConnection);
+    });
+    connect(addPole_, &QPushButton::clicked, this, [this] {
+        const auto* step = sketchStep(ctx_, hooks_.editing ? hooks_.editing() : std::nullopt);
+        const auto* e = step && spline_ ? step->sketch().find(spline_->spline) : nullptr;
+        const auto* sp = e ? std::get_if<sketch::SplineShape>(&e->shape) : nullptr;
+        if (!sp) return;
+        const int n = static_cast<int>(sp->poles.size());
+        // After the picked control point (an open spline's last one: before it); the middle otherwise.
+        int after = spline_->pole ? *spline_->pole + 1 : std::max(1, n / 2);
+        if (!sp->closed) after = std::min(after, n - 1);
+        const auto pick = *spline_;
+        if (runSpline("sketch.add_pole", {{"spline", e->name}, {"after", std::int64_t{after}}}) &&
+            hooks_.pickSpline)
+            hooks_.pickSpline({pick.spline, after});  // the new one is picked, ready to drag
+    });
+    connect(removePole_, &QPushButton::clicked, this, [this] {
+        const auto* step = sketchStep(ctx_, hooks_.editing ? hooks_.editing() : std::nullopt);
+        const auto* e = step && spline_ ? step->sketch().find(spline_->spline) : nullptr;
+        if (!e || !spline_->pole) return;
+        const auto pick = *spline_;
+        if (runSpline("sketch.remove_pole",
+                      {{"point", e->name + ".pole" + std::to_string(*pick.pole + 1)}}) &&
+            hooks_.pickSpline)
+            hooks_.pickSpline({pick.spline, std::nullopt});
+    });
+
     table_ = new QTableWidget(0, 3, this);
     table_->setObjectName(QStringLiteral("constraints"));
     table_->setHorizontalHeaderLabels({tr("Name"), tr("On"), tr("Number")});
@@ -99,6 +210,8 @@ SketchPanel::SketchPanel(plugin::PluginContext& ctx, PanelHooks hooks, QWidget* 
     table_->verticalHeader()->hide();
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // When the panel is short, the list scrolls rather than squashing the boxes above it.
+    table_->setMinimumHeight(40);
     layout->addWidget(table_);
     connect(table_, &QTableWidget::itemSelectionChanged, this, [this] {
         if (updating_) return;
@@ -110,6 +223,7 @@ SketchPanel::SketchPanel(plugin::PluginContext& ctx, PanelHooks hooks, QWidget* 
 
 void SketchPanel::refresh() {
     const auto* step = sketchStep(ctx_, hooks_.editing ? hooks_.editing() : std::nullopt);
+    showSpline(step ? step->sketch() : sketch::Sketch{});
     if (!step) {
         status_->setText(tr("Edit a sketch to see its constraints and dimensions here."));
         status_->setStyleSheet({});
@@ -249,6 +363,54 @@ void SketchPanel::rebuild() {
     }
     table_->resizeColumnToContents(0);
     updating_ = false;
+}
+
+void SketchPanel::showSpline(const sketch::Sketch& sketch) {
+    spline_ = hooks_.pickedSpline ? hooks_.pickedSpline() : std::nullopt;
+    const auto* e = spline_ ? sketch.find(spline_->spline) : nullptr;
+    const auto* sp = e ? std::get_if<sketch::SplineShape>(&e->shape) : nullptr;
+    if (!sp || (spline_->pole && *spline_->pole >= static_cast<int>(sp->poles.size()))) {
+        spline_.reset();
+        splineBox_->hide();
+        return;
+    }
+    updating_ = true;
+    const int n = static_cast<int>(sp->poles.size());
+    splineTitle_->setText(
+        spline_->pole ? tr("%1, control point %2 of %3").arg(qs(e->name)).arg(*spline_->pole + 1).arg(n)
+                      : tr("%1, with %2 control points").arg(qs(e->name)).arg(n));
+    degree_->setValue(sp->degree);
+    closed_->setChecked(sp->closed);
+    const bool pole = spline_->pole.has_value();
+    weightLabel_->setVisible(pole);
+    weight_->setVisible(pole);
+    if (pole) {
+        weightLabel_->setText(tr("Weight"));
+        weight_->setValue(sp->weights.empty() ? 1.0 : sp->weights[static_cast<std::size_t>(*spline_->pole)]);
+    }
+    removePole_->setEnabled(pole && n > sp->degree + 1);
+    removePole_->setToolTip(
+        pole && n <= sp->degree + 1
+            ? tr("%1 has the fewest control points degree %2 allows. Lower its degree first.")
+                  .arg(qs(e->name))
+                  .arg(sp->degree)
+            : tr("Remove the picked control point, and the constraints on it."));
+    updating_ = false;
+    splineBox_->show();
+}
+
+bool SketchPanel::runSpline(const std::string& command, model::Args args) {
+    const auto* step = sketchStep(ctx_, hooks_.editing ? hooks_.editing() : std::nullopt);
+    if (!step || !spline_) return false;
+    const auto* e = step->sketch().find(spline_->spline);
+    if (!e) return false;
+    args["sketch"] = step->id();
+    if (command == "sketch.set_spline") args["spline"] = e->name;
+    const auto problems = ctx_.documents().run(ctx_.documents().active(), command, std::move(args));
+    if (problems.empty()) return true;
+    if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showProblems(problems);
+    refresh();  // put the box back as it was
+    return false;
 }
 
 void SketchPanel::setValue(const std::string& name, double value) {
