@@ -60,11 +60,20 @@ std::string number(double v) {
 }  // namespace
 
 const std::vector<Rule>& allRules() {
-    static const std::vector<Rule> rules{
-        Rule::Coincident,       Rule::Horizontal, Rule::Vertical,  Rule::Parallel,
-        Rule::Perpendicular,    Rule::Equal,      Rule::Tangent,   Rule::On,
-        Rule::Midpoint,         Rule::Fix,        Rule::Dimension, Rule::HorizontalDimension,
-        Rule::VerticalDimension};
+    static const std::vector<Rule> rules{Rule::Coincident,
+                                         Rule::Horizontal,
+                                         Rule::Vertical,
+                                         Rule::Parallel,
+                                         Rule::Perpendicular,
+                                         Rule::Equal,
+                                         Rule::Tangent,
+                                         Rule::Smooth,
+                                         Rule::On,
+                                         Rule::Midpoint,
+                                         Rule::Fix,
+                                         Rule::Dimension,
+                                         Rule::HorizontalDimension,
+                                         Rule::VerticalDimension};
     return rules;
 }
 
@@ -91,12 +100,22 @@ RuleInfo ruleInfo(Rule rule) {
                     "kind.",
                     "two or more lines, or two or more circles and arcs"};
         case Rule::Tangent:
-            return {"tangent", "Tangent",
-                    "Make a line or circle touch a circle or arc without crossing it. Pick the two of them.",
-                    "a line and a circle or arc, or two circles or arcs"};
+            return {
+                "tangent", "Tangent",
+                "Make a line or circle touch a circle or arc without crossing it, or make a spline leave the "
+                "end of a line, arc or spline it's joined to without a corner. Pick the two of them.",
+                "a line and a circle or arc, two circles or arcs, or a spline and a curve joined to its end"};
+        case Rule::Smooth:
+            return {
+                "smooth", "Smooth",
+                "Make a spline join a line, arc or another spline with no seam you can see: no corner, and "
+                "bending just as much on both sides. Pick the two of them; their ends must be joined.",
+                "a spline and a line, arc or spline joined to its end"};
         case Rule::On:
-            return {"on", "On", "Put a point on a line or circle. Pick the point, then the line or circle.",
-                    "a point and a line, circle or arc"};
+            return {
+                "on", "On",
+                "Put a point on a line, circle or spline. Pick the point, then the line, circle or spline.",
+                "a point and a line, circle, arc or spline"};
         case Rule::Midpoint:
             return {"midpoint", "Midpoint",
                     "Put a point in the middle of a line. Pick the point and the line.",
@@ -123,7 +142,22 @@ RuleInfo ruleInfo(Rule rule) {
 
 std::vector<sketch::Constraint> plan(Rule rule, const Picks& p, const sketch::Sketch& s) {
     const std::size_t n = p.count();
-    const auto P = p.points.size(), L = p.lines.size(), R = p.rounds.size();
+    const auto P = p.points.size(), L = p.lines.size(), R = p.rounds.size(), S = p.splines.size();
+    // A spline and a curve joined end to end (a line, an arc or another spline),
+    // for Tangent and Smooth: the spline first.
+    auto joined = [&]() -> std::optional<std::pair<EntityId, EntityId>> {
+        if (n != 2 || S < 1) return std::nullopt;
+        std::optional<EntityId> other;
+        if (S == 2) other = p.splines[1];
+        if (L == 1) other = p.lines[0];
+        if (R == 1) {
+            const auto* e = s.find(p.rounds[0]);
+            if (e && std::holds_alternative<sketch::ArcShape>(e->shape))
+                other = p.rounds[0];  // a circle has no ends
+        }
+        if (!other || !sketch::jointOf(s, p.splines[0], *other)) return std::nullopt;
+        return std::pair{p.splines[0], *other};
+    };
     std::vector<sketch::Constraint> out;
     auto each = [&](ConstraintKind kind) {
         for (const auto& l : p.lines) out.push_back(make(kind, {}, {l}));
@@ -158,12 +192,21 @@ std::vector<sketch::Constraint> plan(Rule rule, const Picks& p, const sketch::Sk
                 out.push_back(make(ConstraintKind::Tangent, {}, {p.lines[0], p.rounds[0]}));
             if (n == 2 && R == 2)
                 out.push_back(make(ConstraintKind::Tangent, {}, {p.rounds[0], p.rounds[1]}));
+            if (const auto j = joined())
+                out.push_back(make(ConstraintKind::Tangent, {}, {j->first, j->second}));
+            break;
+        case Rule::Smooth:
+            if (const auto j = joined())
+                out.push_back(make(ConstraintKind::Smooth, {}, {j->first, j->second}));
             break;
         case Rule::On:
             if (n == 2 && P == 1 && L == 1)
                 out.push_back(make(ConstraintKind::PointOnLine, {p.points[0]}, {p.lines[0]}));
             if (n == 2 && P == 1 && R == 1)
                 out.push_back(make(ConstraintKind::PointOnCircle, {p.points[0]}, {p.rounds[0]}));
+            // Not one of the spline's own control points: those pull the curve, they aren't on it.
+            if (n == 2 && P == 1 && S == 1 && p.points[0].entity != p.splines[0])
+                out.push_back(make(ConstraintKind::PointOnSpline, {p.points[0]}, {p.splines[0]}));
             break;
         case Rule::Midpoint:
             if (n == 2 && P == 1 && L == 1)
@@ -257,11 +300,14 @@ std::string labelText(const sketch::Constraint& c, LengthUnit unit) {
             return "=";
         case ConstraintKind::PointOnLine:
         case ConstraintKind::PointOnCircle:
+        case ConstraintKind::PointOnSpline:
             return "On";
         case ConstraintKind::Midpoint:
             return "Mid";
         case ConstraintKind::Tangent:
             return "T";
+        case ConstraintKind::Smooth:
+            return "S";
         case ConstraintKind::Distance:
         case ConstraintKind::Length:
             return lengthText(c.value, unit);
@@ -339,8 +385,14 @@ std::optional<LabelPlace> labelPlace(const sketch::Constraint& c, const sketch::
         case ConstraintKind::Fix:
         case ConstraintKind::PointOnLine:
         case ConstraintKind::PointOnCircle:
+        case ConstraintKind::PointOnSpline:
         case ConstraintKind::Midpoint:
             return c.points.empty() ? std::nullopt : besidePoint(c.points[0]);
+        case ConstraintKind::Smooth:
+            if (c.entities.size() < 2) return std::nullopt;
+            if (const auto joint = sketch::jointOf(s, c.entities[0], c.entities[1]))
+                return besidePoint(joint->first);
+            return std::nullopt;
         case ConstraintKind::Horizontal:
         case ConstraintKind::Vertical:
         case ConstraintKind::Length:
@@ -349,7 +401,13 @@ std::optional<LabelPlace> labelPlace(const sketch::Constraint& c, const sketch::
         case ConstraintKind::Perpendicular:
         case ConstraintKind::Equal:
         case ConstraintKind::Tangent:
-            return c.entities.size() < 2 ? std::nullopt : near(c.entities[1]);
+            if (c.entities.size() < 2) return std::nullopt;
+            // Where two curves are joined end to end: beside the join.
+            if (c.kind == ConstraintKind::Tangent) {
+                if (const auto joint = sketch::jointOf(s, c.entities[0], c.entities[1]))
+                    return besidePoint(joint->first);
+            }
+            return near(c.entities[1]);
         case ConstraintKind::Distance: {
             const auto ab = twoPoints();
             return ab ? std::optional(besideSegment(ab->first, ab->second)) : std::nullopt;

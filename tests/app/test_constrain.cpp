@@ -144,3 +144,51 @@ TEST_CASE("labels say what a constraint is, with units", "[sketcher][constrain]"
     at = labelPlace(len, d.s, 2, {15, -20});  // ... or below it
     CHECK(at->at.y == Approx(2));
 }
+
+TEST_CASE("spline buttons: On for a point, Tangent and Smooth where a curve is joined to its end",
+          "[sketcher][constrain][spline]") {
+    Parts d;
+    using R = Rule;
+    const auto spline = d.add(SplineShape{{{30, 40}, {30, 60}, {60, 60}, {60, 40}}, {}, 3, false}, "Spline1");
+    const auto other = d.add(SplineShape{{{90, 0}, {95, 9}, {99, 1}, {105, 8}}, {}, 3, false}, "Spline2");
+    Picks pointAndSpline;
+    pointAndSpline.points = {{d.point, PointRole::Self}};
+    pointAndSpline.splines = {spline};
+    CHECK(fitting(pointAndSpline, d.s) == std::vector<Rule>{R::On});
+    const auto on = plan(R::On, pointAndSpline, d.s);
+    REQUIRE(on.size() == 1);
+    CHECK(on[0].kind == K::PointOnSpline);
+    // Its own control point isn't "on" it: control points pull the curve.
+    Picks ownPole = pointAndSpline;
+    ownPole.points = {{spline, PointRole::Pole, 1}};
+    CHECK(fitting(ownPole, d.s).empty());
+
+    // Line2 ends where Spline1 starts, but they aren't joined yet: no Tangent or Smooth.
+    Picks splineAndLine;
+    splineAndLine.lines = {d.line2};
+    splineAndLine.splines = {spline};
+    CHECK(fitting(splineAndLine, d.s).empty());
+    Constraint join{ConstraintId::generate(),
+                    "Coincident1",
+                    K::Coincident,
+                    {{d.line2, PointRole::End}, {spline, PointRole::Pole, 0}},
+                    {},
+                    0,
+                    {}};
+    d.s.constraints.push_back(join);
+    CHECK(fitting(splineAndLine, d.s) == std::vector<Rule>{R::Tangent, R::Smooth});
+    const auto smooth = plan(R::Smooth, splineAndLine, d.s);
+    REQUIRE(smooth.size() == 1);
+    CHECK(smooth[0].kind == K::Smooth);
+    CHECK(smooth[0].entities == std::vector<EntityId>{spline, d.line2});  // the spline first
+    // Two splines, not joined; a spline and a circle (no ends) never.
+    Picks twoSplines;
+    twoSplines.splines = {spline, other};
+    CHECK(fitting(twoSplines, d.s).empty());
+    Picks splineAndCircle;
+    splineAndCircle.rounds = {d.circle};
+    splineAndCircle.splines = {spline};
+    CHECK(fitting(splineAndCircle, d.s).empty());
+    CHECK(labelText(smooth[0]) == "S");
+    CHECK(labelText(on[0]) == "On");
+}

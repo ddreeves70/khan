@@ -12,14 +12,17 @@
 
 namespace kh::plugins::sketcher {
 
-// What's picked, sorted: points (ends, centers, point entities), lines, and
-// round things (circles and arcs).
+// What's picked, sorted: points (ends, centers, control points, point
+// entities), lines, round things (circles and arcs) and whole splines.
 struct Picks {
     std::vector<sketch::PointRef> points;
     std::vector<EntityId> lines;
     std::vector<EntityId> rounds;
+    std::vector<EntityId> splines{};
     std::size_t other = 0;  // picked things no rule takes (constraint labels)
-    std::size_t count() const { return points.size() + lines.size() + rounds.size() + other; }
+    std::size_t count() const {
+        return points.size() + lines.size() + rounds.size() + splines.size() + other;
+    }
 };
 
 // The sketch toolbar's constraint and dimension buttons.
@@ -31,6 +34,7 @@ enum class Rule {
     Perpendicular,
     Equal,
     Tangent,
+    Smooth,  // a spline joined to a curve: tangent, and bending equally (G2)
     On,
     Midpoint,
     Fix,

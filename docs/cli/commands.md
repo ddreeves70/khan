@@ -772,7 +772,7 @@ page lists every kind and what it needs.
 | Setting | Kind | Needed | Meaning |
 | --- | --- | --- | --- |
 | `sketch` | step name | yes | The sketch |
-| `kind` | `fix`, `coincident`, `horizontal`, `vertical`, `parallel`, `perpendicular`, `equal`, `point_on_line`, `point_on_circle`, `midpoint`, `tangent`, `distance`, `length`, `horizontal_distance`, `vertical_distance`, `radius`, `diameter`, `angle` | yes | What to keep true |
+| `kind` | `fix`, `coincident`, `horizontal`, `vertical`, `parallel`, `perpendicular`, `equal`, `point_on_line`, `point_on_circle`, `point_on_spline`, `midpoint`, `tangent`, `smooth`, `distance`, `length`, `horizontal_distance`, `vertical_distance`, `radius`, `diameter`, `angle` | yes | What to keep true |
 | `on` | text | yes | What it's on, separated by commas: `Line1`, or points like `Line1.end`, `Circle1.center`, `Spline1.pole2` (a spline's second control point), `Point1` |
 | `value` | number | for dimensions | mm, or degrees for `angle` |
 | `name` | text | no | Its name. Default like `Horizontal1`, `Length1` |
@@ -795,6 +795,42 @@ Points need to say which point; lines and circles don't:
 ```console
 $ kh_cli run --open s.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1,Arc1
 error [sketch.on]: Line1 isn't a single point: say which of its points, like Line1.start or Line1.end.
+```
+
+Where a spline's end is joined to a line, arc or spline, `tangent` takes away the
+corner, and `smooth` also makes them bend equally there. First they need joining:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --save join.khan feature.add_sketch
+join: 1 step
+  Sketch1      ok  empty
+wrote join.khan
+$ kh_cli run --open join.khan --save join.khan sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0
+join: 1 step
+  Sketch1      ok  1 spline, 0 constraints, free to move 8 ways
+wrote join.khan
+$ kh_cli run --open join.khan --save join.khan sketch.add_line sketch=Sketch1 from=40,0 to=60,0
+join: 1 step
+  Sketch1      ok  1 line, 1 spline, 0 constraints, free to move 12 ways
+wrote join.khan
+$ kh_cli run --open join.khan sketch.constrain sketch=Sketch1 kind=tangent on=Spline1,Line1
+error [sketch.constraint]: Tangent needs the two joined end to end: join an end of each with Coincident first.
+```
+
+Joined, the spline (which came straight down onto the line) turns to meet it
+level, without a corner. Smooth takes 2 ways to move away: the direction and
+the bend.
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start
+join: 1 step
+  Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
+wrote join.khan
+$ kh_cli run --open join.khan sketch.constrain sketch=Sketch1 kind=smooth on=Spline1,Line1
+join: 1 step
+  Sketch1      ok  1 line, 1 spline, 2 constraints, free to move 8 ways
 ```
 
 ## sketch.set_value

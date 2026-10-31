@@ -241,6 +241,9 @@ failed save never damages the last good copy.
   materials, shows every body as plain geometry, and drops the materials if it
   saves the file again. Folders were added the same way: an older Khan shows the
   steps without folders, and drops the folders if it saves the file again.
+  Splines, and the constraints only splines use (`point_on_spline`, `smooth`,
+  Oct 2026), were added in schema 1 too, but an older Khan can't skip them: it
+  won't open a design that has them, and says the file is damaged.
 - Anything an older Khan would read wrongly bumps `schema` (in
   `src/core/include/kh/core/Version.h`) and adds a migration from the old schema.
 - `tests/files/` holds files saved with each schema. They are checked in and never
