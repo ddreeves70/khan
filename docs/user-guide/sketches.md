@@ -126,11 +126,40 @@ them. Its **degree** says how smooth it is: 3 (the usual) bends smoothly
 everywhere; 1 is just straight lines from point to point. A **closed** spline is
 a smooth loop, with no ends.
 
-- For now, add splines with [`sketch.add_spline`](../cli/commands.md#sketchadd_spline)
-  in `kh_cli`; drawing them with the mouse comes next.
-- In the app, a spline being edited shows its control points, joined by thin
-  lines (its *control polygon*). **Drag a control point** to reshape the curve;
-  drag the curve itself to move all of it.
+There are two ways to draw one, both on the sketch toolbar:
+
+| Button | Click | The curve |
+| --- | --- | --- |
+| **Spline** | its control points, in order | is pulled towards them, starting at the first and ending at the last |
+| **Fit spline** | points it should go through, in order | goes exactly through every one |
+
+- **Click the last point again** (or press **Esc**) to finish. **Click the first
+  point** (once you have 3) to make a closed loop instead.
+- While you draw, the curve so far follows the mouse in orange.
+- It's degree 3, or less if you click only 2 or 3 points. If its ends land on
+  points already in the sketch, they're joined with **Coincident**.
+- A fit spline is turned into control points (one for each point you clicked)
+  when you finish. After that you shape it by its control points, like any spline.
+
+To change a spline, pick it, or one of its control points, with **Select**. The
+Sketch panel then shows its settings:
+
+| Setting | What it does |
+| --- | --- |
+| **Degree** | How smooth: 1 to 5. A spline needs one more control point than its degree |
+| **Closed loop** | A smooth loop, or a curve with two ends |
+| **Weight** | (A control point picked.) How hard it pulls the curve: 1 is normal, 3 pulls the curve much closer, 0.5 lets it go |
+| **Add control point** | Adds one after the picked control point, halfway to the next, and picks it so you can drag it straight away. More control points let you shape the curve more finely |
+| **Remove control point** | Removes the picked control point, and the constraints on it |
+
+- A spline being edited shows its control points, joined by thin lines (its
+  *control polygon*). **Drag a control point** to reshape the curve; drag the
+  curve itself to move all of it.
+- In `kh_cli`, the same things are [`sketch.add_spline`](../cli/commands.md#sketchadd_spline)
+  (with `poles` or `through`), [`sketch.set_spline`](../cli/commands.md#sketchset_spline),
+  [`sketch.set_weight`](../cli/commands.md#sketchset_weight),
+  [`sketch.add_pole`](../cli/commands.md#sketchadd_pole) and
+  [`sketch.remove_pole`](../cli/commands.md#sketchremove_pole).
 - Constraints work on its control points like on any point: join its end to a
   line's end with `coincident`, `fix` a control point, or put two of them a
   distance apart. Name them `Spline1.pole1`, `Spline1.pole2`, ... in `kh_cli`.

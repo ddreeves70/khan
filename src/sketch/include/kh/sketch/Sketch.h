@@ -219,6 +219,29 @@ Point2 splinePoint(const SplineShape& spline, double t);
 /// @return The points, from its start to its end (a closed one ends where it starts).
 std::vector<Point2> splineSample(const SplineShape& spline, int perSpan = 16);
 
+/// Finds the control points of a spline that passes through given points, in
+/// order: one control point for each. An open spline starts at the first point
+/// and ends at the last.
+///
+/// @code
+/// // A smooth arch through three points, ready for a SplineShape.
+/// auto poles = kh::sketch::splinePolesThrough({{0, 0}, {20, 15}, {40, 0}}, 2, false);
+/// @endcode
+/// @param through The points it passes through (mm): at least `degree + 1`.
+/// @param degree 1 to 5.
+/// @param closed True for a closed loop through them, back to the first.
+/// @return The control points (mm), or nothing if there are too few points or
+///         the degree is out of range.
+std::vector<Point2> splinePolesThrough(const std::vector<Point2>& through, int degree, bool closed);
+
+/// Says where along a spline made by splinePolesThrough() it passes through each point.
+/// @param count How many points it passes through.
+/// @param degree Its degree.
+/// @param closed True for a closed loop.
+/// @return For each point, where along the spline it is, from 0 to 1 (as for
+///         splinePoint()); empty if splinePolesThrough() would give nothing.
+std::vector<double> splineThroughAt(int count, int degree, bool closed);
+
 /// Checks whether a kind is a dimension (it has a `value`).
 /// @param kind The kind.
 /// @return True for Distance, Length, HorizontalDistance, VerticalDistance, Radius, Diameter and Angle.

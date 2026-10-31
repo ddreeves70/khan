@@ -87,7 +87,11 @@ struct Item {
 
 using sketcher::Rule;
 
-enum class Tool { Select, Line, Circle, Arc, Point };
+enum class Tool { Select, Line, Circle, Arc, Point, Spline, SplineThrough };
+
+bool isSpline(Tool tool) {
+    return tool == Tool::Spline || tool == Tool::SplineThrough;
+}
 
 const char* toolHint(Tool tool, std::size_t clicks) {
     switch (tool) {
@@ -103,6 +107,24 @@ const char* toolHint(Tool tool, std::size_t clicks) {
                                  : "Arc: click where it ends (it goes counterclockwise). Esc stops.";
         case Tool::Point:
             return "Point: click where it goes.";
+        case Tool::Spline:
+        case Tool::SplineThrough: {
+            const bool through = tool == Tool::SplineThrough;
+            if (clicks == 0)
+                return through ? "Spline: click the first point it goes through."
+                               : "Spline: click its first control point.";
+            if (clicks < 3)
+                return through
+                           ? "Spline: click the next point it goes through. Click the last one again, or "
+                             "press Esc, to finish."
+                           : "Spline: click the next control point. Click the last one again, or press Esc, "
+                             "to finish.";
+            return through
+                       ? "Spline: click the next point it goes through. Click the last one again, or press "
+                         "Esc, to finish; click the first one to make a loop."
+                       : "Spline: click the next control point. Click the last one again, or press Esc, to "
+                         "finish; click the first one to make a loop.";
+        }
     }
     return "";
 }
@@ -344,6 +366,25 @@ public:
         hint();
         ctx_.publish(plugin::ActionsChanged{});
     }
+    // The one spline picked (whole, or one of its control points), for the Sketch panel.
+    std::optional<sketcher::SplinePick> pickedSpline() const {
+        const auto* step = sketchStep(editing_);
+        if (!step || picked_.size() != 1 || picked_[0].isConstraint()) return std::nullopt;
+        const auto& item = picked_[0];
+        const auto* e = step->sketch().find(item.entity);
+        if (!e || !std::holds_alternative<sketch::SplineShape>(e->shape)) return std::nullopt;
+        if (item.point && item.point != sketch::PointRole::Pole) return std::nullopt;
+        return sketcher::SplinePick{item.entity, item.point ? std::optional<int>(item.index) : std::nullopt};
+    }
+    // Picks a spline, or one of its control points (from the Sketch panel).
+    void pickSpline(const sketcher::SplinePick& pick) {
+        picked_ = {pick.pole ? Item{pick.spline, sketch::PointRole::Pole, {}, *pick.pole}
+                             : Item{pick.spline, std::nullopt}};
+        draw();
+        hint();
+        refreshPanels();
+        ctx_.publish(plugin::ActionsChanged{});
+    }
     void addPanel(sketcher::SketchPanel* panel) { panels_.emplace_back(panel); }
     void refreshPanels() {
         std::erase_if(panels_, [](const auto& p) { return p.isNull(); });
@@ -550,6 +591,18 @@ public:
         switch (tool_) {
             case Tool::Select:
                 break;
+            case Tool::Spline:
+            case Tool::SplineThrough: {
+                const double close = kSnapPixels * point.pixel;
+                if (!pending_.empty() && distance(pending_.back().at, here.at) <= close) {
+                    finishSpline(false);  // the last point clicked again: done
+                } else if (pending_.size() >= 3 && distance(pending_.front().at, here.at) <= close) {
+                    finishSpline(true);  // back to the first: a loop
+                } else {
+                    pending_.push_back(here);
+                }
+                break;
+            }
             case Tool::Line:
                 if (pending_.empty()) {
                     pending_.push_back(here);
@@ -719,8 +772,13 @@ public:
             return;
         }
         if (!pending_.empty()) {
-            pending_.clear();
-            drawPreview();
+            if (isSpline(tool_) && pending_.size() >= 2) {
+                finishSpline(false);  // Esc finishes a spline with the points clicked so far
+                draw();
+            } else {
+                pending_.clear();
+                drawPreview();
+            }
             hint();
             return;
         }
@@ -753,7 +811,13 @@ public:
         if (const auto* step = sketchStep(editing_)) {
             const auto before = picked_.size();
             auto gone = [&](const Item& i) {
-                return i.isConstraint() ? !step->sketch().find(i.constraint) : !step->sketch().find(i.entity);
+                if (i.isConstraint()) return !step->sketch().find(i.constraint);
+                const auto* e = step->sketch().find(i.entity);
+                if (!e) return true;
+                // A control point that isn't there anymore (one was removed).
+                const auto* sp = std::get_if<sketch::SplineShape>(&e->shape);
+                return i.point == sketch::PointRole::Pole &&
+                       (!sp || i.index >= static_cast<int>(sp->poles.size()));
             };
             std::erase_if(picked_, gone);
             if (hoverItem_ && gone(*hoverItem_)) hoverItem_.reset();
@@ -1103,6 +1167,9 @@ private:
         plugin::Overlay snap{.shape = plugin::OverlayShape::Points, .color = {230, 120, 20}, .size = 11};
         // What will be added with the click, beside the mouse: "H", "V", "T" or "On".
         plugin::Overlay hintLabel{.shape = plugin::OverlayShape::Labels, .color = {230, 120, 20}, .size = 13};
+        // A spline being drawn: its points so far, and its control polygon.
+        plugin::Overlay guides{.shape = plugin::OverlayShape::Lines, .color = {230, 120, 20, 140}, .size = 1};
+        plugin::Overlay dots{.shape = plugin::OverlayShape::Points, .color = {230, 120, 20}, .size = 7};
         const auto* step = sketchStep(editing_);
         if (step && hover_ && (tool_ != Tool::Select || drag_)) {
             const auto plane = step->plane();
@@ -1128,6 +1195,23 @@ private:
                             show(*arc);
                         }
                         break;
+                    case Tool::Spline:
+                    case Tool::SplineThrough: {
+                        // The points so far and the mouse: the curve, and for control
+                        // points, the thin lines joining them.
+                        std::vector<sketch::Point2> pts;
+                        for (const auto& q : pending_) pts.push_back(q.at);
+                        pts.push_back(h.at);
+                        if (const auto shape = splineFrom(pts, false)) show(*shape);
+                        if (tool_ == Tool::Spline) {
+                            for (std::size_t k = 0; k + 1 < pts.size(); ++k)
+                                guides.points.insert(
+                                    guides.points.end(),
+                                    {model::toDesign(plane, pts[k]), model::toDesign(plane, pts[k + 1])});
+                        }
+                        for (const auto& q : pending_) dots.points.push_back(model::toDesign(plane, q.at));
+                        break;
+                    }
                     case Tool::Select:
                     case Tool::Point:
                         break;
@@ -1146,6 +1230,8 @@ private:
             }
         }
         show(overlays, "edit.preview", std::move(preview));
+        show(overlays, "edit.preview_guides", std::move(guides));
+        show(overlays, "edit.preview_points", std::move(dots));
         show(overlays, "edit.snap", std::move(snap));
         show(overlays, "edit.hint", std::move(hintLabel));
     }
@@ -1172,7 +1258,11 @@ private:
     }
 
     // Where each of a new shape's points was picked: what it snapped onto.
-    using Join = std::pair<sketch::PointRole, Pick>;
+    struct Join {
+        sketch::PointRole role;
+        Pick pick;
+        int index = 0;  // which control point, for a spline's
+    };
 
     // Adds a shape as one undo step, with the constraints its picks call for: a
     // Coincident for a point it snapped onto, On for an edge, and Horizontal,
@@ -1193,8 +1283,8 @@ private:
                 c.name = model::uniqueSketchName(s, sketcher::constraintBase(kind));
                 s.constraints.push_back(std::move(c));
             };
-            for (const auto& [role, pick] : joins) {
-                const sketch::PointRef mine{id, role};
+            for (const auto& [role, pick, index] : joins) {
+                const sketch::PointRef mine{id, role, index};
                 if (pick.ref) {
                     addConstraint(sketch::ConstraintKind::Coincident, {mine, *pick.ref}, {});
                 } else if (pick.on) {
@@ -1239,6 +1329,33 @@ private:
 
     void addPoint(const Pick& at) {
         add("Point", sketch::PointShape{at.at}, {{sketch::PointRole::Self, at}});
+    }
+
+    // The spline the drawing tool makes from clicked points: they're its control
+    // points, or the points it goes through. Degree 3, or less with few points.
+    std::optional<sketch::SplineShape> splineFrom(const std::vector<sketch::Point2>& pts, bool closed) const {
+        if (pts.size() < 2) return std::nullopt;
+        const int degree = std::min(3, static_cast<int>(pts.size()) - 1);
+        auto poles = tool_ == Tool::SplineThrough ? sketch::splinePolesThrough(pts, degree, closed) : pts;
+        if (poles.empty()) return std::nullopt;
+        return sketch::SplineShape{std::move(poles), {}, degree, closed};
+    }
+
+    // Adds the spline from the points clicked so far. Its ends join what they
+    // snapped onto; so do control points, when they're what was clicked.
+    void finishSpline(bool closed) {
+        std::vector<sketch::Point2> pts;
+        for (const auto& q : pending_) pts.push_back(q.at);
+        const auto shape = splineFrom(pts, closed);
+        std::vector<Join> joins;
+        const int n = static_cast<int>(pending_.size());
+        for (int k = 0; k < n; ++k) {
+            const bool end = !closed && (k == 0 || k == n - 1);
+            if (tool_ == Tool::Spline || end)
+                joins.push_back({sketch::PointRole::Pole, pending_[static_cast<std::size_t>(k)], k});
+        }
+        pending_.clear();
+        if (shape) add("Spline", *shape, std::move(joins));
     }
 
     // --- Messages ----------------------------------------------------------
@@ -1410,6 +1527,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
         Tool tool;
         const char* tip;
         std::string_view icon;
+        const char* button = "";  // a shorter word for its button, if it needs one
     };
     for (const auto& t :
          {ToolItem{"kh.sketcher.line", "Line", Tool::Line,
@@ -1421,13 +1539,24 @@ void registerSketcher(plugin::PluginContext& ctx) {
                    "Draw an arc: click the center, where it starts, then where it ends.",
                    icons::sketcher::arc_svg},
           ToolItem{"kh.sketcher.point", "Point", Tool::Point, "Draw a point: click where it goes.",
-                   icons::sketcher::point_svg}}) {
+                   icons::sketcher::point_svg},
+          ToolItem{
+              "kh.sketcher.spline", "Spline", Tool::Spline,
+              "Draw a smooth curve by its control points: click them in order. The curve is pulled towards "
+              "them. Click the last one again to finish, or the first one to make a loop.",
+              icons::sketcher::spline_svg},
+          ToolItem{
+              "kh.sketcher.spline_through", "Spline through points", Tool::SplineThrough,
+              "Draw a smooth curve through points: click them in order. Click the last one again to finish, "
+              "or the first one to make a loop.",
+              icons::sketcher::spline_through_svg, "Fit spline"}}) {
         const Tool tool = t.tool;
         ctx.addAction(ActionSpec{
             .id = t.id,
             .text = t.text,
             .menu = "Sketch/Draw",
             .toolbar = true,
+            .buttonText = t.button,
             .toolbarMode = std::string(kEditingMode),
             .icon = std::string(t.icon),
             .tip = t.tip,
@@ -1451,18 +1580,21 @@ void registerSketcher(plugin::PluginContext& ctx) {
 
     // The Sketch panel: the edited sketch's constraints, with numbers to type.
     if (auto* ui = ctx.service<ui::UiRegistry>()) {
-        ui->addPanel({"kh.sketcher.panel", QObject::tr("Sketch"), ui::PanelArea::Right,
-                      [&ctx, sketcher] {
-                          auto* panel = new sketcher::SketchPanel(
-                              ctx,
-                              {.editing = [sketcher] { return sketcher->editingStep(); },
-                               .picked = [sketcher] { return sketcher->pickedConstraints(); },
-                               .pick = [sketcher](const ConstraintId& id) { sketcher->pickConstraint(id); },
-                               .takeJustAdded = [sketcher] { return sketcher->takeJustAdded(); }});
-                          sketcher->addPanel(panel);
-                          return panel;
-                      },
-                      false, true, true});  // starts closed; it opens over the view when a sketch is edited
+        ui->addPanel(
+            {"kh.sketcher.panel", QObject::tr("Sketch"), ui::PanelArea::Right,
+             [&ctx, sketcher] {
+                 auto* panel = new sketcher::SketchPanel(
+                     ctx,
+                     {.editing = [sketcher] { return sketcher->editingStep(); },
+                      .picked = [sketcher] { return sketcher->pickedConstraints(); },
+                      .pick = [sketcher](const ConstraintId& id) { sketcher->pickConstraint(id); },
+                      .takeJustAdded = [sketcher] { return sketcher->takeJustAdded(); },
+                      .pickedSpline = [sketcher] { return sketcher->pickedSpline(); },
+                      .pickSpline = [sketcher](const sketcher::SplinePick& p) { sketcher->pickSpline(p); }});
+                 sketcher->addPanel(panel);
+                 return panel;
+             },
+             false, true, true});  // starts closed; it opens over the view when a sketch is edited
     }
 
     // Constraints and dimensions: a button for each, shown only when it fits

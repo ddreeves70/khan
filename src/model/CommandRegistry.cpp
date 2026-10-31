@@ -222,6 +222,71 @@ std::unique_ptr<Command> addEntity(FeatureId sketchId, sketch::Shape shape, bool
         });
 }
 
+// An entity by name, to change it.
+sketch::Entity* entityNamed(sketch::Sketch& s, std::string_view name) {
+    for (auto& e : s.entities) {
+        if (e.name == name) return &e;
+    }
+    return nullptr;
+}
+
+// A command that only reports problems, for arguments that can't work together.
+std::unique_ptr<Command> failingCommand(FeatureId sketchId, Diagnostics problems) {
+    return std::make_unique<EditSketchCommand>(
+        sketchId, [problems](sketch::Sketch&, std::string&) -> Diagnostics { return problems; });
+}
+
+// Finds a spline by name, for the spline commands.
+sketch::SplineShape* findSpline(sketch::Sketch& s, const std::string& name, Diagnostics& problems) {
+    auto* e = entityNamed(s, name);
+    if (!e) {
+        problems.push_back(
+            sketchProblem("sketch.not_found", "There's nothing called " + name + " in this sketch."));
+        return nullptr;
+    }
+    auto* sp = std::get_if<sketch::SplineShape>(&e->shape);
+    if (!sp)
+        problems.push_back(
+            sketchProblem("sketch.not_spline", name + " isn't a spline. Pick a spline, like Spline1."));
+    return sp;
+}
+
+// Finds a spline's control point from "Spline1.pole2": the spline and the pole's
+// index (from 0).
+sketch::Entity* findPole(sketch::Sketch& s, const std::string& text, int& index, Diagnostics& problems) {
+    const auto dot = text.rfind('.');
+    const std::string name = text.substr(0, dot);
+    auto* e = entityNamed(s, name);
+    const auto* sp = e ? std::get_if<sketch::SplineShape>(&e->shape) : nullptr;
+    const auto ref = e && dot != std::string::npos ? sketch::pointFromKey(e->id, text.substr(dot + 1))
+                                                   : std::optional<sketch::PointRef>();
+    if (!sp || !ref || ref->role != sketch::PointRole::Pole) {
+        problems.push_back(sketchProblem(
+            "sketch.not_found", "Name one of a spline's control points, like Spline1.pole2. There's no " +
+                                    text + " in this sketch."));
+        return nullptr;
+    }
+    if (ref->index >= static_cast<int>(sp->poles.size())) {
+        const auto n = std::to_string(sp->poles.size());
+        problems.push_back(sketchProblem(
+            "sketch.not_found",
+            name + " has " + n + " control points: use " + name + ".pole1 to " + name + ".pole" + n + "."));
+        return nullptr;
+    }
+    index = ref->index;
+    return e;
+}
+
+// After a control point is added at `index` (by +1) or removed from it (by -1),
+// constraints on the spline's later control points follow them.
+void renumberPoles(sketch::Sketch& s, const EntityId& spline, int index, int by) {
+    for (auto& c : s.constraints) {
+        for (auto& p : c.points) {
+            if (p.entity == spline && p.role == sketch::PointRole::Pole && p.index >= index) p.index += by;
+        }
+    }
+}
+
 CommandRegistry makeBuiltin() {
     CommandRegistry r;
 
@@ -479,13 +544,19 @@ CommandRegistry makeBuiltin() {
 
     r.add({"sketch.add_spline",
            "Add spline",
-           "Adds a spline to a sketch: a smooth curve pulled towards its control points. An open one starts "
-           "at the first point and ends at the last.",
+           "Adds a spline to a sketch: a smooth curve pulled towards its control points, or one through "
+           "points you give. An open one starts at the first point and ends at the last.",
            {sketchArg,
             {"poles",
              ArgType::Vec2List,
-             "Its control points, in mm, split by /, like 0,0/0,30/40,30/40,0.",
-             true,
+             "Its control points, in mm, split by /, like 0,0/0,30/40,30/40,0. Give this or through.",
+             false,
+             {}},
+            {"through",
+             ArgType::Vec2List,
+             "Points it passes through, in mm, split by /, like 0,0/20,15/40,0. Khan works out the "
+             "control points (one for each). Give this or poles.",
+             false,
              {}},
             {"degree",
              ArgType::Integer,
@@ -495,14 +566,168 @@ CommandRegistry makeBuiltin() {
             {"closed", ArgType::Bool, "true for a closed loop with no ends. Default false.", false, {}},
             constructionArg,
             {"name", ArgType::Text, "Its name. Default Spline1, Spline2, ...", false, {}}}},
-          [](const Document&, const Args& a) {
-              auto poles = argVec2List(a, "poles");
-              const int most = std::max(1, static_cast<int>(poles.size()) - 1);
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              const bool byPoles = a.count("poles") > 0, byThrough = a.count("through") > 0;
+              if (byPoles == byThrough) {
+                  return failingCommand(
+                      argFeature(a, "sketch"),
+                      {sketchProblem(
+                          "sketch.spline_points",
+                          "Give a spline either its control points (poles=0,0/0,30/40,30/40,0) or points it "
+                          "passes through (through=0,0/20,15/40,0), not both.")});
+              }
+              auto points = argVec2List(a, byPoles ? "poles" : "through");
+              const bool closed = argBool(a, "closed", false);
+              const int most = std::max(1, static_cast<int>(points.size()) - 1);
               const int degree =
                   a.count("degree") ? static_cast<int>(argNumber(a, "degree")) : std::min(3, most);
+              if (byThrough) {
+                  auto poles = sketch::splinePolesThrough(points, degree, closed);
+                  // Too few points or a bad degree: keep the points, so check() says what's wrong.
+                  if (!poles.empty()) points = std::move(poles);
+              }
               return addEntity(argFeature(a, "sketch"),
-                               sketch::SplineShape{std::move(poles), {}, degree, argBool(a, "closed", false)},
+                               sketch::SplineShape{std::move(points), {}, degree, closed},
                                argBool(a, "construction", false), argText(a, "name"), "Spline");
+          });
+
+    const ArgSpec splineArg{"spline", ArgType::Text, "The spline, like Spline1.", true, {}};
+    const ArgSpec poleArg{"point", ArgType::Text, "The control point, like Spline1.pole2.", true, {}};
+
+    r.add(
+        {"sketch.set_spline",
+         "Change spline",
+         "Changes a spline's degree, or whether it's a closed loop. Its control points stay put.",
+         {sketchArg,
+          splineArg,
+          {"degree", ArgType::Integer, "How smooth: 1 (straight pieces) to 5.", false, {}},
+          {"closed", ArgType::Bool, "true for a closed loop, false for a curve with two ends.", false, {}}}},
+        [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+            const std::string name = argText(a, "spline");
+            const std::optional<int> degree =
+                a.count("degree") ? std::optional<int>(static_cast<int>(argNumber(a, "degree")))
+                                  : std::nullopt;
+            const std::optional<bool> closed =
+                a.count("closed") ? std::optional<bool>(argBool(a, "closed", false)) : std::nullopt;
+            if (!degree && !closed) {
+                return failingCommand(argFeature(a, "sketch"),
+                                      {sketchProblem("sketch.nothing_to_change",
+                                                     "Say what to change: degree=2, closed=true, or both.")});
+            }
+            return std::make_unique<EditSketchCommand>(
+                argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                    Diagnostics problems;
+                    auto* sp = findSpline(s, name, problems);
+                    if (!sp) return problems;
+                    if (degree) sp->degree = *degree;
+                    if (closed) sp->closed = *closed;
+                    label = "Change " + name;
+                    return {};
+                });
+        });
+
+    r.add(
+        {"sketch.set_weight",
+         "Change control point weight",
+         "Changes how hard one of a spline's control points pulls the curve: 1 is normal, bigger pulls it "
+         "closer, smaller lets it go.",
+         {sketchArg, poleArg, {"weight", ArgType::Number, "The weight, more than 0. Default 1.", true, {}}}},
+        [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+            const std::string point = argText(a, "point");
+            const double weight = argNumber(a, "weight", 1);
+            return std::make_unique<EditSketchCommand>(
+                argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                    Diagnostics problems;
+                    int index = 0;
+                    auto* e = findPole(s, point, index, problems);
+                    if (!e) return problems;
+                    auto& sp = std::get<sketch::SplineShape>(e->shape);
+                    if (sp.weights.empty()) sp.weights.assign(sp.poles.size(), 1.0);
+                    sp.weights[static_cast<std::size_t>(index)] = weight;
+                    // All 1 again: an ordinary spline, saved without weights.
+                    if (std::ranges::all_of(sp.weights, [](double w) { return w == 1.0; }))
+                        sp.weights.clear();
+                    label = "Change " + point + "'s weight";
+                    return {};
+                });
+        });
+
+    r.add({"sketch.add_pole",
+           "Add control point",
+           "Adds a control point to a spline, between two that are next to each other, so you can shape it "
+           "more finely. Constraints on later control points stay on them.",
+           {sketchArg,
+            splineArg,
+            {"after",
+             ArgType::Integer,
+             "Which control point it goes after: 1 puts it between pole1 and pole2.",
+             true,
+             {}},
+            {"at", ArgType::Vec2, "Where, in mm. Default halfway to the next control point.", false, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              const std::string name = argText(a, "spline");
+              const int after = static_cast<int>(argNumber(a, "after"));
+              const std::optional<sketch::Point2> at =
+                  a.count("at") ? std::optional<sketch::Point2>(argVec2(a, "at")) : std::nullopt;
+              return std::make_unique<EditSketchCommand>(
+                  argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                      Diagnostics problems;
+                      auto* sp = findSpline(s, name, problems);
+                      if (!sp) return problems;
+                      const int n = static_cast<int>(sp->poles.size());
+                      const int last = sp->closed ? n : n - 1;  // a closed one can go after its last
+                      if (after < 1 || after > last) {
+                          return {sketchProblem("sketch.pole_place",
+                                                "after must be 1 to " + std::to_string(last) + " for " +
+                                                    name + ": the new control point goes between pole" +
+                                                    "N and the next one.")};
+                      }
+                      const auto from = sp->poles[static_cast<std::size_t>(after - 1)];
+                      const auto to = sp->poles[static_cast<std::size_t>(after % n)];
+                      const auto where =
+                          at.value_or(sketch::Point2{(from.x + to.x) / 2, (from.y + to.y) / 2});
+                      const EntityId id = s.findEntity(name)->id;
+                      sp->poles.insert(sp->poles.begin() + after, where);
+                      if (!sp->weights.empty()) sp->weights.insert(sp->weights.begin() + after, 1.0);
+                      renumberPoles(s, id, after, 1);
+                      label = "Add a control point to " + name;
+                      return {};
+                  });
+          });
+
+    r.add({"sketch.remove_pole",
+           "Remove control point",
+           "Removes one of a spline's control points, and the constraints on it. Constraints on later "
+           "control points stay on them.",
+           {sketchArg, poleArg}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              const std::string point = argText(a, "point");
+              return std::make_unique<EditSketchCommand>(
+                  argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                      Diagnostics problems;
+                      int index = 0;
+                      auto* e = findPole(s, point, index, problems);
+                      if (!e) return problems;
+                      auto& sp = std::get<sketch::SplineShape>(e->shape);
+                      if (static_cast<int>(sp.poles.size()) <= sp.degree + 1) {
+                          return {sketchProblem(
+                              "sketch.spline_poles",
+                              e->name + " has only " + std::to_string(sp.poles.size()) +
+                                  " control points, the fewest a spline of degree " +
+                                  std::to_string(sp.degree) +
+                                  " can have. Lower its degree first (sketch.set_spline degree=" +
+                                  std::to_string(sp.degree - 1) + "), or delete the whole spline.")};
+                      }
+                      const sketch::PointRef gone{e->id, sketch::PointRole::Pole, index};
+                      std::erase_if(s.constraints, [&](const sketch::Constraint& c) {
+                          return std::ranges::any_of(c.points, [&](const auto& p) { return p == gone; });
+                      });
+                      sp.poles.erase(sp.poles.begin() + index);
+                      if (!sp.weights.empty()) sp.weights.erase(sp.weights.begin() + index);
+                      renumberPoles(s, e->id, index + 1, -1);
+                      label = "Remove " + point;
+                      return {};
+                  });
           });
 
     std::vector<std::string> kinds;

@@ -21,7 +21,9 @@
 #include <QMouseEvent>
 #include <QPalette>
 #include <QPixmap>
+#include <QPushButton>
 #include <QSettings>
+#include <QSpinBox>
 #include <QStatusBar>
 #include <QTableWidget>
 #include <QTemporaryDir>
@@ -251,7 +253,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 7 + 2 + 6 + 13);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
+    CHECK(buttons == 5 + 7 + 2 + 8 + 13);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
 }
@@ -1764,6 +1766,159 @@ TEST_CASE("a spline made with kh_cli's command shows in the sketcher; its contro
     clickAt(flat, {10, 40, 0});
     CHECK(app.shell->statusBar()->currentMessage().startsWith(
         QStringLiteral("Picked Spline1's control point 2")));
+}
+
+TEST_CASE("drawing a spline by its control points: click them, then the last one again",
+          "[app][sketcher][spline]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.spline");
+    CHECK(app.menu("kh.sketcher.spline")->isChecked());
+    CHECK(app.shell->statusBar()->currentMessage().contains(QStringLiteral("click its first control point")));
+    clickAt(flat, {0, 0, 0});
+    clickAt(flat, {0, 30, 0});
+    // While drawing: the curve so far follows the mouse, with its control points joined.
+    const QPointF p = flat->toScreen({40, 30, 0});
+    QMouseEvent move(QEvent::MouseMove, p, flat->mapToGlobal(p), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(flat, &move);
+    settle();
+    REQUIRE(app.host.overlays().find("kh.sketcher.edit.preview_guides"));
+    CHECK(app.host.overlays().find("kh.sketcher.edit.preview_guides")->points.size() == 4);  // 2 lines
+    CHECK(app.host.overlays().find("kh.sketcher.edit.preview_points")->points.size() == 2);
+    REQUIRE(app.host.overlays().find("kh.sketcher.edit.preview"));
+    clickAt(flat, {40, 30, 0});
+    clickAt(flat, {40, 0, 0});
+    CHECK(sketchAt(app, 0).sketch().entities.empty());  // not until it's finished
+    CHECK(app.shell->statusBar()->currentMessage().contains(
+        QStringLiteral("click the first one to make a loop")));
+    clickAt(flat, {40, 0, 0});  // the last one again: done
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 1);
+    const auto& sp = std::get<sketch::SplineShape>(s.entities[0].shape);
+    const std::vector<sketch::Point2> clicked{{0, 0}, {0, 30}, {40, 30}, {40, 0}};
+    REQUIRE(sp.poles.size() == 4);
+    for (std::size_t k = 0; k < 4; ++k) {
+        CHECK(sp.poles[k].x == Approx(clicked[k].x).margin(1e-9));
+        CHECK(sp.poles[k].y == Approx(clicked[k].y).margin(1e-9));
+    }
+    CHECK(sp.degree == 3);
+    CHECK_FALSE(sp.closed);
+    CHECK(app.doc().undoLabel() == "Add Spline1");
+    CHECK(app.host.overlays().find("kh.sketcher.edit.preview_guides") == nullptr);  // the preview is gone
+
+    // Another, finished with Esc after two points: a straight one (degree 1). Its start
+    // snapped onto Spline1's end, so they're joined.
+    clickAt(flat, {40, 0, 0});
+    clickAt(flat, {60, 10, 0});
+    pressEscape(flat);
+    const auto& t = sketchAt(app, 0).sketch();
+    REQUIRE(t.entities.size() == 2);
+    CHECK(std::get<sketch::SplineShape>(t.entities[1].shape).degree == 1);
+    REQUIRE(t.constraints.size() == 1);
+    CHECK(t.constraints[0].kind == sketch::ConstraintKind::Coincident);
+    CHECK(t.constraints[0].points[0] == sketch::PointRef{t.entities[1].id, sketch::PointRole::Pole, 0});
+    CHECK(t.constraints[0].points[1] == sketch::PointRef{t.entities[0].id, sketch::PointRole::Pole, 3});
+    CHECK(app.menu("kh.sketcher.spline")->isChecked());  // still drawing splines
+    pressEscape(flat);                                   // a second Esc stops
+    CHECK(app.menu("kh.sketcher.select")->isChecked());
+}
+
+TEST_CASE("drawing a spline through points, and back to the first point for a loop",
+          "[app][sketcher][spline]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.spline_through");
+    const std::vector<sketch::Point2> through{{0, 0}, {20, 15}, {40, 0}, {20, -10}};
+    for (const auto& q : through) clickAt(flat, {q.x, q.y, 0});
+    clickAt(flat, {0, 0, 0});  // the first one again: a loop
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 1);
+    const auto& sp = std::get<sketch::SplineShape>(s.entities[0].shape);
+    CHECK(sp.closed);
+    CHECK(sp.degree == 3);
+    REQUIRE(sp.poles.size() == 4);
+    // It goes through every point clicked.
+    const auto at = sketch::splineThroughAt(4, 3, true);
+    for (std::size_t k = 0; k < 4; ++k) {
+        const auto q = sketch::splinePoint(sp, at[k]);
+        CHECK(q.x == Approx(through[k].x).margin(1e-6));
+        CHECK(q.y == Approx(through[k].y).margin(1e-6));
+    }
+    CHECK(s.constraints.empty());  // nothing to join to
+    // It's a closed shape, so it extrudes.
+    app.click("kh.sketcher.finish");
+    app.click("kh.modeling.extrude");
+    settle();
+    CHECK(app.doc().featureCount() == 2);
+}
+
+TEST_CASE("the Sketch panel changes a picked spline: degree, loop, weight, and control points",
+          "[app][sketcher][spline]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    const auto sketchId = app.doc().featureAt(0).id();
+    REQUIRE(app.host.documents()
+                .run(app.shell->activeDesign(), "sketch.add_spline",
+                     {{"sketch", sketchId},
+                      {"poles", std::vector<sketch::Point2>{{0, 0}, {0, 30}, {40, 30}, {40, 0}}}})
+                .empty());
+    settle();
+    app.click("kh.sketcher.select");
+    auto* panel = app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"));
+    REQUIRE(panel);
+    auto* box = panel->findChild<QWidget*>(QStringLiteral("spline"));
+    REQUIRE(box);
+    CHECK_FALSE(box->isVisibleTo(panel));  // nothing picked
+    auto spline = [&] { return std::get<sketch::SplineShape>(sketchAt(app, 0).sketch().entities[0].shape); };
+
+    clickAt(flat, {0, 30, 0});  // control point 2
+    CHECK(box->isVisibleTo(panel));
+    auto* weight = panel->findChild<QDoubleSpinBox*>(QStringLiteral("spline.weight"));
+    REQUIRE(weight);
+    CHECK(weight->isVisibleTo(panel));
+    CHECK(weight->value() == 1);
+    weight->setValue(2.5);
+    emit weight->editingFinished();
+    settle();
+    CHECK(spline().weights == std::vector<double>{1, 2.5, 1, 1});
+    CHECK(app.doc().undoLabel() == "Change Spline1.pole2's weight");
+
+    auto* degree = panel->findChild<QSpinBox*>(QStringLiteral("spline.degree"));
+    REQUIRE(degree);
+    CHECK(degree->value() == 3);
+    degree->setValue(2);
+    settle();
+    CHECK(spline().degree == 2);
+    degree->setValue(5);  // too high for 4 control points: says so, and the box goes back
+    settle();
+    CHECK(spline().degree == 2);
+    CHECK(panel->findChild<QSpinBox*>(QStringLiteral("spline.degree"))->value() == 2);
+
+    // Add one after control point 2: halfway to 3, and it's picked, ready to drag.
+    panel->findChild<QPushButton*>(QStringLiteral("spline.add_pole"))->click();
+    settle();
+    REQUIRE(spline().poles.size() == 5);
+    CHECK(spline().poles[2].x == Approx(20));
+    CHECK(spline().poles[2].y == Approx(30));
+    CHECK(app.shell->statusBar()->currentMessage().startsWith(
+        QStringLiteral("Picked Spline1's control point 3")));
+    auto* remove = panel->findChild<QPushButton*>(QStringLiteral("spline.remove_pole"));
+    CHECK(remove->isEnabled());
+    remove->click();
+    settle();
+    CHECK(spline().poles.size() == 4);
+    CHECK(app.shell->statusBar()->currentMessage().startsWith(QStringLiteral("Picked Spline1.")));
+
+    auto* closed = panel->findChild<QCheckBox*>(QStringLiteral("spline.closed"));
+    REQUIRE(closed);
+    CHECK(closed->isVisibleTo(panel));
+    CHECK_FALSE(weight->isVisibleTo(panel));  // the whole spline is picked: no one weight
+    closed->click();
+    settle();
+    CHECK(spline().closed);
 }
 
 TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",

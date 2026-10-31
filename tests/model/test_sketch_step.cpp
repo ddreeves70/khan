@@ -252,3 +252,136 @@ TEST_CASE("copying a sketch step copies its drawing", "[model][sketch][copy]") {
     CHECK(copy.name() == "Sketch2");
     CHECK(copy.sketch().entities.at(0).name == "Line1");
 }
+
+namespace {
+
+using Points = std::vector<sketch::Point2>;
+
+const sketch::SplineShape& splineIn(const Drawing& d, const char* name) {
+    return std::get<sketch::SplineShape>(d.step().sketch().findEntity(name)->shape);
+}
+
+}  // namespace
+
+TEST_CASE("sketch.add_spline through points works out control points the curve passes through",
+          "[model][sketch][spline]") {
+    Drawing d;
+    const Points through{{0, 0}, {10, 18}, {30, 22}, {40, 0}};
+    REQUIRE(d.sk("sketch.add_spline", {{"through", through}}).empty());
+    const auto& sp = splineIn(d, "Spline1");
+    CHECK(sp.degree == 3);
+    REQUIRE(sp.poles.size() == 4);
+    const auto at = sketch::splineThroughAt(4, 3, false);
+    for (std::size_t k = 0; k < 4; ++k) {
+        const auto p = sketch::splinePoint(sp, at[k]);
+        CHECK(p.x == Approx(through[k].x).margin(1e-9));
+        CHECK(p.y == Approx(through[k].y).margin(1e-9));
+    }
+    // Both, or neither: say which to give.
+    auto problems = d.sk("sketch.add_spline", {{"through", through}, {"poles", through}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "sketch.spline_points");
+    problems = d.sk("sketch.add_spline", {});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "sketch.spline_points");
+    // Too few points for the degree: the usual check explains.
+    problems = d.sk("sketch.add_spline", {{"through", Points{{0, 0}, {5, 5}}}, {"degree", std::int64_t{3}}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "sketch.spline_poles");
+}
+
+TEST_CASE("sketch.set_spline changes a spline's degree and closes it; set_weight changes one pull",
+          "[model][sketch][spline]") {
+    Drawing d;
+    REQUIRE(d.sk("sketch.add_spline", {{"poles", Points{{0, 0}, {0, 30}, {40, 30}, {40, 0}}}}).empty());
+    REQUIRE(
+        d.sk("sketch.set_spline", {{"spline", std::string("Spline1")}, {"degree", std::int64_t{2}}}).empty());
+    CHECK(splineIn(d, "Spline1").degree == 2);
+    REQUIRE(d.sk("sketch.set_spline", {{"spline", std::string("Spline1")}, {"closed", true}}).empty());
+    CHECK(splineIn(d, "Spline1").closed);
+    CHECK(splineIn(d, "Spline1").degree == 2);
+    CHECK(d.doc.undoLabel() == "Change Spline1");
+
+    auto problems = d.sk("sketch.set_spline", {{"spline", std::string("Spline1")}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message == "Say what to change: degree=2, closed=true, or both.");
+    problems = d.sk("sketch.set_spline", {{"spline", std::string("Spline1")}, {"degree", std::int64_t{4}}});
+    REQUIRE(problems.size() == 1);  // 4 control points can't make degree 4
+    CHECK(problems[0].code == "sketch.spline_poles");
+
+    REQUIRE(d.sk("sketch.set_weight", {{"point", std::string("Spline1.pole2")}, {"weight", 3.0}}).empty());
+    CHECK(splineIn(d, "Spline1").weights == std::vector<double>{1, 3, 1, 1});
+    REQUIRE(d.sk("sketch.set_weight", {{"point", std::string("Spline1.pole2")}, {"weight", 1.0}}).empty());
+    CHECK(splineIn(d, "Spline1").weights.empty());  // all 1 again: none saved
+    problems = d.sk("sketch.set_weight", {{"point", std::string("Spline1.pole2")}, {"weight", 0.0}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "sketch.spline_weights");
+    problems = d.sk("sketch.set_weight", {{"point", std::string("Spline1.pole9")}, {"weight", 2.0}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message == "Spline1 has 4 control points: use Spline1.pole1 to Spline1.pole4.");
+    REQUIRE(d.sk("sketch.add_line", {{"from", sketch::Point2{0, 0}}, {"to", sketch::Point2{10, 0}}}).empty());
+    problems = d.sk("sketch.set_spline", {{"spline", std::string("Line1")}, {"closed", true}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message == "Line1 isn't a spline. Pick a spline, like Spline1.");
+}
+
+TEST_CASE("adding and removing control points keeps constraints on the points they were on",
+          "[model][sketch][spline]") {
+    Drawing d;
+    REQUIRE(d.sk("sketch.add_spline", {{"poles", Points{{0, 0}, {0, 30}, {40, 30}, {40, 0}}}}).empty());
+    REQUIRE(d.sk("sketch.set_weight", {{"point", std::string("Spline1.pole4")}, {"weight", 2.0}}).empty());
+    REQUIRE(d.sk("sketch.constrain", {{"kind", std::string("fix")}, {"on", std::string("Spline1.pole3")}})
+                .empty());
+    REQUIRE(d.sk("sketch.constrain", {{"kind", std::string("fix")}, {"on", std::string("Spline1.pole1")}})
+                .empty());
+    auto fixedPole = [&](const char* name) {
+        return d.step().sketch().findConstraint(name)->points[0].index;
+    };
+
+    // Between pole1 and pole2: halfway, unless told where.
+    REQUIRE(
+        d.sk("sketch.add_pole", {{"spline", std::string("Spline1")}, {"after", std::int64_t{1}}}).empty());
+    auto sp = splineIn(d, "Spline1");
+    REQUIRE(sp.poles.size() == 5);
+    CHECK(sp.poles[1].x == 0);
+    CHECK(sp.poles[1].y == 15);
+    CHECK(sp.weights == std::vector<double>{1, 1, 1, 1, 2});  // the weight stayed with its point
+    CHECK(fixedPole("Fix1") == 3);                            // the old pole3 is pole4 now
+    CHECK(fixedPole("Fix2") == 0);
+    REQUIRE(
+        d.sk("sketch.add_pole",
+             {{"spline", std::string("Spline1")}, {"after", std::int64_t{4}}, {"at", sketch::Point2{45, 20}}})
+            .empty());
+    CHECK(splineIn(d, "Spline1").poles[4].x == 45);
+    CHECK(d.doc.undoLabel() == "Add a control point to Spline1");
+    auto problems = d.sk("sketch.add_pole", {{"spline", std::string("Spline1")}, {"after", std::int64_t{6}}});
+    REQUIRE(problems.size() == 1);  // an open spline's last point has nothing after it
+    CHECK(problems[0].code == "sketch.pole_place");
+
+    // Removing pole4 (the fixed one) takes its Fix away.
+    REQUIRE(d.sk("sketch.remove_pole", {{"point", std::string("Spline1.pole4")}}).empty());
+    sp = splineIn(d, "Spline1");
+    REQUIRE(sp.poles.size() == 5);
+    CHECK(sp.poles[3].x == 45);  // the one added after it moved down
+    CHECK(d.step().sketch().findConstraint("Fix1") == nullptr);
+    CHECK(fixedPole("Fix2") == 0);
+    CHECK(d.doc.undoLabel() == "Remove Spline1.pole4");
+    REQUIRE(d.rebuild().ok());
+
+    // Down to the fewest for degree 3, then no more.
+    REQUIRE(d.sk("sketch.remove_pole", {{"point", std::string("Spline1.pole2")}}).empty());
+    problems = d.sk("sketch.remove_pole", {{"point", std::string("Spline1.pole2")}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message ==
+          "Spline1 has only 4 control points, the fewest a spline of degree 3 can have. Lower its degree "
+          "first (sketch.set_spline degree=2), or delete the whole spline.");
+
+    // A closed spline can take one after its last point.
+    REQUIRE(d.sk("sketch.set_spline", {{"spline", std::string("Spline1")}, {"closed", true}}).empty());
+    REQUIRE(
+        d.sk("sketch.add_pole", {{"spline", std::string("Spline1")}, {"after", std::int64_t{4}}}).empty());
+    CHECK(splineIn(d, "Spline1").poles.size() == 5);
+    // Undo puts it all back.
+    REQUIRE(d.doc.undo());
+    CHECK(splineIn(d, "Spline1").poles.size() == 4);
+}

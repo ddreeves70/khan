@@ -311,9 +311,26 @@ Four pull requests:
   argument type for lists of points.
 - The app shows splines, their control polygons and control points, and drags them.
 
-**B. Drawing splines in the app:** a Spline tool by control points and one by fit
-points (the curve goes through the clicks); adding and removing points; degree and
-weights in Properties.
+**B. Drawing splines in the app** (`kh_sketch`, `kh_model`, the sketcher plugin; built):
+
+- Two tools: **Spline** (clicks are control points) and **Fit spline** (the curve
+  goes through the clicks). Click the last point again or press Esc to finish;
+  click the first point to close the loop. Degree 3, or less with 2 or 3 points.
+  Ends that snap onto sketch points get Coincident (every control point does, for
+  the Spline tool).
+- `splinePolesThrough()` interpolates with the same even knots: one control point
+  per fit point, the curve passing through each at its control point's Greville
+  point (open), or at evenly spaced places from the loop's start (closed). Both
+  give a well-conditioned system (Schoenberg-Whitney), solved directly.
+- Fit points aren't stored: they become control points when the spline is made.
+  Keeping them (and editing a spline by its fit points) needs custom knots and a
+  new file field, so it waits until students ask for it.
+- Commands: `sketch.add_spline through=...`, `sketch.set_spline` (degree,
+  closed), `sketch.set_weight`, `sketch.add_pole` and `sketch.remove_pole`. Adding
+  or removing a control point renumbers the constraints on later ones, so they
+  stay on the same points; removing one deletes the constraints on it.
+- Degree, closed, weight and add/remove control point are in the Sketch panel
+  (not Properties, which shows the step) while a spline or control point is picked.
 
 **C. Spline constraints:** point on spline, tangent (G1) and curvature-continuous
 (G2) where curves meet, dimensions on control and fit points, with property tests.

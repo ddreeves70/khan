@@ -354,6 +354,91 @@ std::vector<Point2> splineSample(const SplineShape& spline, int perSpan) {
     return out;
 }
 
+namespace {
+
+// Where on the flat knots (see Flat) a spline made by splinePolesThrough() passes
+// through each point. For an open spline, each control point's Greville point
+// (the average of the p knots it spans), which always gives a solvable system.
+std::vector<double> throughKnots(int n, int p, bool closed) {
+    std::vector<double> out;
+    if (p < 1 || p > 5 || n < p + 1) return out;
+    SplineShape s;
+    s.poles.assign(static_cast<std::size_t>(n), {});
+    s.degree = p;
+    s.closed = closed;
+    const Flat f = flatten(s);
+    if (closed) {
+        // Evenly spaced, so any start works as well as the Greville points: start
+        // at the loop's start, so the first point is where the loop begins. The
+        // Greville points' half step for an even degree is kept.
+        const double half = (p % 2 == 0) ? 0.5 : 0.0;
+        for (int i = 0; i < n; ++i) out.push_back(f.from + i + half);
+        return out;
+    }
+    for (int i = 0; i < n; ++i) {
+        double sum = 0;
+        for (int j = 1; j <= p; ++j) sum += f.knots[static_cast<std::size_t>(i + j)];
+        out.push_back(sum / p);
+    }
+    return out;
+}
+
+}  // namespace
+
+std::vector<double> splineThroughAt(int count, int degree, bool closed) {
+    std::vector<double> out;
+    SplineShape s;
+    s.poles.assign(static_cast<std::size_t>(std::max(count, 0)), {});
+    s.degree = degree;
+    s.closed = closed;
+    const auto knots = throughKnots(count, degree, closed);
+    if (knots.empty()) return out;
+    const Flat f = flatten(s);
+    for (double u : knots) out.push_back((u - f.from) / (f.to - f.from));
+    return out;
+}
+
+std::vector<Point2> splinePolesThrough(const std::vector<Point2>& through, int degree, bool closed) {
+    const int n = static_cast<int>(through.size());
+    const auto knots = throughKnots(n, degree, closed);
+    if (knots.empty()) return {};
+    // A[k][i]: how much control point i counts at the k-th point. Found by putting
+    // 1 at control point i (and 0 elsewhere) and reading the spline's x there.
+    SplineShape unit;
+    unit.poles.assign(static_cast<std::size_t>(n), {});
+    unit.degree = degree;
+    unit.closed = closed;
+    const auto N = static_cast<std::size_t>(n);
+    std::vector<std::vector<double>> a(N, std::vector<double>(N + 2, 0.0));
+    for (std::size_t i = 0; i < N; ++i) {
+        unit.poles[i] = {1, 0};
+        const Flat f = flatten(unit);
+        for (std::size_t k = 0; k < N; ++k) a[k][i] = deBoor(f, degree, knots[k]).x;
+        unit.poles[i] = {0, 0};
+    }
+    for (std::size_t k = 0; k < N; ++k) {
+        a[k][N] = through[k].x;
+        a[k][N + 1] = through[k].y;
+    }
+    // Gaussian elimination with partial pivoting; the matrix is small and well behaved.
+    for (std::size_t c = 0; c < N; ++c) {
+        std::size_t best = c;
+        for (std::size_t r = c + 1; r < N; ++r) {
+            if (std::abs(a[r][c]) > std::abs(a[best][c])) best = r;
+        }
+        if (std::abs(a[best][c]) < 1e-12) return {};
+        std::swap(a[c], a[best]);
+        for (std::size_t r = 0; r < N; ++r) {
+            if (r == c || a[r][c] == 0) continue;
+            const double m = a[r][c] / a[c][c];
+            for (std::size_t j = c; j < N + 2; ++j) a[r][j] -= m * a[c][j];
+        }
+    }
+    std::vector<Point2> poles;
+    for (std::size_t i = 0; i < N; ++i) poles.push_back({a[i][N] / a[i][i], a[i][N + 1] / a[i][i]});
+    return poles;
+}
+
 bool isDimension(ConstraintKind kind) {
     switch (kind) {
         case ConstraintKind::Distance:

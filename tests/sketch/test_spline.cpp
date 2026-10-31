@@ -81,6 +81,53 @@ TEST_CASE("a closed spline is a smooth loop: it ends where it starts", "[sketch]
     CHECK(most == Approx(440.0 / 48).margin(1e-9));
 }
 
+TEST_CASE("a spline through points passes exactly through each one, open or closed, any degree",
+          "[sketch][spline]") {
+    // Uneven points, so nothing works out by symmetry.
+    const std::vector<Point2> pts{{0, 0}, {7, 12}, {21, 15}, {30, 3}, {44, -6}, {52, 10}, {60, 1}};
+    for (const bool closed : {false, true}) {
+        for (int degree = 1; degree <= 5; ++degree) {
+            for (std::size_t n = static_cast<std::size_t>(degree) + 1; n <= pts.size(); ++n) {
+                const std::vector<Point2> through(pts.begin(), pts.begin() + static_cast<long>(n));
+                const auto poles = splinePolesThrough(through, degree, closed);
+                REQUIRE(poles.size() == n);
+                const SplineShape s{poles, {}, degree, closed};
+                const auto at = splineThroughAt(static_cast<int>(n), degree, closed);
+                REQUIRE(at.size() == n);
+                for (std::size_t k = 0; k < n; ++k) {
+                    INFO("closed " << closed << ", degree " << degree << ", " << n << " points, point " << k);
+                    CHECK(at[k] >= 0);
+                    CHECK(at[k] <= 1);
+                    const auto p = splinePoint(s, at[k]);
+                    CHECK(p.x == Approx(through[k].x).margin(1e-9));
+                    CHECK(p.y == Approx(through[k].y).margin(1e-9));
+                }
+                if (!closed) {  // an open one starts and ends at the first and last points
+                    CHECK(at.front() == 0);
+                    CHECK(at.back() == 1);
+                    CHECK(std::hypot(poles.front().x - through.front().x,
+                                     poles.front().y - through.front().y) < 1e-9);
+                    CHECK(std::hypot(poles.back().x - through.back().x, poles.back().y - through.back().y) <
+                          1e-9);
+                }
+                // In order along the curve.
+                for (std::size_t k = 1; k < n; ++k) CHECK(at[k] > at[k - 1]);
+            }
+        }
+    }
+}
+
+TEST_CASE("a spline through points along a line is that line; too few points give nothing",
+          "[sketch][spline]") {
+    const auto poles = splinePolesThrough({{0, 0}, {10, 5}, {20, 10}, {30, 15}, {40, 20}}, 3, false);
+    REQUIRE(poles.size() == 5);
+    for (const auto& p : poles) CHECK(p.y == Approx(p.x / 2).margin(1e-9));  // the poles are on it too
+    CHECK(splinePolesThrough({{0, 0}, {10, 0}, {20, 0}}, 3, false).empty());
+    CHECK(splinePolesThrough({{0, 0}, {10, 0}}, 0, false).empty());
+    CHECK(splinePolesThrough({{0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}}, 6, false).empty());
+    CHECK(splineThroughAt(3, 3, false).empty());
+}
+
 TEST_CASE("a spline's control points have names: pole1, pole2, ...", "[sketch][spline]") {
     SketchBuilder b;
     const auto s = b.spline({{0, 0}, {10, 20}, {30, 20}, {40, 0}});
