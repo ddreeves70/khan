@@ -1191,6 +1191,17 @@ CommandRegistry makeBuiltin() {
               return std::make_unique<SetNumberCommand>(id, key, value);
           });
 
+    r.add(
+        {"feature.slide",
+         "Slide body",
+         "Slides a body by a distance, as dragging its arrows in the 3D view does: a box moves its corner, a "
+         "cylinder its base, a move step how far it goes, and any other body gets a new Move step.",
+         {{"feature", ArgType::FeatureRef, "The body's step, like Box1 or Extrude1.", true, {}},
+          {"by", ArgType::Vec3, "How far along x, y and z, in mm, like 10,0,0.", true, {}}}},
+        [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+            return std::make_unique<SlideBodyCommand>(argFeature(a, "feature"), argVec3(a, "by"));
+        });
+
     r.add({"feature.rename",
            "Rename step",
            "Gives a step a new name.",

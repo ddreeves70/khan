@@ -516,6 +516,51 @@ private:
     std::unique_ptr<Feature> other_;  // the version not in the design
 };
 
+/// Slides a body by a distance along x, y and z: what dragging it in the 3D view
+/// does. A Box moves its corner, a Cylinder its base and a Move step how far it
+/// slides; any other body (an Extrude, a union, ...) gets a new Move step at the
+/// end of the design that slides it. Numbers it changes stop coming from their
+/// formulas (see Feature::formulas()).
+///
+/// Refused for a sketch, and for a body that a later step uses unless it's a
+/// Box, Cylinder or Move (moving that one would leave the later step behind).
+/// Commands made with `continuesPrevious` (the rest of a drag) join the one
+/// before into one undo step, even after it added a Move step.
+///
+/// @code
+/// doc.execute(std::make_unique<SlideBodyCommand>(boxId, kernel::Vec3{10, 0, 0}));
+/// @endcode
+class SlideBodyCommand final : public Command {
+public:
+    /// Prepares the slide.
+    /// @param step The step whose body is slid.
+    /// @param by How far, along x, y and z (mm).
+    /// @param continuesPrevious True for the next part of the same drag (see mergeWith()).
+    /// @param moveId The id to give a Move step, if one is added; a new id if left out.
+    SlideBodyCommand(FeatureId step, kernel::Vec3 by, bool continuesPrevious = false,
+                     FeatureId moveId = FeatureId::generate());
+
+    std::string label() const override { return "Move " + name_; }
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+    bool mergeWith(const Command& next) override;
+
+    /// Checks whether a step's body can be slid, without sliding it.
+    /// @param doc The design.
+    /// @param step The step.
+    /// @return Why not, in plain words; empty if it can.
+    static Diagnostics check(const Document& doc, const FeatureId& step);
+
+private:
+    FeatureId step_;
+    kernel::Vec3 by_;
+    bool continuesPrevious_;
+    FeatureId moveId_;                // the Move step it adds, if it adds one
+    bool added_ = false;              // it added a Move step
+    std::string name_;                // the body's step, for the label
+    std::unique_ptr<Feature> other_;  // the version it replaced (or replaced it), when it edits a step
+};
+
 /// Copies steps for duplicating or pasting: the given steps and every step they
 /// use (their inputs, and their inputs' inputs), in design order. The copies get
 /// new ids, and their inputs point at the other copies, so the copies don't

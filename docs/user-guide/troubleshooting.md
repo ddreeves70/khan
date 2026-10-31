@@ -90,6 +90,8 @@ Each message says what's wrong and how to fix it. The codes:
 | `parameter.loop` | Parameters use each other in a loop | Change one of them to a number |
 | `parameter.breaks` | The change would stop another parameter working | Fix that one first, as the message says |
 | `parameter.in_use` | Another parameter, or a sketch dimension, uses the one you're deleting | Change or delete that one first |
+| `slide.used` | The body you dragged (or slid) is used by a later step | Drag the finished body instead, the one the message names |
+| `slide.sketch` | A sketch can't be slid like a body | Drag its lines with Select, or move the step made from it |
 | `feature.number` | `feature.set_value` was given a number the step doesn't have, or no value or formula | Use one of the numbers the message lists, and give `value` or `formula` |
 | `dimension.units` | A dimension's formula gives the wrong kind of value, like a plain number for a length | Give it a unit: `12 mm`, or `wall * 2` where `wall` is a length |
 | `dimension.size` | A length, distance, radius, diameter or size would be 0 mm or less | Change the formula or the parameters it uses |

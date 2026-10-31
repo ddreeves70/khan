@@ -76,7 +76,10 @@ class PluginContext;
 /// kh/model/Formulas.h, and formula= on sketch.constrain and sketch.set_value).
 /// Version 31 added steps' numbers by name, with formulas (Feature::numbers(),
 /// number(), setNumber(), formulas(), SetNumberCommand and feature.set_value).
-inline constexpr int kPluginApiVersion = 31;
+/// Version 32 added handles to drag in the viewers (kh.viewer/3:
+/// viewer::Handle, IHandleUser, IViewer::setHandles()) and sliding bodies
+/// (model::SlideBodyCommand, feature.slide).
+inline constexpr int kPluginApiVersion = 32;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

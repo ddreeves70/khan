@@ -22,6 +22,7 @@
 /// @endcode
 
 #include <string>
+#include <vector>
 
 #include "kh/kernel/Types.h"
 
@@ -82,12 +83,57 @@ public:
     virtual void cancelled() = 0;
 };
 
+/// What a handle looks like, and how it drags.
+enum class HandleKind {
+    Arrow,   ///< An arrow: drags along its direction only.
+    Square,  ///< A small square: drags anywhere on its flat plane.
+};
+
+/// Something drawn in every viewer for the student to drag, like the arrows on
+/// a picked body (see IViewer::setHandles()). Handles are drawn over the design,
+/// so they can always be grabbed, and aren't shown while a tool runs.
+struct Handle {
+    std::string id{};                     ///< Says which handle was dragged, like "x".
+    HandleKind kind = HandleKind::Arrow;  ///< An arrow or a square.
+    kernel::Vec3 at{};                    ///< Arrow: where it starts. Square: its middle. In mm.
+    /// Arrow: which way it points and drags (a unit vector). Square: the direction
+    /// square to its plane (a unit vector); it drags on that plane.
+    kernel::Vec3 direction{1, 0, 0};
+    /// Arrow: how long. Square: how long each side is. In screen pixels: a handle
+    /// stays the same size on the screen however far the view zooms.
+    double length = 80;
+    int r = 0;  ///< Its color: red, 0 to 255.
+    int g = 0;  ///< Green, 0 to 255.
+    int b = 0;  ///< Blue, 0 to 255.
+};
+
+/// Whoever put handles in the viewers. The viewer calls it while one is dragged.
+class IHandleUser {
+public:
+    /// Destroys it.
+    virtual ~IHandleUser() = default;
+
+    /// A handle is being dragged. Called on every move, until dropped() or cancelled().
+    /// @param id The handle's id.
+    /// @param by How far it has been dragged since the button went down, along x, y and z (mm).
+    virtual void dragged(const std::string& id, const kernel::Vec3& by) = 0;
+
+    /// A drag ended: the button came up.
+    /// @param id The handle's id.
+    /// @param by How far it was dragged, along x, y and z (mm).
+    virtual void dropped(const std::string& id, const kernel::Vec3& by) = 0;
+
+    /// The student pressed Escape while dragging: put back what the drag changed.
+    virtual void cancelled() = 0;
+};
+
 /// The viewers, as other plugins see them.
 class IViewer {
 public:
     /// The service's name and version.
-    /// Version 2 added dragged(), dropped() and ToolPoint::add.
-    static constexpr const char* kServiceName = "kh.viewer/2";
+    /// Version 2 added dragged(), dropped() and ToolPoint::add. Version 3 added
+    /// handles (setHandles(), clearHandles()).
+    static constexpr const char* kServiceName = "kh.viewer/3";
 
     /// Destroys the service.
     virtual ~IViewer() = default;
@@ -109,6 +155,26 @@ public:
     /// Turns each viewer's active pane to look straight at a plane, and fits.
     /// @param plane The plane.
     virtual void face(const ToolPlane& plane) = 0;
+
+    /// Puts handles in every pane of every viewer, in place of the ones there
+    /// (yours or another plugin's). Give them again as the thing they move
+    /// moves; a drag carries on with the handle as it was when pressed.
+    /// @param user Told when they're dragged. It must stay alive until clearHandles()
+    ///        or another setHandles().
+    /// @param handles The handles; empty to show none.
+    virtual void setHandles(IHandleUser& user, std::vector<Handle> handles) = 0;
+
+    /// Takes away a user's handles, if they're the ones shown.
+    /// @param user The user.
+    virtual void clearHandles(const IHandleUser& user) = 0;
+
+    /// Gives the handles shown.
+    /// @return The handles last given to setHandles(), or none.
+    virtual std::vector<Handle> handles() const = 0;
+
+    /// Gives who put the handles there.
+    /// @return It, or nullptr if none are shown.
+    virtual IHandleUser* handleUser() const = 0;
 };
 
 }  // namespace kh::viewer

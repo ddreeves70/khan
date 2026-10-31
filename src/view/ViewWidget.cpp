@@ -273,6 +273,15 @@ struct ViewWidget::Impl {
     std::map<FeatureId, Shown> shown;
     SceneContent content;
     std::vector<Handle(OverlayObject)> overlays;
+    std::vector<ViewHandle> handles;       // as given (lengths may be in pixels)
+    std::vector<ViewHandle> shownHandles;  // the same, lengths in mm, as last drawn
+    double handleScale = 0;                // mm per pixel where they were last drawn
+    std::vector<Handle(OverlayObject)> handleObjects;
+    std::optional<std::size_t> hovered;         // the handle under the mouse
+    std::optional<std::size_t> draggingHandle;  // the handle being dragged
+    ViewHandle dragHandle;                      // the handle as it was when pressed (it may follow the body)
+    Ray dragStart;                              // the line of sight when it was pressed
+    kernel::Vec3 dragBy{};                      // how far it has been dragged
     bool fitPending = true;
     bool everShown = false;  // has the view had a body to fit yet?
     bool ready = false;
@@ -325,6 +334,78 @@ struct ViewWidget::Impl {
         if (!here || !next) return std::nullopt;
         const double pixel = std::hypot(next->x - here->x, next->y - here->y, next->z - here->z);
         return PlanePoint{*here, pixel};
+    }
+
+    // The line of sight through a point of the widget (in device pixels).
+    Ray rayAt(double x, double y) const {
+        Standard_Real px = 0, py = 0, pz = 0, vx = 0, vy = 0, vz = 0;
+        view->ConvertWithProj(static_cast<int>(std::lround(x)), static_cast<int>(std::lround(y)), px, py, pz,
+                              vx, vy, vz);
+        return {{px, py, pz}, {vx, vy, vz}};
+    }
+
+    // Where a point is drawn, in device pixels.
+    Projection projection() const {
+        return [this](const kernel::Vec3& p) -> std::optional<ScreenPoint> {
+            Standard_Integer x = 0, y = 0;
+            view->Convert(p.x, p.y, p.z, x, y);
+            return ScreenPoint{static_cast<double>(x), static_cast<double>(y)};
+        };
+    }
+
+    // How many mm one device pixel covers at a point, across the screen.
+    double pixelSizeAt(const kernel::Vec3& p) const {
+        const auto s = projection()(p);
+        if (!s) return 0;
+        const gp_Dir look = view->Camera()->Direction();
+        const DrawingPlane facing{p, {look.X(), look.Y(), look.Z()}};
+        const Ray a = rayAt(s->x, s->y), b = rayAt(s->x + 1, s->y);
+        const auto pa = rayHitsPlane(a.from, a.direction, facing);
+        const auto pb = rayHitsPlane(b.from, b.direction, facing);
+        if (!pa || !pb) return 0;
+        return std::hypot(pb->x - pa->x, pb->y - pa->y, pb->z - pa->z);
+    }
+
+    // The handles with their lengths in mm, for drawing and picking now.
+    double currentHandleScale() const {
+        for (const auto& h : handles) {
+            if (h.pixels) return pixelSizeAt(h.at);
+        }
+        return 0;
+    }
+
+    // Draws the handles again, the one under the mouse (or being dragged) brighter and thicker.
+    void showHandles(double ratio) {
+        if (!context) return;
+        for (auto& o : handleObjects) context->Remove(o, false);
+        handleObjects.clear();
+        shownHandles.clear();
+        if (drawing) return;  // drawing on a sketch: no handles
+        handleScale = view && !view->Window().IsNull() ? currentHandleScale() : 0;
+        for (const auto& given : handles) {
+            ViewHandle h = given;
+            if (h.pixels) {
+                h.length *= handleScale * ratio;  // pixels (before high-DPI scaling) to mm
+                h.pixels = false;
+            }
+            shownHandles.push_back(h);
+        }
+        for (std::size_t i = 0; i < shownHandles.size(); ++i) {
+            const auto& h = shownHandles[i];
+            if (h.length <= 0) continue;
+            // While dragging, the handle with the dragged one's id lights up (the
+            // handles may have been given again, following the body).
+            const bool lit = draggingHandle ? h.id == dragHandle.id : hovered == i;
+            ViewOverlay o;
+            o.shape = OverlayShape::Lines;
+            o.points = handleLines(h);
+            o.color = lit ? Rgb{255, 200, 40} : h.color;
+            o.size = (lit ? 6.0 : 4.0) * ratio;
+            Handle(OverlayObject) obj = new OverlayObject(o);
+            obj->SetZLayer(Graphic3d_ZLayerId_Topmost);  // over the bodies, so it can always be grabbed
+            context->Display(obj, 0, -1, false);         // -1: never picked by OCCT (the view picks it)
+            handleObjects.push_back(obj);
+        }
     }
 
     // A failure's details, with the graphics card and OpenGL version when known.
@@ -523,6 +604,31 @@ void ViewWidget::setOverlays(const std::vector<ViewOverlay>& overlays) {
     update();
 }
 
+void ViewWidget::setHandles(const std::vector<ViewHandle>& handles) {
+    auto& d = *impl_;
+    d.handles = handles;
+    if (d.hovered && *d.hovered >= handles.size()) d.hovered.reset();
+    try {
+        d.showHandles(devicePixelRatioF());
+    } catch (const Standard_Failure& e) {
+        d.fail(*this, drawFailed(d.where(QStringLiteral("showing handles: ") + failureText(e))));
+    }
+    update();
+}
+
+const std::vector<ViewHandle>& ViewWidget::handles() const {
+    return impl_->handles;
+}
+
+std::optional<QPoint> ViewWidget::toScreen(const kernel::Vec3& point) const {
+    const auto& d = *impl_;
+    if (!d.view || !d.ready) return std::nullopt;
+    const auto p = d.projection()(point);
+    if (!p) return std::nullopt;
+    const double ratio = devicePixelRatioF();
+    return QPoint(static_cast<int>(std::lround(p->x / ratio)), static_cast<int>(std::lround(p->y / ratio)));
+}
+
 void ViewWidget::setLeftDrag(LeftDrag drag) {
     impl_->controller.setLeftDrag(drag);
 }
@@ -567,6 +673,11 @@ void ViewWidget::setStandardView(StandardView v) {
 void ViewWidget::setDrawingPlane(std::optional<DrawingPlane> plane) {
     impl_->drawing = plane;
     impl_->leftDown = impl_->dragging = false;
+    impl_->draggingHandle.reset();
+    try {
+        impl_->showHandles(devicePixelRatioF());
+    } catch (const Standard_Failure&) {
+    }
     setFocusPolicy(plane ? Qt::StrongFocus : Qt::NoFocus);
     setCursor(plane ? Qt::CrossCursor : Qt::ArrowCursor);
 }
@@ -582,6 +693,14 @@ void ViewWidget::lookAlong(const ViewDirection& dir) {
 }
 
 void ViewWidget::keyPressEvent(QKeyEvent* event) {
+    if (impl_->draggingHandle && event->key() == Qt::Key_Escape) {
+        impl_->draggingHandle.reset();
+        impl_->showHandles(devicePixelRatioF());
+        update();
+        emit handleCancelled();
+        event->accept();
+        return;
+    }
     if (impl_->drawing && event->key() == Qt::Key_Escape) {
         emit planeCancelled();
         event->accept();
@@ -707,6 +826,12 @@ void ViewWidget::paintGL() {
             return;
         }
         if (d.fitPending) d.fit();
+        // Handles sized in pixels stay that size when the view zooms.
+        if (!d.handles.empty() && !d.drawing) {
+            const double scale = d.currentHandleScale();
+            if (d.handleScale <= 0 || std::abs(scale - d.handleScale) > 0.01 * d.handleScale)
+                d.showHandles(devicePixelRatioF());
+        }
         d.view->Invalidate();
         d.view->InvalidateImmediate();
         d.controller.FlushViewEvents(d.context, d.view, true);
@@ -732,6 +857,21 @@ void ViewWidget::mousePressEvent(QMouseEvent* event) {
     }
     if (event->button() == Qt::RightButton) d.rightPress = event->position().toPoint();
     if (!d.view) return;
+    if (event->button() == Qt::LeftButton && !d.drawing && !d.handles.empty() && d.ready) {
+        // A handle under the mouse: drag it, instead of orbiting or selecting.
+        const double r = devicePixelRatioF();
+        const ScreenPoint mouse{event->position().x() * r, event->position().y() * r};
+        if (const auto i = handleAt(d.shownHandles, d.projection(), mouse, 8 * r)) {
+            setFocus(Qt::MouseFocusReason);  // so Escape reaches it
+            d.draggingHandle = i;
+            d.dragHandle = d.shownHandles[*i];
+            d.dragStart = d.rayAt(mouse.x, mouse.y);
+            d.dragBy = {};
+            d.showHandles(r);
+            update();
+            return;
+        }
+    }
     d.clickAdds = event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier);
     const double ratio = devicePixelRatioF();
     const Graphic3d_Vec2i p(static_cast<int>(event->position().x() * ratio),
@@ -755,6 +895,14 @@ void ViewWidget::mouseReleaseEvent(QMouseEvent* event) {
         }
         return;
     }
+    if (d.draggingHandle && event->button() == Qt::LeftButton) {
+        const std::string id = d.dragHandle.id;
+        d.draggingHandle.reset();
+        d.showHandles(devicePixelRatioF());
+        update();
+        emit handleDropped(id, d.dragBy);
+        return;
+    }
     // A right click that didn't move (much) asks for the menu; a right drag pans.
     if (event->button() == Qt::RightButton &&
         (event->position().toPoint() - d.rightPress).manhattanLength() < 4) {
@@ -772,6 +920,28 @@ void ViewWidget::mouseMoveEvent(QMouseEvent* event) {
     QOpenGLWidget::mouseMoveEvent(event);
     auto& d = *impl_;
     if (!d.view) return;
+    if (d.draggingHandle) {
+        const double r = devicePixelRatioF();
+        const auto& h = d.dragHandle;
+        if (const auto by =
+                handleDrag(h, d.dragStart, d.rayAt(event->position().x() * r, event->position().y() * r))) {
+            d.dragBy = *by;
+            emit handleDragged(h.id, *by);
+        }
+        return;
+    }
+    if (!d.drawing && !d.handles.empty() && d.ready && !(event->buttons() & Qt::LeftButton)) {
+        // Light up the handle under the mouse.
+        const double r = devicePixelRatioF();
+        const auto now = handleAt(d.shownHandles, d.projection(),
+                                  {event->position().x() * r, event->position().y() * r}, 8 * r);
+        if (now != d.hovered) {
+            d.hovered = now;
+            d.showHandles(r);
+            setCursor(now ? Qt::SizeAllCursor : Qt::ArrowCursor);
+            update();
+        }
+    }
     if (d.drawing) {
         auto p = d.planePoint(event->position(), devicePixelRatioF());
         if (p) p->add = event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier);

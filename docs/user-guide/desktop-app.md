@@ -86,6 +86,10 @@ the pen hole of the desk organizer ends:
 
 ![The desk organizer drawn as a wireframe](images/app-wireframe.png)
 
+**Dragging.** A picked body shows three arrows and a square: drag one to slide
+the body along x, y or z, or across the ground. See
+[Dragging a body](moving.md#dragging-a-body).
+
 **Picking.** Click a body to pick its step: it turns orange, and the feature tree
 and Properties show the same step. Ctrl-click (⌘-click) or Shift-click picks more
 than one, or un-picks one. Clicking empty space un-picks everything. Picking works
