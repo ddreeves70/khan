@@ -88,7 +88,7 @@ struct Item {
 
 using sketcher::Rule;
 
-enum class Tool { Select, Line, Circle, Arc, Point, Spline, SplineThrough };
+enum class Tool { Select, Line, Rectangle, Circle, Arc, Point, Spline, SplineThrough };
 
 bool isSpline(Tool tool) {
     return tool == Tool::Spline || tool == Tool::SplineThrough;
@@ -100,6 +100,9 @@ const char* toolHint(Tool tool, std::size_t clicks) {
             return "Click a line or point to pick it, or drag it to move it. Esc finishes the sketch.";
         case Tool::Line:
             return clicks == 0 ? "Line: click where it starts." : "Line: click where it ends. Esc stops.";
+        case Tool::Rectangle:
+            return clicks == 0 ? "Rectangle: click one corner."
+                               : "Rectangle: click the opposite corner. Esc stops.";
         case Tool::Circle:
             return clicks == 0 ? "Circle: click its center." : "Circle: click to set its size. Esc stops.";
         case Tool::Arc:
@@ -653,6 +656,14 @@ public:
                     // Keep going from the end, unless it closed onto a point already there.
                     if (line && !here.ref)
                         pending_.push_back({here.at, sketch::PointRef{*line, sketch::PointRole::End}});
+                }
+                break;
+            case Tool::Rectangle:
+                if (pending_.empty()) {
+                    pending_.push_back(here);
+                } else if (pending_[0].at.x != here.at.x && pending_[0].at.y != here.at.y) {
+                    addRectangle(pending_[0], here);
+                    pending_.clear();
                 }
                 break;
             case Tool::Circle:
@@ -1227,6 +1238,11 @@ private:
                     case Tool::Line:
                         show(sketch::LineShape{first, h.at});
                         break;
+                    case Tool::Rectangle: {
+                        const sketch::Point2 c[4] = {first, {h.at.x, first.y}, h.at, {first.x, h.at.y}};
+                        for (int i = 0; i < 4; ++i) show(sketch::LineShape{c[i], c[(i + 1) % 4]});
+                        break;
+                    }
                     case Tool::Circle:
                         if (distance(first, h.at) > 1e-9)
                             show(sketch::CircleShape{first, distance(first, h.at)});
@@ -1357,6 +1373,43 @@ private:
     std::optional<EntityId> addLine(const Pick& from, const Pick& to) {
         return add("Line", sketch::LineShape{from.at, to.at},
                    {{sketch::PointRole::Start, from}, {sketch::PointRole::End, to}});
+    }
+
+    // A rectangle from two opposite corners, as one undo step (see model::addRectangle()),
+    // with its two clicked corners joined to whatever they snapped onto.
+    void addRectangle(const Pick& corner, const Pick& opposite) {
+        auto change = [corner, opposite](sketch::Sketch& s, std::string& label) -> Diagnostics {
+            const auto r = model::addRectangle(s, corner.at, opposite.at);
+            // The first corner is Line1's start; the opposite one is Line2's end.
+            const std::pair<sketch::PointRef, Pick> joins[] = {
+                {{r.lines[0], sketch::PointRole::Start}, corner},
+                {{r.lines[1], sketch::PointRole::End}, opposite}};
+            for (const auto& [mine, pick] : joins) {
+                sketch::Constraint c;
+                if (pick.ref) {
+                    c.kind = sketch::ConstraintKind::Coincident;
+                    c.points = {mine, *pick.ref};
+                } else if (pick.on) {
+                    const auto* e = s.find(*pick.on);
+                    if (!e) continue;
+                    c.kind = std::holds_alternative<sketch::LineShape>(e->shape)
+                                 ? sketch::ConstraintKind::PointOnLine
+                             : std::holds_alternative<sketch::SplineShape>(e->shape)
+                                 ? sketch::ConstraintKind::PointOnSpline
+                                 : sketch::ConstraintKind::PointOnCircle;
+                    c.points = {mine};
+                    c.entities = {*pick.on};
+                } else {
+                    continue;
+                }
+                c.id = ConstraintId::generate();
+                c.name = model::uniqueSketchName(s, sketcher::constraintBase(c.kind));
+                s.constraints.push_back(std::move(c));
+            }
+            label = "Add rectangle (" + s.find(r.lines[0])->name + " to " + s.find(r.lines[3])->name + ")";
+            return {};
+        };
+        run(std::move(change));
     }
 
     void addCircle(const Pick& center, double radius) {
@@ -1578,6 +1631,10 @@ void registerSketcher(plugin::PluginContext& ctx) {
          {ToolItem{"kh.sketcher.line", "Line", Tool::Line,
                    "Draw lines: click where each one starts and ends. They join up as you go.",
                    icons::sketcher::line_svg},
+          ToolItem{
+              "kh.sketcher.rectangle", "Rectangle", Tool::Rectangle,
+              "Draw a rectangle: click one corner, then the opposite one. Its sides stay level and upright.",
+              icons::sketcher::rectangle_svg},
           ToolItem{"kh.sketcher.circle", "Circle", Tool::Circle,
                    "Draw a circle: click its center, then its edge.", icons::sketcher::circle_svg},
           ToolItem{"kh.sketcher.arc", "Arc", Tool::Arc,

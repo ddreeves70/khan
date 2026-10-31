@@ -253,7 +253,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 7 + 2 + 8 + 14);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
+    CHECK(buttons == 5 + 7 + 2 + 9 + 14);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
 }
@@ -2068,6 +2068,43 @@ TEST_CASE("Sketch > Import spline through points, and Reload from file after the
     app.ui.answerOpenFile = [](const QString&, const QString&) { return QString(); };
     app.click("kh.sketcher.import_poles");
     CHECK(sketchAt(app, 0).sketch().entities.size() == 1);
+}
+
+TEST_CASE("the Rectangle tool: two clicks make four joined lines, level and upright",
+          "[app][sketcher][rectangle]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.rectangle");
+    CHECK(app.menu("kh.sketcher.rectangle")->isChecked());
+    clickAt(flat, {0, 0, 0});
+    // While choosing the opposite corner, all four sides follow the mouse.
+    const QPointF p = flat->toScreen({40, 20, 0});
+    QMouseEvent move(QEvent::MouseMove, p, flat->mapToGlobal(p), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(flat, &move);
+    settle();
+    REQUIRE(app.host.overlays().find("kh.sketcher.edit.preview"));
+    CHECK(app.host.overlays().find("kh.sketcher.edit.preview")->points.size() == 8);  // 4 lines
+    clickAt(flat, {40, 20, 0});
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 4);
+    CHECK(s.constraints.size() == 8);
+    CHECK(app.doc().undoLabel() == "Add rectangle (Line1 to Line4)");
+    CHECK(app.menu("kh.sketcher.rectangle")->isChecked());  // ready for another
+
+    // A second one starting on the first one's corner is joined to it there.
+    clickAt(flat, {40, 20, 0});
+    clickAt(flat, {60, 35, 0});
+    const auto& t = sketchAt(app, 0).sketch();
+    REQUIRE(t.entities.size() == 8);
+    REQUIRE(t.constraints.size() == 17);
+    const auto& join = t.constraints.back();
+    CHECK(join.kind == sketch::ConstraintKind::Coincident);
+    CHECK(join.points[0] == sketch::PointRef{t.entities[4].id, sketch::PointRole::Start});
+    // Undo takes the whole second rectangle away in one step.
+    app.shell->undoAction()->trigger();
+    settle();
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 4);
 }
 
 TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",

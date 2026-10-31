@@ -500,3 +500,50 @@ TEST_CASE("importing and reloading say what's wrong with the file, in plain word
     REQUIRE(problems.size() == 1);
     CHECK(problems[0].message == "There's no spline called Spline9 in this sketch.");
 }
+
+TEST_CASE("sketch.add_rectangle adds four joined lines, level and upright, free to move 4 ways",
+          "[model][sketch][rectangle]") {
+    Drawing d;
+    REQUIRE(d.sk("sketch.add_rectangle", {{"from", sketch::Point2{40, 20}}, {"to", sketch::Point2{0, 0}}})
+                .empty());
+    const auto& s = d.step().sketch();
+    REQUIRE(s.entities.size() == 4);
+    CHECK(s.constraints.size() == 8);
+    CHECK(d.doc.undoLabel() == "Add rectangle (Line1 to Line4)");
+    // Each line starts where the one before ends, round the corners (40,20) (0,20) (0,0) (40,0).
+    for (std::size_t i = 0; i < 4; ++i) {
+        const auto& a = std::get<sketch::LineShape>(s.entities[i].shape);
+        const auto& b = std::get<sketch::LineShape>(s.entities[(i + 1) % 4].shape);
+        CHECK(a.end.x == b.start.x);
+        CHECK(a.end.y == b.start.y);
+    }
+    CHECK(std::get<sketch::LineShape>(s.entities[1].shape).end.x == 0);
+    CHECK(std::get<sketch::LineShape>(s.entities[1].shape).end.y == 0);
+    const auto report = d.rebuild();
+    REQUIRE(report.ok());
+    const auto* r = report.result(d.sketchId);
+    REQUIRE(r);
+    REQUIRE(r->sketch);
+    CHECK(r->sketch->freedom == 4);  // where it is, and how wide and tall
+    CHECK(r->sketch->redundant.empty());
+    // Two more dimensions and a fix make it fully constrained.
+    REQUIRE(d.sk("sketch.constrain",
+                 {{"kind", std::string("length")}, {"on", std::string("Line1")}, {"value", 50.0}})
+                .empty());
+    REQUIRE(d.sk("sketch.constrain",
+                 {{"kind", std::string("length")}, {"on", std::string("Line2")}, {"value", 30.0}})
+                .empty());
+    REQUIRE(
+        d.sk("sketch.constrain", {{"kind", std::string("fix")}, {"on", std::string("Line3.end")}}).empty());
+    const auto again = d.rebuild();
+    REQUIRE(again.ok());
+    CHECK(again.result(d.sketchId)->sketch->freedom == 0);
+
+    const auto flat =
+        d.sk("sketch.add_rectangle", {{"from", sketch::Point2{0, 0}}, {"to", sketch::Point2{10, 0}}});
+    REQUIRE(flat.size() == 1);
+    CHECK(flat[0].message ==
+          "A rectangle needs a width and a height: put the corners apart both left to right and up and down, "
+          "like "
+          "from=0,0 to=40,20.");
+}

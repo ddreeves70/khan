@@ -3,6 +3,7 @@
 /// @file
 /// The built-in commands that change features.
 
+#include <array>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -180,6 +181,27 @@ private:
     std::optional<sketch::Sketch> before_;
     std::optional<sketch::Sketch> after_;
 };
+
+/// The four lines of a rectangle added by addRectangle(), counterclockwise from the
+/// first corner: along the bottom (or top), up (or down) the far side, back, and
+/// down (or up) to the start. Each line starts where the one before ends.
+struct RectangleLines {
+    std::array<EntityId, 4> lines{};  ///< Line1 to Line4, as added.
+};
+
+/// Adds a rectangle to a sketch: four lines between two opposite corners, joined
+/// at the corners (Coincident) and kept level and upright (Horizontal and
+/// Vertical), so it can only move and change size: 4 ways.
+/// @code
+/// auto r = kh::model::addRectangle(sketch, {0, 0}, {40, 20});  // 40 x 20 mm
+/// @endcode
+/// @param sketch The sketch to add it to.
+/// @param corner One corner (mm).
+/// @param opposite The opposite corner (mm): it must differ in x and in y.
+/// @param construction True for helper geometry.
+/// @return The new lines' ids.
+RectangleLines addRectangle(sketch::Sketch& sketch, sketch::Point2 corner, sketch::Point2 opposite,
+                            bool construction = false);
 
 /// Makes a name no entity or constraint in a sketch has yet.
 /// @param sketch The sketch.
