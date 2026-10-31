@@ -15,7 +15,7 @@ TEST_CASE("the axes run along the view cube's edges, with their letters past the
     REQUIRE(all.size() == 12);
     const char* letters[] = {"X", "Y", "Z"};
     const char* names[] = {"x", "y", "z"};
-    const double h = plugin::kViewCubeHalfSize - plugin::kViewCubeBevel / 2;  // the bevels
+    const double h = plugin::kViewCubeHalfSize;  // its sides
     for (int i = 0; i < 3; ++i) {
         const auto& line = all[static_cast<std::size_t>(i)];
         const auto& label = all[static_cast<std::size_t>(i + 3)];
@@ -28,7 +28,8 @@ TEST_CASE("the axes run along the view cube's edges, with their letters past the
         const auto& from = line.overlay.points[0];
         const auto& to = line.overlay.points[1];
         // From the cube's (-x, -y, -z) corner, just outside it...
-        for (double c : {from.x, from.y, from.z}) CHECK(c < -h);  // clear of the bevels
+        // Outside its sides, so seen straight on (Top, Front, Right) they're beside it, not behind.
+        for (double c : {from.x, from.y, from.z}) CHECK(c < -h);
         // ...along one axis only, to past the cube's far side.
         const double along[] = {to.x, to.y, to.z};
         const double side[] = {from.x, from.y, from.z};

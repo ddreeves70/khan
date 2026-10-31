@@ -84,8 +84,10 @@ std::vector<AxesOverlay> axesOverlays(bool onCube, bool labels, bool atOrigin) {
                          {"y", "Y", {0, 1, 0}, {46, 155, 79}},
                          {"z", "Z", {0, 0, 1}, {52, 101, 196}}};
     // On the cube, in pixels: from the corner nearest (-x, -y, -z), along its
-    // edges just outside their bevels, and a little past them, like Fusion's.
-    const double corner = -(plugin::kViewCubeHalfSize - plugin::kViewCubeBevel / 2 + kCubeAxisGap);
+    // edges and a little past them, like Fusion's. Just outside its sides, not
+    // tucked into the bevels: looking straight at a side (Top, Front, Right), an
+    // axis tucked in is behind that side, and the student sees no axes at all.
+    const double corner = -(plugin::kViewCubeHalfSize + kCubeAxisGap);
     const double cubeEnd = plugin::kViewCubeHalfSize + kCubeAxisOvershoot;
     struct Set {
         const char* prefix;
@@ -104,8 +106,8 @@ std::vector<AxesOverlay> axesOverlays(bool onCube, bool labels, bool atOrigin) {
     for (const auto& set : sets) {
         auto at = [&set](const Axis& a, double t) {
             // The start, moved to `t` along the axis.
-            return kernel::Vec3{a.along.x ? t : set.start.x, a.along.y ? t : set.start.y,
-                                a.along.z ? t : set.start.z};
+            return kernel::Vec3{a.along.x != 0 ? t : set.start.x, a.along.y != 0 ? t : set.start.y,
+                                a.along.z != 0 ? t : set.start.z};
         };
         for (const auto& a : list) {
             plugin::Overlay line;

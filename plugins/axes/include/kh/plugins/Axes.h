@@ -42,8 +42,8 @@ std::vector<AxesOverlay> axesOverlays(bool onCube, bool labels, bool atOrigin);
 /// How long each axis is drawn at the origin, in mm.
 inline constexpr double kAxisLength = 25.0;
 
-/// How far outside the view cube's bevelled edges its axes are drawn, in screen
-/// pixels, so they don't flicker with the cube.
+/// How far outside the view cube's sides its axes are drawn, in screen pixels,
+/// so they show beside it when it's seen straight on, and don't flicker with it.
 inline constexpr double kCubeAxisGap = 1.0;
 
 /// How far past the view cube each of its axes reaches, in screen pixels.
