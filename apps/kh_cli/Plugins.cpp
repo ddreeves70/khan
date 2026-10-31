@@ -454,6 +454,7 @@ int runCommand(int argc, char** argv) {
             }
         }
         std::printf("\n");
+        printFormulas(f, design.lengthUnit(), folder ? "      " : "    ");
         printIssues(r->issues, "    ");
     }
     printParameters(design);
@@ -471,6 +472,15 @@ int runCommand(int argc, char** argv) {
         std::printf("wrote %s\n", savePath->c_str());
     }
     return report->ok() ? 0 : 1;
+}
+
+void printFormulas(const model::Feature& step, LengthUnit unit, const char* indent) {
+    for (const auto& n : step.numbers()) {
+        const auto text = step.formula(n.key);
+        if (text.empty()) continue;
+        const auto value = model::quantityText({step.number(n.key).value_or(0), n.dim}, unit);
+        std::printf("%s%s = %s  (%s)\n", indent, n.key.c_str(), text.c_str(), value.c_str());
+    }
 }
 
 void printParameters(const model::Document& doc) {

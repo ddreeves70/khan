@@ -1,6 +1,7 @@
 // The commands that change a design's parameters.
 
 #include <algorithm>
+#include <cmath>
 
 #include "kh/model/Commands.h"
 #include "kh/model/Document.h"
@@ -38,48 +39,79 @@ Diagnostic noSuchParameter(const ParameterTable& table, const std::string& name)
 // `renaming`, formulas that use renaming->first use renaming->second instead.
 // A dimension that worked before and wouldn't now is a problem, named in words
 // that start with `change`; one that didn't work before is left as it is.
-Diagnostics updateDimensions(const Document& doc, const ParameterValues& before, const ParameterValues& after,
-                             const std::string& change, const std::pair<std::string, std::string>* renaming,
-                             std::vector<std::unique_ptr<Feature>>& out) {
+// A formula with one name changed, if it uses that name.
+std::string renamedIn(const std::string& formula, const std::pair<std::string, std::string>* renaming) {
+    if (!renaming) return formula;
+    const auto e = Expression::parse(formula);
+    const auto refs = e.references();
+    if (std::find(refs.begin(), refs.end(), renaming->first) == refs.end()) return formula;
+    return e.renamed(renaming->first, renaming->second);
+}
+
+// Finds the steps whose numbers (sketch dimensions, and numbers like an
+// Extrude's distance) change when the parameters go from `before` to `after`,
+// and makes their new versions, ready to swap in. With `renaming`, formulas
+// that use renaming->first use renaming->second instead. A number that worked
+// before and wouldn't now is a problem, named in words that start with
+// `change`; one that didn't work before is left as it is.
+Diagnostics updateFormulas(const Document& doc, const ParameterValues& before, const ParameterValues& after,
+                           const std::string& change, const std::pair<std::string, std::string>* renaming,
+                           std::vector<std::unique_ptr<Feature>>& out) {
     out.clear();
+    auto broken = [&](const std::string& what, const EvalResult& now) {
+        out.clear();
+        return Diagnostics{error("parameter.breaks",
+                                 change + " would stop " + what + " working: " + now.issues.front().message)};
+    };
     for (std::size_t i = 0; i < doc.featureCount(); ++i) {
         const Feature& f = doc.featureAt(i);
-        if (f.type() != FeatureType::Sketch) continue;
-        const auto& step = static_cast<const SketchFeature&>(f);
-        sketch::Sketch s = step.sketch();
-        bool changed = false;
-        for (auto& c : s.constraints) {
-            if (c.expression.empty() || !sketch::isDimension(c.kind)) continue;
-            std::string formula = c.expression;
-            if (renaming) {
-                const auto e = Expression::parse(formula);
-                const auto refs = e.references();
-                if (std::find(refs.begin(), refs.end(), renaming->first) != refs.end()) {
-                    formula = e.renamed(renaming->first, renaming->second);
-                }
-            }
-            const std::string what = c.name + " in " + step.name();
-            const auto now = evalDimension(c.kind, formula, after, what);
+        std::unique_ptr<Feature> copy;  // made when something changes
+        auto edited = [&]() -> Feature& {
+            if (!copy) copy = f.clone();
+            return *copy;
+        };
+
+        // The step's own numbers.
+        for (const auto& n : f.numbers()) {
+            const std::string old = f.formula(n.key);
+            if (old.empty()) continue;
+            const std::string formula = renamedIn(old, renaming);
+            const std::string what = n.key + " in " + f.name();
+            const auto now = evalNumber(n.dim, n.positive, formula, after, what);
             if (now.ok()) {
-                if (now.value->value != c.value) {
-                    c.value = now.value->value;
+                if (now.value->value != f.number(n.key)) edited().setNumber(n.key, now.value->value);
+            } else if (evalNumber(n.dim, n.positive, old, before, what).ok()) {
+                return broken(what, now);
+            }
+            if (formula != old) edited().setFormula(n.key, formula);
+        }
+
+        // A sketch's dimensions.
+        if (f.type() == FeatureType::Sketch) {
+            const auto& step = static_cast<const SketchFeature&>(f);
+            sketch::Sketch s = step.sketch();
+            bool changed = false;
+            for (auto& c : s.constraints) {
+                if (c.expression.empty() || !sketch::isDimension(c.kind)) continue;
+                std::string formula = renamedIn(c.expression, renaming);
+                const std::string what = c.name + " in " + step.name();
+                const auto now = evalDimension(c.kind, formula, after, what);
+                if (now.ok()) {
+                    if (now.value->value != c.value) {
+                        c.value = now.value->value;
+                        changed = true;
+                    }
+                } else if (evalDimension(c.kind, c.expression, before, what).ok()) {
+                    return broken(what, now);
+                }
+                if (formula != c.expression) {
+                    c.expression = std::move(formula);
                     changed = true;
                 }
-            } else if (evalDimension(c.kind, c.expression, before, what).ok()) {
-                out.clear();
-                return {error("parameter.breaks",
-                              change + " would stop " + what + " working: " + now.issues.front().message)};
             }
-            if (formula != c.expression) {
-                c.expression = std::move(formula);
-                changed = true;
-            }
+            if (changed) static_cast<SketchFeature&>(edited()).setSketch(std::move(s));
         }
-        if (changed) {
-            auto copy = step.clone();
-            static_cast<SketchFeature&>(*copy).setSketch(std::move(s));
-            out.push_back(std::move(copy));
-        }
+        if (copy) out.push_back(std::move(copy));
     }
     return {};
 }
@@ -140,8 +172,8 @@ Diagnostics SetParameterCommand::apply(DocumentEditor& editor) {
         }
     }
     // Sketch dimensions that use it follow.
-    if (auto issues = updateDimensions(editor.document(), before, after,
-                                       "Changing " + name_ + " to " + expression_, nullptr, steps_);
+    if (auto issues = updateFormulas(editor.document(), before, after,
+                                     "Changing " + name_ + " to " + expression_, nullptr, steps_);
         !issues.empty()) {
         return issues;
     }
@@ -201,8 +233,8 @@ Diagnostics RenameParameterCommand::apply(DocumentEditor& editor) {
     ParameterTable trial = table;
     for (const auto& p : changed) trial.define(p);
     const std::pair<std::string, std::string> names{name_, to_};
-    if (auto issues = updateDimensions(editor.document(), table.evaluate(), trial.evaluate(),
-                                       "Renaming " + name_ + " to " + to_, &names, steps_);
+    if (auto issues = updateFormulas(editor.document(), table.evaluate(), trial.evaluate(),
+                                     "Renaming " + name_ + " to " + to_, &names, steps_);
         !issues.empty()) {
         return issues;
     }
@@ -235,6 +267,7 @@ Diagnostics DeleteParameterCommand::apply(DocumentEditor& editor) {
     const auto& doc = editor.document();
     for (std::size_t i = 0; i < doc.featureCount(); ++i) {
         const Feature& f = doc.featureAt(i);
+        for (const auto& key : numbersUsing(f, name_)) users.push_back(key + " in " + f.name());
         if (f.type() != FeatureType::Sketch) continue;
         for (const auto& d : dimensionsUsing(static_cast<const SketchFeature&>(f).sketch(), name_)) {
             users.push_back(d + " in " + f.name());
@@ -283,6 +316,60 @@ Diagnostics ReplaceParametersCommand::apply(DocumentEditor& editor) {
 
 void ReplaceParametersCommand::revert(DocumentEditor& editor) {
     editor.parameters() = old_;
+}
+
+// ---------------------------------------------------------------------------
+// SetNumberCommand
+// ---------------------------------------------------------------------------
+
+SetNumberCommand::SetNumberCommand(FeatureId step, std::string key, double value)
+    : id_(step), key_(std::move(key)), value_(value) {}
+
+SetNumberCommand::SetNumberCommand(FeatureId step, std::string key, std::string formula)
+    : id_(step), key_(std::move(key)), formula_(std::move(formula)) {}
+
+std::string SetNumberCommand::label() const {
+    return "Change " + key_ + " of " + name_;
+}
+
+Diagnostics SetNumberCommand::apply(DocumentEditor& editor) {
+    const auto& doc = editor.document();
+    const Feature* step = doc.find(id_);
+    if (!step) return {error("feature.not_found", "That step isn't in the design anymore.")};
+    name_ = step->name();
+    const auto list = step->numbers();
+    const auto it =
+        std::find_if(list.begin(), list.end(), [&](const StepNumber& n) { return n.key == key_; });
+    if (it == list.end()) {
+        std::vector<std::string> keys;
+        for (const auto& n : list) keys.push_back(n.key);
+        return {error("feature.number", list.empty() ? name_ + " has no numbers that can be changed this way."
+                                                     : name_ + " has no number called " + key_ +
+                                                           ". Its numbers are: " + listed(keys) + ".")};
+    }
+    const std::string what = key_ + " in " + name_;
+    double value = value_;
+    if (!formula_.empty()) {
+        const auto r = evalNumber(it->dim, it->positive, formula_, doc.parameters().evaluate(), what);
+        if (!r.ok()) return r.issues;
+        value = r.value->value;
+    } else if (!std::isfinite(value)) {
+        // (kh::model's commands get NaN when neither, or both, were given.)
+        return {error("feature.number", "Give " + what +
+                                            " one value, like value=10, or one formula, like "
+                                            "formula=\"wall * 2\". Not both.")};
+    } else if (it->positive && value <= 0) {
+        return {error("dimension.size", what + " must be more than 0 mm.")};
+    }
+    auto copy = step->clone();
+    copy->setNumber(key_, value);
+    copy->setFormula(key_, formula_);
+    other_ = editor.replace(std::move(copy));
+    return {};
+}
+
+void SetNumberCommand::revert(DocumentEditor& editor) {
+    if (other_) other_ = editor.replace(std::move(other_));
 }
 
 }  // namespace kh::model

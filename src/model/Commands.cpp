@@ -154,6 +154,15 @@ Diagnostics EditFeatureCommand::apply(DocumentEditor& editor) {
                       "Another step is already called " + other_->name() + ". Pick a different name.")};
     }
     if (auto issues = checkInputs(doc, *other_, *at); !issues.empty()) return issues;
+    // A number typed over (changed, with its formula left as it was) no longer
+    // comes from the formula.
+    for (const auto& n : other_->numbers()) {
+        const std::string text = other_->formula(n.key);
+        if (!text.empty() && text == current.formula(n.key) &&
+            other_->number(n.key) != current.number(n.key)) {
+            other_->setFormula(n.key, {});
+        }
+    }
 
     other_ = editor.replace(std::move(other_));  // swap in; keep the old version for revert
     return {};

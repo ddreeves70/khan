@@ -19,6 +19,7 @@ volumes and sketch lengths in the design's unit. Positions and sizes are written
 | [`feature.delete`](#featuredelete) | Deletes a step |
 | [`feature.duplicate`](#featureduplicate) | Copies a step, and the steps it uses |
 | [`feature.set_material`](#featureset_material) | Picks what a body is made of |
+| [`feature.set_value`](#featureset_value) | Changes a step's number, like an extrude's distance, to a number or a formula |
 | [`feature.suppress`](#featuresuppress) | Turns steps off, or back on |
 | [`folder.add`](#folderadd) | Puts steps in a folder in the feature tree |
 | [`folder.rename`](#folderrename) | Renames a folder |
@@ -318,6 +319,72 @@ $ kh_cli demo tag.khan
 wrote tag.khan
 $ kh_cli run --open tag.khan feature.set_material feature=Plate material=gold
 error [material.unknown]: There is no material called gold. See the list with kh_cli materials, or add your own with material.define.
+```
+
+## feature.set_value
+
+Changes one of a step's numbers, like how far an extrude goes or a box's size.
+Give it a number, or a formula that uses [parameters](#parameterset): then the
+number follows the parameters when they change. `kh_cli` lists a number that
+comes from a formula under its step, with what it works out to.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `feature` | step name | yes | The step |
+| `setting` | text | yes | Which number (see below) |
+| `value` | number | `value` or `formula` | Its new number: mm, or degrees for `angle`. This replaces a formula it had |
+| `formula` | text | `value` or `formula` | A formula with units, like `wall * 4` or `30 deg` |
+
+| Step | Its numbers |
+| --- | --- |
+| Extrude | `distance` |
+| Box | `size_x`, `size_y`, `size_z` (more than 0), `corner_x`, `corner_y`, `corner_z` |
+| Cylinder | `radius`, `height` (more than 0), `base_x`, `base_y`, `base_z` |
+| Move | `offset_x`, `offset_y`, `offset_z`, `center_x`, `center_y`, `center_z`, and `angle` (an angle) |
+
+A plate that's 4 walls thick:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save plate.khan parameter.set name=wall value="3 mm"
+plate: 0 steps
+Parameters:
+  wall = 3 mm
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan feature.add_box size=40,20,5
+plate: 1 step
+  Box1         ok  volume 4000.00 mm^3  mass 4.96 g (PLA)
+Parameters:
+  wall = 3 mm
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan feature.set_value feature=Box1 setting=size_z formula="wall * 4"
+plate: 1 step
+  Box1         ok  volume 9600.00 mm^3  mass 11.90 g (PLA)
+    size_z = wall * 4  (12 mm)
+Parameters:
+  wall = 3 mm
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan parameter.set name=wall value="2 mm"
+plate: 1 step
+  Box1         ok  volume 6400.00 mm^3  mass 7.94 g (PLA)
+    size_z = wall * 4  (8 mm)
+Parameters:
+  wall = 2 mm
+wrote plate.khan
+```
+
+Each step has only its own numbers, and a size must be more than 0 mm:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open plate.khan feature.set_value feature=Box1 setting=radius value=3
+error [feature.number]: Box1 has no number called radius. Its numbers are: corner_x, corner_y, corner_z, size_x, size_y and size_z.
+```
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open plate.khan parameter.set name=wall value="0 mm"
+error [parameter.breaks]: Changing wall to 0 mm would stop size_z in Box1 working: size_z in Box1 would be 0 mm (wall * 4), but it must be more than 0 mm.
 ```
 
 ## feature.suppress
@@ -1399,8 +1466,8 @@ wrote tag.khan
 
 Adds a [parameter](../user-guide/parameters.md): a value with a name, like
 `wall = 3 mm`, that other parameters can use, like `height = wall * 4`. Setting
-a name that's already there changes it, and every parameter and
-[sketch dimension](#sketchset_value) that uses it follows. `kh_cli` lists the parameters after the steps, with what each formula
+a name that's already there changes it, and every parameter,
+[sketch dimension](#sketchset_value) and [step number](#featureset_value) that uses it follows. `kh_cli` lists the parameters after the steps, with what each formula
 works out to.
 
 | Setting | Kind | Needed | Meaning |
@@ -1461,8 +1528,8 @@ error [parameter.breaks]: Changing wall to 2 would stop height working: Khan can
 
 ## parameter.rename
 
-Gives a parameter a new name. Every formula that uses it, in other parameters
-and in sketch dimensions, changes to the new name, so nothing breaks.
+Gives a parameter a new name. Every formula that uses it, in other parameters,
+sketch dimensions and steps' numbers, changes to the new name, so nothing breaks.
 
 | Setting | Kind | Needed | Meaning |
 | --- | --- | --- | --- |
@@ -1492,8 +1559,8 @@ wrote box.khan
 
 ## parameter.delete
 
-Removes a parameter. One that another parameter or a sketch dimension uses
-can't be removed: change or delete that one first.
+Removes a parameter. One that another parameter, a sketch dimension or a step's
+number uses can't be removed: change or delete that one first.
 
 | Setting | Kind | Needed | Meaning |
 | --- | --- | --- | --- |

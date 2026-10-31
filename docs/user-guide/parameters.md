@@ -6,9 +6,9 @@ sizes of a part names, and other values can be worked out from them, like
 too. That's what makes a design *parametric*: you change one number, not ten.
 
 Parameters are saved in the design, and [sketch dimensions](#using-parameters-in-a-sketch)
-can use them. Soon step sizes (like how far an extrude goes) will too, and a
-**Parameters** panel in the desktop app will list them. Today you add them with
-[`kh_cli`](../cli/commands.md#parameterset).
+and [steps' numbers](#using-parameters-in-steps), like how far an extrude goes,
+can use them. Soon a **Parameters** panel in the desktop app will list them.
+Today you add them with [`kh_cli`](../cli/commands.md#parameterset).
 
 ## An example
 
@@ -147,6 +147,53 @@ number like `12` is refused: write `12 mm`. Khan also refuses a parameter
 change that would make a length 0 mm or less. In the desktop app, a dimension
 with a formula says so when you point at its number; typing a new number there
 replaces the formula.
+
+## Using parameters in steps
+
+A step's numbers, like an extrude's distance, a box's size or a cylinder's
+radius, can have formulas too: use
+[`feature.set_value`](../cli/commands.md#featureset_value) with a `formula`.
+Here the plate from the sketch above is extruded one wall thick:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open stand.khan --save stand.khan feature.add_extrude sketch=Sketch1 distance=5
+stand: 2 steps
+  Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
+  Extrude1     ok  volume 5610.00 mm^3  mass 6.96 g (PLA)
+Parameters:
+  wall   = 3 mm
+  height = wall * 4 + 1 in  (37.4 mm)
+wrote stand.khan
+$ kh_cli run --open stand.khan --save stand.khan feature.set_value feature=Extrude1 setting=distance formula=wall
+stand: 2 steps
+  Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
+  Extrude1     ok  volume 3366.00 mm^3  mass 4.17 g (PLA)
+    distance = wall  (3 mm)
+Parameters:
+  wall   = 3 mm
+  height = wall * 4 + 1 in  (37.4 mm)
+wrote stand.khan
+```
+
+Now one number, `wall`, sets the plate's width, height and thickness:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open stand.khan --save stand.khan parameter.set name=wall value="2 mm"
+stand: 2 steps
+  Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
+  Extrude1     ok  volume 1336.00 mm^3  mass 1.66 g (PLA)
+    distance = wall  (2 mm)
+Parameters:
+  wall   = 2 mm
+  height = wall * 4 + 1 in  (33.4 mm)
+wrote stand.khan
+```
+
+That's 20 mm × 33.4 mm × 2 mm = 1336 mm^3. In the desktop app's Properties
+panel, a number with a formula says so when you point at it; typing a new number
+there replaces the formula, and the other numbers keep theirs.
 
 ## Tips
 

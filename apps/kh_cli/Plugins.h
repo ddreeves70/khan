@@ -24,6 +24,10 @@ int help(int argc, char** argv);
 // One line about a solved sketch, like "4 lines, 8 constraints, fully constrained".
 std::string sketchSummary(const sketch::Sketch& sketch, int freedom);
 
+// Lists a step's numbers that come from formulas, one per line under the step:
+// "    distance = wall * 4  (12 mm)".
+void printFormulas(const model::Feature& step, LengthUnit unit, const char* indent);
+
 // Lists the design's parameters, if it has any, after its steps: each with its
 // formula and, if that isn't just the value, what it works out to.
 void printParameters(const model::Document& doc);

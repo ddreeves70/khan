@@ -4,6 +4,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <numbers>
 #include <sstream>
 #include <utility>
@@ -86,6 +87,7 @@ std::string joined(const std::vector<std::string>& items) {
 // ---------------------------------------------------------------------------
 
 constexpr double kDegrees = std::numbers::pi / 180.0;
+constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();  // "no number given"
 
 // What a constraint kind needs, in order: 'P' a point, 'E' an entity; and an example.
 struct Needs {
@@ -1151,6 +1153,42 @@ CommandRegistry makeBuiltin() {
                       label = "Delete " + name;
                       return {};
                   });
+          });
+
+    r.add({"feature.set_value",
+           "Change a step's number",
+           "Changes one of a step's numbers, like an extrude's distance or a box's size, to a number or to a "
+           "formula that uses parameters. A number with a formula follows the parameters when they change.",
+           {{"feature", ArgType::FeatureRef, "The step, like Extrude1.", true, {}},
+            {"setting",
+             ArgType::Text,
+             "Which number: distance (extrude); size_x, size_y, size_z, corner_x, corner_y, corner_z (box); "
+             "radius, height, base_x, base_y, base_z (cylinder); offset_x, offset_y, offset_z, center_x, "
+             "center_y, center_z, angle (move).",
+             true,
+             {}},
+            {"value", ArgType::Number, "Its new number: mm, or degrees for an angle.", false, {}},
+            {"formula",
+             ArgType::Text,
+             "Instead of value: a formula with units that may use parameters, like wall * 4.",
+             false,
+             {}}}},
+          [](const Document& doc, const Args& a) -> std::unique_ptr<Command> {
+              const auto id = argFeature(a, "feature");
+              const std::string key = argText(a, "setting");
+              if (a.count("formula")) {
+                  if (a.count("value")) return std::make_unique<SetNumberCommand>(id, key, kNaN);
+                  return std::make_unique<SetNumberCommand>(id, key, argText(a, "formula"));
+              }
+              if (!a.count("value")) return std::make_unique<SetNumberCommand>(id, key, kNaN);
+              double value = argNumber(a, "value");
+              // Angles are typed in degrees.
+              if (const auto* f = doc.find(id)) {
+                  for (const auto& n : f->numbers()) {
+                      if (n.key == key && n.dim == kAngle) value *= kDegrees;
+                  }
+              }
+              return std::make_unique<SetNumberCommand>(id, key, value);
           });
 
     r.add({"feature.rename",

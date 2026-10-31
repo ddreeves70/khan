@@ -74,7 +74,9 @@ class PluginContext;
 /// parameter.set, parameter.rename and parameter.delete commands). Version 30
 /// added dimensions worked out from formulas (sketch::Constraint::expression,
 /// kh/model/Formulas.h, and formula= on sketch.constrain and sketch.set_value).
-inline constexpr int kPluginApiVersion = 30;
+/// Version 31 added steps' numbers by name, with formulas (Feature::numbers(),
+/// number(), setNumber(), formulas(), SetNumberCommand and feature.set_value).
+inline constexpr int kPluginApiVersion = 31;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

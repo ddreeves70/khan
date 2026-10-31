@@ -10,6 +10,14 @@ Dimension dimensionOf(sketch::ConstraintKind kind) {
 
 EvalResult evalDimension(sketch::ConstraintKind kind, std::string_view formula, const ParameterValues& values,
                          std::string_view what) {
+    const bool mustBePositive =
+        kind == sketch::ConstraintKind::Length || kind == sketch::ConstraintKind::Distance ||
+        kind == sketch::ConstraintKind::Radius || kind == sketch::ConstraintKind::Diameter;
+    return evalNumber(dimensionOf(kind), mustBePositive, formula, values, what);
+}
+
+EvalResult evalNumber(const Dimension& wanted, bool mustBePositive, std::string_view formula,
+                      const ParameterValues& values, std::string_view what) {
     const std::string name(what);
     EvalResult r = Expression::parse(formula).eval(values.lookup());
     if (!r.ok()) {
@@ -17,7 +25,6 @@ EvalResult evalDimension(sketch::ConstraintKind kind, std::string_view formula, 
         for (auto& d : r.issues) d.message = name + " uses " + std::string(formula) + ". " + d.message;
         return r;
     }
-    const Dimension wanted = dimensionOf(kind);
     if (r.value->dim != wanted) {
         const bool angle = wanted == kAngle;
         const std::string got = dimensionName(r.value->dim);
@@ -34,9 +41,6 @@ EvalResult evalDimension(sketch::ConstraintKind kind, std::string_view formula, 
         r.value.reset();
         return r;
     }
-    const bool mustBePositive =
-        kind == sketch::ConstraintKind::Length || kind == sketch::ConstraintKind::Distance ||
-        kind == sketch::ConstraintKind::Radius || kind == sketch::ConstraintKind::Diameter;
     if (mustBePositive && r.value->value <= 0) {
         r.issues = {{"dimension.size",
                      Severity::Error,
@@ -46,6 +50,15 @@ EvalResult evalDimension(sketch::ConstraintKind kind, std::string_view formula, 
         r.value.reset();
     }
     return r;
+}
+
+std::vector<std::string> numbersUsing(const Feature& step, std::string_view name) {
+    std::vector<std::string> out;
+    for (const auto& [key, text] : step.formulas()) {
+        const auto refs = Expression::parse(text).references();
+        if (std::find(refs.begin(), refs.end(), name) != refs.end()) out.push_back(key);
+    }
+    return out;
 }
 
 std::vector<std::string> dimensionsUsing(const sketch::Sketch& sketch, std::string_view name) {

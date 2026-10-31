@@ -484,13 +484,44 @@ json featureToJson(const Feature& f) {
             break;
         }
     }
+    if (!f.formulas().empty()) {
+        // Only steps with numbers worked out from formulas get this, so other
+        // steps save exactly as before. "params" still has the numbers.
+        json formulas = json::object();
+        for (const auto& [key, text] : f.formulas()) formulas[key] = text;
+        j["formulas"] = formulas;
+    }
     return j;
 }
 
-// Builds a feature from its JSON. On failure sets `why` (technical) and, for an
-// unknown type, `unknownType`.
+std::unique_ptr<Feature> stepFromJson(const json& j, const FeatureId& id, std::string& why,
+                                      std::string& unknownType);
+
+// Builds a feature from its JSON, with the formulas its numbers come from. On
+// failure sets `why` (technical) and, for an unknown type, `unknownType`.
 std::unique_ptr<Feature> featureFromJson(const json& j, const FeatureId& id, std::string& why,
                                          std::string& unknownType) {
+    auto f = stepFromJson(j, id, why, unknownType);
+    if (!f || !j.contains("formulas")) return f;
+    const auto& formulas = j["formulas"];
+    if (!formulas.is_object()) {
+        why = "step " + f->name() + ": formulas isn't a list of names and formulas";
+        return nullptr;
+    }
+    for (const auto& [key, text] : formulas.items()) {
+        // A key this Khan doesn't know (from a newer Khan) is kept, so saving doesn't lose it.
+        if (!text.is_string()) {
+            why = "step " + f->name() + ": the formula for " + key + " isn't text";
+            return nullptr;
+        }
+        f->setFormula(key, text.get<std::string>());
+    }
+    return f;
+}
+
+// Builds a feature from its JSON, without its formulas (see featureFromJson()).
+std::unique_ptr<Feature> stepFromJson(const json& j, const FeatureId& id, std::string& why,
+                                      std::string& unknownType) {
     if (!j.is_object() || !j.contains("type") || !j["type"].is_string() || !j.contains("name") ||
         !j["name"].is_string()) {
         why = "feature " + id.toString() + " has no type or name";

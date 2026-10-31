@@ -663,7 +663,21 @@ private:
             const double mm = fromUnit(v, unit_);
             edit(key, [set, mm](model::Feature& g) { set(g, mm); });
         });
-        updaters_.push_back([this, s, get](const model::Feature& g) { s->setValue(toUnit(get(g), unit_)); });
+        updaters_.push_back([this, s, get, key](const model::Feature& g) {
+            s->setValue(toUnit(get(g), unit_));
+            s->setToolTip(formulaTip(g, key));
+        });
+    }
+
+    // Says where a number comes from, if it's worked out from a formula.
+    // @param key The box's name, like "distance" or "size.x" (the number's key is "size_x").
+    QString formulaTip(const model::Feature& g, QString key) const {
+        const auto text = g.formula(key.replace(QLatin1Char('.'), QLatin1Char('_')).toStdString());
+        if (text.empty()) return {};
+        return tr("Worked out from %1. Change the parameters it uses to change it, or type a number to use "
+                  "that "
+                  "instead.")
+            .arg(qs(text));
     }
 
     void addVec3(QFormLayout* form, const QString& key, const QString& label, bool positive,
@@ -703,6 +717,7 @@ private:
             xyz[0]->setValue(shown(p.x));
             xyz[1]->setValue(shown(p.y));
             xyz[2]->setValue(shown(p.z));
+            for (auto* box : xyz) box->setToolTip(formulaTip(g, box->objectName()));
         });
     }
 
