@@ -16,6 +16,7 @@ tag.khan
 ├── timeline.json                    the steps, in order
 ├── materials.json                   the design's own materials (only if it has any)
 ├── folders.json                     the feature tree's folders (only if it has any)
+├── parameters.json                  named values like wall = 3 mm (only if it has any)
 └── features/
     ├── 926bde46-....json            one file per step
     ├── f153a811-....json
@@ -205,6 +206,40 @@ Folders only arrange the feature tree; they never change what's built. They are
 added after the steps, through the same command a student uses (`folder.add`),
 so the same checks run.
 
+### parameters.json
+
+Only a design with [parameters](user-guide/parameters.md) has this file:
+
+```json
+{
+  "parameters": [
+    {
+      "expression": "3 mm",
+      "id": "98104fd6-668c-4e5e-b457-bcd28e6e0511",
+      "name": "wall",
+      "note": "How thick the walls are"
+    },
+    {
+      "expression": "wall * 4",
+      "id": "d46c5462-e9c0-4a29-add0-0b294fabc63c",
+      "name": "height"
+    }
+  ]
+}
+```
+
+| Key | Meaning |
+| --- | --- |
+| `id` | The parameter's UUID. It stays the same when the parameter is renamed. |
+| `name` | Its name: letters, digits and `_`, starting with a letter. No two names differ only in upper and lower case. |
+| `expression` | Its formula, exactly as typed, with its units: `3 mm`, `1.5 in`, `wall * 4`. Not converted to mm, so it reads back the way the student wrote it. |
+| `note` | What it's for (optional; left out when empty). |
+
+Parameters are listed in the order they were added, not the order they're
+worked out in. A formula is stored even if it has a problem (it uses a name
+that isn't there, say), so the design still opens and the student can fix it.
+Names must be ones a parameter can have, or the file counts as damaged.
+
 ## Same design, same bytes
 
 Saving a design that hasn't changed gives exactly the same file, so Git shows no
@@ -218,7 +253,7 @@ work:
 
 ## Opening a file
 
-Khan reads `manifest.json`, then `materials.json` if it's there, then
+Khan reads `manifest.json`, then `parameters.json` and `materials.json` if they're there, then
 `timeline.json`, then each step, then `folders.json` if it's there. Each step is
 added through the normal add-step command, so the same checks run as when a student
 builds the design. The opened design has no undo history and no unsaved changes.
@@ -231,7 +266,7 @@ If something is wrong, Khan opens nothing and explains why:
 | `file.not_khan` | Not a zip, no `manifest.json`, or `format` isn't `"khan"`. |
 | `file.too_new` | `schema` is higher than this Khan reads. The message says to update Khan. |
 | `file.unknown_step` | A step's `type` is one this Khan doesn't know (maybe from a plugin). |
-| `file.damaged` | Anything else: bad JSON, a missing step file, a missing number, an input that doesn't exist, a material without its id, name, density or color, a folder whose steps aren't next to each other. |
+| `file.damaged` | Anything else: bad JSON, a missing step file, a missing number, an input that doesn't exist, a material without its id, name, density or color, a folder whose steps aren't next to each other, a parameter without its id, name or expression, or with a name it can't have. |
 | `file.cant_write` | (Saving) The folder is missing, read-only or full. |
 
 Saving writes `<name>.saving` first and then renames it over the old file, so a
@@ -249,6 +284,8 @@ failed save never damages the last good copy.
   won't open a design that has them, and says the file is damaged. The same goes
   for `symmetric`. A spline's
   `source` is an optional key an older Khan skips (and drops if it saves).
+  Parameters were added like materials (Oct 2026): an older Khan opens the
+  design without them, and drops them if it saves the file again.
 - Anything an older Khan would read wrongly bumps `schema` (in
   `src/core/include/kh/core/Version.h`) and adds a migration from the old schema.
 - `tests/files/` holds files saved with each schema. They are checked in and never
@@ -260,8 +297,8 @@ failed save never damages the last good copy.
 
 From the design document's file format plan, these come later:
 
-- `parameters.json` (named parameters, Phase 1) and `components.json` (assemblies,
-  Phase 3).
+- `components.json` (assemblies, Phase 3).
+- Sketch dimensions and step values that use parameters (Phase 2, next).
 - A `cache/` folder with built geometry for faster opening.
 - Keeping keys this Khan doesn't understand when it saves a file from a newer
   minor version. Today they are dropped.

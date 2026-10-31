@@ -47,6 +47,10 @@ std::vector<Material>& DocumentEditor::materials() {
     return doc_.materials_;
 }
 
+ParameterTable& DocumentEditor::parameters() {
+    return doc_.parameters_;
+}
+
 std::vector<Folder>& DocumentEditor::folders() {
     return doc_.folders_;
 }

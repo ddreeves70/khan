@@ -28,6 +28,9 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command folder.rename
            command material.define
            command material.delete
+           command parameter.delete
+           command parameter.rename
+           command parameter.set
            command sketch.add_arc
            command sketch.add_circle
            command sketch.add_line

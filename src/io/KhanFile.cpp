@@ -26,6 +26,7 @@
 //   features/<id>.json   one file per feature: id, type, name, inputs, params
 //   materials.json       the design's own materials (only if it has any)
 //   folders.json         the feature tree's folders (only if it has any)
+//   parameters.json      named values like wall = 3 mm (only if it has any)
 //
 // Lengths are millimeters. JSON is written with sorted keys and two-space indents,
 // and every zip entry gets the same fixed timestamp, so saving the same design
@@ -623,6 +624,17 @@ Diagnostics writeBytes(const Document& doc, Bytes& out) {
         entries.emplace_back("materials.json", dump(json{{"materials", materials}}));
         files.push_back("materials.json");
     }
+    if (!doc.parameters().empty()) {
+        // Only designs with parameters get this file, so other designs save exactly as before.
+        json list = json::array();
+        for (const auto& p : doc.parameters().parameters()) {
+            json pj{{"id", p.id.toString()}, {"name", p.name}, {"expression", p.expression}};
+            if (!p.note.empty()) pj["note"] = p.note;
+            list.push_back(std::move(pj));
+        }
+        entries.emplace_back("parameters.json", dump(json{{"parameters", list}}));
+        files.push_back("parameters.json");
+    }
     for (std::size_t i = 0; i < doc.featureCount(); ++i) {
         const Feature& f = doc.featureAt(i);
         timeline.push_back({{"id", f.id().toString()}, {"suppressed", f.suppressed()}});
@@ -808,6 +820,32 @@ OpenResult readBytes(const Bytes& data, std::string_view displayName) {
         if (const auto unit = u.is_string() ? parseLengthUnit(u.get<std::string>()) : std::nullopt) {
             doc->execute(std::make_unique<model::SetUnitsCommand>(*unit));
         }
+    }
+
+    // Parameters, before the steps that use them, as they were saved: one with a
+    // problem stays, so the student can see it and fix it.
+    // (A design without parameters has no parameters.json.)
+    if (const auto parameters = readJson("parameters.json"); parameters) {
+        const json list = parameters->value("parameters", json());
+        if (!list.is_array()) return fail(damaged(displayName, "parameters.json has no parameter list"));
+        std::vector<model::Parameter> read;
+        for (const auto& pj : list) {
+            const auto id = pj.is_object() ? ParamId::parse(pj.value("id", "")) : std::nullopt;
+            if (!id || !pj.contains("name") || !pj["name"].is_string() || !pj.contains("expression") ||
+                !pj["expression"].is_string()) {
+                return fail(damaged(displayName,
+                                    "a parameter in parameters.json is missing its id, name or expression"));
+            }
+            model::Parameter p{*id, pj["name"].get<std::string>(), pj["expression"].get<std::string>(), {}};
+            if (pj.contains("note") && pj["note"].is_string()) p.note = pj["note"].get<std::string>();
+            read.push_back(std::move(p));
+        }
+        if (auto issues = doc->execute(std::make_unique<model::ReplaceParametersCommand>(std::move(read)));
+            !issues.empty()) {
+            return fail(damaged(displayName, "parameters: " + issues.front().message));
+        }
+    } else if (why.rfind("missing", 0) != 0) {
+        return fail(damaged(displayName, why));  // there, but not readable
     }
 
     // The design's own materials, before the steps that use them.

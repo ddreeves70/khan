@@ -1163,6 +1163,46 @@ CommandRegistry makeBuiltin() {
               return std::make_unique<DeleteMaterialCommand>(argText(a, "name"));
           });
 
+    r.add({"parameter.set",
+           "Set parameter",
+           "Adds a named value, like wall = 3 mm, or changes the one with that name. Its value can use other "
+           "parameters, like wall * 4.",
+           {{"name",
+             ArgType::Text,
+             "The parameter's name: letters, digits and _, starting with a letter.",
+             true,
+             {}},
+            {"value",
+             ArgType::Text,
+             "Its value or formula, like 3 mm, 30 deg, 4 or wall * 2 + 1 mm. Units: mm, cm, m, in, ft, deg, "
+             "rad.",
+             true,
+             {}},
+            {"note", ArgType::Text, "What it's for. Leave it out to keep the note it has.", false, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              std::optional<std::string> note;
+              if (a.count("note")) note = argText(a, "note");
+              return std::make_unique<SetParameterCommand>(argText(a, "name"), argText(a, "value"),
+                                                           std::move(note));
+          });
+
+    r.add({"parameter.rename",
+           "Rename parameter",
+           "Gives a parameter a new name. Every value that uses it changes to the new name.",
+           {{"name", ArgType::Text, "The parameter's name now.", true, {}},
+            {"to", ArgType::Text, "Its new name.", true, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<RenameParameterCommand>(argText(a, "name"), argText(a, "to"));
+          });
+
+    r.add({"parameter.delete",
+           "Delete parameter",
+           "Removes a parameter. No other value may be using it.",
+           {{"name", ArgType::Text, "The parameter's name.", true, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<DeleteParameterCommand>(argText(a, "name"));
+          });
+
     return r;
 }
 

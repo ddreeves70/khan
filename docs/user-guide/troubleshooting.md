@@ -76,6 +76,23 @@ The desktop app shows these in the status bar after **Edit > Paste**:
 | `paste.damaged` | The copied text was changed or cut short | Copy the steps again |
 | `paste.unknown_step` | A copied step is a kind this Khan doesn't know | Update Khan, or add the plugin that makes that kind of step |
 
+## A parameter was refused
+
+Each message says what's wrong and how to fix it. The codes:
+
+| Code | Meaning | Fix |
+| --- | --- | --- |
+| `parameter.name` | The name can't be a parameter's | Use letters, digits and `_`, starting with a letter; not a unit like `mm` or a function like `sin` |
+| `parameter.name_taken` | Another parameter has that name, maybe in other upper and lower case | Pick another name |
+| `expression.unknown_name` | The formula uses a name that isn't a parameter | Check the spelling (case counts), or add that parameter first |
+| `expression.units` | The units don't fit, like a length plus a plain number | Give both the same kind of unit: `wall + 2 mm` |
+| `expression.unit` | A unit Khan doesn't know, like `kg` | Use `mm`, `cm`, `m`, `in`, `ft`, `deg` or `rad` |
+| `parameter.loop` | Parameters use each other in a loop | Change one of them to a number |
+| `parameter.breaks` | The change would stop another parameter working | Fix that one first, as the message says |
+| `parameter.in_use` | Another parameter uses the one you're deleting | Change or delete that one first |
+
+The [Parameters](parameters.md) page has what a formula can have.
+
 ## A plugin didn't load
 
 Run [`kh_cli plugins`](../cli/plugins.md): it lists each plugin with the reason.

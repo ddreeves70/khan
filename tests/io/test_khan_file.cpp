@@ -221,6 +221,73 @@ TEST_CASE("a damaged materials file is refused with a plain message", "[io][mate
     CHECK(firstCode(opened) == "file.damaged");
 }
 
+TEST_CASE("parameters survive saving and opening", "[io][parameters]") {
+    auto doc = makeDesign();
+    REQUIRE(doc->execute(std::make_unique<model::SetParameterCommand>("wall", "3 mm", "How thick")).empty());
+    REQUIRE(doc->execute(std::make_unique<model::SetParameterCommand>("height", "wall * 4")).empty());
+
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+    CHECK(readZip(bytes).count("parameters.json"));
+    auto opened = io::readBytes(bytes, "tag.khan");
+    REQUIRE(opened.ok());
+    const auto& back = *opened.document;
+    REQUIRE(back.parameters().parameters().size() == 2);
+    for (std::size_t i = 0; i < 2; ++i) {
+        const auto& a = doc->parameters().parameters()[i];
+        const auto& b = back.parameters().parameters()[i];
+        CHECK(a.id == b.id);
+        CHECK(a.name == b.name);
+        CHECK(a.expression == b.expression);
+        CHECK(a.note == b.note);
+    }
+    CHECK(back.parameters().evaluate().find("height")->value->value == 12);
+    CHECK_FALSE(back.canUndo());  // loading parameters isn't an undoable step
+
+    io::Bytes again;
+    REQUIRE(io::writeBytes(back, again).empty());
+    CHECK(again == bytes);
+}
+
+TEST_CASE("a design without parameters has no parameters file", "[io][parameters]") {
+    auto doc = makeDesign();
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+    CHECK_FALSE(readZip(bytes).count("parameters.json"));
+}
+
+TEST_CASE("a parameter with a problem still opens, so it can be fixed", "[io][parameters]") {
+    const std::string list = R"({"parameters":[{"id":"6f1c2a52-3d4e-4f60-8a7b-9c0d1e2f3a4b","name":"height",)"
+                             R"j("expression":"wall * sideways(4)"}]})j";
+    auto opened = io::readBytes(makeZip({{"manifest.json", manifest()},
+                                         {"timeline.json", timeline()},
+                                         {"features/" + kBoxId + ".json", boxFeature()},
+                                         {"parameters.json", list}}),
+                                "odd.khan");
+    REQUIRE(opened.ok());
+    const auto& table = opened.document->parameters();
+    REQUIRE(table.find("height"));
+    CHECK(table.find("height")->expression == "wall * sideways(4)");
+    CHECK(table.evaluate().find("height")->issues.front().code == "expression.function");
+}
+
+TEST_CASE("a damaged parameters file is refused with a plain message", "[io][parameters]") {
+    for (const std::string list :
+         {R"({"parameters":{}})", R"({"parameters":[{"name":"wall","expression":"3"}]})",
+          R"({"parameters":[{"id":"6f1c2a52-3d4e-4f60-8a7b-9c0d1e2f3a4b","name":"mm",)"
+          R"("expression":"3"}]})",
+          "not json"}) {
+        INFO(list);
+        auto opened = io::readBytes(makeZip({{"manifest.json", manifest()},
+                                             {"timeline.json", timeline()},
+                                             {"features/" + kBoxId + ".json", boxFeature()},
+                                             {"parameters.json", list}}),
+                                    "bad.khan");
+        CHECK_FALSE(opened.ok());
+        CHECK(firstCode(opened) == "file.damaged");
+    }
+}
+
 TEST_CASE("an opened design has no undo history and no unsaved changes", "[io]") {
     auto doc = makeDesign();
     io::Bytes bytes;

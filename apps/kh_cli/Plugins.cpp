@@ -456,6 +456,7 @@ int runCommand(int argc, char** argv) {
         std::printf("\n");
         printIssues(r->issues, "    ");
     }
+    printParameters(design);
     for (const auto& p : host.plugins()) {
         for (const auto& line : p.messages) std::printf("[%s] %s\n", p.manifest.id.c_str(), line.c_str());
     }
@@ -478,6 +479,29 @@ int runCommand(int argc, char** argv) {
         std::printf("wrote %s\n", savePath->c_str());
     }
     return report->ok() ? 0 : 1;
+}
+
+void printParameters(const model::Document& doc) {
+    const auto& table = doc.parameters();
+    if (table.empty()) return;
+    const auto values = table.evaluate();
+    std::size_t width = 0;
+    for (const auto& p : table.parameters()) width = std::max(width, p.name.size());
+    std::printf("Parameters:\n");
+    for (const auto& p : table.parameters()) {
+        std::printf("  %-*s = %s", static_cast<int>(width), p.name.c_str(), p.expression.c_str());
+        const auto* v = values.find(p.name);
+        if (v && v->ok()) {
+            const auto text = model::quantityText(*v->value, doc.lengthUnit());
+            if (text != p.expression) std::printf("  (%s)", text.c_str());
+            std::printf("\n");
+        } else {
+            std::printf("\n");
+            for (const auto& d : v ? v->issues : Diagnostics{}) {
+                std::printf("    problem [%s]: %s\n", d.code.c_str(), d.message.c_str());
+            }
+        }
+    }
 }
 
 std::string sketchSummary(const sketch::Sketch& sketch, int freedom) {
