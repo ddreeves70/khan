@@ -332,8 +332,30 @@ Four pull requests:
 - Degree, closed, weight and add/remove control point are in the Sketch panel
   (not Properties, which shows the step) while a spline or control point is picked.
 
-**C. Spline constraints:** point on spline, tangent (G1) and curvature-continuous
-(G2) where curves meet, dimensions on control and fit points, with property tests.
+**C. Spline constraints** (`kh_sketch`, `kh_sketch_planegcs`, `kh_model`, the sketcher plugin; built):
+
+- Each spline is now also a PlaneGCS `BSpline` made of the same pole numbers, with
+  fixed weights and knots (clamped or periodic, as Khan's).
+- **Point on spline** (`point_on_spline`, the **On** button, and snapping while
+  drawing): PlaneGCS's `PointOnBSpline`, with an extra unknown for where along the
+  spline the point is, started at the nearest place (`nearestOnSpline()`).
+- **Tangent at a join:** a spline's end joined (Coincident) to the end of a line,
+  arc or spline. PlaneGCS's angle-via-point at the spline's own end, where it
+  knows the spline's direction (from its last two poles), 0 or pi as now.
+  `check()` asks for the join first, in plain words.
+- **Smooth (G2)** (`smooth`, a new button): tangent, plus Khan's own PlaneGCS
+  constraint `ConstraintSameCurvature`, in `kh_sketch_planegcs` (no change to the
+  PlaneGCS copy): the difference of the two curvature vectors across the first
+  curve's direction, with central-difference gradients. Curvature at a spline's
+  end comes from its derivative control points (The NURBS Book, 3.3) in
+  homogeneous coordinates, so weights count. The error is weighed as mm at 100 mm,
+  without which PlaneGCS could stop early when a spline's bend has to turn around.
+- **Dimensions on control points** already worked: they're points. Fit points
+  aren't kept (see B), so they get no dimensions.
+- Property tests: end derivatives against finite differences for degrees 1 to 5,
+  weighted or not; every join's answer measured (directions parallel to 1e-6,
+  curvature vectors equal to 1e-6, 1/radius for an arc, 0 for a line), with the
+  degrees of freedom each takes away.
 
 **D. Import a spline from a file of points,** with Reload from file.
 

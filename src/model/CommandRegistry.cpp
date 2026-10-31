@@ -111,10 +111,17 @@ Needs needsOf(sketch::ConstraintKind k) {
             return {"PE", "a point and a line", "Point1,Line1"};
         case K::PointOnCircle:
             return {"PE", "a point and a circle or arc", "Line1.end,Circle1"};
+        case K::PointOnSpline:
+            return {"PE", "a point and a spline", "Point1,Spline1"};
         case K::Midpoint:
             return {"PE", "a point and a line", "Point1,Line1"};
         case K::Tangent:
-            return {"EE", "a line and a circle or arc, or two circles or arcs", "Line1,Arc1"};
+            return {
+                "EE",
+                "a line and a circle or arc, two circles or arcs, or a spline and a curve joined to its end",
+                "Line1,Arc1"};
+        case K::Smooth:
+            return {"EE", "a spline and a line, arc or spline joined to its end", "Spline1,Line1"};
         case K::Distance:
         case K::HorizontalDistance:
         case K::VerticalDistance:

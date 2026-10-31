@@ -46,9 +46,9 @@ While drawing:
   center) lands exactly on it, and Khan joins them with a `coincident`
   constraint. An orange dot shows the point it will snap to. Clicking the first
   point of a closed shape ends the line chain.
-- **Snapping onto lines and circles.** A click close to a line, circle or arc
-  (but not near one of its points) lands exactly on it, and Khan adds an `On`
-  constraint, so it stays there.
+- **Snapping onto lines and circles.** A click close to a line, circle, arc or
+  spline (but not near one of its points) lands exactly on it, and Khan adds an
+  `On` constraint, so it stays there.
 - **Level, upright and smooth lines.** A line's end within 6 pixels of level
   (or of straight up and down) is made exactly level (or upright), with a
   `Horizontal` (or `Vertical`) constraint. A line drawn off the end of an arc,
@@ -162,7 +162,22 @@ Sketch panel then shows its settings:
   [`sketch.remove_pole`](../cli/commands.md#sketchremove_pole).
 - Constraints work on its control points like on any point: join its end to a
   line's end with `coincident`, `fix` a control point, or put two of them a
-  distance apart. Name them `Spline1.pole1`, `Spline1.pole2`, ... in `kh_cli`.
+  distance apart with **Dimension**. Name them `Spline1.pole1`, `Spline1.pole2`,
+  ... in `kh_cli`.
+- **Where a spline meets another curve.** Draw a spline starting on the end of a
+  line, arc or spline, and they're joined. Then pick both and click:
+
+  ![A level line running into a spline with no seam: the S label at the join is Smooth](images/app-sketch-smooth.png)
+
+  - **Tangent**: no corner at the join. The spline leaves heading the same way
+    the other curve arrives.
+  - **Smooth**: no seam you can see, the way car bodies and phone cases are
+    shaped. As well as no corner, the spline bends just as much as the other
+    curve right at the join (not at all, for a straight line). Spot it by
+    looking at a reflection: a Tangent join shows a kink in it, a Smooth one
+    doesn't.
+- **On** puts a point on a spline, like on a line or circle. A click close to a
+  spline while drawing snaps onto it and adds On.
 - A closed shape can have spline edges, so [extrude](extrude.md) turns it into a
   solid, and a closed spline is a shape on its own, like a circle.
 
@@ -186,7 +201,9 @@ the window, the rest go on a second row.
 | **Perpendicular** | two lines | they meet at 90° |
 | **Equal** | two or more lines, or circles and arcs | the same length, or the same size |
 | **Tangent** | a line and a circle or arc, or two circles or arcs | they touch without crossing |
-| **On** | a point and a line, circle or arc | the point is on it |
+| **Tangent** | a spline and a line, arc or spline joined to its end | no corner at the join: they head the same way there |
+| **Smooth** | a spline and a line, arc or spline joined to its end | no seam you can see: no corner, and they bend just as much on both sides of the join |
+| **On** | a point and a line, circle, arc or spline | the point is on it |
 | **Midpoint** | a point and a line | the point is in the middle of the line |
 | **Fix** | one or more points | they stay where they are now |
 | **Dimension** | a line, a circle, an arc, two points, or two lines | its length, diameter (Ø), radius (R), the distance between the points, or the angle between the lines |
@@ -198,7 +215,8 @@ the window, the rest go on a second row.
   number: type the size you want and press **Enter**, and the sketch changes to
   match. You can change any dimension there later, the same way.
 - **Labels.** Every constraint has a label beside what it's on: **H**, **V**,
-  **//** (parallel), **90°** (perpendicular), **=**, **T** (tangent), **On**,
+  **//** (parallel), **90°** (perpendicular), **=**, **T** (tangent), **S**
+  (smooth), **On**,
   **Mid**, **Fix**, and the numbers of the dimensions (**40 mm**, **Ø8 mm**,
   **R4 mm**, **x 10 mm** for a width, **y 10 mm** for a height). Coincident
   points just share a dot.
@@ -303,9 +321,11 @@ circles and arcs by name (`Line1`), and points as `Line1.start`, `Line1.end` or
 | `horizontal`, `vertical` | a line | It's flat, or straight up and down |
 | `parallel`, `perpendicular` | two lines | They never meet, or they meet square |
 | `equal` | two lines, or two circles or arcs | Same length, or same radius |
-| `point_on_line`, `point_on_circle` | a point and a line, or a circle or arc | The point is on it |
+| `point_on_line`, `point_on_circle`, `point_on_spline` | a point and a line, a circle or arc, or a spline | The point is on it |
 | `midpoint` | a point and a line | The point is in the middle of the line |
 | `tangent` | a line and a circle or arc, or two circles or arcs | They touch without crossing |
+| `tangent` | a spline and a line, arc or spline joined to its end | No corner at the join |
+| `smooth` | a spline and a line, arc or spline joined to its end | No corner, and the same bend on both sides |
 
 Dimensions need a `value`:
 

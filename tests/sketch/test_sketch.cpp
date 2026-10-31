@@ -98,7 +98,8 @@ TEST_CASE("check() explains constraints that use the wrong things", "[sketch]") 
     REQUIRE(problems.size() == 7);
     CHECK(problems[0].message == "Horizontal needs one line.");
     CHECK(problems[1].message == "Parallel needs two different lines.");
-    CHECK(problems[2].message == "Tangent needs a line and a circle or arc, or two circles or arcs.");
+    CHECK(problems[2].message ==
+          "Tangent needs a line and a circle or arc, two circles or arcs, or a spline and a curve joined to it.");
     CHECK(problems[3].message == "A Length must be more than 0 mm. Type a bigger number.");
     CHECK(problems[4].message == "Coincident needs two different points.");
     CHECK(problems[5].code == "sketch.missing");

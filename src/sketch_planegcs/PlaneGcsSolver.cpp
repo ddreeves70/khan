@@ -28,21 +28,117 @@ struct Built {
     GCS::Line line;
     GCS::Circle circle;
     GCS::Arc arc;
-    // A spline's control points. Its curve doesn't need to be in PlaneGCS while
-    // no constraint uses the curve itself: its ends are its first and last pole.
+    // A spline's control points, and the spline itself, made of them (for points
+    // on it, and tangency at its ends). Its ends are its first and last pole.
     std::vector<GCS::Point> poles;
+    GCS::BSpline bspline;
 };
 
 // How many numbers a sketch's entities can need: 9 for most (an arc: center,
-// radius, two angles, two ends), 2 per pole for a spline.
+// radius, two angles, two ends); for a spline, 2 per pole, a weight per pole and
+// its knots (at most one more than its poles).
 std::size_t entityNumbers(const std::vector<Entity>& entities) {
     std::size_t n = 0;
     for (const auto& e : entities) {
         const auto* s = std::get_if<SplineShape>(&e.shape);
-        n += s ? 2 * s->poles.size() : 9;
+        n += s ? 4 * s->poles.size() + 2 : 9;
     }
     return n;
 }
+
+// Where two curves joined end to end bend equally (G2): the difference of their
+// curvature vectors (see kh::sketch::curvatureVector()) across the first curve's
+// direction there. PlaneGCS has no such constraint, so it's Khan's own: it reads
+// the curves' numbers through pvec (which PlaneGCS may redirect while it solves)
+// and works out its gradient by central differences.
+// Curvature is in 1/mm, so a mismatch is tiny next to the millimeters the other
+// constraints are off by: weighed as it is, PlaneGCS can stop with it still
+// wrong, especially when a spline's bend has to turn around. Measured as mm at
+// 100 mm (the size of a part a student makes), it counts like the others. The
+// solved shape is the same; only the path to it changes.
+constexpr double kCurvatureScale = 100;
+
+class ConstraintSameCurvature final : public GCS::Constraint {
+public:
+    // One curve, at the joined end: a line (its two ends), an arc (its center,
+    // radius and the end), or a spline (its poles, with fixed weights).
+    struct Curve {
+        enum Kind { Line, Arc, Spline } kind = Line;
+        std::size_t first = 0;  // where its numbers start in pvec
+        std::size_t count = 0;
+        PointRef end{};  // which end is joined (for a spline: its start or end)
+        int degree = 3;  // a spline's
+        std::vector<double> weights{};
+    };
+
+    ConstraintSameCurvature(Curve a, std::vector<double*> aParams, Curve b, std::vector<double*> bParams)
+        : a_(std::move(a)), b_(std::move(b)) {
+        a_.first = 0;
+        a_.count = aParams.size();
+        b_.first = aParams.size();
+        b_.count = bParams.size();
+        pvec = std::move(aParams);
+        pvec.insert(pvec.end(), bParams.begin(), bParams.end());
+        origpvec = pvec;
+        rescale();
+    }
+
+    void errorgrad(double* err, double* grad, double* param) override {
+        if (err) *err = value();
+        if (grad) {
+            *grad = 0;
+            const int i = findParamInPvec(param);
+            if (i < 0) return;
+            double* x = pvec[static_cast<std::size_t>(i)];
+            const double was = *x;
+            const double h = 1e-6 * std::max(1.0, std::abs(was));
+            *x = was + h;
+            const double up = value();
+            *x = was - h;
+            const double down = value();
+            *x = was;
+            *grad = (up - down) / (2 * h);
+        }
+    }
+
+private:
+    // The curve as it is now, at its joined end.
+    std::optional<CurveEnd> endOf(const Curve& c) const {
+        auto at = [&](std::size_t k) { return *pvec[c.first + k]; };
+        switch (c.kind) {
+            case Curve::Line:
+                return curveEnd(LineShape{{at(0), at(1)}, {at(2), at(3)}}, c.end);
+            case Curve::Arc: {
+                // Center, radius, then the joined end: the bend is towards the center.
+                const Point2 center{at(0), at(1)}, end{at(3), at(4)};
+                const double r = at(2);
+                const double angle = std::atan2(end.y - center.y, end.x - center.x);
+                return curveEnd(ArcShape{center, r, angle, angle + 1}, {{}, PointRole::Start});
+            }
+            case Curve::Spline: {
+                SplineShape s;
+                for (std::size_t k = 0; k + 1 < c.count; k += 2) s.poles.push_back({at(k), at(k + 1)});
+                s.weights = c.weights;
+                s.degree = c.degree;
+                return curveEnd(s, c.end);
+            }
+        }
+        return std::nullopt;
+    }
+
+    double value() const {
+        const auto ea = endOf(a_), eb = endOf(b_);
+        if (!ea || !eb) return 0;
+        const auto ka = curvatureVector(*ea), kb = curvatureVector(*eb);
+        const double speed = std::hypot(ea->d1.x, ea->d1.y);
+        if (speed <= 0) return 0;
+        // Across the first curve: its direction turned a quarter turn.
+        const Point2 across{-ea->d1.y / speed, ea->d1.x / speed};
+        return kCurvatureScale * ((ka.x - kb.x) * across.x + (ka.y - kb.y) * across.y);
+    }
+
+    Curve a_, b_;
+};
 
 // Every number lives in one array, filled in a fixed order, so the numbers' memory
 // addresses rise in the order they were made, on every computer. PlaneGCS orders
@@ -102,21 +198,6 @@ double sideOf(const GCS::Point& p, const GCS::Line& l) {
     return -x0 * (y2 - y1) + y0 * (x2 - x1) + x1 * y2 - x2 * y1;
 }
 
-// If a Coincident joins an end of one entity to an end of the other, the end of
-// the first one.
-std::optional<PointRef> jointOf(const Sketch& sketch, const EntityId& a, const EntityId& b) {
-    auto isEnd = [](const PointRef& p) { return p.role == PointRole::Start || p.role == PointRole::End; };
-    for (const auto& c : sketch.constraints) {
-        if (c.kind != ConstraintKind::Coincident || c.points.size() != 2) continue;
-        const auto& p = c.points[0];
-        const auto& q = c.points[1];
-        if (!isEnd(p) || !isEnd(q)) continue;
-        if (p.entity == a && q.entity == b) return p;
-        if (q.entity == a && p.entity == b) return q;
-    }
-    return std::nullopt;
-}
-
 // A sketch set up in PlaneGCS: its numbers, its entities and its constraints.
 // It holds pointers into itself, so it's made once and never moved.
 class GcsModel {
@@ -155,6 +236,25 @@ public:
                 sys.addConstraintArcRules(g.arc, 0);
             } else if (const auto* s = std::get_if<SplineShape>(&shape)) {
                 for (const auto& pole : s->poles) g.poles.push_back(b.point(pole));
+                // The same spline in PlaneGCS's terms: its poles (the same numbers),
+                // fixed weights, and its knots as distinct values with how many times
+                // each repeats (clamped: degree + 1 at the ends; periodic: once each).
+                auto& bs = g.bspline;
+                const int n = static_cast<int>(s->poles.size());
+                bs.poles = g.poles;
+                for (int k = 0; k < n; ++k)
+                    bs.weights.push_back(
+                        b.constant(s->weights.empty() ? 1.0 : s->weights[static_cast<std::size_t>(k)]));
+                bs.degree = s->degree;
+                bs.periodic = s->closed;
+                const int last = s->closed ? n : n - s->degree;
+                for (int k = 0; k <= last; ++k) {
+                    bs.knots.push_back(b.constant(k));
+                    bs.mult.push_back(!s->closed && (k == 0 || k == last) ? s->degree + 1 : 1);
+                }
+                bs.start = g.poles.front();
+                bs.end = s->closed ? g.poles.front() : g.poles.back();
+                bs.setupFlattenedKnots();
             }
         }
 
@@ -184,11 +284,51 @@ public:
         auto lineOf = [&](const EntityId& id) -> GCS::Line& { return built[index(id)].line; };
         auto isArc = [&](const EntityId& id) { return std::holds_alternative<ArcShape>(shapeOf(id)); };
         auto isLine = [&](const EntityId& id) { return std::holds_alternative<LineShape>(shapeOf(id)); };
+        auto isSpline = [&](const EntityId& id) { return std::holds_alternative<SplineShape>(shapeOf(id)); };
         auto curveOf = [&](const EntityId& id) -> GCS::Curve& {
             auto& g = built[index(id)];
             if (isLine(id)) return g.line;
             if (isArc(id)) return g.arc;
+            if (isSpline(id)) return g.bspline;
             return g.circle;
+        };
+        // Two curves joined end to end head the same way at the join: same
+        // direction (0) or opposite (pi), whichever it's closer to now. Measured
+        // at a spline's own end where there is one: PlaneGCS knows a spline's
+        // direction only at its ends.
+        auto sameDirection = [&](const EntityId& e0, const EntityId& e1,
+                                 const std::pair<PointRef, PointRef>& joint, int tag) {
+            GCS::Curve& c0 = curveOf(e0);
+            GCS::Curve& c1 = curveOf(e1);
+            GCS::Point& p = pointOfRef(isSpline(e1) && !isSpline(e0) ? joint.second : joint.first);
+            const auto n0 = c0.CalculateNormal(p);
+            const auto n1 = c1.CalculateNormal(p);
+            const bool same = n0.x * n1.x + n0.y * n1.y >= 0;
+            sys.addConstraintAngleViaPoint(c0, c1, p, b.constant(same ? 0.0 : std::numbers::pi), tag);
+        };
+        // A curve at its joined end, for ConstraintSameCurvature.
+        auto curvatureCurve = [&](const EntityId& id, const PointRef& end, std::vector<double*>& params) {
+            ConstraintSameCurvature::Curve c;
+            auto& g = built[index(id)];
+            c.end = end;
+            if (isLine(id)) {
+                c.kind = ConstraintSameCurvature::Curve::Line;
+                params = {g.line.p1.x, g.line.p1.y, g.line.p2.x, g.line.p2.y};
+            } else if (isArc(id)) {
+                c.kind = ConstraintSameCurvature::Curve::Arc;
+                const auto& e = end.role == PointRole::Start ? g.arc.start : g.arc.end;
+                params = {g.arc.center.x, g.arc.center.y, g.arc.rad, e.x, e.y};
+            } else {
+                const auto& sp = std::get<SplineShape>(shapeOf(id));
+                c.kind = ConstraintSameCurvature::Curve::Spline;
+                c.degree = sp.degree;
+                c.weights = sp.weights;
+                for (const auto& q : g.poles) {
+                    params.push_back(q.x);
+                    params.push_back(q.y);
+                }
+            }
+            return c;
         };
         // A circle, or an arc's circle.
         auto circleOf = [&](const EntityId& id) -> GCS::Circle& {
@@ -248,6 +388,32 @@ public:
                 case ConstraintKind::PointOnCircle:
                     sys.addConstraintPointOnCircle(pointOfRef(c.points[0]), circleOf(e[0]), tag);
                     break;
+                case ConstraintKind::PointOnSpline: {
+                    // PlaneGCS adds a number for where along the spline the point is,
+                    // starting from the nearest place now (its knots run 0 to the
+                    // number of spans, as Khan's do).
+                    auto& g = built[index(e[0])];
+                    const auto& sp = std::get<SplineShape>(shapeOf(e[0]));
+                    auto& point = pointOfRef(c.points[0]);
+                    const double t = nearestOnSpline(sp, {*point.x, *point.y});
+                    const int spans = sp.closed ? static_cast<int>(sp.poles.size())
+                                                : static_cast<int>(sp.poles.size()) - sp.degree;
+                    sys.addConstraintPointOnBSpline(point, g.bspline, b.unknown(t * spans), tag);
+                    break;
+                }
+                case ConstraintKind::Smooth: {
+                    const auto joint = jointOf(whole, e[0], e[1]);  // check() made sure there is one
+                    if (!joint) break;
+                    sameDirection(e[0], e[1], *joint, tag);
+                    std::vector<double*> pa, pb;
+                    auto ca = curvatureCurve(e[0], joint->first, pa);
+                    auto cb = curvatureCurve(e[1], joint->second, pb);
+                    auto* same = new ConstraintSameCurvature(std::move(ca), std::move(pa), std::move(cb),
+                                                             std::move(pb));
+                    same->setTag(tag);
+                    sys.addConstraint(same);  // PlaneGCS owns it from here
+                    break;
+                }
                 case ConstraintKind::Midpoint: {
                     auto& l = lineOf(e[0]);
                     sys.addConstraintP2PSymmetric(l.p1, l.p2, pointOfRef(c.points[0]), tag);
@@ -260,15 +426,7 @@ public:
                     // the same constraint twice at the solved shape, and the degrees of
                     // freedom would come out wrong.
                     if (const auto joint = jointOf(whole, e[0], e[1])) {
-                        GCS::Curve& c0 = curveOf(e[0]);
-                        GCS::Curve& c1 = curveOf(e[1]);
-                        GCS::Point& p = pointOfRef(*joint);
-                        // Same direction (0) or opposite (pi), whichever it's closer to now.
-                        const auto n0 = c0.CalculateNormal(p);
-                        const auto n1 = c1.CalculateNormal(p);
-                        const bool same = n0.x * n1.x + n0.y * n1.y >= 0;
-                        sys.addConstraintAngleViaPoint(c0, c1, p, b.constant(same ? 0.0 : std::numbers::pi),
-                                                       tag);
+                        sameDirection(e[0], e[1], *joint, tag);
                         break;
                     }
                     if (isLine(e[0]) || isLine(e[1])) {

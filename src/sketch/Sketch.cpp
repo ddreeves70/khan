@@ -20,6 +20,17 @@ bool isRound(const Entity* e) {
     return e && (std::holds_alternative<CircleShape>(e->shape) || std::holds_alternative<ArcShape>(e->shape));
 }
 
+bool isSpline(const Entity* e) {
+    return e && std::holds_alternative<SplineShape>(e->shape);
+}
+
+// A curve with two ends: a line, an arc or an open spline.
+bool hasEnds(const Entity* e) {
+    if (!e) return false;
+    if (const auto* s = std::get_if<SplineShape>(&e->shape)) return !s->closed;
+    return std::holds_alternative<LineShape>(e->shape) || std::holds_alternative<ArcShape>(e->shape);
+}
+
 // A circle's or arc's center and radius.
 bool roundOf(const Entity* e, Point2& center, double& radius) {
     if (!e) return false;
@@ -115,10 +126,14 @@ std::string_view kindName(ConstraintKind kind) {
             return "Point on line";
         case ConstraintKind::PointOnCircle:
             return "Point on circle";
+        case ConstraintKind::PointOnSpline:
+            return "Point on spline";
         case ConstraintKind::Midpoint:
             return "Midpoint";
         case ConstraintKind::Tangent:
             return "Tangent";
+        case ConstraintKind::Smooth:
+            return "Smooth";
         case ConstraintKind::Distance:
             return "Distance";
         case ConstraintKind::Length:
@@ -147,8 +162,10 @@ const std::vector<ConstraintKind>& allKinds() {
                                                    ConstraintKind::Equal,
                                                    ConstraintKind::PointOnLine,
                                                    ConstraintKind::PointOnCircle,
+                                                   ConstraintKind::PointOnSpline,
                                                    ConstraintKind::Midpoint,
                                                    ConstraintKind::Tangent,
+                                                   ConstraintKind::Smooth,
                                                    ConstraintKind::Distance,
                                                    ConstraintKind::Length,
                                                    ConstraintKind::HorizontalDistance,
@@ -179,10 +196,14 @@ std::string_view kindKey(ConstraintKind kind) {
             return "point_on_line";
         case ConstraintKind::PointOnCircle:
             return "point_on_circle";
+        case ConstraintKind::PointOnSpline:
+            return "point_on_spline";
         case ConstraintKind::Midpoint:
             return "midpoint";
         case ConstraintKind::Tangent:
             return "tangent";
+        case ConstraintKind::Smooth:
+            return "smooth";
         case ConstraintKind::Distance:
             return "distance";
         case ConstraintKind::Length:
@@ -621,11 +642,29 @@ Diagnostics check(const Sketch& sketch) {
             case ConstraintKind::PointOnCircle:
                 if (np != 1 || ne != 1 || !isRound(e0)) need = "one point and one circle or arc";
                 break;
+            case ConstraintKind::PointOnSpline:
+                if (np != 1 || ne != 1 || !isSpline(e0)) need = "one point and one spline";
+                break;
             case ConstraintKind::Tangent:
-                if (np != 0 || !twoDifferent || !(isRound(e0) || isRound(e1)) ||
-                    !(isLine(e0) || isRound(e0)) || !(isLine(e1) || isRound(e1))) {
-                    need = "a line and a circle or arc, or two circles or arcs";
+                if (isSpline(e0) || isSpline(e1)) {
+                    // Where a spline's end meets another curve's end.
+                    if (np != 0 || !twoDifferent || !hasEnds(e0) || !hasEnds(e1))
+                        need = "a spline with ends and a line, arc or spline";
+                    else if (!jointOf(sketch, e0->id, e1->id))
+                        need = "the two joined end to end: join an end of each with Coincident first";
+                } else if (np != 0 || !twoDifferent || !(isRound(e0) || isRound(e1)) ||
+                           !(isLine(e0) || isRound(e0)) || !(isLine(e1) || isRound(e1))) {
+                    need =
+                        "a line and a circle or arc, two circles or arcs, or a spline and a curve joined to "
+                        "it";
                 }
+                break;
+            case ConstraintKind::Smooth:
+                if (np != 0 || !twoDifferent || !(isSpline(e0) || isSpline(e1)) || !hasEnds(e0) ||
+                    !hasEnds(e1))
+                    need = "a spline with ends and a line, arc or spline";
+                else if (!jointOf(sketch, e0->id, e1->id))
+                    need = "the two joined end to end: join an end of each with Coincident first";
                 break;
             case ConstraintKind::Distance:
             case ConstraintKind::HorizontalDistance:
@@ -654,6 +693,155 @@ Diagnostics check(const Sketch& sketch) {
         }
     }
     return out;
+}
+
+namespace {
+
+// How far two curves joined end to end are from heading the same way there
+// (radians), and for Smooth, plus how far their curvature vectors differ (1/mm).
+double jointError(const Sketch& sketch, const Constraint& c, bool smooth) {
+    if (c.entities.size() != 2) return kHuge;
+    const auto joint = jointOf(sketch, c.entities[0], c.entities[1]);
+    const Entity* a = sketch.find(c.entities[0]);
+    const Entity* b = sketch.find(c.entities[1]);
+    if (!joint || !a || !b) return kHuge;
+    const auto ea = curveEnd(a->shape, joint->first);
+    const auto eb = curveEnd(b->shape, joint->second);
+    if (!ea || !eb) return kHuge;
+    // The angle between their directions, either way along (0 or 180 degrees is fine).
+    const double cross = ea->d1.x * eb->d1.y - ea->d1.y * eb->d1.x;
+    const double dot = ea->d1.x * eb->d1.x + ea->d1.y * eb->d1.y;
+    double out = std::abs(std::remainder(std::atan2(cross, dot), std::numbers::pi));
+    if (smooth) {
+        const auto ka = curvatureVector(*ea), kb = curvatureVector(*eb);
+        out += std::hypot(ka.x - kb.x, ka.y - kb.y);
+    }
+    return out;
+}
+
+}  // namespace
+
+bool isEnd(const Sketch& sketch, const PointRef& ref) {
+    const Entity* e = sketch.find(ref.entity);
+    if (!hasEnds(e)) return false;
+    if (ref.role == PointRole::Start || ref.role == PointRole::End) return true;
+    const auto* s = std::get_if<SplineShape>(&e->shape);
+    return s && ref.role == PointRole::Pole &&
+           (ref.index == 0 || ref.index == static_cast<int>(s->poles.size()) - 1);
+}
+
+std::optional<std::pair<PointRef, PointRef>> jointOf(const Sketch& sketch, const EntityId& a,
+                                                     const EntityId& b) {
+    for (const auto& c : sketch.constraints) {
+        if (c.kind != ConstraintKind::Coincident || c.points.size() != 2) continue;
+        const auto& p = c.points[0];
+        const auto& q = c.points[1];
+        if (!isEnd(sketch, p) || !isEnd(sketch, q)) continue;
+        if (p.entity == a && q.entity == b) return std::pair{p, q};
+        if (q.entity == a && p.entity == b) return std::pair{q, p};
+    }
+    return std::nullopt;
+}
+
+std::optional<CurveEnd> curveEnd(const Shape& shape, const PointRef& end) {
+    if (const auto* l = std::get_if<LineShape>(&shape)) {
+        if (end.role != PointRole::Start && end.role != PointRole::End) return std::nullopt;
+        return CurveEnd{end.role == PointRole::Start ? l->start : l->end,
+                        {l->end.x - l->start.x, l->end.y - l->start.y},
+                        {0, 0}};
+    }
+    if (const auto* a = std::get_if<ArcShape>(&shape)) {
+        if (end.role != PointRole::Start && end.role != PointRole::End) return std::nullopt;
+        const double t = end.role == PointRole::Start ? a->startAngle : a->endAngle;
+        const double r = a->radius, c = std::cos(t), s = std::sin(t);
+        return CurveEnd{{a->center.x + r * c, a->center.y + r * s}, {-r * s, r * c}, {-r * c, -r * s}};
+    }
+    const auto* sp = std::get_if<SplineShape>(&shape);
+    if (!sp || sp->closed) return std::nullopt;
+    const int n = static_cast<int>(sp->poles.size());
+    const int p = sp->degree;
+    if (p < 1 || n < p + 1) return std::nullopt;
+    bool atStart = false;
+    if (end.role == PointRole::Start || (end.role == PointRole::Pole && end.index == 0)) {
+        atStart = true;
+    } else if (!(end.role == PointRole::End || (end.role == PointRole::Pole && end.index == n - 1))) {
+        return std::nullopt;
+    }
+    // The clamped knots (see SplineShape), and the control points in homogeneous
+    // coordinates (x w, y w, w), so the weights are counted.
+    std::vector<double> t;
+    for (int i = 0; i <= p; ++i) t.push_back(0);
+    for (int i = 1; i < n - p; ++i) t.push_back(i);
+    for (int i = 0; i <= p; ++i) t.push_back(n - p);
+    struct H {
+        double x, y, w;
+    };
+    std::vector<H> h;
+    for (int i = 0; i < n; ++i) {
+        const double w = sp->weights.empty() ? 1.0 : sp->weights[static_cast<std::size_t>(i)];
+        const auto& q = sp->poles[static_cast<std::size_t>(i)];
+        h.push_back({q.x * w, q.y * w, w});
+    }
+    auto at = [&](int i) { return t[static_cast<std::size_t>(i)]; };
+    // The first and second derivative curves' control points (Piegl and Tiller, The NURBS Book, 3.3):
+    // Q_i = p (H_{i+1} - H_i) / (t_{i+p+1} - t_{i+1}), R_i = (p - 1) (Q_{i+1} - Q_i) / (t_{i+p+1} - t_{i+2}).
+    auto q = [&](int i) {
+        const double k = p / (at(i + p + 1) - at(i + 1));
+        const auto& a = h[static_cast<std::size_t>(i)];
+        const auto& b = h[static_cast<std::size_t>(i + 1)];
+        return H{k * (b.x - a.x), k * (b.y - a.y), k * (b.w - a.w)};
+    };
+    auto r = [&](int i) {
+        if (p < 2) return H{0, 0, 0};
+        const double k = (p - 1) / (at(i + p + 1) - at(i + 2));
+        const H a = q(i), b = q(i + 1);
+        return H{k * (b.x - a.x), k * (b.y - a.y), k * (b.w - a.w)};
+    };
+    // At a clamped end, each curve is its first (or last) control point.
+    const H h0 = atStart ? h.front() : h.back();
+    const H h1 = atStart ? q(0) : q(n - 2);
+    const H h2 = p < 2 ? H{0, 0, 0} : atStart ? r(0) : r(n - 3);
+    const Point2 c0{h0.x / h0.w, h0.y / h0.w};
+    const Point2 c1{(h1.x - h1.w * c0.x) / h0.w, (h1.y - h1.w * c0.y) / h0.w};
+    const Point2 c2{(h2.x - 2 * h1.w * c1.x - h2.w * c0.x) / h0.w,
+                    (h2.y - 2 * h1.w * c1.y - h2.w * c0.y) / h0.w};
+    return CurveEnd{c0, c1, c2};
+}
+
+Point2 curvatureVector(const CurveEnd& e) {
+    const double speed2 = e.d1.x * e.d1.x + e.d1.y * e.d1.y;
+    if (speed2 <= 0) return {0, 0};
+    // The part of the second derivative across the curve, over the speed squared.
+    const double along = (e.d2.x * e.d1.x + e.d2.y * e.d1.y) / speed2;
+    return {(e.d2.x - along * e.d1.x) / speed2, (e.d2.y - along * e.d1.y) / speed2};
+}
+
+double nearestOnSpline(const SplineShape& spline, Point2 p) {
+    if (spline.poles.empty()) return 0;
+    // The nearest of many points along it, then narrowed down between its neighbours.
+    const int n = static_cast<int>(spline.poles.size());
+    const int spans = spline.closed ? n : std::max(1, n - spline.degree);
+    const int count = 64 * spans;
+    int best = 0;
+    double bestDistance = kHuge;
+    for (int i = 0; i <= count; ++i) {
+        const double d = distance(p, splinePoint(spline, static_cast<double>(i) / count));
+        if (d < bestDistance) {
+            bestDistance = d;
+            best = i;
+        }
+    }
+    double lo = std::max(0, best - 1) / static_cast<double>(count);
+    double hi = std::min(count, best + 1) / static_cast<double>(count);
+    const double g = (std::sqrt(5.0) - 1) / 2;  // golden section
+    for (int k = 0; k < 100 && hi - lo > 1e-15; ++k) {
+        const double a = hi - g * (hi - lo), b = lo + g * (hi - lo);
+        if (distance(p, splinePoint(spline, a)) < distance(p, splinePoint(spline, b)))
+            hi = b;
+        else
+            lo = a;
+    }
+    return (lo + hi) / 2;
 }
 
 double error(const Sketch& sketch, const Constraint& c) {
@@ -718,7 +906,16 @@ double error(const Sketch& sketch, const Constraint& c) {
             if (!p || !l) return kHuge;
             return distance(*p, Point2{(l->start.x + l->end.x) / 2, (l->start.y + l->end.y) / 2});
         }
+        case ConstraintKind::PointOnSpline: {
+            const auto p = pt(0);
+            const Entity* e = ent(0);
+            const auto* sp = e ? std::get_if<SplineShape>(&e->shape) : nullptr;
+            return p && sp ? distance(*p, splinePoint(*sp, nearestOnSpline(*sp, *p))) : kHuge;
+        }
+        case ConstraintKind::Smooth:
+            return jointError(sketch, c, true);
         case ConstraintKind::Tangent: {
+            if (isSpline(ent(0)) || isSpline(ent(1))) return jointError(sketch, c, false);
             Point2 c0, c1;
             double r0 = 0, r1 = 0;
             const bool round0 = roundOf(ent(0), c0, r0);

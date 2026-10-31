@@ -253,7 +253,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 7 + 2 + 8 + 13);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
+    CHECK(buttons == 5 + 7 + 2 + 8 + 14);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
 }
@@ -1940,6 +1940,72 @@ TEST_CASE("the Sketch panel changes a picked spline: degree, loop, weight, and c
     closed->click();
     settle();
     CHECK(spline().closed);
+}
+
+TEST_CASE(
+    "a spline drawn from a line's end joins it; Smooth makes the join seamless; control points get "
+    "dimensions",
+    "[app][sketcher][spline]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.line");
+    clickAt(flat, {-20, 0, 0});
+    clickAt(flat, {0, 0, 0});
+    pressEscape(flat);  // stop the chain of lines
+    app.click("kh.sketcher.spline");
+    for (auto p : {kernel::Vec3{0, 0, 0}, {10, 30, 0}, {40, 30, 0}, {40, 0, 0}}) clickAt(flat, p);
+    clickAt(flat, {40, 0, 0});
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 2);
+    REQUIRE(sketch::jointOf(s, s.entities[1].id, s.entities[0].id));  // its start snapped onto Line1's end
+
+    // Pick the spline (by its curve) and the line, then Smooth.
+    app.click("kh.sketcher.select");
+    const auto& sp = std::get<sketch::SplineShape>(s.entities[1].shape);
+    const auto middle = sketch::splinePoint(sp, 0.5);
+    clickAt(flat, {middle.x, middle.y, 0});
+    ctrlClickAt(flat, {-10, 0, 0});
+    REQUIRE(app.menu("kh.sketcher.smooth"));
+    CHECK(app.menu("kh.sketcher.smooth")->isEnabled());
+    CHECK(app.menu("kh.sketcher.tangent")->isEnabled());
+    app.click("kh.sketcher.smooth");
+    settle();
+    const auto& after = sketchAt(app, 0).sketch();
+    REQUIRE(after.findConstraint("Smooth1"));
+    CHECK(app.doc().undoLabel() == "Add Smooth1");
+    // Solved: the spline leaves the line straight on, without bending yet, so its first three
+    // control points are in line with it (wherever the solver moved the line to).
+    const auto* report = app.host.documents().lastRebuild(app.shell->activeDesign());
+    REQUIRE(report);
+    const auto* r = report->result(app.doc().featureAt(0).id());
+    REQUIRE(r);
+    REQUIRE(r->sketch);
+    REQUIRE(r->sketch->ok());
+    const auto& solved = std::get<sketch::SplineShape>(r->sketch->entities[1].shape);
+    const auto& line = std::get<sketch::LineShape>(r->sketch->entities[0].shape);
+    const sketch::Point2 along{line.end.x - line.start.x, line.end.y - line.start.y};
+    const double len = std::hypot(along.x, along.y);
+    for (int k = 0; k < 3; ++k) {
+        const auto& q = solved.poles[static_cast<std::size_t>(k)];
+        CHECK(std::abs((q.x - line.start.x) * along.y - (q.y - line.start.y) * along.x) / len < 1e-6);
+    }
+    // Its label "S" is beside the join.
+    const auto* labels = app.host.overlays().find("kh.sketcher.edit.labels");
+    REQUIRE(labels);
+    CHECK(std::ranges::find(labels->texts, std::string("S")) != labels->texts.end());
+
+    // Two of its control points: Dimension sets how far apart they are.
+    const auto p3 = solved.poles[2], p4 = solved.poles[3];
+    clickAt(flat, {p3.x, p3.y, 0});
+    ctrlClickAt(flat, {p4.x, p4.y, 0});
+    CHECK(app.menu("kh.sketcher.dimension")->isEnabled());
+    app.click("kh.sketcher.dimension");
+    settle();
+    const auto* d = sketchAt(app, 0).sketch().findConstraint("Distance1");
+    REQUIRE(d);
+    CHECK(d->points[0] == sketch::PointRef{after.entities[1].id, sketch::PointRole::Pole, 2});
+    CHECK(d->value == Approx(std::hypot(p4.x - p3.x, p4.y - p3.y)));
 }
 
 TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",
