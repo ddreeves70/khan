@@ -69,6 +69,8 @@ private:
     QDoubleSpinBox* weight_ = nullptr;
     QPushButton* addPole_ = nullptr;
     QPushButton* removePole_ = nullptr;
+    QLabel* source_ = nullptr;          // "From wave.csv", for an imported spline
+    QPushButton* reload_ = nullptr;     // Reload from file
     std::optional<SplinePick> spline_;  // what the box is showing
     std::string shown_;                 // what the list shows now, to tell when it needs making again
     std::vector<ConstraintId> rows_;

@@ -106,7 +106,10 @@ again every time it opens or rebuilds the design.
   `arc` (`center`, `radius`, `start_angle`, `end_angle`, counterclockwise),
   `spline` (`poles`: a list of [x, y] control points; `degree`, 1 to 5;
   `weights`, one per pole, left out when they're all 1; `"closed": true` for a
-  closed loop, left out when false). A spline's knots aren't saved: they're spread
+  closed loop, left out when false; `source` only for one imported from a file
+  of points: `file`, the file's path when it was imported, `through`, true if the
+  curve goes through the points (false: they're its poles), and `unit`, the
+  unit of the file's numbers, `"mm"`, `"cm"`, `"m"`, `"in"` or `"ft"`). A spline's knots aren't saved: they're spread
   evenly, clamped at the ends of an open spline and periodic for a closed one (see
   `kh::sketch::SplineShape`).
 - Each constraint has `id`, `name` (like `"Length1"`), `kind` (`"horizontal"`,
@@ -243,7 +246,8 @@ failed save never damages the last good copy.
   steps without folders, and drops the folders if it saves the file again.
   Splines, and the constraints only splines use (`point_on_spline`, `smooth`,
   Oct 2026), were added in schema 1 too, but an older Khan can't skip them: it
-  won't open a design that has them, and says the file is damaged.
+  won't open a design that has them, and says the file is damaged. A spline's
+  `source` is an optional key an older Khan skips (and drops if it saves).
 - Anything an older Khan would read wrongly bumps `schema` (in
   `src/core/include/kh/core/Version.h`) and adds a migration from the old schema.
 - `tests/files/` holds files saved with each schema. They are checked in and never

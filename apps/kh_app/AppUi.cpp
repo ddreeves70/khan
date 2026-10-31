@@ -2,6 +2,9 @@
 
 #include "Icons.h"
 
+#include <QApplication>
+#include <QFileDialog>
+
 namespace kh::app {
 
 void AppUi::showProblems(const Diagnostics& problems) {
@@ -14,6 +17,11 @@ void AppUi::showProblems(const Diagnostics& problems) {
 
 QIcon AppUi::icon(std::string_view svg) const {
     return svgIcon(svg);
+}
+
+QString AppUi::askOpenFile(const QString& title, const QString& filter) {
+    if (answerOpenFile) return answerOpenFile(title, filter);
+    return QFileDialog::getOpenFileName(QApplication::activeWindow(), title, QString(), filter);
 }
 
 void AppUi::showMessage(const QString& message) {

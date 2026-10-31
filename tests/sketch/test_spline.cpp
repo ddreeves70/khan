@@ -247,3 +247,49 @@ TEST_CASE("a closed spline is a shape of its own; an open one closes with other 
     CHECK(found.shapes.empty());
     CHECK(found.openEnds.size() == 2);
 }
+
+TEST_CASE("readPoints reads a file of points like a spreadsheet's CSV", "[sketch][spline][import]") {
+    const auto read = readPoints("x,y\n0,0\n# the top\n20, 15\n\n40\t0  # back down\n55;-5;7\n", "arch.csv");
+    REQUIRE(read.issues.empty());
+    REQUIRE(read.points.size() == 4);
+    CHECK(read.points[1].x == 20);
+    CHECK(read.points[1].y == 15);
+    CHECK(read.points[2].x == 40);
+    CHECK(read.points[3].y == -5);  // the third number (z) is left out
+    // In inches, back in mm; Windows line ends are fine.
+    const auto inches = readPoints("0 0\r\n1 2\r\n", "in.txt", LengthUnit::Inch);
+    REQUIRE(inches.points.size() == 2);
+    CHECK(inches.points[1].x == Approx(25.4));
+    CHECK(inches.points[1].y == Approx(50.8));
+}
+
+TEST_CASE("readPoints says which line is wrong, and when there are too few or too many points",
+          "[sketch][spline][import]") {
+    auto message = [](std::string text) {
+        const auto read = readPoints(text, "wave.csv");
+        CHECK(read.points.empty());
+        REQUIRE(read.issues.size() == 1);
+        CHECK(read.issues[0].code == "sketch.points_file");
+        return read.issues[0].message;
+    };
+    CHECK(message("0,0\n1,1\n3,abc\n") ==
+          "Line 3 of wave.csv isn't 2 numbers (x and y): \"3,abc\". Fix that line, or put # at its start to "
+          "skip it.");
+    CHECK(message("x,y\nheight,width\n") ==
+          "Line 2 of wave.csv isn't 2 numbers (x and y): \"height,width\". Fix that line, or put # at its "
+          "start to "
+          "skip it.");
+    CHECK(message("0,0,0,0\n") ==
+          "Line 1 of wave.csv isn't 2 numbers (x and y): \"0,0,0,0\". Fix that line, or put # at its start "
+          "to skip "
+          "it.");
+    CHECK(message("x,y\n5,5\n") ==
+          "wave.csv has only 1 point. A spline needs at least 2: one per line, like 0,0 then 20,15.");
+    CHECK(message("") ==
+          "wave.csv has no points. A spline needs at least 2: one per line, like 0,0 then 20,15.");
+    std::string lots;
+    for (std::size_t i = 0; i <= kMostPoints; ++i) lots += std::to_string(i) + ",0\n";
+    CHECK(message(lots) ==
+          "wave.csv has more than 500 points. Use fewer: every 2nd or 5th point is usually plenty for a "
+          "smooth curve.");
+}

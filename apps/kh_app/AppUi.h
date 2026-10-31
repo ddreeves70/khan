@@ -25,6 +25,10 @@ public:
     }
 
     QIcon icon(std::string_view svg) const override;
+    QString askOpenFile(const QString& title, const QString& filter) override;
+
+    // Answers askOpenFile() instead of the file window, if set (for tests).
+    std::function<QString(const QString& title, const QString& filter)> answerOpenFile;
 
     const std::vector<ui::PanelSpec>& panels() const { return panels_; }
     const std::vector<ui::StatusItemSpec>& statusItems() const { return statusItems_; }

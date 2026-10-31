@@ -13,6 +13,7 @@
 
 #include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
+#include "kh/core/Units.h"
 
 namespace kh::sketch {
 
@@ -49,6 +50,18 @@ struct ArcShape {
 };
 
 /// The geometry of one sketch entity.
+/// Where a spline's points came from, when it was imported from a file of points,
+/// so it can be read again (see sketch.reload_spline).
+struct SplineSource {
+    std::string file{};   ///< The file's path, as it was when imported (UTF-8).
+    bool through = true;  ///< True: the curve goes through the points; false: they're its poles.
+    LengthUnit unit = LengthUnit::Millimeter;  ///< The unit of the file's numbers.
+    /// Compares two sources.
+    /// @param other The other source.
+    /// @return True if every part is the same.
+    bool operator==(const SplineSource& other) const = default;
+};
+
 /// A B-spline: a smooth curve pulled towards its control points (poles), like
 /// a flexible ruler bent by pins. It starts at its first pole and ends at its
 /// last (unless it's closed), and passes near the ones between.
@@ -63,6 +76,7 @@ struct SplineShape {
                                     ///< that pole. Empty means every weight is 1 (an ordinary B-spline).
     int degree = 3;                 ///< 1 (straight pieces, a polyline) to 5. 3 (cubic) is the usual.
     bool closed = false;            ///< True for a closed loop with no start or end.
+    std::optional<SplineSource> source{};  ///< The file it was imported from, if it was.
 };
 
 /// What an entity is: a point, line, circle, arc or spline.
@@ -281,6 +295,34 @@ std::vector<Point2> splineSample(const SplineShape& spline, int perSpan = 16);
 /// @return The control points (mm), or nothing if there are too few points or
 ///         the degree is out of range.
 std::vector<Point2> splinePolesThrough(const std::vector<Point2>& through, int degree, bool closed);
+
+/// The points read from a file of points (see readPoints()).
+struct PointsFile {
+    std::vector<Point2> points{};  ///< The points, in mm, in the file's order.
+    Diagnostics issues{};          ///< What's wrong with the file, in plain words; empty if nothing.
+};
+
+/// Reads the text of a file of points: one point per line, x then y, split by
+/// commas, spaces, tabs or semicolons (so a spreadsheet's CSV works). A third
+/// number on a line (z) is left out. Blank lines are skipped, `#` starts a
+/// comment, and a first line that isn't numbers (a heading like "x,y") is
+/// skipped too.
+///
+/// @code
+/// auto read = kh::sketch::readPoints("x,y\n0,0\n20,15\n40,0\n", "arch.csv");
+/// // read.points: (0, 0), (20, 15), (40, 0)
+/// @endcode
+/// @param text The file's text.
+/// @param fileName The file's name, for messages like "Line 4 of arch.csv ...".
+/// @param unit The unit of its numbers; the points come back in mm.
+/// @return The points, or what's wrong: a line that isn't 2 or 3 numbers, fewer
+///         than 2 points, or more than kMostPoints.
+PointsFile readPoints(std::string_view text, std::string_view fileName,
+                      LengthUnit unit = LengthUnit::Millimeter);
+
+/// The most points readPoints() takes from one file, so a spline through them
+/// still solves quickly.
+inline constexpr std::size_t kMostPoints = 500;
 
 /// Says where along a spline made by splinePolesThrough() it passes through each point.
 /// @param count How many points it passes through.

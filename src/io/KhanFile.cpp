@@ -197,6 +197,11 @@ json sketchToJson(const sketch::Sketch& s) {
                     if (!shape.weights.empty()) j["weights"] = shape.weights;  // left out when all 1
                     j["degree"] = shape.degree;
                     if (shape.closed) j["closed"] = true;  // left out when false
+                    if (shape.source) {                    // only for one imported from a file
+                        j["source"] = {{"file", shape.source->file},
+                                       {"through", shape.source->through},
+                                       {"unit", std::string(unitSymbol(shape.source->unit))}};
+                    }
                 } else {
                     j["type"] = "arc";
                     j["center"] = vec2(shape.center);
@@ -296,6 +301,17 @@ std::optional<sketch::Sketch> sketchFromJson(const json& j, std::string& why) {
             if (!degree.is_number_integer()) return bad("degree");
             sp.degree = degree.get<int>();
             sp.closed = ej.value("closed", false);
+            if (ej.contains("source")) {
+                const json& src = ej["source"];
+                if (!src.is_object() || !src.contains("file") || !src["file"].is_string())
+                    return bad("source");
+                sketch::SplineSource source;
+                source.file = src["file"].get<std::string>();
+                source.through = src.value("through", true);
+                // A unit Khan doesn't know reads as mm, as the document's does.
+                source.unit = parseLengthUnit(src.value("unit", "mm")).value_or(LengthUnit::Millimeter);
+                sp.source = std::move(source);
+            }
             e.shape = std::move(sp);
         } else {
             return bad("type");

@@ -460,6 +460,76 @@ std::vector<Point2> splinePolesThrough(const std::vector<Point2>& through, int d
     return poles;
 }
 
+PointsFile readPoints(std::string_view text, std::string_view fileName, LengthUnit unit) {
+    PointsFile out;
+    const std::string name(fileName);
+    const double scale = mmPerUnit(unit);
+    auto problem = [&](std::string message) {
+        out.issues.push_back({"sketch.points_file", Severity::Error, std::move(message), {}});
+        out.points.clear();  // no half-read files
+    };
+    std::size_t lineNo = 0, from = 0;
+    bool first = true;  // no numbers read yet
+    while (from <= text.size()) {
+        const auto newline = text.find('\n', from);
+        std::string_view line =
+            text.substr(from, newline == std::string_view::npos ? std::string_view::npos : newline - from);
+        from = newline == std::string_view::npos ? text.size() + 1 : newline + 1;
+        ++lineNo;
+        const std::string original(line.substr(0, line.find('\r')));
+        if (const auto hash = line.find('#'); hash != std::string_view::npos) line = line.substr(0, hash);
+        // The numbers on the line, split by commas, semicolons, spaces or tabs.
+        std::vector<std::string> words;
+        std::string word;
+        for (char ch : line) {
+            if (ch == ',' || ch == ';' || ch == ' ' || ch == '\t' || ch == '\r') {
+                if (!word.empty()) words.push_back(std::move(word));
+                word.clear();
+            } else {
+                word += ch;
+            }
+        }
+        if (!word.empty()) words.push_back(std::move(word));
+        if (words.empty()) continue;
+        std::vector<double> numbers;
+        for (const auto& w : words) {
+            std::size_t used = 0;
+            double v = 0;
+            try {
+                v = std::stod(w, &used);
+            } catch (...) {
+                used = 0;
+            }
+            if (used != w.size() || !std::isfinite(v)) break;
+            numbers.push_back(v);
+        }
+        const bool good = numbers.size() == words.size() && (numbers.size() == 2 || numbers.size() == 3);
+        if (!good && first && numbers.size() < words.size()) {  // a heading, like "x,y"
+            first = false;
+            continue;
+        }
+        first = false;
+        if (!good) {
+            problem("Line " + std::to_string(lineNo) + " of " + name + " isn't 2 numbers (x and y): \"" +
+                    original + "\". Fix that line, or put # at its start to skip it.");
+            return out;
+        }
+        if (out.points.size() == kMostPoints) {
+            problem(name + " has more than " + std::to_string(kMostPoints) +
+                    " points. Use fewer: every 2nd or 5th point is usually plenty for a smooth curve.");
+            out.points.clear();
+            return out;
+        }
+        out.points.push_back({numbers[0] * scale, numbers[1] * scale});
+    }
+    if (out.points.size() < 2) {
+        problem(name + " has " + std::string(out.points.empty() ? "no points" : "only 1 point") +
+                ". A spline needs at least 2: one per line, like 0,0 then 20,15.");
+        out.points.clear();
+    }
+    return out;
+}
+
 bool isDimension(ConstraintKind kind) {
     switch (kind) {
         case ConstraintKind::Distance:

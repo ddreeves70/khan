@@ -4,6 +4,9 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <numbers>
 
@@ -384,4 +387,116 @@ TEST_CASE("adding and removing control points keeps constraints on the points th
     // Undo puts it all back.
     REQUIRE(d.doc.undo());
     CHECK(splineIn(d, "Spline1").poles.size() == 4);
+}
+
+namespace {
+
+// A file of points in a fresh folder, removed afterwards.
+struct PointsFile {
+    std::filesystem::path dir =
+        std::filesystem::temp_directory_path() /
+        ("kh_points_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::filesystem::path path = dir / "wave.csv";
+    PointsFile() { std::filesystem::create_directories(dir); }
+    ~PointsFile() {
+        std::error_code ec;
+        std::filesystem::remove_all(dir, ec);
+    }
+    void write(const std::string& text) const { std::ofstream(path, std::ios::binary) << text; }
+    std::string name() const {
+        const auto u = path.u8string();
+        return std::string(u.begin(), u.end());
+    }
+};
+
+}  // namespace
+
+TEST_CASE("sketch.import_spline makes a spline from a file, and remembers it; reload follows the file",
+          "[model][sketch][spline][import]") {
+    Drawing d;
+    PointsFile file;
+    file.write("x,y\n0,0\n10,18\n30,22\n40,0\n");
+    REQUIRE(d.sk("sketch.import_spline", {{"file", file.name()}}).empty());
+    auto spline = [&] { return splineIn(d, "Spline1"); };
+    REQUIRE(spline().poles.size() == 4);
+    REQUIRE(spline().source);
+    CHECK(spline().source->through);
+    const std::string remembered = spline().source->file;
+    CHECK(std::filesystem::path(std::u8string(remembered.begin(), remembered.end())) == file.path);
+    // Through the points.
+    const auto at = sketch::splineThroughAt(4, 3, false);
+    CHECK(sketch::splinePoint(spline(), at[1]).y == Approx(18).margin(1e-9));
+
+    // Constrain the last control point, then the file loses a point: reloading takes the
+    // constraint on the point that's gone, and keeps the one on the first.
+    REQUIRE(d.sk("sketch.constrain", {{"kind", std::string("fix")}, {"on", std::string("Spline1.pole4")}})
+                .empty());
+    REQUIRE(d.sk("sketch.constrain", {{"kind", std::string("fix")}, {"on", std::string("Spline1.pole1")}})
+                .empty());
+    file.write("0,0\n15,25\n40,0\n");
+    REQUIRE(
+        d.sk("sketch.set_spline", {{"spline", std::string("Spline1")}, {"degree", std::int64_t{2}}}).empty());
+    REQUIRE(d.sk("sketch.reload_spline", {{"spline", std::string("Spline1")}}).empty());
+    CHECK(spline().poles.size() == 3);
+    CHECK(spline().degree == 2);  // kept
+    CHECK(d.step().sketch().findConstraint("Fix1") == nullptr);
+    CHECK(d.step().sketch().findConstraint("Fix2") != nullptr);
+    CHECK(d.doc.undoLabel() == "Reload Spline1 from wave.csv");
+    const auto top = sketch::splinePoint(spline(), sketch::splineThroughAt(3, 2, false)[1]);
+    CHECK(top.y == Approx(25).margin(1e-9));
+    // Undo puts the old points (and the constraint) back, without reading the file.
+    REQUIRE(d.doc.undo());
+    CHECK(spline().poles.size() == 4);
+    CHECK(d.step().sketch().findConstraint("Fix1") != nullptr);
+    REQUIRE(d.doc.redo());
+    CHECK(spline().poles.size() == 3);
+
+    // In inches, as control points.
+    file.write("0 0\n1 1\n2 0\n");
+    REQUIRE(d.sk("sketch.import_spline", {{"file", file.name()},
+                                          {"through", false},
+                                          {"unit", std::string("in")},
+                                          {"name", std::string("Inches")}})
+                .empty());
+    CHECK(splineIn(d, "Inches").poles[1].x == Approx(25.4));
+    CHECK(splineIn(d, "Inches").source->unit == LengthUnit::Inch);
+    CHECK_FALSE(splineIn(d, "Inches").source->through);
+}
+
+TEST_CASE("importing and reloading say what's wrong with the file, in plain words",
+          "[model][sketch][spline][import]") {
+    Drawing d;
+    PointsFile file;
+    auto problems = d.sk("sketch.import_spline", {{"file", file.name()}});  // not written yet
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message == "Khan can't open wave.csv (looked for it at " + file.name() +
+                                     "). Check the file is there, and try again.");
+    file.write("0,0\n1,x\n");
+    problems = d.sk("sketch.import_spline", {{"file", file.name()}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "sketch.points_file");
+    CHECK(d.step().sketch().entities.empty());
+
+    file.write("0,0\n10,10\n20,0\n30,10\n");
+    REQUIRE(d.sk("sketch.import_spline", {{"file", file.name()}}).empty());
+    file.write("0,0\n10,10\n");  // too few for degree 3 now
+    problems = d.sk("sketch.reload_spline", {{"spline", std::string("Spline1")}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message ==
+          "wave.csv has only 2 points now, too few for Spline1's degree 3. Add points to the file, or lower "
+          "its "
+          "degree first.");
+    std::filesystem::remove(file.path);  // moved away
+    problems = d.sk("sketch.reload_spline", {{"spline", std::string("Spline1")}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].code == "sketch.points_file");
+    REQUIRE(d.sk("sketch.add_spline", {{"poles", Points{{0, 0}, {5, 5}, {10, 0}}}}).empty());
+    problems = d.sk("sketch.reload_spline", {{"spline", std::string("Spline2")}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message ==
+          "Spline2 wasn't imported from a file, so there's nothing to reload. Make one from a file with "
+          "sketch.import_spline.");
+    problems = d.sk("sketch.reload_spline", {{"spline", std::string("Spline9")}});
+    REQUIRE(problems.size() == 1);
+    CHECK(problems[0].message == "There's no spline called Spline9 in this sketch.");
 }

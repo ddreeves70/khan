@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
+#include <fstream>
 #include <numbers>
+#include <sstream>
 #include <utility>
 
 #include "kh/model/Commands.h"
@@ -282,6 +285,39 @@ sketch::Entity* findPole(sketch::Sketch& s, const std::string& text, int& index,
     }
     index = ref->index;
     return e;
+}
+
+// A path from UTF-8 text, and back, the same on every computer.
+std::filesystem::path pathFrom(const std::string& utf8) {
+    return std::filesystem::path(std::u8string(utf8.begin(), utf8.end()));
+}
+std::string utf8Of(const std::filesystem::path& path) {
+    const auto u = path.u8string();
+    return std::string(u.begin(), u.end());
+}
+
+// Reads a file of points (see sketch::readPoints()).
+sketch::PointsFile readPointsFile(const std::string& file, LengthUnit unit) {
+    const auto path = pathFrom(file);
+    const std::string name = utf8Of(path.filename());
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        sketch::PointsFile out;
+        out.issues.push_back(
+            sketchProblem("sketch.points_file", "Khan can't open " + name + " (looked for it at " + file +
+                                                    "). Check the file is there, and try again."));
+        return out;
+    }
+    std::ostringstream text;
+    text << in.rdbuf();
+    return sketch::readPoints(text.str(), name, unit);
+}
+
+// The control points for points read from a file: the points themselves, or
+// ones the curve goes through them by. Empty if there are too few for the degree.
+std::vector<sketch::Point2> polesFrom(const std::vector<sketch::Point2>& points, bool through, int degree,
+                                      bool closed) {
+    return through ? sketch::splinePolesThrough(points, degree, closed) : points;
 }
 
 // After a control point is added at `index` (by +1) or removed from it (by -1),
@@ -596,6 +632,122 @@ CommandRegistry makeBuiltin() {
               return addEntity(argFeature(a, "sketch"),
                                sketch::SplineShape{std::move(points), {}, degree, closed},
                                argBool(a, "construction", false), argText(a, "name"), "Spline");
+          });
+
+    std::vector<std::string> unitChoices;
+    for (auto u : {LengthUnit::Millimeter, LengthUnit::Centimeter, LengthUnit::Meter, LengthUnit::Inch,
+                   LengthUnit::Foot})
+        unitChoices.emplace_back(unitSymbol(u));
+    r.add({"sketch.import_spline",
+           "Import spline",
+           "Adds a spline made from a file of points: one point per line, x then y (a spreadsheet's CSV "
+           "works). Khan "
+           "remembers the file, so sketch.reload_spline can read it again after it changes.",
+           {sketchArg,
+            {"file", ArgType::Text, "The file of points, like wave.csv.", true, {}},
+            {"through",
+             ArgType::Bool,
+             "true: the curve goes through every point; false: the points are its control points. Default "
+             "true.",
+             false,
+             {}},
+            {"unit", ArgType::Choice, "The unit of the file's numbers. Default mm.", false, unitChoices},
+            {"degree",
+             ArgType::Integer,
+             "How smooth: 1 (straight pieces) to 5. Default 3, or less if there are only 2 or 3 points.",
+             false,
+             {}},
+            {"closed", ArgType::Bool, "true for a closed loop with no ends. Default false.", false, {}},
+            constructionArg,
+            {"name", ArgType::Text, "Its name. Default Spline1, Spline2, ...", false, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              const auto sketchId = argFeature(a, "sketch");
+              const std::string file = argText(a, "file");
+              const auto unit = parseLengthUnit(argText(a, "unit", "mm")).value_or(LengthUnit::Millimeter);
+              auto read = readPointsFile(file, unit);
+              if (!read.issues.empty()) return failingCommand(sketchId, read.issues);
+              const bool through = argBool(a, "through", true);
+              const bool closed = argBool(a, "closed", false);
+              const int most = std::max(1, static_cast<int>(read.points.size()) - 1);
+              const int degree =
+                  a.count("degree") ? static_cast<int>(argNumber(a, "degree")) : std::min(3, most);
+              auto poles = polesFrom(read.points, through, degree, closed);
+              if (poles.empty()) poles = read.points;  // too few for the degree: check() says so
+              // The whole path, so reloading finds it from anywhere.
+              std::error_code ec;
+              const auto whole = std::filesystem::absolute(pathFrom(file), ec);
+              sketch::SplineShape shape{std::move(poles), {}, degree, closed};
+              shape.source = sketch::SplineSource{utf8Of(ec ? pathFrom(file) : whole), through, unit};
+              return addEntity(sketchId, std::move(shape), argBool(a, "construction", false),
+                               argText(a, "name"), "Spline");
+          });
+
+    r.add({"sketch.reload_spline",
+           "Reload spline from file",
+           "Reads an imported spline's file of points again, so the spline follows changes made to it. "
+           "Constraints "
+           "on control points it doesn't have anymore are removed.",
+           {sketchArg, {"spline", ArgType::Text, "The imported spline, like Spline1.", true, {}}}},
+          [](const Document& doc, const Args& a) -> std::unique_ptr<Command> {
+              const auto sketchId = argFeature(a, "sketch");
+              const std::string name = argText(a, "spline");
+              // The file is read now, so undo and redo put back exactly these points.
+              const auto* f = doc.find(sketchId);
+              const auto* step =
+                  f && f->type() == FeatureType::Sketch ? static_cast<const SketchFeature*>(f) : nullptr;
+              const auto* e = step ? step->sketch().findEntity(name) : nullptr;
+              const auto* sp = e ? std::get_if<sketch::SplineShape>(&e->shape) : nullptr;
+              if (step && !e) {
+                  return failingCommand(
+                      sketchId, {sketchProblem("sketch.not_found",
+                                               "There's no spline called " + name + " in this sketch.")});
+              }
+              if (!step) {
+                  // Not a sketch (or not there): the edit itself says so, in its words.
+                  return std::make_unique<EditSketchCommand>(
+                      sketchId, [](sketch::Sketch&, std::string&) { return Diagnostics{}; });
+              }
+              if (!sp || !sp->source) {
+                  return failingCommand(
+                      sketchId,
+                      {sketchProblem("sketch.not_imported",
+                                     name + " wasn't imported from a file, so there's nothing to reload. "
+                                            "Make one from a file with sketch.import_spline.")});
+              }
+              const auto source = *sp->source;
+              auto read = readPointsFile(source.file, source.unit);
+              if (!read.issues.empty()) return failingCommand(sketchId, read.issues);
+              const std::string fileName = utf8Of(pathFrom(source.file).filename());
+              auto points = std::move(read.points);
+              return std::make_unique<EditSketchCommand>(
+                  sketchId, [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                      auto* entity = entityNamed(s, name);
+                      auto* shape = entity ? std::get_if<sketch::SplineShape>(&entity->shape) : nullptr;
+                      if (!shape) {
+                          return {sketchProblem("sketch.not_found",
+                                                "There's no spline called " + name + " in this sketch.")};
+                      }
+                      auto poles = polesFrom(points, source.through, shape->degree, shape->closed);
+                      if (poles.empty()) {
+                          return {sketchProblem("sketch.spline_poles",
+                                                fileName + " has only " + std::to_string(points.size()) +
+                                                    " points now, too few for " + name + "'s degree " +
+                                                    std::to_string(shape->degree) +
+                                                    ". Add points to the file, or lower its degree first.")};
+                      }
+                      const int n = static_cast<int>(poles.size());
+                      shape->poles = std::move(poles);
+                      if (!shape->weights.empty()) shape->weights.resize(shape->poles.size(), 1.0);
+                      // Constraints on control points it no longer has go.
+                      const EntityId id = entity->id;
+                      std::erase_if(s.constraints, [&](const sketch::Constraint& c) {
+                          return std::ranges::any_of(c.points, [&](const sketch::PointRef& p) {
+                              return p.entity == id && p.role == sketch::PointRole::Pole && p.index >= n;
+                          });
+                      });
+                      label = "Reload " + name + " from " + fileName;
+                      return {};
+                  });
           });
 
     const ArgSpec splineArg{"spline", ArgType::Text, "The spline, like Spline1.", true, {}};

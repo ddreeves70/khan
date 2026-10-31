@@ -763,6 +763,83 @@ $ kh_cli run --open arch.khan sketch.remove_pole sketch=Sketch1 point=Spline1.po
 error [sketch.spline_poles]: Spline1 has only 4 control points, the fewest a spline of degree 3 can have. Lower its degree first (sketch.set_spline degree=2), or delete the whole spline.
 ```
 
+## sketch.import_spline
+
+Adds a spline made from a **file of points**: one point per line, x then y,
+split by commas, spaces, tabs or semicolons, so a spreadsheet saved as CSV works.
+A first line like `x,y` is skipped, `#` starts a comment, and a third number on a
+line (z) is left out. Khan remembers the file, so
+[`sketch.reload_spline`](#sketchreload_spline) can read it again after it changes.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `file` | text | yes | The file of points, like `wave.csv` |
+| `through` | true or false | no | `true`: the curve goes through every point; `false`: the points are its control points. Default `true` |
+| `unit` | `mm`, `cm`, `m`, `in` or `ft` | no | The unit of the file's numbers. Default `mm` |
+| `degree` | whole number | no | How smooth: `1` to `5`. Default `3`, or less with only 2 or 3 points |
+| `closed` | true or false | no | `true` for a smooth loop with no ends. Default `false` |
+| `construction` | true or false | no | `true` for helper geometry. Default `false` |
+| `name` | text | no | Its name. Default `Spline1`, `Spline2`, ... |
+
+[`wave.csv`](files/wave.csv) has 7 points of a wave 60 mm long. The spline goes
+through all 7, so it has 7 control points:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save wave.khan feature.add_sketch
+wave: 1 step
+  Sketch1      ok  empty
+wrote wave.khan
+$ kh_cli run --open wave.khan --save wave.khan sketch.import_spline sketch=Sketch1 file=docs/cli/files/wave.csv
+wave: 1 step
+  Sketch1      ok  1 spline, 0 constraints, free to move 14 ways
+wrote wave.khan
+```
+
+A line that isn't two numbers is named, so you can fix it. In
+[`wave-typo.csv`](files/wave-typo.csv), `10` was typed with a letter O:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open wave.khan sketch.import_spline sketch=Sketch1 file=docs/cli/files/wave-typo.csv
+error [sketch.points_file]: Line 4 of wave-typo.csv isn't 2 numbers (x and y): "20,1O". Fix that line, or put # at its start to skip it.
+```
+
+A file that isn't there:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open wave.khan sketch.import_spline sketch=Sketch1 file=nowhere.csv
+error [sketch.points_file]: Khan can't open nowhere.csv (looked for it at nowhere.csv). Check the file is there, and try again.
+```
+
+## sketch.reload_spline
+
+Reads an imported spline's file again, so the spline follows changes you made to
+the file (in a spreadsheet, say). Its degree and weights stay; constraints on
+control points it doesn't have anymore are removed. Undo puts the old points back.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `spline` | text | yes | The imported spline, like `Spline1` |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open wave.khan sketch.reload_spline sketch=Sketch1 spline=Spline1
+wave: 1 step
+  Sketch1      ok  1 spline, 0 constraints, free to move 14 ways
+```
+
+Only an imported spline has a file to read:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open arch.khan sketch.reload_spline sketch=Sketch1 spline=Spline1
+error [sketch.not_imported]: Spline1 wasn't imported from a file, so there's nothing to reload. Make one from a file with sketch.import_spline.
+```
+
 ## sketch.constrain
 
 Adds a constraint (`kind=horizontal`, `tangent`, ...) or a dimension

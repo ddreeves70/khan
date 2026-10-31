@@ -43,6 +43,8 @@ Commands for kh_cli run:
   sketch.add_spline        Add spline
   sketch.constrain         Add constraint
   sketch.delete            Delete from sketch
+  sketch.import_spline     Import spline
+  sketch.reload_spline     Reload spline from file
   sketch.remove_pole       Remove control point
   sketch.set_spline        Change spline
   sketch.set_value         Change dimension

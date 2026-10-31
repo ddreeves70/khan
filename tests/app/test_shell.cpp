@@ -2008,6 +2008,68 @@ TEST_CASE(
     CHECK(d->value == Approx(std::hypot(p4.x - p3.x, p4.y - p3.y)));
 }
 
+TEST_CASE("Sketch > Import spline through points, and Reload from file after the file changes",
+          "[app][sketcher][spline][import]") {
+    App app;
+    const QString file = app.dir.filePath(QStringLiteral("wave.csv"));
+    auto write = [&](const char* text) {
+        QFile f(file);
+        REQUIRE(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        f.write(text);
+    };
+    write("x,y\n0,0\n10,18\n30,22\n40,0\n");
+    QString asked;
+    app.ui.answerOpenFile = [&](const QString& title, const QString&) {
+        asked = title;
+        return file;
+    };
+    CHECK_FALSE(app.menu("kh.sketcher.import_through")->isEnabled());  // only while editing a sketch
+    app.click("kh.sketcher.new_xy");
+    REQUIRE(app.menu("kh.sketcher.import_through")->isEnabled());
+    app.click("kh.sketcher.import_through");
+    CHECK(asked == QStringLiteral("Import a spline from a file of points"));
+    const auto& s = sketchAt(app, 0).sketch();
+    REQUIRE(s.entities.size() == 1);
+    const auto& sp = std::get<sketch::SplineShape>(s.entities[0].shape);
+    REQUIRE(sp.source);
+    CHECK(sp.source->through);
+    CHECK(app.shell->statusBar()->currentMessage().startsWith(
+        QStringLiteral("Imported Spline1 from wave.csv")));
+    CHECK(app.menu("kh.sketcher.select")->isChecked());
+
+    // It's picked, so the Sketch panel says where it's from, with Reload.
+    auto* panel = app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"));
+    REQUIRE(panel);
+    auto* source = panel->findChild<QLabel*>(QStringLiteral("spline.source"));
+    auto* reload = panel->findChild<QPushButton*>(QStringLiteral("spline.reload"));
+    REQUIRE(source);
+    REQUIRE(reload);
+    CHECK(reload->isVisibleTo(panel));
+    CHECK(source->text() == QStringLiteral("From wave.csv"));
+
+    write("0,0\n10,30\n20,35\n30,30\n40,0\n");  // changed in a spreadsheet
+    reload->click();
+    settle();
+    const auto& after = std::get<sketch::SplineShape>(sketchAt(app, 0).sketch().entities[0].shape);
+    CHECK(after.poles.size() == 5);
+    CHECK(app.doc().undoLabel() == "Reload Spline1 from wave.csv");
+    const auto top = sketch::splinePoint(after, sketch::splineThroughAt(5, 3, false)[2]);
+    CHECK(top.y == Approx(35).margin(1e-6));
+
+    // A file that's gone: says so, and nothing changes.
+    QFile::remove(file);
+    reload = panel->findChild<QPushButton*>(QStringLiteral("spline.reload"));
+    reload->click();
+    settle();
+    CHECK(std::get<sketch::SplineShape>(sketchAt(app, 0).sketch().entities[0].shape).poles.size() == 5);
+    CHECK(app.doc().undoLabel() == "Reload Spline1 from wave.csv");
+
+    // Cancelling the file window adds nothing.
+    app.ui.answerOpenFile = [](const QString&, const QString&) { return QString(); };
+    app.click("kh.sketcher.import_poles");
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 1);
+}
+
 TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",
           "[app][units]") {
     App app;

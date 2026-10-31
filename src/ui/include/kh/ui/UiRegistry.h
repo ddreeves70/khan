@@ -119,6 +119,17 @@ public:
     /// @param svg The SVG text, usually built in with kh_embed_files().
     /// @return The icon, or an empty one if the text isn't a picture.
     virtual QIcon icon(std::string_view svg) const = 0;
+
+    /// Asks the student to pick a file to open, with the computer's own file
+    /// window (tests answer it themselves).
+    /// @code
+    /// const QString file = ui->askOpenFile(QObject::tr("Import points"), QObject::tr("Points (*.csv
+    /// *.txt)")); if (!file.isEmpty()) { /* read it */ }
+    /// @endcode
+    /// @param title The window's title, like "Import points".
+    /// @param filter Which files it shows, in Qt's form: "Points (*.csv *.txt)".
+    /// @return The file's whole path, or empty if the student cancelled.
+    virtual QString askOpenFile(const QString& title, const QString& filter) = 0;
 };
 
 }  // namespace kh::ui

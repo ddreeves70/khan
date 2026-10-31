@@ -1,0 +1,9 @@
+x,y
+# A wave, 60 mm long: the points a spline goes through.
+0,0
+10,8
+20,10
+30,0
+40,-10
+50,-8
+60,0

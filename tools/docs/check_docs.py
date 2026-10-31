@@ -66,6 +66,12 @@ def matches(expected, actual):
 
 
 def map_arg(arg, args):
+    """A path in the repository (build/dev/..., tests/..., docs/...), on its own or as a
+    command setting's value (file=docs/...), made into the real path."""
+    if "=" in arg and not arg.startswith("-"):
+        key, value = arg.split("=", 1)
+        mapped = map_arg(value, args)
+        return arg if mapped == value else key + "=" + mapped
     for prefix, base in (("build/dev/", args.build_dir), ("tests/", args.repo / "tests"),
                          ("docs/", args.repo / "docs")):
         if arg.startswith(prefix):
