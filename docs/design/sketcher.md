@@ -378,6 +378,15 @@ Four pull requests:
   another computer needs its file put in the same place, or importing again.
   Relative paths can come with assemblies, which will need the same thing.
 
+**The spline corpus** (after D): 7 more regression cases (weighted, degree 1,
+degree 5, a closed weighted loop, a chain of tangent splines, a spline pocket cut
+from a block, a standing arch turned 30 degrees), with every expected value worked
+out independently of Khan. They showed OCCT's surface areas of spline walls were
+wrong (by 0.2% on a degree 1 spline, 1e-4 on a weighted one, 1.7 mm^2 on a hole),
+because its integration uses a fixed number of points per knot span. `massProps()`
+now measures each free-form face from a copy cut into pieces 8 times shorter (the
+same shape), exact to 1e-9; two older cases' areas were corrected.
+
 ## Choices
 
 - **A copy of PlaneGCS, not all of FreeCAD.** Only `src/Mod/Sketcher/App/planegcs/`

@@ -1,0 +1,84 @@
+{
+  "name": "extrude-spline-loop-weighted",
+  "description": "A closed (periodic) quadratic spline with weights 1 2 1 2 1 2 round six poles, a shape on its own, extruded 6 mm. Area 1063.7365 mm^2 and perimeter 117.3387 mm, worked out independently of Khan (SciPy NURBS, Green's theorem, adaptive integration per span). One edge, so 3 faces: top, bottom and the side.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {
+          "spline": {
+            "poles": [
+              [
+                20.0,
+                0.0
+              ],
+              [
+                40.0,
+                10.0
+              ],
+              [
+                40.0,
+                30.0
+              ],
+              [
+                20.0,
+                40.0
+              ],
+              [
+                0.0,
+                30.0
+              ],
+              [
+                0.0,
+                10.0
+              ]
+            ],
+            "degree": 2,
+            "weights": [
+              1.0,
+              2.0,
+              1.0,
+              2.0,
+              1.0,
+              2.0
+            ],
+            "closed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "pebble",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        0,
+        6
+      ]
+    }
+  ],
+  "result": "pebble",
+  "expect": {
+    "valid": true,
+    "volume": 6382.418763,
+    "area": 2831.505168,
+    "solids": 1,
+    "faces": 3,
+    "edges": 3,
+    "vertices": 2,
+    "bounds": [
+      [
+        0.0,
+        4.0,
+        0.0
+      ],
+      [
+        40.0,
+        38.571429,
+        6.0
+      ]
+    ]
+  }
+}

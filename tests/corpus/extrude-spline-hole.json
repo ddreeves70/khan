@@ -1,6 +1,6 @@
 {
   "name": "extrude-spline-hole",
-  "description": "A 40 x 40 mm plate with a hole shaped by a closed (periodic) uniform cubic spline round the square of poles (+-10, +-10), extruded 2 mm. The spline's area is 271.1111 mm^2 (exactly 2440/9, checked by integrating the B-spline), so the volume is (1600 - 2440/9) x 2 = 2657.78 mm^3. 7 faces: top, bottom, 4 sides, the hole's wall.",
+  "description": "A 40 x 40 mm plate with a hole shaped by a closed (periodic) uniform cubic spline round the square of poles (+-10, +-10), extruded 2 mm. The spline's area is 271.1111 mm^2 (exactly 2440/9, checked by integrating the B-spline), so the volume is (1600 - 2440/9) x 2 = 2657.78 mm^3. 7 faces: top, bottom, 4 sides, the hole's wall. The surface area, 2 x (1600 - 2440/9) + (160 + 58.411470) x 2 = 3094.600717 mm^2 (the spline's length by adaptive integration, checked against a million-piece polyline), was corrected on Oct 31, 2026: the first recorded value came from OCCT's measure of the hole's wall, which was 1.68 mm^2 off.",
   "steps": [
     {
       "id": "face",
@@ -99,7 +99,7 @@
   "expect": {
     "valid": true,
     "volume": 2657.777778,
-    "area": 3096.279543,
+    "area": 3094.600717,
     "bounds": [
       [
         -20.0,

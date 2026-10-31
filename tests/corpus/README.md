@@ -65,3 +65,11 @@ deterministic).
 
 When a kernel change alters results on purpose, run `--update` on the affected cases,
 review the diff in each file, and explain the change in the commit message.
+
+**Curved and free-form parts need values worked out without Khan.** Recording
+Khan's own output and calling it checked is how a wrong number gets into the
+corpus: two spline cases kept OCCT's slightly wrong surface areas until Oct 31,
+2026, when the spline cases' values were worked out separately (the B-splines
+evaluated with SciPy, areas by Green's theorem, lengths by adaptive integration
+per knot span, extremes refined from samples) and compared. Say in the case's
+`description` how its numbers were checked.
