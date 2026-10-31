@@ -268,6 +268,8 @@ Diagnostics trim(sketch::Sketch& sketch, const EntityId& entity, sketch::Point2 
 std::string uniqueSketchName(const sketch::Sketch& sketch, const std::string& base);
 
 /// Replaces a feature with an edited copy that has the same id and type.
+/// A number that the copy changes but whose formula it leaves as it was (see
+/// Feature::formulas()) was typed over, so it stops coming from the formula.
 ///
 /// @code
 /// auto copy = doc.find(id)->clone();
@@ -477,6 +479,41 @@ public:
 private:
     std::vector<Parameter> parameters_;
     ParameterTable old_;
+};
+
+/// Changes one of a step's numbers by its key (see Feature::numbers()), like an
+/// Extrude's distance: to a typed number, or to a formula that may use the
+/// design's parameters, like `wall * 4`. A number with a formula follows the
+/// parameters when they change (see SetParameterCommand).
+///
+/// Refused if the step has no number by that key, or the number or formula
+/// gives the wrong kind of value (a length for a length, an angle for an angle)
+/// or isn't more than 0 where it must be.
+class SetNumberCommand final : public Command {
+public:
+    /// Prepares the change to a typed number.
+    /// @param step The step.
+    /// @param key Like "distance".
+    /// @param value The number: mm, or radians for an angle.
+    SetNumberCommand(FeatureId step, std::string key, double value);
+
+    /// Prepares the change to a formula.
+    /// @param step The step.
+    /// @param key Like "distance".
+    /// @param formula The formula, like "wall * 4".
+    SetNumberCommand(FeatureId step, std::string key, std::string formula);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    FeatureId id_;
+    std::string key_;
+    double value_ = 0;
+    std::string formula_;             // empty for a typed number
+    std::string name_;                // the step's name, for the label
+    std::unique_ptr<Feature> other_;  // the version not in the design
 };
 
 /// Copies steps for duplicating or pasting: the given steps and every step they

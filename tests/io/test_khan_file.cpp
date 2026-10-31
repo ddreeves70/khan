@@ -283,6 +283,34 @@ TEST_CASE("a dimension's formula survives saving and opening", "[io][parameters]
     CHECK(back.findConstraint("Length2")->expression.empty());
 }
 
+TEST_CASE("a step's formulas survive saving and opening, and copying", "[io][parameters]") {
+    auto doc = makeDesign();
+    REQUIRE(doc->execute(std::make_unique<model::SetParameterCommand>("wall", "3 mm")).empty());
+    const auto plate = doc->featureAt(0).id();
+    REQUIRE(doc->execute(std::make_unique<model::SetNumberCommand>(plate, "size_z", std::string("wall * 2")))
+                .empty());
+    auto copy = doc->find(plate)->clone();
+    copy->setFormula("glow", "wall");  // a key from a newer Khan is kept
+    REQUIRE(doc->execute(std::make_unique<model::EditFeatureCommand>(std::move(copy))).empty());
+
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(*doc, bytes).empty());
+    const auto entries = readZip(bytes);
+    CHECK(entries.at("features/" + plate.toString() + ".json").find("\"formulas\"") != std::string::npos);
+    CHECK(entries.at("features/" + doc->featureAt(1).id().toString() + ".json").find("formulas") ==
+          std::string::npos);
+    auto opened = io::readBytes(bytes, "tag.khan");
+    REQUIRE(opened.ok());
+    const auto& back = *opened.document->find(plate);
+    CHECK(back.formulas() == doc->find(plate)->formulas());
+    CHECK(back.number("size_z") == 6);
+
+    const auto text = io::stepsToText(*doc, {plate});
+    auto pasted = io::stepsFromText(text);
+    REQUIRE(pasted.ok());
+    CHECK(pasted.steps.front()->formula("size_z") == "wall * 2");
+}
+
 TEST_CASE("a design without parameters has no parameters file", "[io][parameters]") {
     auto doc = makeDesign();
     io::Bytes bytes;

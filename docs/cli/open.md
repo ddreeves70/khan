@@ -27,8 +27,9 @@ Each step shows one of these:
 | `blocked` | The step uses another step that failed or is turned off |
 | `off` | The step is turned off (suppressed) |
 
-A design with [parameters](../user-guide/parameters.md) lists them after its
-steps, each with its formula and, if that isn't just a number, what it works out
+A step number that comes from a formula is listed under its step, like
+`    distance = wall * 4  (12 mm)`. A design with
+[parameters](../user-guide/parameters.md) lists them after its steps, each with its formula and, if that isn't just a number, what it works out
 to. A parameter Khan can't work out shows the problem under it.
 
 ## Examples

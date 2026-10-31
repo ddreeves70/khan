@@ -70,7 +70,8 @@ wrote plate.khan
 
 The volume is the shape's area times the distance: (40 × 20 − π × 4²) × 5 =
 3748.67 mm^3. See [`feature.add_extrude`](../cli/commands.md#featureadd_extrude)
-for every setting, and [Tutorial 3](../tutorials/03-name-tag.md) for a whole
+for every setting (the distance can also come from a
+[parameter](parameters.md#using-parameters-in-steps), like `wall * 2`), and [Tutorial 3](../tutorials/03-name-tag.md) for a whole
 part made this way.
 
 ## What gets extruded

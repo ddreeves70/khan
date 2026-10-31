@@ -22,7 +22,7 @@ works in either.
 | Move and turn bodies; copy, paste and duplicate steps; turn steps off; folders | |
 | The desktop app: 3D viewer with 1, 2 or 4 panes, feature tree, Properties, layouts | |
 | Materials: mass, weight, material cost and color | |
-| Parameters: named values like `wall = 3 mm`, with formulas and units, used by sketch dimensions | Step sizes, like an extrude's distance, that use parameters |
+| Parameters: named values like `wall = 3 mm`, with formulas and units, used by sketch dimensions and steps' numbers | A Parameters panel in the desktop app |
 | Save and open `.khan` designs | |
 | Export STL (3D printing) and STEP (other CAD programs), from the app's File menu or `kh_cli` | Fillets, chamfers, holes, patterns |
 | Add plugins | Import STEP, STL and 3MF |

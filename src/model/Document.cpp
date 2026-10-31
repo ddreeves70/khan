@@ -264,6 +264,7 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel, sketch::ISketchSolve
             // A feature is blocked if any input has no shape (failed, blocked,
             // suppressed or missing). Name the first such input for the message.
             std::optional<std::string> blocker;  // the message, once one input is found
+            Diagnostics formulaIssues;           // warnings about formulas that don't work
             const auto sketchInputs = f->sketchInputs();
             for (const auto& dep : f->dependencies()) {
                 usedAsInput.insert(dep);
@@ -301,6 +302,22 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel, sketch::ISketchSolve
                 } else {
                     blocker = "This step uses " + d->name() + ", which has a problem. Fix that step first.";
                 }
+            }
+            // A number whose formula can't be worked out keeps the value it last
+            // had, and says why (a sketch's dimensions are checked below).
+            for (const auto& n : f->numbers()) {
+                const std::string text = f->formula(n.key);
+                if (text.empty()) continue;
+                const auto worked = evalNumber(n.dim, n.positive, text, values, n.key + " in " + f->name());
+                if (worked.ok()) continue;
+                const double last = f->number(n.key).value_or(0);
+                formulaIssues.push_back({"dimension.formula",
+                                         Severity::Warning,
+                                         worked.issues.front().message + " It keeps its last value, " +
+                                             (n.dim == kAngle ? quantityText({last, kAngle}, lengthUnit_)
+                                                              : lengthText(last, lengthUnit_)) +
+                                             ".",
+                                         {}});
             }
             if (blocker) {
                 r.status = FeatureStatus::Blocked;
@@ -342,6 +359,7 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel, sketch::ISketchSolve
                 r.shape = op.shape;
                 r.issues = std::move(op.issues);
             }
+            r.issues.insert(r.issues.end(), formulaIssues.begin(), formulaIssues.end());
         }
         report.order_.push_back(f->id());
         report.results_.emplace(f->id(), std::move(r));

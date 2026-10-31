@@ -315,3 +315,202 @@ TEST_CASE("a parameter a dimension uses can't be deleted", "[model][formulas]") 
     CHECK(dimensionsUsing(d.sketch(), "wall").empty());
     REQUIRE(d.doc.execute(std::make_unique<DeleteParameterCommand>("wall")).empty());  // nothing uses wall
 }
+
+// ---------------------------------------------------------------------------
+// Steps' numbers
+// ---------------------------------------------------------------------------
+
+TEST_CASE("every step's numbers can be read and changed by key", "[model][formulas]") {
+    BoxFeature box("Box1", {1, 2, 3}, {10, 20, 30});
+    CylinderFeature cyl("Cyl1", {1, 2, 3}, {0, 0, 1}, 5, 8);
+    MoveFeature move("Move1", box.id(), kernel::Motion{{1, 2, 3}, {4, 5, 6}, {0, 0, 1}, 0.5});
+    ExtrudeFeature extrude("Extrude1", FeatureId::generate(), 7, ExtrudeSide::One);
+    CHECK(box.number("size_y") == 20);
+    CHECK(box.number("corner_z") == 3);
+    CHECK(cyl.number("radius") == 5);
+    CHECK(cyl.number("base_x") == 1);
+    CHECK(move.number("center_y") == 5);
+    CHECK(move.number("angle") == 0.5);
+    CHECK(extrude.number("distance") == 7);
+    CHECK_FALSE(box.number("radius"));
+    CHECK_FALSE(box.number("size_w"));
+    CHECK_FALSE(box.setNumber("sizes_x", 1));
+    BooleanFeature cut("Cut1", kernel::BoolOp::Cut, box.id(), cyl.id());
+    CHECK(cut.numbers().empty());
+
+    // A property: setting each number by key and reading it back gives the
+    // number, and changes nothing else.
+    std::vector<Feature*> steps{&box, &cyl, &move, &extrude};
+    for (Feature* f : steps) {
+        const auto list = f->numbers();
+        REQUIRE_FALSE(list.empty());
+        for (std::size_t i = 0; i < list.size(); ++i) {
+            INFO(f->name() << " " << list[i].key);
+            std::vector<double> others;
+            for (const auto& n : list) others.push_back(*f->number(n.key));
+            REQUIRE(f->setNumber(list[i].key, 42.5 + static_cast<double>(i)));
+            CHECK(f->number(list[i].key) == 42.5 + static_cast<double>(i));
+            for (std::size_t j = 0; j < list.size(); ++j) {
+                if (j != i) CHECK(f->number(list[j].key) == others[j]);
+            }
+        }
+    }
+    CHECK(box.size().x == 45.5);  // size_x is the 4th number
+    CHECK(move.numbers().back().dim == kAngle);
+    CHECK(extrude.numbers().front().positive);
+}
+
+namespace {
+
+// A design with wall = 3 mm, a 40 x 20 mm rectangle and Extrude1, 5 mm thick.
+struct Plate : Drawing {
+    FeatureId extrudeId;
+
+    Plate() {
+        REQUIRE(run("feature.add_extrude", {{"sketch", sketchId}, {"distance", 5.0}}).empty());
+        extrudeId = doc.featureAt(1).id();
+    }
+
+    const Feature& extrude() const { return *doc.find(extrudeId); }
+
+    Diagnostics setValue(std::string key, Args args) {
+        args["feature"] = extrudeId;
+        args["setting"] = std::move(key);
+        return run("feature.set_value", std::move(args));
+    }
+};
+
+}  // namespace
+
+TEST_CASE("feature.set_value sets a step's number to a number or a formula, and undoes",
+          "[model][formulas]") {
+    Plate d;
+    REQUIRE(d.setValue("distance", {{"formula", std::string("wall * 4")}}).empty());
+    CHECK(d.doc.undoLabel() == "Change distance of Extrude1");
+    CHECK(d.extrude().number("distance") == 12);
+    CHECK(d.extrude().formula("distance") == "wall * 4");
+
+    REQUIRE(d.setValue("distance", {{"value", 6.0}}).empty());
+    CHECK(d.extrude().number("distance") == 6);
+    CHECK(d.extrude().formula("distance").empty());  // typed: no formula
+    d.doc.undo();
+    CHECK(d.extrude().formula("distance") == "wall * 4");
+    d.doc.undo();
+    CHECK(d.extrude().number("distance") == 5);
+    CHECK(d.extrude().formulas().empty());
+    d.doc.redo();
+    CHECK(d.extrude().number("distance") == 12);
+
+    // A Move's angle is typed in degrees, like everywhere else.
+    REQUIRE(d.run("feature.add_move", {{"body", d.extrudeId}}).empty());
+    const auto moveId = d.doc.featureAt(2).id();
+    REQUIRE(
+        d.run("feature.set_value", {{"feature", moveId}, {"setting", std::string("angle")}, {"value", 90.0}})
+            .empty());
+    CHECK(*d.doc.find(moveId)->number("angle") == Approx(std::numbers::pi / 2));
+    REQUIRE(
+        d.run("feature.set_value",
+              {{"feature", moveId}, {"setting", std::string("angle")}, {"formula", std::string("45 deg")}})
+            .empty());
+    CHECK(*d.doc.find(moveId)->number("angle") == Approx(std::numbers::pi / 4));
+}
+
+TEST_CASE("feature.set_value refuses what can't be used, and changes nothing", "[model][formulas]") {
+    Plate d;
+    auto first = [&](std::string key, Args args) {
+        auto issues = d.setValue(std::move(key), std::move(args));
+        REQUIRE_FALSE(issues.empty());
+        return issues.front();
+    };
+    CHECK(first("distanse", {{"value", 3.0}}).message ==
+          "Extrude1 has no number called distanse. Its numbers are: distance.");
+    CHECK(first("distance", {{"value", -3.0}}).code == "dimension.size");
+    CHECK(first("distance", {{"value", 0.0}}).code == "dimension.size");
+    CHECK(first("distance", {}).code == "feature.number");
+    CHECK(first("distance", {{"value", 3.0}, {"formula", std::string("wall")}}).code == "feature.number");
+    CHECK(first("distance", {{"formula", std::string("12")}}).code == "dimension.units");
+    CHECK(first("distance", {{"formula", std::string("wall - 1 in")}}).code == "dimension.size");
+    CHECK(first("distance", {{"formula", std::string("wal")}}).code == "expression.unknown_name");
+    auto issues = d.run("feature.set_value",
+                        {{"feature", d.sketchId}, {"setting", std::string("distance")}, {"value", 3.0}});
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().message == "Sketch1 has no numbers that can be changed this way.");
+    CHECK(d.extrude().number("distance") == 5);
+    CHECK(d.doc.undoLabel() == "Add Extrude1");
+}
+
+TEST_CASE("changing a parameter changes the step numbers that use it", "[model][formulas]") {
+    Plate d;
+    REQUIRE(d.setValue("distance", {{"formula", std::string("wall * 2")}}).empty());
+    REQUIRE(d.setParameter("wall", "4 mm").empty());
+    CHECK(d.extrude().number("distance") == 8);
+    d.doc.undo();
+    CHECK(d.extrude().number("distance") == 6);
+    d.doc.redo();
+
+    // A change that would make it 0 mm or less, or not a length, is refused.
+    auto issues = d.setParameter("wall", "0 mm");
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().code == "parameter.breaks");
+    CHECK_THAT(issues.front().message,
+               StartsWith("Changing wall to 0 mm would stop distance in Extrude1 working"));
+    CHECK(d.extrude().number("distance") == 8);
+
+    // Renaming follows; deleting is refused while it's used.
+    REQUIRE(d.doc.execute(std::make_unique<RenameParameterCommand>("wall", "t")).empty());
+    CHECK(d.extrude().formula("distance") == "t * 2");
+    issues = d.doc.execute(std::make_unique<DeleteParameterCommand>("t"));
+    REQUIRE_FALSE(issues.empty());
+    CHECK_THAT(issues.front().message, StartsWith("distance in Extrude1 uses t, so t can't be deleted."));
+    CHECK(numbersUsing(d.extrude(), "t") == std::vector<std::string>{"distance"});
+}
+
+TEST_CASE("typing over a number in Properties drops its formula; changing another number keeps it",
+          "[model][formulas]") {
+    Drawing d;
+    REQUIRE(d.run("feature.add_box", {{"size", kernel::Vec3{10, 20, 30}}}).empty());
+    const auto boxId = d.doc.featureAt(1).id();
+    for (const char* key : {"size_x", "size_y"}) {
+        REQUIRE(
+            d.run("feature.set_value",
+                  {{"feature", boxId}, {"setting", std::string(key)}, {"formula", std::string("wall * 10")}})
+                .empty());
+    }
+    // As Properties does: a copy with one number changed.
+    auto copy = d.doc.find(boxId)->clone();
+    static_cast<BoxFeature&>(*copy).setSize({25, 30, 30});  // x typed over; y and z as they were
+    REQUIRE(d.doc.execute(std::make_unique<EditFeatureCommand>(std::move(copy))).empty());
+    const auto& box = *d.doc.find(boxId);
+    CHECK(box.formula("size_x").empty());
+    CHECK(box.formula("size_y") == "wall * 10");
+    REQUIRE(d.setParameter("wall", "2 mm").empty());
+    const auto& after = *d.doc.find(boxId);  // the step was swapped for a new version
+    CHECK(after.number("size_x") == 25);     // typed: stays
+    CHECK(after.number("size_y") == 20);     // follows
+    d.doc.undo();
+    d.doc.undo();
+    CHECK(d.doc.find(boxId)->formula("size_x") == "wall * 10");
+}
+
+TEST_CASE("a step number whose formula doesn't work keeps its value, and the rebuild warns",
+          "[model][formulas]") {
+    Plate d;
+    auto copy = d.extrude().clone();
+    copy->setFormula("distance", "gap * 2");  // as if pasted from another design
+    REQUIRE(d.doc.execute(std::make_unique<EditFeatureCommand>(std::move(copy))).empty());
+    REQUIRE(d.setParameter("wall", "4 mm").empty());  // not blocked by it
+
+    const auto report = d.doc.regenerate(d.kernel, d.solver.get());
+    const auto* r = report.result(d.extrudeId);
+    REQUIRE(r);
+    CHECK(r->status == FeatureStatus::Ok);
+    REQUIRE(r->issues.size() == 1);
+    CHECK(r->issues.front().code == "dimension.formula");
+    CHECK(r->issues.front().severity == Severity::Warning);
+    CHECK_THAT(r->issues.front().message,
+               StartsWith("distance in Extrude1 uses gap * 2. There's no parameter"));
+    CHECK_THAT(r->issues.front().message, ContainsSubstring("It keeps its last value, 5 mm."));
+
+    REQUIRE(d.setParameter("gap", "1.5 mm").empty());
+    CHECK(d.extrude().number("distance") == 3);
+}

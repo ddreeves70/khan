@@ -12,6 +12,7 @@
 #include "kh/core/Diagnostic.h"
 #include "kh/core/Id.h"
 #include "kh/kernel/IKernel.h"
+#include "kh/model/Expression.h"
 #include "kh/sketch/Sketch.h"
 #include "kh/sketch/Solver.h"
 
@@ -54,6 +55,14 @@ struct FeatureResult {
     /// For a Sketch step: the plane it's drawn on (so a later step, like
     /// Extrude, knows where its shapes are). Empty otherwise.
     std::optional<SketchPlane> plane;
+};
+
+/// One of a step's numbers that can be changed by name, and worked out from a
+/// formula, like an Extrude's distance (see Feature::numbers()).
+struct StepNumber {
+    std::string key;        ///< Its name in commands and files, like "distance" or "size_x".
+    Dimension dim;          ///< What it measures: kLength (mm) or kAngle (radians).
+    bool positive = false;  ///< True if it must be more than 0, like a size.
 };
 
 /// Gives a feature access to the results of features before it during a rebuild.
@@ -120,6 +129,55 @@ public:
     /// @return The feature type.
     virtual FeatureType type() const = 0;
 
+    /// Lists the numbers of this step that can be changed by name (with
+    /// `feature.set_value`) and worked out from formulas.
+    /// @return Them, in the order Properties shows them; empty for a step with none.
+    virtual std::vector<StepNumber> numbers() const { return {}; }
+
+    /// Gives one of numbers() by its key.
+    /// @param key Like "distance".
+    /// @return The number (mm, or radians), or nothing if this step has no number by that key.
+    virtual std::optional<double> number(std::string_view key) const {
+        (void)key;
+        return std::nullopt;
+    }
+
+    /// Changes one of numbers() by its key. Use on a copy made with clone(), or from a Command.
+    /// @param key Like "distance".
+    /// @param value The number (mm, or radians).
+    /// @return False if this step has no number by that key.
+    virtual bool setNumber(std::string_view key, double value) {
+        (void)key;
+        (void)value;
+        return false;
+    }
+
+    /// Gives the formulas its numbers come from, by key, like {"distance": "wall * 2"}.
+    /// A number with no formula was typed. Each number is always what its formula
+    /// last worked out to.
+    /// @return The formulas.
+    const std::map<std::string, std::string, std::less<>>& formulas() const { return formulas_; }
+
+    /// Gives the formula one number comes from.
+    /// @param key Like "distance".
+    /// @return The formula as typed, or empty if the number was typed.
+    std::string formula(std::string_view key) const {
+        const auto it = formulas_.find(key);
+        return it == formulas_.end() ? std::string() : it->second;
+    }
+
+    /// Sets the formula a number comes from. Use on a copy made with clone(), or
+    /// from a Command; set the number too.
+    /// @param key Like "distance".
+    /// @param text The formula as typed, or empty to say the number is typed.
+    void setFormula(const std::string& key, std::string text) {
+        if (text.empty()) {
+            formulas_.erase(key);
+        } else {
+            formulas_[key] = std::move(text);
+        }
+    }
+
     /// Makes a deep copy that keeps the same id.
     ///
     /// Used to edit a feature through a command: clone it, change the copy,
@@ -182,6 +240,7 @@ private:
     std::string name_;
     bool suppressed_ = false;
     std::string material_;
+    std::map<std::string, std::string, std::less<>> formulas_;  // number key -> formula
 };
 
 /// A rectangular block from a corner point and a size along x, y and z (mm).
@@ -218,6 +277,11 @@ public:
 
     FeatureType type() const override { return FeatureType::Box; }
     std::unique_ptr<Feature> clone() const override { return std::make_unique<BoxFeature>(*this); }
+    /// corner_x, corner_y, corner_z (mm), and size_x, size_y, size_z (mm, more than 0).
+    /// @return The numbers.
+    std::vector<StepNumber> numbers() const override;
+    std::optional<double> number(std::string_view key) const override;
+    bool setNumber(std::string_view key, double value) override;
     kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
 
 private:
@@ -280,6 +344,11 @@ public:
 
     FeatureType type() const override { return FeatureType::Cylinder; }
     std::unique_ptr<Feature> clone() const override { return std::make_unique<CylinderFeature>(*this); }
+    /// base_x, base_y, base_z (mm), radius and height (mm, more than 0).
+    /// @return The numbers.
+    std::vector<StepNumber> numbers() const override;
+    std::optional<double> number(std::string_view key) const override;
+    bool setNumber(std::string_view key, double value) override;
     kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
 
 private:
@@ -372,6 +441,11 @@ public:
 
     FeatureType type() const override { return FeatureType::Move; }
     std::unique_ptr<Feature> clone() const override { return std::make_unique<MoveFeature>(*this); }
+    /// offset_x, offset_y, offset_z and center_x, center_y, center_z (mm), and angle (radians).
+    /// @return The numbers.
+    std::vector<StepNumber> numbers() const override;
+    std::optional<double> number(std::string_view key) const override;
+    bool setNumber(std::string_view key, double value) override;
     std::vector<FeatureId> dependencies() const override { return {body_}; }
     void remapInputs(const std::map<FeatureId, FeatureId>& map) override {
         if (auto it = map.find(body_); it != map.end()) body_ = it->second;
@@ -509,6 +583,11 @@ public:
 
     FeatureType type() const override { return FeatureType::Extrude; }
     std::unique_ptr<Feature> clone() const override { return std::make_unique<ExtrudeFeature>(*this); }
+    /// distance (mm, more than 0).
+    /// @return The numbers.
+    std::vector<StepNumber> numbers() const override;
+    std::optional<double> number(std::string_view key) const override;
+    bool setNumber(std::string_view key, double value) override;
     std::vector<FeatureId> dependencies() const override { return {sketch_}; }
     std::vector<FeatureId> sketchInputs() const override { return {sketch_}; }
     void remapInputs(const std::map<FeatureId, FeatureId>& map) override {

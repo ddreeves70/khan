@@ -88,7 +88,7 @@ Phase 1 started Oct 28, 2026.
 
 Phase 2 started Oct 31, 2026, with the parameter table.
 
-- Parameter table with expressions and units. (Started Oct 31, 2026: named parameters with formulas, units checked, worked out in the order they use each other, with loops and breaking changes refused; `parameter.set`, `parameter.rename` and `parameter.delete`; saved in `parameters.json`. Sketch dimensions that use them, following every change: built Oct 31, 2026. Next: step sizes that use them, then a Parameters panel in the app. See the [user's guide](../user-guide/parameters.md).)
+- Parameter table with expressions and units. (Started Oct 31, 2026: named parameters with formulas, units checked, worked out in the order they use each other, with loops and breaking changes refused; `parameter.set`, `parameter.rename` and `parameter.delete`; saved in `parameters.json`. Sketch dimensions that use them, following every change: built Oct 31, 2026. Steps' numbers (an extrude's distance, a box's size, a move's angle) that use them, with `feature.set_value`: built Oct 31, 2026. Next: a Parameters panel in the app, with formulas typed into its number boxes. See the [user's guide](../user-guide/parameters.md).)
 - Feature graph with incremental recompute; timeline bar with rollback, edit, suppress.
 - Features: extrude (new/join/cut), revolve, fillet, chamfer, hole, shell, mirror, linear and circular pattern, construction planes. (Extrude, new body only, one side, flipped or both: built Oct 29, 2026, as the sketcher's step 6; join and cut go through Combine for now. See [The sketcher](sketcher.md).)
 - Linked copies: a copy that follows its original when it changes (a Move that keeps its input), built with the patterns.

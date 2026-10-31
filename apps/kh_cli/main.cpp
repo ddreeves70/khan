@@ -270,6 +270,7 @@ int openDesign(int argc, char** argv) {
             }
         }
         std::printf("\n");
+        kh::cli::printFormulas(f, doc.lengthUnit(), folder ? "      " : "    ");
         printIssues(r->issues);
     }
     kh::cli::printParameters(doc);

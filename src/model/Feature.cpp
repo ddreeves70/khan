@@ -215,4 +215,115 @@ kernel::OpResult ExtrudeFeature::execute(kernel::IKernel& kernel, const ResultLo
     return out;
 }
 
+// ---------------------------------------------------------------------------
+// Numbers by name
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// The x, y or z of a vector by a key's ending, like "size_x".
+double* axisOf(kernel::Vec3& v, std::string_view key, std::string_view start) {
+    if (key.size() != start.size() + 2 || !key.starts_with(start) || key[start.size()] != '_') return nullptr;
+    switch (key.back()) {
+        case 'x':
+            return &v.x;
+        case 'y':
+            return &v.y;
+        case 'z':
+            return &v.z;
+        default:
+            return nullptr;
+    }
+}
+
+void addAxes(std::vector<StepNumber>& out, const std::string& start, bool positive) {
+    for (const char* axis : {"_x", "_y", "_z"}) out.push_back({start + axis, kLength, positive});
+}
+
+}  // namespace
+
+std::vector<StepNumber> BoxFeature::numbers() const {
+    std::vector<StepNumber> out;
+    addAxes(out, "corner", false);
+    addAxes(out, "size", true);
+    return out;
+}
+
+std::optional<double> BoxFeature::number(std::string_view key) const {
+    auto copy = *this;
+    if (double* v = axisOf(copy.corner_, key, "corner")) return *v;
+    if (double* v = axisOf(copy.size_, key, "size")) return *v;
+    return std::nullopt;
+}
+
+bool BoxFeature::setNumber(std::string_view key, double value) {
+    double* v = axisOf(corner_, key, "corner");
+    if (!v) v = axisOf(size_, key, "size");
+    if (!v) return false;
+    *v = value;
+    return true;
+}
+
+std::vector<StepNumber> CylinderFeature::numbers() const {
+    std::vector<StepNumber> out;
+    addAxes(out, "base", false);
+    out.push_back({"radius", kLength, true});
+    out.push_back({"height", kLength, true});
+    return out;
+}
+
+std::optional<double> CylinderFeature::number(std::string_view key) const {
+    if (key == "radius") return radius_;
+    if (key == "height") return height_;
+    auto base = base_;
+    if (double* v = axisOf(base, key, "base")) return *v;
+    return std::nullopt;
+}
+
+bool CylinderFeature::setNumber(std::string_view key, double value) {
+    double* v = key == "radius" ? &radius_ : key == "height" ? &height_ : axisOf(base_, key, "base");
+    if (!v) return false;
+    *v = value;
+    return true;
+}
+
+std::vector<StepNumber> MoveFeature::numbers() const {
+    std::vector<StepNumber> out;
+    addAxes(out, "offset", false);
+    addAxes(out, "center", false);
+    out.push_back({"angle", kAngle, false});
+    return out;
+}
+
+std::optional<double> MoveFeature::number(std::string_view key) const {
+    auto m = motion_;
+    if (key == "angle") return m.angle;
+    if (double* v = axisOf(m.offset, key, "offset")) return *v;
+    if (double* v = axisOf(m.center, key, "center")) return *v;
+    return std::nullopt;
+}
+
+bool MoveFeature::setNumber(std::string_view key, double value) {
+    double* v = key == "angle" ? &motion_.angle : axisOf(motion_.offset, key, "offset");
+    if (!v) v = axisOf(motion_.center, key, "center");
+    if (!v) return false;
+    *v = value;
+    return true;
+}
+
+std::vector<StepNumber> ExtrudeFeature::numbers() const {
+    return {{"distance", kLength, true}};
+}
+
+std::optional<double> ExtrudeFeature::number(std::string_view key) const {
+    if (key == "distance") return distance_;
+    return std::nullopt;
+}
+
+bool ExtrudeFeature::setNumber(std::string_view key, double value) {
+    if (key != "distance") return false;
+    distance_ = value;
+    return true;
+}
+
 }  // namespace kh::model

@@ -143,6 +143,12 @@ again every time it opens or rebuilds the design.
 }
 ```
 
+A step whose numbers come from [formulas](user-guide/parameters.md#using-parameters-in-steps)
+has `"formulas"`: each number's key (see `feature.set_value`) and its formula as
+typed, like `{"distance": "wall * 4"}`. `params` still has every number, as the
+formula last worked out, which is what's built (and what an older Khan, which
+skips `formulas`, uses). A key this Khan doesn't know is kept.
+
 A step can also have `"material"`: the key of the material picked for its body,
 either a built-in material's key (like `"pla"` or `"aluminum_6061"`, listed in
 `src/model/Material.cpp`) or the `id` of one of the design's own materials. A step
@@ -290,8 +296,8 @@ failed save never damages the last good copy.
   `source` is an optional key an older Khan skips (and drops if it saves).
   Parameters were added like materials (Oct 2026): an older Khan opens the
   design without them, and drops them if it saves the file again. The same
-  goes for a dimension's `expression`: an older Khan keeps the number, not the
-  formula.
+  goes for a dimension's `expression` and a step's `formulas`: an older Khan
+  keeps the numbers, not the formulas.
 - Anything an older Khan would read wrongly bumps `schema` (in
   `src/core/include/kh/core/Version.h`) and adds a migration from the old schema.
 - `tests/files/` holds files saved with each schema. They are checked in and never
@@ -304,7 +310,6 @@ failed save never damages the last good copy.
 From the design document's file format plan, these come later:
 
 - `components.json` (assemblies, Phase 3).
-- Step values (like an extrude's distance) that use parameters (Phase 2, next).
 - A `cache/` folder with built geometry for faster opening.
 - Keeping keys this Khan doesn't understand when it saves a file from a newer
   minor version. Today they are dropped.
