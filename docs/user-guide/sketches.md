@@ -244,6 +244,7 @@ the window, the rest go on a second row.
 | **Smooth** | a spline and a line, arc or spline joined to its end | no seam you can see: no corner, and they bend just as much on both sides of the join |
 | **On** | a point and a line, circle, arc or spline | the point is on it |
 | **Midpoint** | a point and a line | the point is in the middle of the line |
+| **Symmetric** | two points, then a line | the points are mirror images across the line, like a bracket's two sides across a center line (make it a helper line with `construction=true` so it isn't part of the shape) |
 | **Fix** | one or more points | they stay where they are now |
 | **Dimension** | a line, a circle, an arc, two points, or two lines | its length, diameter (Ø), radius (R), the distance between the points, or the angle between the lines |
 | **Width**, **Height** | two points, or a line | how far apart they are from left to right, or bottom to top |
@@ -256,7 +257,7 @@ the window, the rest go on a second row.
 - **Labels.** Every constraint has a label beside what it's on: **H**, **V**,
   **//** (parallel), **90°** (perpendicular), **=**, **T** (tangent), **S**
   (smooth), **On**,
-  **Mid**, **Fix**, and the numbers of the dimensions (**40 mm**, **Ø8 mm**,
+  **Mid**, **Sym** (symmetric), **Fix**, and the numbers of the dimensions (**40 mm**, **Ø8 mm**,
   **R4 mm**, **x 10 mm** for a width, **y 10 mm** for a height). Coincident
   points just share a dot.
 - **Picking a constraint.** Click its label, or its row in the Sketch panel. It
@@ -362,6 +363,7 @@ circles and arcs by name (`Line1`), and points as `Line1.start`, `Line1.end` or
 | `equal` | two lines, or two circles or arcs | Same length, or same radius |
 | `point_on_line`, `point_on_circle`, `point_on_spline` | a point and a line, a circle or arc, or a spline | The point is on it |
 | `midpoint` | a point and a line | The point is in the middle of the line |
+| `symmetric` | two points and a line | The points are mirror images across the line |
 | `tangent` | a line and a circle or arc, or two circles or arcs | They touch without crossing |
 | `tangent` | a spline and a line, arc or spline joined to its end | No corner at the join |
 | `smooth` | a spline and a line, arc or spline joined to its end | No corner, and the same bend on both sides |

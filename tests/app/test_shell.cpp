@@ -253,7 +253,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 7 + 2 + 11 + 14);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
+    CHECK(buttons == 5 + 7 + 2 + 11 + 15);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
 }
@@ -2171,6 +2171,42 @@ TEST_CASE("Trim: the piece under the mouse shows red; a click cuts it away", "[a
     clickAt(flat, {20, 20, 0});
     CHECK(app.host.overlays().find("kh.sketcher.edit.trim") == nullptr);
     CHECK(sketchAt(app, 0).sketch().entities.size() == 2);
+}
+
+TEST_CASE("Symmetric: pick two points and a line, and they become mirror images",
+          "[app][sketcher][symmetric]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.line");
+    clickAt(flat, {0, -20, 0});
+    clickAt(flat, {0, 20, 0});
+    pressEscape(flat);
+    app.click("kh.sketcher.point");
+    clickAt(flat, {-10, 3, 0});
+    clickAt(flat, {12, 6, 0});
+    app.click("kh.sketcher.select");
+    clickAt(flat, {-10, 3, 0});
+    ctrlClickAt(flat, {12, 6, 0});
+    ctrlClickAt(flat, {0, -15, 0});  // the line
+    REQUIRE(app.menu("kh.sketcher.symmetric"));
+    CHECK(app.menu("kh.sketcher.symmetric")->isEnabled());
+    app.click("kh.sketcher.symmetric");
+    settle();
+    REQUIRE(sketchAt(app, 0).sketch().findConstraint("Symmetric1"));
+    const auto* r =
+        app.host.documents().lastRebuild(app.shell->activeDesign())->result(app.doc().featureAt(0).id());
+    REQUIRE(r->sketch->ok());
+    const sketch::Sketch solved{r->sketch->entities, {}};
+    const auto& line = std::get<sketch::LineShape>(solved.findEntity("Line1")->shape);
+    const auto a = std::get<sketch::PointShape>(solved.findEntity("Point1")->shape).at;
+    const auto b = std::get<sketch::PointShape>(solved.findEntity("Point2")->shape).at;
+    // The line stays upright here only if the solver left it so; check against wherever it is.
+    const sketch::Point2 u{line.end.x - line.start.x, line.end.y - line.start.y};
+    CHECK(std::abs((b.x - a.x) * u.x + (b.y - a.y) * u.y) < 1e-6);
+    const auto* labels = app.host.overlays().find("kh.sketcher.edit.labels");
+    REQUIRE(labels);
+    CHECK(std::ranges::find(labels->texts, std::string("Sym")) != labels->texts.end());
 }
 
 TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",

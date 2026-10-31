@@ -1846,6 +1846,8 @@ void registerSketcher(plugin::PluginContext& ctx) {
                 return i::on_svg;
             case Rule::Midpoint:
                 return i::midpoint_svg;
+            case Rule::Symmetric:
+                return i::symmetric_svg;
             case Rule::Fix:
                 return i::fix_svg;
             case Rule::Dimension:

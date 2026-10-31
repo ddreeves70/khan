@@ -1001,7 +1001,7 @@ page lists every kind and what it needs.
 | Setting | Kind | Needed | Meaning |
 | --- | --- | --- | --- |
 | `sketch` | step name | yes | The sketch |
-| `kind` | `fix`, `coincident`, `horizontal`, `vertical`, `parallel`, `perpendicular`, `equal`, `point_on_line`, `point_on_circle`, `point_on_spline`, `midpoint`, `tangent`, `smooth`, `distance`, `length`, `horizontal_distance`, `vertical_distance`, `radius`, `diameter`, `angle` | yes | What to keep true |
+| `kind` | `fix`, `coincident`, `horizontal`, `vertical`, `parallel`, `perpendicular`, `equal`, `point_on_line`, `point_on_circle`, `point_on_spline`, `midpoint`, `symmetric`, `tangent`, `smooth`, `distance`, `length`, `horizontal_distance`, `vertical_distance`, `radius`, `diameter`, `angle` | yes | What to keep true |
 | `on` | text | yes | What it's on, separated by commas: `Line1`, or points like `Line1.end`, `Circle1.center`, `Spline1.pole2` (a spline's second control point), `Point1` |
 | `value` | number | for dimensions | mm, or degrees for `angle` |
 | `name` | text | no | Its name. Default like `Horizontal1`, `Length1` |
@@ -1024,6 +1024,29 @@ Points need to say which point; lines and circles don't:
 ```console
 $ kh_cli run --open s.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1,Arc1
 error [sketch.on]: Line1 isn't a single point: say which of its points, like Line1.start or Line1.end.
+```
+
+`symmetric` keeps two points mirror images across a line: here a slanted line's
+ends across a helper line through the middle. That turns the line square to the
+helper line and centers it there, taking away 2 ways to move:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save sym.khan feature.add_sketch
+sym: 1 step
+  Sketch1      ok  empty
+wrote sym.khan
+$ kh_cli run --open sym.khan --save sym.khan sketch.add_line sketch=Sketch1 from=0,-20 to=0,20 construction=true
+sym: 1 step
+  Sketch1      ok  1 line, 0 constraints, free to move 4 ways
+wrote sym.khan
+$ kh_cli run --open sym.khan --save sym.khan sketch.add_line sketch=Sketch1 from=-15,5 to=12,8
+sym: 1 step
+  Sketch1      ok  2 lines, 0 constraints, free to move 8 ways
+wrote sym.khan
+$ kh_cli run --open sym.khan sketch.constrain sketch=Sketch1 kind=symmetric on=Line2.start,Line2.end,Line1
+sym: 1 step
+  Sketch1      ok  2 lines, 1 constraint, free to move 6 ways
 ```
 
 Where a spline's end is joined to a line, arc or spline, `tangent` takes away the

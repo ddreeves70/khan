@@ -192,3 +192,19 @@ TEST_CASE("spline buttons: On for a point, Tangent and Smooth where a curve is j
     CHECK(labelText(smooth[0]) == "S");
     CHECK(labelText(on[0]) == "On");
 }
+
+TEST_CASE("Symmetric fits two points and a line, but not the line's own ends",
+          "[sketcher][constrain][symmetric]") {
+    Parts d;
+    Picks p;
+    p.points = {{d.point, PointRole::Self}, {d.circle, PointRole::Center}};
+    p.lines = {d.line1};
+    CHECK(fitting(p, d.s) == std::vector<Rule>{Rule::Symmetric});
+    const auto made = plan(Rule::Symmetric, p, d.s);
+    REQUIRE(made.size() == 1);
+    CHECK(made[0].kind == K::Symmetric);
+    CHECK(made[0].entities == std::vector<EntityId>{d.line1});
+    CHECK(labelText(made[0]) == "Sym");
+    p.points[1] = d.end(d.line1);
+    CHECK(fitting(p, d.s).empty());
+}

@@ -272,3 +272,28 @@ TEST_CASE("joins need joining first, and closed splines have no ends", "[sketch]
     e.sketch.constraints[0].entities = {sp};
     CHECK(message(e.sketch).empty());
 }
+
+TEST_CASE("symmetric points end up mirror images across the line; it takes away 2 ways to move",
+          "[sketch][solver][symmetric]") {
+    SketchBuilder b;
+    const auto axis = b.line(0, -10, 3, 30);  // a slanted line
+    const auto p = b.point(-12, 5);
+    const auto q = b.point(20, 14);
+    b.constrain(K::Symmetric, {kh::test::self(p), kh::test::self(q)}, {axis});
+    const auto r = solved(b.sketch);
+    CHECK(r.freedom == 4 + 2 + 2 - 2);
+    const auto& l = std::get<LineShape>(r.entities[0].shape);
+    const auto a = std::get<PointShape>(r.entities[1].shape).at,
+               c = std::get<PointShape>(r.entities[2].shape).at;
+    // The middle of the two is on the line, and the line between them is square to it.
+    const Point2 u{l.end.x - l.start.x, l.end.y - l.start.y};
+    const Point2 mid{(a.x + c.x) / 2, (a.y + c.y) / 2};
+    CHECK(std::abs((mid.x - l.start.x) * u.y - (mid.y - l.start.y) * u.x) / length(u) < 1e-9);
+    CHECK(std::abs((c.x - a.x) * u.x + (c.y - a.y) * u.y) / length(u) < 1e-9);
+    CHECK(length({c.x - a.x, c.y - a.y}) > 1);  // not squashed onto the line
+    CHECK(error({r.entities, b.sketch.constraints}, b.sketch.constraints[0]) < 1e-9);
+    // Two of the same point, or no line, can't be symmetric.
+    b.sketch.constraints[0].points[1] = kh::test::self(p);
+    CHECK(check(b.sketch).front().message ==
+          "Symmetric needs two different points and a line to mirror them across.");
+}

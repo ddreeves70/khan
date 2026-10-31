@@ -130,6 +130,8 @@ std::string_view kindName(ConstraintKind kind) {
             return "Point on spline";
         case ConstraintKind::Midpoint:
             return "Midpoint";
+        case ConstraintKind::Symmetric:
+            return "Symmetric";
         case ConstraintKind::Tangent:
             return "Tangent";
         case ConstraintKind::Smooth:
@@ -164,6 +166,7 @@ const std::vector<ConstraintKind>& allKinds() {
                                                    ConstraintKind::PointOnCircle,
                                                    ConstraintKind::PointOnSpline,
                                                    ConstraintKind::Midpoint,
+                                                   ConstraintKind::Symmetric,
                                                    ConstraintKind::Tangent,
                                                    ConstraintKind::Smooth,
                                                    ConstraintKind::Distance,
@@ -200,6 +203,8 @@ std::string_view kindKey(ConstraintKind kind) {
             return "point_on_spline";
         case ConstraintKind::Midpoint:
             return "midpoint";
+        case ConstraintKind::Symmetric:
+            return "symmetric";
         case ConstraintKind::Tangent:
             return "tangent";
         case ConstraintKind::Smooth:
@@ -715,6 +720,10 @@ Diagnostics check(const Sketch& sketch) {
             case ConstraintKind::PointOnSpline:
                 if (np != 1 || ne != 1 || !isSpline(e0)) need = "one point and one spline";
                 break;
+            case ConstraintKind::Symmetric:
+                if (np != 2 || ne != 1 || !isLine(e0) || c.points[0] == c.points[1])
+                    need = "two different points and a line to mirror them across";
+                break;
             case ConstraintKind::Tangent:
                 if (isSpline(e0) || isSpline(e1)) {
                     // Where a spline's end meets another curve's end.
@@ -975,6 +984,18 @@ double error(const Sketch& sketch, const Constraint& c) {
             const auto* l = line(0);
             if (!p || !l) return kHuge;
             return distance(*p, Point2{(l->start.x + l->end.x) / 2, (l->start.y + l->end.y) / 2});
+        }
+        case ConstraintKind::Symmetric: {
+            // The middle of the two points on the line, and the line between them
+            // square to it (no part of it along the line).
+            const auto a = pt(0), b = pt(1);
+            const auto* l = line(0);
+            if (!a || !b || !l) return kHuge;
+            const double len = distance(l->start, l->end);
+            if (len <= 0) return kHuge;
+            const Point2 u{(l->end.x - l->start.x) / len, (l->end.y - l->start.y) / len};
+            const Point2 mid{(a->x + b->x) / 2, (a->y + b->y) / 2};
+            return lineDistance(mid, l->start, l->end) + std::abs((b->x - a->x) * u.x + (b->y - a->y) * u.y);
         }
         case ConstraintKind::PointOnSpline: {
             const auto p = pt(0);

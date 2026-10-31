@@ -414,6 +414,10 @@ public:
                     sys.addConstraint(same);  // PlaneGCS owns it from here
                     break;
                 }
+                case ConstraintKind::Symmetric:
+                    sys.addConstraintP2PSymmetric(pointOfRef(c.points[0]), pointOfRef(c.points[1]),
+                                                  lineOf(e[0]), tag);
+                    break;
                 case ConstraintKind::Midpoint: {
                     auto& l = lineOf(e[0]);
                     sys.addConstraintP2PSymmetric(l.p1, l.p2, pointOfRef(c.points[0]), tag);

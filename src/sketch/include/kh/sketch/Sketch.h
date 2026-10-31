@@ -123,6 +123,7 @@ enum class ConstraintKind {
     PointOnCircle,  ///< points[0] is on the circle of entities[0] (a circle or arc).
     PointOnSpline,  ///< points[0] is on entities[0], a spline.
     Midpoint,       ///< points[0] is in the middle of entities[0], a line.
+    Symmetric,      ///< points[0] and points[1] are mirror images across the line through entities[0].
     Tangent,        ///< entities[0] touches entities[1] without crossing: a line and a circle or arc, or two
                     ///< circles or arcs. Or, where a spline's end is joined to the end of a line, arc or
                     ///< spline (see jointOf()), they head the same way there, so the join has no corner.
