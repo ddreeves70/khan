@@ -1007,6 +1007,7 @@ page lists every kind and what it needs.
 | `kind` | `fix`, `coincident`, `horizontal`, `vertical`, `parallel`, `perpendicular`, `equal`, `point_on_line`, `point_on_circle`, `point_on_spline`, `midpoint`, `symmetric`, `tangent`, `smooth`, `distance`, `length`, `horizontal_distance`, `vertical_distance`, `radius`, `diameter`, `angle` | yes | What to keep true |
 | `on` | text | yes | What it's on, separated by commas: `Line1`, or points like `Line1.end`, `Circle1.center`, `Spline1.pole2` (a spline's second control point), `Point1` |
 | `value` | number | for dimensions | mm, or degrees for `angle` |
+| `formula` | text | for dimensions, instead of `value` | A formula with units that may use [parameters](#parameterset), like `wall * 2` or `30 deg`. The dimension changes when they do |
 | `name` | text | no | Its name. Default like `Horizontal1`, `Length1` |
 
 <!-- cli-example -->
@@ -1096,7 +1097,8 @@ Changes a dimension's number.
 | --- | --- | --- | --- |
 | `sketch` | step name | yes | The sketch |
 | `constraint` | text | yes | The dimension, like `Length1` |
-| `value` | number | yes | Its new number: mm, or degrees for an angle |
+| `value` | number | `value` or `formula` | Its new number: mm, or degrees for an angle. This replaces a formula it had |
+| `formula` | text | `value` or `formula` | A formula with units that may use [parameters](#parameterset), like `wall * 2 + 1 mm`. The dimension changes when they do |
 
 <!-- cli-example -->
 ```console
@@ -1104,6 +1106,69 @@ $ kh_cli run --open s.khan --save s.khan sketch.set_value sketch=Sketch1 constra
 s: 1 step
   Sketch1      ok  1 line, 1 circle, 1 arc, 1 point, 2 constraints, free to move 11 ways
 wrote s.khan
+```
+
+With a formula, the dimension follows the parameters it uses. Here a plate's
+width is 10 walls:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save plate.khan parameter.set name=wall value="4 mm"
+plate: 0 steps
+Parameters:
+  wall = 4 mm
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan feature.add_sketch
+plate: 1 step
+  Sketch1      ok  empty
+Parameters:
+  wall = 4 mm
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=30,20
+plate: 1 step
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+Parameters:
+  wall = 4 mm
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=30
+plate: 1 step
+  Sketch1      ok  4 lines, 9 constraints, free to move 3 ways
+Parameters:
+  wall = 4 mm
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.set_value sketch=Sketch1 constraint=Length1 formula="wall * 10"
+plate: 1 step
+  Sketch1      ok  4 lines, 9 constraints, free to move 3 ways
+Parameters:
+  wall = 4 mm
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan parameter.set name=wall value="5 mm"
+plate: 1 step
+  Sketch1      ok  4 lines, 9 constraints, free to move 3 ways
+Parameters:
+  wall = 5 mm
+wrote plate.khan
+$ kh_cli open plate.khan --sketch Sketch1
+...
+  Length1        length              Line1  50.00 mm = wall * 10
+...
+```
+
+A dimension needs a length (or, for an angle, an angle), so a plain number is
+refused:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open plate.khan sketch.set_value sketch=Sketch1 constraint=Length1 formula=12
+error [dimension.units]: Length1 needs a length, like 20 mm or wall * 2, but 12 is a plain number. Give it a unit, like 12 mm.
+```
+
+So is a parameter change that would make a dimension impossible:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open plate.khan parameter.set name=wall value="-1 mm"
+error [parameter.breaks]: Changing wall to -1 mm would stop Length1 in Sketch1 working: Length1 in Sketch1 would be -10 mm (wall * 10), but it must be more than 0 mm.
 ```
 
 ## sketch.delete
@@ -1334,8 +1399,8 @@ wrote tag.khan
 
 Adds a [parameter](../user-guide/parameters.md): a value with a name, like
 `wall = 3 mm`, that other parameters can use, like `height = wall * 4`. Setting
-a name that's already there changes it, and every parameter that uses it
-follows. `kh_cli` lists the parameters after the steps, with what each formula
+a name that's already there changes it, and every parameter and
+[sketch dimension](#sketchset_value) that uses it follows. `kh_cli` lists the parameters after the steps, with what each formula
 works out to.
 
 | Setting | Kind | Needed | Meaning |
@@ -1396,8 +1461,8 @@ error [parameter.breaks]: Changing wall to 2 would stop height working: Khan can
 
 ## parameter.rename
 
-Gives a parameter a new name. Every formula that uses it changes to the new name,
-so nothing breaks.
+Gives a parameter a new name. Every formula that uses it, in other parameters
+and in sketch dimensions, changes to the new name, so nothing breaks.
 
 | Setting | Kind | Needed | Meaning |
 | --- | --- | --- | --- |
@@ -1427,8 +1492,8 @@ wrote box.khan
 
 ## parameter.delete
 
-Removes a parameter. One that another parameter uses can't be removed: change
-or delete that one first.
+Removes a parameter. One that another parameter or a sketch dimension uses
+can't be removed: change or delete that one first.
 
 | Setting | Kind | Needed | Meaning |
 | --- | --- | --- | --- |

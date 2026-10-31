@@ -187,6 +187,7 @@ void printSketch(const kh::model::SketchFeature& step, const kh::model::FeatureR
         } else if (ks::isDimension(c.kind)) {
             value = "  " + length(c.value, unit) + " " + symbol;
         }
+        if (!c.expression.empty()) value += " = " + c.expression;
         std::string note;
         if (solved && has(solved->conflicting, c.id)) note = "  (conflicts)";
         if (solved && has(solved->redundant, c.id)) note = "  (repeats another)";

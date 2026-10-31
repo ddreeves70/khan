@@ -148,6 +148,11 @@ struct Constraint {
     std::vector<EntityId> entities{};                  ///< The entities it uses (see ConstraintKind).
     double value = 0;                                  ///< For dimensions: mm, or radians for Angle.
     Point2 at{};                                       ///< For Fix: where the point stays (mm).
+    /// For dimensions: the formula @ref value comes from, as typed, like
+    /// "wall * 2" (it may use the design's parameters); empty for a typed
+    /// number. @ref value is always what it last worked out to, so the solver
+    /// only ever reads @ref value.
+    std::string expression{};
 };
 
 /// A whole sketch.

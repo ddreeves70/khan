@@ -366,6 +366,13 @@ void SketchPanel::rebuild() {
         box->setRange(signedValue ? -100000 : 0, 100000);
         box->setSuffix(angle ? QStringLiteral("°") : QLatin1Char(' ') + qs(std::string(unitSymbol(unit))));
         box->setValue(angle ? c.value / kDegrees : toUnit(c.value, unit));
+        if (!c.expression.empty()) {
+            // Its number comes from a formula: say so, and that typing a number replaces it.
+            tip += tr("\nWorked out from %1. Change the parameters it uses to change it, or type a number "
+                      "to use that instead.")
+                       .arg(qs(c.expression));
+            box->setProperty("formula", qs(c.expression));
+        }
         box->setToolTip(tip);
         const std::string constraint = c.name;
         connect(box, &QDoubleSpinBox::editingFinished, this, [this, box, constraint] {

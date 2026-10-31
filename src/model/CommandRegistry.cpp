@@ -10,6 +10,7 @@
 
 #include "kh/model/Commands.h"
 #include "kh/model/Document.h"
+#include "kh/model/Formulas.h"
 
 namespace kh::model {
 
@@ -140,6 +141,37 @@ Needs needsOf(sketch::ConstraintKind k) {
 
 Diagnostic sketchProblem(std::string code, std::string message) {
     return {std::move(code), Severity::Error, std::move(message), {}};
+}
+
+// A dimension's number from a command's value= (mm, or degrees for an angle)
+// or formula= (worked out now, with the design's parameters).
+struct PickedValue {
+    double value = 0;        // mm, or radians
+    std::string expression;  // the formula, or empty for a typed number
+    Diagnostics issues;      // why it can't be used
+};
+
+PickedValue pickDimensionValue(const ParameterValues& values, const Args& a, sketch::ConstraintKind kind,
+                               const std::string& what) {
+    PickedValue out;
+    if (a.count("value") && a.count("formula")) {
+        out.issues.push_back(
+            sketchProblem("sketch.value", "Give " + what + " a value or a formula, not both."));
+        return out;
+    }
+    if (a.count("formula")) {
+        out.expression = argText(a, "formula");
+        auto r = evalDimension(kind, out.expression, values, what);
+        if (!r.ok()) {
+            out.issues = std::move(r.issues);
+        } else {
+            out.value = r.value->value;
+        }
+        return out;
+    }
+    const double v = argNumber(a, "value");
+    out.value = kind == sketch::ConstraintKind::Angle ? v * kDegrees : v;
+    return out;
 }
 
 // Reads "Line1.end,Line2.start" or "Line1,Arc1" into a constraint's points and entities.
@@ -999,29 +1031,43 @@ CommandRegistry makeBuiltin() {
            true,
            {}},
           {"value", ArgType::Number, "For dimensions: mm, or degrees for an angle.", false, {}},
+          {"formula",
+           ArgType::Text,
+           "For dimensions, instead of value: a formula with units that may use parameters, like wall * 2 or "
+           "30 deg.",
+           false,
+           {}},
           {"name", ArgType::Text, "Its name. Default like Horizontal1 or Length1.", false, {}}}},
-        [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+        [](const Document& doc, const Args& a) -> std::unique_ptr<Command> {
             const auto kind = *sketch::kindFromKey(argText(a, "kind"));
             const std::string on = argText(a, "on");
             const bool hasValue = a.count("value") > 0;
-            const double value = argNumber(a, "value");
+            const bool hasFormula = a.count("formula") > 0;
             const std::string name = argText(a, "name");
             const ConstraintId id = ConstraintId::generate();
+            // A formula is worked out with the parameters as they are now.
+            const auto values = doc.parameters().evaluate();
             return std::make_unique<EditSketchCommand>(
                 argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
-                    sketch::Constraint c{id, {}, kind, {}, {}, 0, {}};
+                    sketch::Constraint c{id, {}, kind, {}, {}, 0, {}, {}};
                     if (auto problems = readOn(s, c, on); !problems.empty()) return problems;
                     const std::string kindText(sketch::kindName(kind));
                     if (sketch::isDimension(kind)) {
-                        if (!hasValue) {
+                        if (!hasValue && !hasFormula) {
                             return {sketchProblem(
                                 "sketch.value",
                                 kindText + " needs a value, like value=" +
-                                    (kind == sketch::ConstraintKind::Angle ? "90 (degrees)." : "40 (mm)."))};
+                                    (kind == sketch::ConstraintKind::Angle ? "90 (degrees)" : "40 (mm)") +
+                                    ", or a formula, like formula=\"wall * 2\".")};
                         }
-                        c.value = kind == sketch::ConstraintKind::Angle ? value * kDegrees : value;
-                    } else if (hasValue) {
-                        return {sketchProblem("sketch.value", kindText + " has no number. Leave out value.")};
+                        const auto shown = name.empty() ? uniqueSketchName(s, constraintBase(kind)) : name;
+                        const auto picked = pickDimensionValue(values, a, kind, shown);
+                        if (!picked.issues.empty()) return picked.issues;
+                        c.value = picked.value;
+                        c.expression = picked.expression;
+                    } else if (hasValue || hasFormula) {
+                        return {sketchProblem("sketch.value", kindText + " has no number. Leave out " +
+                                                                  (hasValue ? "value." : "formula."))};
                     }
                     if (kind == sketch::ConstraintKind::Fix) c.at = *sketch::pointOf(s, c.points[0]);
                     c.name = name.empty() ? uniqueSketchName(s, constraintBase(kind)) : name;
@@ -1041,10 +1087,18 @@ CommandRegistry makeBuiltin() {
            "Changes a dimension's number. The sketch is solved again when the design rebuilds.",
            {sketchArg,
             {"constraint", ArgType::Text, "The dimension, like Length1.", true, {}},
-            {"value", ArgType::Number, "Its new number: mm, or degrees for an angle.", true, {}}}},
-          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+            {"value", ArgType::Number, "Its new number: mm, or degrees for an angle.", false, {}},
+            {"formula",
+             ArgType::Text,
+             "Instead of value: a formula with units that may use parameters, like wall * 2 + 1 mm. The "
+             "dimension follows when they change.",
+             false,
+             {}}}},
+          [](const Document& doc, const Args& a) -> std::unique_ptr<Command> {
               const std::string name = argText(a, "constraint");
-              const double value = argNumber(a, "value");
+              const bool given = a.count("value") > 0 || a.count("formula") > 0;
+              // A formula is worked out with the parameters as they are now.
+              const auto values = doc.parameters().evaluate();
               return std::make_unique<EditSketchCommand>(
                   argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
                       auto it = std::find_if(s.constraints.begin(), s.constraints.end(),
@@ -1056,7 +1110,16 @@ CommandRegistry makeBuiltin() {
                       if (!sketch::isDimension(it->kind)) {
                           return {sketchProblem("sketch.value", name + " has no number to change.")};
                       }
-                      it->value = it->kind == sketch::ConstraintKind::Angle ? value * kDegrees : value;
+                      if (!given) {
+                          return {
+                              sketchProblem("sketch.value", "Give " + name +
+                                                                " a value, like value=40, or a formula, like "
+                                                                "formula=\"wall * 2\".")};
+                      }
+                      const auto picked = pickDimensionValue(values, a, it->kind, name);
+                      if (!picked.issues.empty()) return picked.issues;
+                      it->value = picked.value;
+                      it->expression = picked.expression;
                       label = "Change " + name;
                       return {};
                   });

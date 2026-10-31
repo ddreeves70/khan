@@ -14,6 +14,7 @@ add_executable(kh_tests
   model/test_extrude.cpp
   model/test_units_command.cpp
   model/test_parameters.cpp
+  model/test_formulas.cpp
   io/test_khan_file.cpp
   plugin/test_event_bus.cpp
   plugin/test_manifest.cpp

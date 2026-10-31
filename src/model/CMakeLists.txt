@@ -10,6 +10,7 @@ kh_add_library(kh_model
     Expression.cpp
     Parameters.cpp
     ParameterCommands.cpp
+    Formulas.cpp
   DEPS
     kh::core
     kh::kernel

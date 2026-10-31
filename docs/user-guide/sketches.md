@@ -379,7 +379,10 @@ Dimensions need a `value`:
 | `angle` | two lines | degrees, counterclockwise from the first line to the second |
 
 Change a dimension with `sketch.set_value`, and delete anything with
-`sketch.delete` (deleting a line also deletes the constraints on it).
+`sketch.delete` (deleting a line also deletes the constraints on it). A dimension
+can also take a `formula` instead of a `value`, like `formula="wall * 2"`, that
+uses the design's [parameters](parameters.md#using-parameters-in-a-sketch): it
+changes when they do.
 
 ## Free to move: degrees of freedom
 

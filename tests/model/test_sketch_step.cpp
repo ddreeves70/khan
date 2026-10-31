@@ -130,7 +130,7 @@ TEST_CASE("sketch commands explain what's wrong in plain words", "[model][sketch
     CHECK(message("parallel", "Line1") == "Parallel needs two lines, like on=Line1,Line2.");
     CHECK(message("length", "Line9") ==
           "There's nothing called Line9 in this sketch. Length needs one line, like on=Line1.");
-    CHECK(message("length", "Line1") == "Length needs a value, like value=40 (mm).");
+    CHECK(message("length", "Line1") == "Length needs a value, like value=40 (mm), or a formula, like formula=\"wall * 2\".");
     CHECK(message("angle", "Line1,Line1", 30.0) == "Angle needs two different lines.");
     CHECK(message("horizontal", "Line1", 3.0) == "Horizontal has no number. Leave out value.");
     CHECK(message("horizontal", "Circle1") == "Horizontal needs one line.");

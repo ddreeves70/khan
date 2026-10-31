@@ -249,6 +249,40 @@ TEST_CASE("parameters survive saving and opening", "[io][parameters]") {
     CHECK(again == bytes);
 }
 
+TEST_CASE("a dimension's formula survives saving and opening", "[io][parameters]") {
+    model::Document doc;
+    REQUIRE(doc.execute(std::make_unique<model::SetParameterCommand>("wall", "3 mm")).empty());
+    sketch::Sketch s;
+    const auto line = EntityId::generate();
+    s.entities.push_back({line, "Line1", sketch::LineShape{{0, 0}, {10, 0}}, false});
+    s.constraints.push_back({ConstraintId::generate(),
+                             "Length1",
+                             sketch::ConstraintKind::Length,
+                             {},
+                             {line},
+                             12,
+                             {},
+                             "wall * 4"});
+    s.constraints.push_back(
+        {ConstraintId::generate(), "Length2", sketch::ConstraintKind::Length, {}, {line}, 12, {}, {}});
+    REQUIRE(doc.execute(std::make_unique<model::AddFeatureCommand>(std::make_unique<model::SketchFeature>(
+                            FeatureId::generate(), "Sketch1", model::SketchPlane::XY, s)))
+                .empty());
+
+    io::Bytes bytes;
+    REQUIRE(io::writeBytes(doc, bytes).empty());
+    const auto entries = readZip(bytes);
+    const auto& stepText = entries.at("features/" + doc.featureAt(0).id().toString() + ".json");
+    CHECK(stepText.find("\"expression\": \"wall * 4\"") != std::string::npos);
+    CHECK(stepText.find("expression") == stepText.rfind("expression"));  // only the one with a formula
+    auto opened = io::readBytes(bytes, "s.khan");
+    REQUIRE(opened.ok());
+    const auto& back = static_cast<const model::SketchFeature&>(opened.document->featureAt(0)).sketch();
+    CHECK(back.findConstraint("Length1")->expression == "wall * 4");
+    CHECK(back.findConstraint("Length1")->value == 12);
+    CHECK(back.findConstraint("Length2")->expression.empty());
+}
+
 TEST_CASE("a design without parameters has no parameters file", "[io][parameters]") {
     auto doc = makeDesign();
     io::Bytes bytes;
