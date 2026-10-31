@@ -40,6 +40,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command sketch.import_spline
            command sketch.reload_spline
            command sketch.remove_pole
+           command sketch.round_corner
            command sketch.set_spline
            command sketch.set_value
            command sketch.set_weight

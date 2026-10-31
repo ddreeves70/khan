@@ -253,7 +253,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 7 + 2 + 9 + 14);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
+    CHECK(buttons == 5 + 7 + 2 + 10 + 14);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
 }
@@ -2105,6 +2105,39 @@ TEST_CASE("the Rectangle tool: two clicks make four joined lines, level and upri
     app.shell->undoAction()->trigger();
     settle();
     CHECK(sketchAt(app, 0).sketch().entities.size() == 4);
+}
+
+TEST_CASE("Round corner: click a rectangle's corner, then type the radius", "[app][sketcher][round]") {
+    App app;
+    app.click("kh.sketcher.new_xy");
+    auto* flat = app.flat();
+    app.click("kh.sketcher.rectangle");
+    clickAt(flat, {0, 0, 0});
+    clickAt(flat, {40, 20, 0});
+    app.click("kh.sketcher.round_corner");
+    CHECK(app.shell->statusBar()->currentMessage().contains(
+        QStringLiteral("click a corner where two lines meet")));
+    clickAt(flat, {40, 0, 0});  // Line1's end and Line2's start
+    const auto& s = sketchAt(app, 0).sketch();
+    const auto* arc = s.findEntity("Arc1");
+    REQUIRE(arc);
+    // A quarter of the biggest radius that fits (20 mm, the shorter side).
+    CHECK(std::get<sketch::ArcShape>(arc->shape).radius == Approx(5));
+    CHECK(app.doc().undoLabel() == "Round corner (Arc1)");
+    CHECK(app.shell->statusBar()->currentMessage().startsWith(QStringLiteral("Rounded the corner")));
+    // The cursor is in its radius in the Sketch panel: type 3 and press Enter.
+    auto* panel = app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"));
+    REQUIRE(panel);
+    auto* box = panel->findChild<QDoubleSpinBox*>(QStringLiteral("Radius1"));
+    REQUIRE(box);
+    CHECK(box->property("justAdded").toBool());
+    box->setValue(3);
+    emit box->editingFinished();
+    settle();
+    CHECK(sketchAt(app, 0).sketch().findConstraint("Radius1")->value == Approx(3));
+    // Somewhere that isn't a corner: nothing happens.
+    clickAt(flat, {20, 10, 0});
+    CHECK(sketchAt(app, 0).sketch().entities.size() == 6);  // 4 lines, the arc, the corner's helper point
 }
 
 TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",

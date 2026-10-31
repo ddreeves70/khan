@@ -544,6 +544,64 @@ $ kh_cli run --open plate.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=4
 error [sketch.rectangle]: A rectangle needs a width and a height: put the corners apart both left to right and up and down, like from=0,0 to=40,20.
 ```
 
+## sketch.round_corner
+
+Rounds the corner where two lines meet (a fillet): both lines are cut back, and
+an arc joins them, tangent to both, with a `radius` dimension you can change
+later with [`sketch.set_value`](#sketchset_value). The sharp corner stays as a
+helper point on both lines, so constraints that were on the corner move to it,
+and a line's `length` becomes the distance from its far end to it: sizes still
+measure to the corner. The sketch can move just as many ways as before.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `at` | text | yes | The corner: a line's end that's joined to another line's end, like `Line1.end` |
+| `radius` | number (mm) | yes | The arc's radius |
+
+The 40 × 20 plate with all four corners rounded to 5 mm loses 4 × (25 − 25π/4)
+= 21.46 mm² of area, so 3 mm thick it's (800 − 21.46) × 3 = 2335.62 mm³:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open plate.khan --save plate.khan sketch.round_corner sketch=Sketch1 at=Line1.end radius=5
+plate: 1 step
+  Sketch1      ok  4 lines, 1 arc, 1 point, 14 constraints, free to move 4 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.round_corner sketch=Sketch1 at=Line2.end radius=5
+plate: 1 step
+  Sketch1      ok  4 lines, 2 arcs, 2 points, 20 constraints, free to move 4 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.round_corner sketch=Sketch1 at=Line3.end radius=5
+plate: 1 step
+  Sketch1      ok  4 lines, 3 arcs, 3 points, 26 constraints, free to move 4 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.round_corner sketch=Sketch1 at=Line4.end radius=5
+plate: 1 step
+  Sketch1      ok  4 lines, 4 arcs, 4 points, 32 constraints, free to move 4 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan feature.add_extrude sketch=Sketch1 distance=3
+plate: 2 steps
+  Sketch1      ok  4 lines, 4 arcs, 4 points, 32 constraints, free to move 4 ways
+  Extrude1     ok  volume 2335.62 mm^3  mass 2.90 g (PLA)
+```
+
+A radius has to fit on both lines:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --save rounded.khan feature.add_sketch
+rounded: 1 step
+  Sketch1      ok  empty
+wrote rounded.khan
+$ kh_cli run --open rounded.khan --save rounded.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
+rounded: 1 step
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+wrote rounded.khan
+$ kh_cli run --open rounded.khan sketch.round_corner sketch=Sketch1 at=Line1.end radius=25
+error [sketch.round_corner]: A 25 mm radius doesn't fit that corner: it would cut back past the end of Line2. Use a radius under 20 mm.
+```
+
 ## sketch.add_circle
 
 Adds a circle. Its point is `.center`.

@@ -14,6 +14,7 @@
 #include "kh/model/CommandRegistry.h"
 #include "kh/model/Commands.h"
 #include "kh/model/Document.h"
+#include "kh/sketch/Profiles.h"
 #include "kh/sketch_planegcs/PlaneGcsSolver.h"
 
 using namespace kh;
@@ -546,4 +547,104 @@ TEST_CASE("sketch.add_rectangle adds four joined lines, level and upright, free 
           "A rectangle needs a width and a height: put the corners apart both left to right and up and down, "
           "like "
           "from=0,0 to=40,20.");
+}
+
+TEST_CASE("sketch.round_corner rounds a rectangle's corner; its sizes still measure to the sharp corner",
+          "[model][sketch][round]") {
+    Drawing d;
+    REQUIRE(d.sk("sketch.add_rectangle", {{"from", sketch::Point2{0, 0}}, {"to", sketch::Point2{40, 20}}})
+                .empty());
+    auto con = [&](const char* kind, const char* on, std::optional<double> value = {}) {
+        Args a{{"kind", std::string(kind)}, {"on", std::string(on)}};
+        if (value) a["value"] = *value;
+        REQUIRE(d.sk("sketch.constrain", a).empty());
+    };
+    con("length", "Line1", 40.0);
+    con("length", "Line2", 20.0);
+    con("fix", "Line1.start");
+    // A point 15 mm from the corner that will be rounded (Line1.end = Line2.start).
+    REQUIRE(d.sk("sketch.add_point", {{"at", sketch::Point2{55, 0}}}).empty());
+    con("distance", "Line2.start,Point1", 15.0);
+    auto solved = [&]() -> const sketch::SolveResult& {
+        static RebuildReport report;
+        report = d.rebuild();
+        REQUIRE(report.ok());
+        return *report.result(d.sketchId)->sketch;
+    };
+    const int freeBefore = solved().freedom;
+    CHECK(freeBefore == 1);  // only the point can move: round the corner, 15 mm away
+    CHECK(solved().redundant.empty());
+
+    REQUIRE(d.sk("sketch.round_corner", {{"at", std::string("Line1.end")}, {"radius", 5.0}}).empty());
+    CHECK(d.doc.undoLabel() == "Round the corner at Line1.end (Arc1)");
+    const auto& s = d.step().sketch();
+    const auto* arc = s.findEntity("Arc1");
+    const auto* sharp = s.findEntity("Point2");
+    REQUIRE(arc);
+    REQUIRE(sharp);
+    CHECK(sharp->construction);
+    // The distance from the corner is from the helper point now; Line1's Length is a distance to it.
+    const auto* distance1 = s.findConstraint("Distance1");
+    REQUIRE(distance1);
+    CHECK(distance1->points[0] == sketch::PointRef{sharp->id, sketch::PointRole::Self});
+    const auto* length1 = s.findConstraint("Length1");
+    REQUIRE(length1);
+    CHECK(length1->kind == sketch::ConstraintKind::Distance);
+    CHECK(length1->value == 40);
+
+    const auto& r = solved();
+    CHECK(r.freedom == freeBefore);  // just as many ways to move as before
+    CHECK(r.redundant.empty());
+    const sketch::Sketch after{r.entities, s.constraints};
+    // The helper point is still at (40, 0); Line1 now stops 5 mm short of it.
+    const auto& line1 = std::get<sketch::LineShape>(after.findEntity("Line1")->shape);
+    CHECK(line1.end.x == Approx(35).margin(1e-9));
+    CHECK(line1.end.y == Approx(0).margin(1e-9));
+    const auto& a = std::get<sketch::ArcShape>(after.findEntity("Arc1")->shape);
+    CHECK(a.radius == Approx(5));
+    CHECK(a.center.x == Approx(35).margin(1e-9));
+    CHECK(a.center.y == Approx(5).margin(1e-9));
+    CHECK(a.endAngle - a.startAngle == Approx(std::numbers::pi / 2));
+    // One closed shape: the rectangle less the corner's square, plus the quarter circle.
+    const auto found = sketch::findProfiles(after);
+    REQUIRE(found.shapes.size() == 1);
+    CHECK(found.shapes[0].area() == Approx(800 - (25 - 25 * std::numbers::pi / 4)).epsilon(1e-9));
+
+    // Changing the radius later is just a dimension.
+    REQUIRE(d.sk("sketch.set_value", {{"constraint", std::string("Radius1")}, {"value", 8.0}}).empty());
+    const auto& r8 = solved();
+    CHECK(std::get<sketch::ArcShape>(sketch::Sketch{r8.entities, {}}.findEntity("Arc1")->shape).radius ==
+          Approx(8));
+    CHECK(r8.freedom == freeBefore);
+}
+
+TEST_CASE("round_corner says what's wrong: not a joined corner, a radius too big, lines in a row",
+          "[model][sketch][round]") {
+    Drawing d;
+    REQUIRE(d.sk("sketch.add_rectangle", {{"from", sketch::Point2{0, 0}}, {"to", sketch::Point2{40, 20}}})
+                .empty());
+    auto message = [&](const char* at, double radius) {
+        const auto problems = d.sk("sketch.round_corner", {{"at", std::string(at)}, {"radius", radius}});
+        REQUIRE(problems.size() == 1);
+        return problems[0].message;
+    };
+    CHECK(message("Line1.end", 25) ==
+          "A 25 mm radius doesn't fit that corner: it would cut back past the end of Line2. Use a radius "
+          "under 20 mm.");
+    CHECK(message("Line1.end", 0) == "A corner's radius must be more than 0 mm. Type a bigger number.");
+    CHECK(message("Line9.end", 5) ==
+          "Name the corner by a line's end, like at=Line1.end. There's no Line9.end in this sketch.");
+    REQUIRE(
+        d.sk("sketch.add_line", {{"from", sketch::Point2{60, 0}}, {"to", sketch::Point2{80, 0}}}).empty());
+    CHECK(message("Line5.end", 5) ==
+          "Line5's end isn't joined to another line's end. Join two lines' ends with Coincident first.");
+    REQUIRE(
+        d.sk("sketch.add_line", {{"from", sketch::Point2{80, 0}}, {"to", sketch::Point2{100, 0}}}).empty());
+    REQUIRE(d.sk("sketch.constrain",
+                 {{"kind", std::string("coincident")}, {"on", std::string("Line5.end,Line6.start")}})
+                .empty());
+    CHECK(message("Line5.end", 5) ==
+          "Line5 and Line6 carry straight on at that corner (or fold back on each other), so there's nothing "
+          "to round.");
+    CHECK(d.step().sketch().entities.size() == 6);  // nothing changed
 }

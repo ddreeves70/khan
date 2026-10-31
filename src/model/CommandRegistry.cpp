@@ -572,6 +572,42 @@ CommandRegistry makeBuiltin() {
                 });
         });
 
+    r.add({"sketch.round_corner",
+           "Round corner",
+           "Rounds the corner where two lines meet: cuts both back and joins them with an arc that's tangent "
+           "to "
+           "both (a fillet). Things on the sharp corner move to a helper point where it was.",
+           {sketchArg,
+            {"at",
+             ArgType::Text,
+             "The corner: a line's end that's joined to another line's end, like Line1.end.",
+             true,
+             {}},
+            {"radius", ArgType::Number, "The arc's radius, in mm.", true, {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              const std::string at = argText(a, "at");
+              const double radius = argNumber(a, "radius");
+              return std::make_unique<EditSketchCommand>(
+                  argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                      const auto dot = at.rfind('.');
+                      const auto* e = s.findEntity(at.substr(0, dot));
+                      const auto ref = e && dot != std::string::npos
+                                           ? sketch::pointFromKey(e->id, at.substr(dot + 1))
+                                           : std::optional<sketch::PointRef>();
+                      if (!ref) {
+                          return {sketchProblem(
+                              "sketch.round_corner",
+                              "Name the corner by a line's end, like at=Line1.end. There's no " + at +
+                                  " in this sketch.")};
+                      }
+                      RoundedCorner made;
+                      if (auto problems = roundCorner(s, *ref, radius, &made); !problems.empty())
+                          return problems;
+                      label = "Round the corner at " + at + " (" + s.find(made.arc)->name + ")";
+                      return {};
+                  });
+          });
+
     r.add({"sketch.add_circle",
            "Add circle",
            "Adds a circle to a sketch.",

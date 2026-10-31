@@ -203,6 +203,40 @@ struct RectangleLines {
 RectangleLines addRectangle(sketch::Sketch& sketch, sketch::Point2 corner, sketch::Point2 opposite,
                             bool construction = false);
 
+/// What roundCorner() added.
+struct RoundedCorner {
+    EntityId arc{};         ///< The arc that rounds the corner.
+    EntityId corner{};      ///< The helper point where the lines would meet (the "virtual sharp").
+    ConstraintId radius{};  ///< The arc's Radius dimension.
+};
+
+/// Rounds the corner where two lines meet (fillets it): each line is cut back,
+/// and an arc of the given radius joins them, tangent to both.
+///
+/// The sharp corner stays as a helper point, kept on both lines (as if they
+/// carried on): constraints on the corner move to it, and a line's Length
+/// becomes the distance from its far end to it, so the sizes still measure to
+/// the corner. The sketch can move just as many ways as before.
+/// @code
+/// kh::model::RoundedCorner made;
+/// auto problems = kh::model::roundCorner(sketch, {line1, kh::sketch::PointRole::End}, 5, &made);
+/// @endcode
+/// @param sketch The sketch.
+/// @param at A line's end that a Coincident joins to another line's end.
+/// @param radius The arc's radius (mm), more than 0, small enough to fit on both lines.
+/// @param made Where to put what was added; may be nullptr.
+/// @return What's wrong, in plain words (not a joined corner, parallel lines, a
+///         radius too big); empty if it worked.
+Diagnostics roundCorner(sketch::Sketch& sketch, const sketch::PointRef& at, double radius,
+                        RoundedCorner* made = nullptr);
+
+/// Finds the biggest radius roundCorner() could round a corner with.
+/// @param sketch The sketch.
+/// @param at A line's end that a Coincident joins to another line's end.
+/// @return The radius (mm) that would cut the shorter line back to nothing; nothing
+///         if `at` isn't a corner that can be rounded.
+std::optional<double> largestCornerRadius(const sketch::Sketch& sketch, const sketch::PointRef& at);
+
 /// Makes a name no entity or constraint in a sketch has yet.
 /// @param sketch The sketch.
 /// @param base The start of the name, e.g. "Line".

@@ -88,7 +88,7 @@ struct Item {
 
 using sketcher::Rule;
 
-enum class Tool { Select, Line, Rectangle, Circle, Arc, Point, Spline, SplineThrough };
+enum class Tool { Select, Line, Rectangle, Circle, Arc, Point, Spline, SplineThrough, RoundCorner };
 
 bool isSpline(Tool tool) {
     return tool == Tool::Spline || tool == Tool::SplineThrough;
@@ -103,6 +103,9 @@ const char* toolHint(Tool tool, std::size_t clicks) {
         case Tool::Rectangle:
             return clicks == 0 ? "Rectangle: click one corner."
                                : "Rectangle: click the opposite corner. Esc stops.";
+        case Tool::RoundCorner:
+            return "Round corner: click a corner where two lines meet. Then type its radius in the Sketch "
+                   "panel.";
         case Tool::Circle:
             return clicks == 0 ? "Circle: click its center." : "Circle: click to set its size. Esc stops.";
         case Tool::Arc:
@@ -656,6 +659,12 @@ public:
                     // Keep going from the end, unless it closed onto a point already there.
                     if (line && !here.ref)
                         pending_.push_back({here.at, sketch::PointRef{*line, sketch::PointRole::End}});
+                }
+                break;
+            case Tool::RoundCorner:
+                if (here.ref) {  // only on a sketch point
+                    roundCornerAt(*here.ref);
+                    return;  // its message says to type the radius; the usual hint would replace it
                 }
                 break;
             case Tool::Rectangle:
@@ -1273,6 +1282,7 @@ private:
                     }
                     case Tool::Select:
                     case Tool::Point:
+                    case Tool::RoundCorner:
                         break;
                 }
             }
@@ -1373,6 +1383,38 @@ private:
     std::optional<EntityId> addLine(const Pick& from, const Pick& to) {
         return add("Line", sketch::LineShape{from.at, to.at},
                    {{sketch::PointRole::Start, from}, {sketch::PointRole::End, to}});
+    }
+
+    // Rounds the corner at a line's end with a radius that fits (a quarter of the
+    // biggest), and puts the cursor in its Radius in the Sketch panel to type the
+    // size wanted.
+    void roundCornerAt(const sketch::PointRef& at) {
+        const auto* step = sketchStep(editing_);
+        if (!step) return;
+        const auto largest =
+            model::largestCornerRadius(sketch::Sketch{shown(*step), step->sketch().constraints}, at);
+        if (!largest) {
+            // Let the command say why, in its words.
+            run([at](sketch::Sketch& s, std::string&) { return model::roundCorner(s, at, 1); });
+            return;
+        }
+        // A tidy starting size: a quarter of what fits, rounded down to a whole mm (or 0.5 mm).
+        double radius = *largest / 4;
+        // (A hair over, so 5 - 1e-12, from solving, still counts as 5.)
+        radius = radius >= 1 ? std::floor(radius + 1e-6) : std::max(0.5, std::floor(radius * 2 + 1e-6) / 2);
+        if (radius >= *largest) radius = *largest / 4;
+        auto made = std::make_shared<model::RoundedCorner>();
+        const bool done = run([at, radius, made](sketch::Sketch& s, std::string& label) -> Diagnostics {
+            if (auto problems = model::roundCorner(s, at, radius, made.get()); !problems.empty())
+                return problems;
+            label = "Round corner (" + s.find(made->arc)->name + ")";
+            return {};
+        });
+        if (!done) return;
+        justAdded_ = made->radius;  // the Sketch panel puts the cursor in its number
+        refreshPanels();
+        message("Rounded the corner. Type its radius in the Sketch panel, then press Enter.");
+        draw();
     }
 
     // A rectangle from two opposite corners, as one undo step (see model::addRectangle()),
@@ -1635,6 +1677,11 @@ void registerSketcher(plugin::PluginContext& ctx) {
               "kh.sketcher.rectangle", "Rectangle", Tool::Rectangle,
               "Draw a rectangle: click one corner, then the opposite one. Its sides stay level and upright.",
               icons::sketcher::rectangle_svg},
+          ToolItem{"kh.sketcher.round_corner", "Round corner", Tool::RoundCorner,
+                   "Round a corner where two lines meet: click it, then type the radius in the Sketch panel. "
+                   "Sizes "
+                   "that were to the sharp corner still measure to it.",
+                   icons::sketcher::round_corner_svg},
           ToolItem{"kh.sketcher.circle", "Circle", Tool::Circle,
                    "Draw a circle: click its center, then its edge.", icons::sketcher::circle_svg},
           ToolItem{"kh.sketcher.arc", "Arc", Tool::Arc,
