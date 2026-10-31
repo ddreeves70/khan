@@ -652,6 +652,16 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
   button->setIcon(ui->icon(sam::icons::notes::pin_svg));
   ```
 
+- **Asking for a file.** `ui->askOpenFile(title, filter)` opens the computer's
+  own file window and gives back the file the student picked, or an empty
+  string if they cancelled. (Khan's tests answer it themselves, so a plugin that
+  asks for files can still be tested.) The sketcher's **Import spline** uses it:
+
+  ```cpp
+  const QString file = ui->askOpenFile(QObject::tr("Import notes"), QObject::tr("Text files (*.txt)"));
+  if (file.isEmpty()) return;  // cancelled
+  ```
+
 - `PanelArea::Center` puts the panel in the middle of the window. The first
   Center panel (Khan's viewer) fills it; later ones become tabs next to it.
 - In CMake, link `kh::ui` as well: `DEPS kh::model kh::ui`.

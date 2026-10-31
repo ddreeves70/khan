@@ -1,5 +1,6 @@
 #include "kh/plugins/Sketcher.h"
 
+#include <QFileInfo>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -366,6 +367,46 @@ public:
         hint();
         ctx_.publish(plugin::ActionsChanged{});
     }
+    // Sketch > Import spline: asks for a file of points, and adds a spline made
+    // from it (through the points, or with them as control points). The file's
+    // numbers are taken to be in the design's unit.
+    void importSpline(bool through) {
+        if (!editing()) {
+            problem("sketch.not_editing",
+                    "Edit a sketch first: pick it in the feature tree, then Sketch > Edit sketch. Or make "
+                    "one with "
+                    "Sketch > New sketch.");
+            return;
+        }
+        auto* ui = ctx_.service<ui::UiRegistry>();
+        if (!ui) return;
+        const QString file = ui->askOpenFile(QObject::tr("Import a spline from a file of points"),
+                                             QObject::tr("Points (*.csv *.txt);;All files (*)"));
+        if (file.isEmpty()) return;
+        const auto* design = ctx_.documents().find(doc_);
+        const auto unit = design ? design->lengthUnit() : LengthUnit::Millimeter;
+        const auto* step = sketchStep(editing_);
+        const std::size_t before = step ? step->sketch().entities.size() : 0;
+        const auto problems = ctx_.documents().run(doc_, "sketch.import_spline",
+                                                   {{"sketch", editing_},
+                                                    {"file", file.toStdString()},
+                                                    {"through", through},
+                                                    {"unit", std::string(unitSymbol(unit))}});
+        if (!problems.empty()) {
+            ui->showProblems(problems);
+            return;
+        }
+        step = sketchStep(editing_);
+        if (!step || step->sketch().entities.size() <= before) return;
+        // Pick it, so the Sketch panel shows it, with Reload from file.
+        const auto& added = step->sketch().entities.back();
+        picked_ = {Item{added.id, std::nullopt}};
+        setTool(Tool::Select);
+        refreshPanels();
+        message("Imported " + added.name + " from " + QFileInfo(file).fileName().toStdString() +
+                ". After you change the file, click Reload from file in the Sketch panel.");
+    }
+
     // The one spline picked (whole, or one of its control points), for the Sketch panel.
     std::optional<sketcher::SplinePick> pickedSpline() const {
         const auto* step = sketchStep(editing_);
@@ -1568,6 +1609,24 @@ void registerSketcher(plugin::PluginContext& ctx) {
             .checked = [sketcher, tool] { return sketcher->editing() && sketcher->tool() == tool; },
             .enabled = [sketcher] { return sketcher->editing(); }});
     }
+
+    // Importing a spline from a file of points (sketch.import_spline).
+    ctx.addAction(
+        ActionSpec{.id = "kh.sketcher.import_through",
+                   .text = "Import spline through points...",
+                   .menu = "Sketch",
+                   .tip = "Make a spline that goes through every point in a file (one x, y per line; a "
+                          "spreadsheet's CSV works), in the design's unit.",
+                   .run = [sketcher] { sketcher->importSpline(true); },
+                   .enabled = [sketcher] { return sketcher->editing(); }});
+    ctx.addAction(ActionSpec{.id = "kh.sketcher.import_poles",
+                             .text = "Import spline with control points...",
+                             .menu = "Sketch",
+                             .tip =
+                                 "Make a spline whose control points are the points in a file (one x, y per "
+                                 "line), in the design's unit.",
+                             .run = [sketcher] { sketcher->importSpline(false); },
+                             .enabled = [sketcher] { return sketcher->editing(); }});
 
     // Constraints added while drawing (On, Horizontal, Vertical, Tangent): on by default.
     ctx.addAction(ActionSpec{.id = "kh.sketcher.auto",

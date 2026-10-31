@@ -62,7 +62,10 @@ class PluginContext;
 /// constraints on splines (sketch::ConstraintKind::PointOnSpline and Smooth, and
 /// Tangent where a spline's end is joined to a curve) and their helpers
 /// (sketch::isEnd(), jointOf(), curveEnd(), curvatureVector(), nearestOnSpline()).
-inline constexpr int kPluginApiVersion = 23;
+/// Version 24 added splines from a file of points (sketch::readPoints(),
+/// SplineShape::source, and the sketch.import_spline and sketch.reload_spline
+/// commands) and asking the student for a file (ui::UiRegistry::askOpenFile()).
+inline constexpr int kPluginApiVersion = 24;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

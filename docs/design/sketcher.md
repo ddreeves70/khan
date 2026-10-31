@@ -357,7 +357,26 @@ Four pull requests:
   curvature vectors equal to 1e-6, 1/radius for an arc, 0 for a line), with the
   degrees of freedom each takes away.
 
-**D. Import a spline from a file of points,** with Reload from file.
+**D. Import a spline from a file of points, with Reload from file** (`kh_sketch`,
+`kh_model`, `kh_io`, `kh_ui`, the sketcher plugin; built):
+
+- `readPoints()` in `kh_sketch` reads the text (no file access): one point per
+  line, split by commas, spaces, tabs or semicolons; a heading line skipped, `#`
+  comments, a z left out; up to 500 points (the interpolation solve is dense).
+  A bad line is named with its number and text.
+- `SplineShape::source` remembers the file (its absolute path, UTF-8), whether
+  the curve goes through the points, and their unit; saved as the spline's
+  optional `source` key.
+- `sketch.import_spline` and `sketch.reload_spline` read the file when the
+  command is made, so undo and redo hold exactly those points and never read it
+  again. Reload keeps the degree and weights and removes constraints on control
+  points that are gone.
+- `ui::UiRegistry::askOpenFile()` asks for the file, answered by tests through
+  `AppUi::answerOpenFile`. The app takes the file's numbers to be in the design's
+  unit; `kh_cli` takes `unit=` (mm by default).
+- The path is kept as it was, not relative to the design: a design moved to
+  another computer needs its file put in the same place, or importing again.
+  Relative paths can come with assemblies, which will need the same thing.
 
 ## Choices
 

@@ -3,6 +3,7 @@
 #include <QAbstractSpinBox>
 #include <QCheckBox>
 #include <QDoubleSpinBox>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -146,6 +147,23 @@ SketchPanel::SketchPanel(plugin::PluginContext& ctx, PanelHooks hooks, QWidget* 
     buttons->addWidget(addPole_);
     buttons->addWidget(removePole_);
     form->addRow(buttons);
+    // An imported spline: where from, and reading it again.
+    auto* fromFile = new QHBoxLayout;
+    source_ = new QLabel(splineBox_);
+    source_->setObjectName(QStringLiteral("spline.source"));
+    reload_ = new QPushButton(tr("Reload from file"), splineBox_);
+    reload_->setObjectName(QStringLiteral("spline.reload"));
+    reload_->setToolTip(
+        tr("Read the file of points again, after you've changed it. Constraints on control points "
+           "it doesn't have anymore are removed."));
+    fromFile->addWidget(source_, 1);
+    fromFile->addWidget(reload_);
+    form->addRow(fromFile);
+    connect(reload_, &QPushButton::clicked, this, [this] {
+        const auto* step = sketchStep(ctx_, hooks_.editing ? hooks_.editing() : std::nullopt);
+        const auto* e = step && spline_ ? step->sketch().find(spline_->spline) : nullptr;
+        if (e) runSpline("sketch.reload_spline", {{"spline", e->name}});
+    });
     splineBox_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     layout->addWidget(splineBox_);
     splineBox_->hide();
@@ -389,6 +407,13 @@ void SketchPanel::showSpline(const sketch::Sketch& sketch) {
         weight_->setValue(sp->weights.empty() ? 1.0 : sp->weights[static_cast<std::size_t>(*spline_->pole)]);
     }
     removePole_->setEnabled(pole && n > sp->degree + 1);
+    source_->setVisible(sp->source.has_value());
+    reload_->setVisible(sp->source.has_value());
+    if (sp->source) {
+        const QString path = QString::fromStdString(sp->source->file);
+        source_->setText(tr("From %1").arg(QFileInfo(path).fileName()));
+        source_->setToolTip(path);
+    }
     removePole_->setToolTip(
         pole && n <= sp->degree + 1
             ? tr("%1 has the fewest control points degree %2 allows. Lower its degree first.")

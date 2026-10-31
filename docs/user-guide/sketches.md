@@ -178,6 +178,39 @@ Sketch panel then shows its settings:
     doesn't.
 - **On** puts a point on a spline, like on a line or circle. A click close to a
   spline while drawing snaps onto it and adds On.
+
+### Splines from a file of points
+
+Got the shape as numbers already: measured off a real part, worked out in a
+spreadsheet, or exported from another program? Put them in a file, one point
+per line, x then y:
+
+```text
+x,y
+0,0
+10,8
+20,10
+30,0
+```
+
+- While editing a sketch, use **Sketch > Import spline through points...** (the
+  curve goes through every point) or **Sketch > Import spline with control
+  points...** (the points are its control points), and pick the file.
+- The numbers are taken to be in the design's unit (mm, or the one picked in
+  **Document settings**).
+- Commas, spaces, tabs or semicolons can go between the numbers, so a
+  spreadsheet saved as CSV works. A first line like `x,y` is skipped, a `#`
+  starts a comment, and a third number (z) is left out. Up to 500 points.
+- **Reload from file.** Khan remembers the file. Change it (in a spreadsheet,
+  say), then pick the spline and click **Reload from file** in the Sketch panel:
+  the spline follows. Its degree and weights stay; constraints on control
+  points it doesn't have anymore go. Undo puts the old points back.
+- If you move the design to another computer, take the file too: Reload looks
+  for it where it was, and says so if it isn't there.
+- A line Khan can't read is named, like *Line 4 of wave.csv isn't 2 numbers (x
+  and y): "20,1O"*, so you can fix it.
+- In `kh_cli`: [`sketch.import_spline`](../cli/commands.md#sketchimport_spline)
+  and [`sketch.reload_spline`](../cli/commands.md#sketchreload_spline).
 - A closed shape can have spline edges, so [extrude](extrude.md) turns it into a
   solid, and a closed spline is a shape on its own, like a circle.
 

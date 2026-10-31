@@ -643,7 +643,10 @@ sketch::Sketch everyKind() {
     const auto a = add("Arc1", ArcShape{{40, 10}, 10, -1.5707963, 1.5707963});
     const auto sp =
         add("Spline1", SplineShape{{{0, 30}, {10, 40}, {30, 40}, {40, 30}}, {1, 2.5, 1, 1}, 3, false});
-    add("Spline2", SplineShape{{{0, 50}, {10, 50}, {10, 60}, {0, 60}}, {}, 2, true});
+    // Imported from a file (as control points, in inches): the file is remembered, letters and all.
+    SplineShape imported{{{0, 50}, {10, 50}, {10, 60}, {0, 60}}, {}, 2, true};
+    imported.source = SplineSource{"C:/Users/Zoë/wave points.csv", false, LengthUnit::Inch};
+    add("Spline2", imported);
     auto con = [&](std::string name, ConstraintKind k, std::vector<PointRef> pts, std::vector<EntityId> ents,
                    double v = 0, Point2 at = {}) {
         s.constraints.push_back(
@@ -684,7 +687,7 @@ bool sameSketch(const sketch::Sketch& a, const sketch::Sketch& b) {
         if (const auto* s = std::get_if<sketch::SplineShape>(&x.shape)) {
             const auto& t = std::get<sketch::SplineShape>(y.shape);
             if (s->weights != t.weights || s->degree != t.degree || s->closed != t.closed ||
-                s->poles.size() != t.poles.size())
+                s->poles.size() != t.poles.size() || s->source != t.source)
                 return false;
             for (std::size_t k = 0; k < s->poles.size(); ++k) {
                 if (s->poles[k].x != t.poles[k].x || s->poles[k].y != t.poles[k].y) return false;

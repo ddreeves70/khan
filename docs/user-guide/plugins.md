@@ -36,6 +36,8 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command sketch.add_spline
            command sketch.constrain
            command sketch.delete
+           command sketch.import_spline
+           command sketch.reload_spline
            command sketch.remove_pole
            command sketch.set_spline
            command sketch.set_value
