@@ -69,8 +69,10 @@ class PluginContext;
 /// Version 26 added rounding corners (model::roundCorner(), largestCornerRadius()
 /// and sketch.round_corner). Version 27 added trimming (model::trim(),
 /// trimmedPiece() and sketch.trim). Version 28 added the Symmetric constraint
-/// (sketch::ConstraintKind::Symmetric).
-inline constexpr int kPluginApiVersion = 28;
+/// (sketch::ConstraintKind::Symmetric). Version 29 added parameters
+/// (model::Expression, model::ParameterTable, Document::parameters(), and the
+/// parameter.set, parameter.rename and parameter.delete commands).
+inline constexpr int kPluginApiVersion = 29;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

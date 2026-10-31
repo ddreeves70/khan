@@ -271,6 +271,7 @@ int openDesign(int argc, char** argv) {
         std::printf("\n");
         printIssues(r->issues);
     }
+    kh::cli::printParameters(doc);
     if (showSketch) {
         const kh::model::Feature* found = nullptr;
         for (std::size_t i = 0; i < doc.featureCount(); ++i) {

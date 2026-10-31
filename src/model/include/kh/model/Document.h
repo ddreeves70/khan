@@ -19,6 +19,7 @@
 #include "kh/model/Feature.h"
 #include "kh/model/Folder.h"
 #include "kh/model/Material.h"
+#include "kh/model/Parameters.h"
 #include "kh/sketch/Solver.h"
 
 namespace kh::model {
@@ -156,6 +157,12 @@ public:
     ///         the body has the default material.
     FeatureId materialSource(const FeatureId& id) const;
 
+    /// Gives the design's parameters: named values like `wall = 3 mm` that
+    /// other values can use. Change them with SetParameterCommand,
+    /// RenameParameterCommand and DeleteParameterCommand.
+    /// @return The table.
+    const ParameterTable& parameters() const { return parameters_; }
+
     /// Lists the design's folders, in the order they appear in the feature tree.
     /// Each folder lists only the steps still in the design; a folder whose steps
     /// are all gone (deleted, until undo brings them back) isn't listed.
@@ -257,6 +264,7 @@ private:
     std::vector<std::unique_ptr<Feature>> features_;
     LengthUnit lengthUnit_ = LengthUnit::Millimeter;  // what lengths are shown in
     std::vector<Material> materials_;                 // the design's own materials
+    ParameterTable parameters_;                       // named values like wall = 3 mm
     std::vector<Folder> folders_;  // as the commands left them; folders() hides deleted steps
     std::vector<Folder> shown_;    // folders(), kept so findFolder() can hand out pointers
     void updateFolders();          // recomputes shown_ after every change

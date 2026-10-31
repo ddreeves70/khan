@@ -32,6 +32,9 @@ volumes and sketch lengths in the design's unit. Positions and sizes are written
 | [`document.set_units`](#documentset_units) | Changes the unit the design shows lengths in |
 | [`material.define`](#materialdefine) | Adds a material of your own, or changes one |
 | [`material.delete`](#materialdelete) | Removes a material you added |
+| [`parameter.set`](#parameterset) | Adds a named value like `wall = 3 mm`, or changes one |
+| [`parameter.rename`](#parameterrename) | Renames a parameter, and every value that uses it |
+| [`parameter.delete`](#parameterdelete) | Removes a parameter nothing uses |
 
 Plugins can add more commands. [`kh_cli help`](help.md) lists every command
 Khan has right now.
@@ -1325,4 +1328,123 @@ Demo tag: 3 steps
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
 wrote tag.khan
+```
+
+## parameter.set
+
+Adds a [parameter](../user-guide/parameters.md): a value with a name, like
+`wall = 3 mm`, that other parameters can use, like `height = wall * 4`. Setting
+a name that's already there changes it, and every parameter that uses it
+follows. `kh_cli` lists the parameters after the steps, with what each formula
+works out to.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `name` | text | yes | Its name: letters, digits and `_`, starting with a letter, like `wall` or `hole_2`. Upper and lower case count: `Wall` isn't `wall` |
+| `value` | text | yes | Its value or formula, like `3 mm`, `1.5 in`, `30 deg`, `4` or `wall * 2 + 1 mm`. Put it in quotes if it has spaces |
+| `note` | text | no | What it's for. Leave it out to keep the note it has |
+
+A formula can use numbers with units (`mm`, `cm`, `m`, `in`, `ft`, `deg`, `rad`),
+other parameters, `+ - * / ^`, brackets, `pi`, and `sqrt`, `abs`, `min`, `max`,
+`sin`, `cos`, `tan`, `asin`, `acos` and `atan`. A number without a unit is a
+plain number, like a count.
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save box.khan parameter.set name=wall value="3 mm" note="How thick the walls are"
+box: 0 steps
+Parameters:
+  wall = 3 mm
+wrote box.khan
+$ kh_cli run --open box.khan --save box.khan parameter.set name=height value="wall * 4 + 1 in"
+box: 0 steps
+Parameters:
+  wall   = 3 mm
+  height = wall * 4 + 1 in  (37.4 mm)
+wrote box.khan
+$ kh_cli run --open box.khan --save box.khan parameter.set name=wall value="2 mm"
+box: 0 steps
+Parameters:
+  wall   = 2 mm
+  height = wall * 4 + 1 in  (33.4 mm)
+wrote box.khan
+```
+
+Changing `wall` changed `height` too. Units are checked, so a length can't be
+added to a plain number:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open box.khan parameter.set name=depth value="wall + 2"
+error [expression.units]: Khan can't add 2 to wall: wall is a length and 2 is a plain number. Give both the same kind of unit, like 2 mm.
+```
+
+A change that would break another parameter is refused, and so is one that
+makes parameters use each other in a loop:
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open box.khan parameter.set name=wall value="height / 4"
+error [parameter.loop]: wall uses height and height uses wall, so Khan can't work either out. Change one so it doesn't use the other.
+```
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open box.khan parameter.set name=wall value=2
+error [parameter.breaks]: Changing wall to 2 would stop height working: Khan can't add 1 in to wall * 4: wall * 4 is a plain number and 1 in is a length. Give both the same kind of unit.
+```
+
+## parameter.rename
+
+Gives a parameter a new name. Every formula that uses it changes to the new name,
+so nothing breaks.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `name` | text | yes | The parameter's name now |
+| `to` | text | yes | Its new name |
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save box.khan parameter.set name=wall value="3 mm"
+box: 0 steps
+Parameters:
+  wall = 3 mm
+wrote box.khan
+$ kh_cli run --open box.khan --save box.khan parameter.set name=height value="wall * 4"
+box: 0 steps
+Parameters:
+  wall   = 3 mm
+  height = wall * 4  (12 mm)
+wrote box.khan
+$ kh_cli run --open box.khan --save box.khan parameter.rename name=wall to=thickness
+box: 0 steps
+Parameters:
+  thickness = 3 mm
+  height    = thickness * 4  (12 mm)
+wrote box.khan
+```
+
+## parameter.delete
+
+Removes a parameter. One that another parameter uses can't be removed: change
+or delete that one first.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `name` | text | yes | The parameter's name |
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open box.khan parameter.delete name=thickness
+error [parameter.in_use]: height uses thickness, so thickness can't be deleted. Change height so it doesn't use thickness first, or delete height too.
+```
+
+<!-- cli-example -->
+```console
+$ kh_cli run --open box.khan --save box.khan parameter.delete name=height
+box: 0 steps
+Parameters:
+  thickness = 3 mm
+wrote box.khan
 ```

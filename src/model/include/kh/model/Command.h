@@ -13,6 +13,7 @@
 #include "kh/model/Feature.h"
 #include "kh/model/Folder.h"
 #include "kh/model/Material.h"
+#include "kh/model/Parameters.h"
 
 namespace kh::model {
 
@@ -57,6 +58,10 @@ public:
     /// (with steps that were deleted still listed; see Document::folders()).
     /// @return The list.
     std::vector<Folder>& folders();
+
+    /// Gives the design's parameters to change in place.
+    /// @return The table (see Document::parameters()).
+    ParameterTable& parameters();
 
     /// Changes the unit the design shows its lengths in (see Document::lengthUnit()).
     /// @param unit The unit.

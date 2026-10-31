@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "kh/model/Document.h"
 #include "kh/sketch/Sketch.h"
 
 namespace kh::cli {
@@ -22,5 +23,9 @@ int help(int argc, char** argv);
 
 // One line about a solved sketch, like "4 lines, 8 constraints, fully constrained".
 std::string sketchSummary(const sketch::Sketch& sketch, int freedom);
+
+// Lists the design's parameters, if it has any, after its steps: each with its
+// formula and, if that isn't just the value, what it works out to.
+void printParameters(const model::Document& doc);
 
 }  // namespace kh::cli

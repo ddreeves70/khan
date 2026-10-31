@@ -22,6 +22,7 @@ works in either.
 | Move and turn bodies; copy, paste and duplicate steps; turn steps off; folders | |
 | The desktop app: 3D viewer with 1, 2 or 4 panes, feature tree, Properties, layouts | |
 | Materials: mass, weight, material cost and color | |
+| Parameters: named values like `wall = 3 mm`, with formulas and units | Sketch dimensions and step sizes that use parameters |
 | Save and open `.khan` designs | |
 | Export STL (3D printing) and STEP (other CAD programs), from the app's File menu or `kh_cli` | Fillets, chamfers, holes, patterns |
 | Add plugins | Import STEP, STL and 3MF |
@@ -37,9 +38,10 @@ works in either.
 7. [Sketches](sketches.md): flat drawings with constraints and dimensions.
 8. [Extrude](extrude.md): turn a sketch into a solid.
 9. [Materials](materials.md): what a body is made of, its mass, weight and cost.
-10. [Files](files.md): saving, opening, and exporting for 3D printing.
-11. [Plugins](plugins.md): adding features to Khan.
-12. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
+10. [Parameters](parameters.md): named values like `wall = 3 mm`, and formulas that use them.
+11. [Files](files.md): saving, opening, and exporting for 3D printing.
+12. [Plugins](plugins.md): adding features to Khan.
+13. [When something goes wrong](troubleshooting.md): what Khan's messages mean.
 
 ## Other guides
 

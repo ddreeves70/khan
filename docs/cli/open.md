@@ -27,6 +27,10 @@ Each step shows one of these:
 | `blocked` | The step uses another step that failed or is turned off |
 | `off` | The step is turned off (suppressed) |
 
+A design with [parameters](../user-guide/parameters.md) lists them after its
+steps, each with its formula and, if that isn't just a number, what it works out
+to. A parameter Khan can't work out shows the problem under it.
+
 ## Examples
 
 First make a design to open (see [`kh_cli demo`](demo.md)):

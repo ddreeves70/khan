@@ -35,6 +35,9 @@ Commands for kh_cli run:
   folder.rename            Rename folder
   material.define          Define material
   material.delete          Delete material
+  parameter.delete         Delete parameter
+  parameter.rename         Rename parameter
+  parameter.set            Set parameter
   sketch.add_arc           Add arc
   sketch.add_circle        Add circle
   sketch.add_line          Add line

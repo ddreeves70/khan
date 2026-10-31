@@ -396,6 +396,85 @@ private:
     std::size_t index_ = 0;
 };
 
+/// Adds a parameter, like `wall = 3 mm`, or changes the one with that name.
+///
+/// Refused if the name can't be a parameter's (see ParameterTable::checkName()),
+/// differs from another parameter's only in upper and lower case, or the
+/// formula can't be read or worked out; and if the change would stop another
+/// parameter that uses it from being worked out.
+class SetParameterCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param name The parameter's name, like "wall".
+    /// @param expression Its formula, like "3 mm" or "wall * 4".
+    /// @param note What it's for; nothing keeps the note it has (or none, for a new one).
+    SetParameterCommand(std::string name, std::string expression,
+                        std::optional<std::string> note = std::nullopt);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    std::string name_, expression_;
+    std::optional<std::string> note_;
+    ParamId id_;                    // a new parameter's id, the same on redo
+    std::optional<Parameter> old_;  // the version it changed, if it changed one
+};
+
+/// Renames a parameter, and every formula that uses it, so they still use it.
+class RenameParameterCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param name The parameter's name now.
+    /// @param to Its new name.
+    RenameParameterCommand(std::string name, std::string to);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    std::string name_, to_;
+    std::vector<Parameter> old_;  // every parameter it changed, as it was
+};
+
+/// Removes a parameter. Refused while another parameter uses it.
+class DeleteParameterCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param name The parameter's name.
+    explicit DeleteParameterCommand(std::string name);
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    std::string name_;
+    std::optional<Parameter> removed_;
+    std::size_t index_ = 0;
+};
+
+/// Puts in all of a design's parameters at once, as they are, in place of the
+/// ones it has: used when opening a file. Names are checked (each must be one
+/// a parameter can have, and no two may differ only in upper and lower case);
+/// formulas aren't, so one with a problem stays in the design to be fixed.
+class ReplaceParametersCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param parameters The parameters, in order, with their ids.
+    explicit ReplaceParametersCommand(std::vector<Parameter> parameters);
+
+    std::string label() const override { return "Set parameters"; }
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    std::vector<Parameter> parameters_;
+    ParameterTable old_;
+};
+
 /// Copies steps for duplicating or pasting: the given steps and every step they
 /// use (their inputs, and their inputs' inputs), in design order. The copies get
 /// new ids, and their inputs point at the other copies, so the copies don't
