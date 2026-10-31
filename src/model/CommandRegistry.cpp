@@ -118,6 +118,8 @@ Needs needsOf(sketch::ConstraintKind k) {
             return {"PE", "a point and a spline", "Point1,Spline1"};
         case K::Midpoint:
             return {"PE", "a point and a line", "Point1,Line1"};
+        case K::Symmetric:
+            return {"PPE", "two points and a line to mirror them across", "Line1.start,Line2.end,Line3"};
         case K::Tangent:
             return {
                 "EE",

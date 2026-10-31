@@ -70,6 +70,7 @@ const std::vector<Rule>& allRules() {
                                          Rule::Smooth,
                                          Rule::On,
                                          Rule::Midpoint,
+                                         Rule::Symmetric,
                                          Rule::Fix,
                                          Rule::Dimension,
                                          Rule::HorizontalDimension,
@@ -120,6 +121,12 @@ RuleInfo ruleInfo(Rule rule) {
             return {"midpoint", "Midpoint",
                     "Put a point in the middle of a line. Pick the point and the line.",
                     "a point and a line"};
+        case Rule::Symmetric:
+            return {"symmetric", "Symmetric",
+                    "Make two points mirror images across a line, like the two sides of a bracket across its "
+                    "center "
+                    "line. Pick the two points, then the line.",
+                    "two points and a line"};
         case Rule::Fix:
             return {"fix", "Fix", "Pin points where they are now. Pick one or more points.",
                     "one or more points"};
@@ -211,6 +218,12 @@ std::vector<sketch::Constraint> plan(Rule rule, const Picks& p, const sketch::Sk
         case Rule::Midpoint:
             if (n == 2 && P == 1 && L == 1)
                 out.push_back(make(ConstraintKind::Midpoint, {p.points[0]}, {p.lines[0]}));
+            break;
+        case Rule::Symmetric:
+            // Not the line's own ends: a line can't mirror its own points across itself.
+            if (n == 3 && P == 2 && L == 1 && p.points[0].entity != p.lines[0] &&
+                p.points[1].entity != p.lines[0])
+                out.push_back(make(ConstraintKind::Symmetric, {p.points[0], p.points[1]}, {p.lines[0]}));
             break;
         case Rule::Fix:
             if (P >= 1 && n == P) {
@@ -304,6 +317,8 @@ std::string labelText(const sketch::Constraint& c, LengthUnit unit) {
             return "On";
         case ConstraintKind::Midpoint:
             return "Mid";
+        case ConstraintKind::Symmetric:
+            return "Sym";
         case ConstraintKind::Tangent:
             return "T";
         case ConstraintKind::Smooth:
@@ -388,6 +403,10 @@ std::optional<LabelPlace> labelPlace(const sketch::Constraint& c, const sketch::
         case ConstraintKind::PointOnSpline:
         case ConstraintKind::Midpoint:
             return c.points.empty() ? std::nullopt : besidePoint(c.points[0]);
+        case ConstraintKind::Symmetric: {  // between the two points, beside the mirror line
+            const auto ab = twoPoints();
+            return ab ? std::optional(besideSegment(ab->first, ab->second)) : std::nullopt;
+        }
         case ConstraintKind::Smooth:
             if (c.entities.size() < 2) return std::nullopt;
             if (const auto joint = sketch::jointOf(s, c.entities[0], c.entities[1]))

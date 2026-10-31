@@ -663,6 +663,7 @@ sketch::Sketch everyKind() {
     con("PointOnLine1", K::PointOnLine, {{p, PointRole::Self}}, {l1});
     con("PointOnCircle1", K::PointOnCircle, {{p, PointRole::Self}}, {c});
     con("Midpoint1", K::Midpoint, {{p, PointRole::Self}}, {l1});
+    con("Symmetric1", K::Symmetric, {{p, PointRole::Self}, {c, PointRole::Center}}, {l2});
     con("Tangent1", K::Tangent, {}, {l1, a});
     con("Distance1", K::Distance, {{p, PointRole::Self}, {c, PointRole::Center}}, {}, 12.5);
     con("Length1", K::Length, {}, {l1}, 40);

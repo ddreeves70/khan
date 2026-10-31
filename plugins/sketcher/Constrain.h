@@ -37,6 +37,7 @@ enum class Rule {
     Smooth,  // a spline joined to a curve: tangent, and bending equally (G2)
     On,
     Midpoint,
+    Symmetric,  // two points mirrored across a line
     Fix,
     Dimension,            // length, radius, diameter, distance or angle: whichever fits
     HorizontalDimension,  // how far apart in x

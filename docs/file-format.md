@@ -246,7 +246,8 @@ failed save never damages the last good copy.
   steps without folders, and drops the folders if it saves the file again.
   Splines, and the constraints only splines use (`point_on_spline`, `smooth`,
   Oct 2026), were added in schema 1 too, but an older Khan can't skip them: it
-  won't open a design that has them, and says the file is damaged. A spline's
+  won't open a design that has them, and says the file is damaged. The same goes
+  for `symmetric`. A spline's
   `source` is an optional key an older Khan skips (and drops if it saves).
 - Anything an older Khan would read wrongly bumps `schema` (in
   `src/core/include/kh/core/Version.h`) and adds a migration from the old schema.

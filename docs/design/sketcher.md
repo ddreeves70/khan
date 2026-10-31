@@ -438,7 +438,14 @@ under 5 minutes. These tools cut the clicks for that, one pull request each:
 - Constraint names made by these helpers are spelled like the buttons'
   (`PointOnLine1`, not `Pointonline1`, which rounding corners made before).
 
-**D. Symmetric:** two points mirrored about a line.
+**D. Symmetric** (`kh_sketch`, `kh_sketch_planegcs`, `kh_model`, the sketcher plugin; built):
+
+- `ConstraintKind::Symmetric` (`symmetric`): points[0] and points[1] are mirror
+  images across the line through entities[0]. PlaneGCS's `P2PSymmetric` (the
+  middle of the two on the line, the line between them square to it), so it
+  takes away 2 ways to move. Khan's own measure is the same two distances.
+- A **Symmetric** button for two points and a line (not the line's own ends),
+  labelled **Sym** between the points.
 
 ## Choices
 
