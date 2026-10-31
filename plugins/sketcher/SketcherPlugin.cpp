@@ -866,7 +866,7 @@ private:
             } else if (std::holds_alternative<sketch::LineShape>(e->shape)) {
                 out.lines.push_back(item.entity);
             } else if (std::holds_alternative<sketch::SplineShape>(e->shape)) {
-                ++out.other;  // no constraint takes a whole spline yet
+                out.splines.push_back(item.entity);
             } else {
                 out.rounds.push_back(item.entity);
             }
@@ -1150,6 +1150,8 @@ private:
             return sketch::Point2{c.x + (p.x - c.x) * r / d, c.y + (p.y - c.y) * r / d};
         };
         if (const auto* c = std::get_if<sketch::CircleShape>(&shape)) return toCircle(c->center, c->radius);
+        if (const auto* s = std::get_if<sketch::SplineShape>(&shape))
+            return sketch::splinePoint(*s, sketch::nearestOnSpline(*s, p));
         if (const auto* a = std::get_if<sketch::ArcShape>(&shape)) {
             double t = std::atan2(p.y - a->center.y, p.x - a->center.x);
             while (t < a->startAngle) t += 2 * kPi;
@@ -1290,10 +1292,12 @@ private:
                 } else if (pick.on) {
                     const auto* e = s.find(*pick.on);
                     if (!e) continue;
-                    const bool line = std::holds_alternative<sketch::LineShape>(e->shape);
-                    addConstraint(
-                        line ? sketch::ConstraintKind::PointOnLine : sketch::ConstraintKind::PointOnCircle,
-                        {mine}, {*pick.on});
+                    const auto kind = std::holds_alternative<sketch::LineShape>(e->shape)
+                                          ? sketch::ConstraintKind::PointOnLine
+                                      : std::holds_alternative<sketch::SplineShape>(e->shape)
+                                          ? sketch::ConstraintKind::PointOnSpline
+                                          : sketch::ConstraintKind::PointOnCircle;
+                    addConstraint(kind, {mine}, {*pick.on});
                 }
                 if (isLine && pick.align) {
                     if (*pick.align == sketch::ConstraintKind::Tangent && pick.alignWith)
@@ -1616,6 +1620,8 @@ void registerSketcher(plugin::PluginContext& ctx) {
                 return i::equal_svg;
             case Rule::Tangent:
                 return i::tangent_svg;
+            case Rule::Smooth:
+                return i::smooth_svg;
             case Rule::On:
                 return i::on_svg;
             case Rule::Midpoint:

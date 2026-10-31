@@ -58,8 +58,11 @@ class PluginContext;
 /// kViewCubeHalfSize). Version 22 added splines through points
 /// (sketch::splinePolesThrough(), splineThroughAt(), and sketch.add_spline's
 /// `through`) and the commands that change a spline: sketch.set_spline,
-/// sketch.set_weight, sketch.add_pole and sketch.remove_pole.
-inline constexpr int kPluginApiVersion = 22;
+/// sketch.set_weight, sketch.add_pole and sketch.remove_pole. Version 23 added
+/// constraints on splines (sketch::ConstraintKind::PointOnSpline and Smooth, and
+/// Tangent where a spline's end is joined to a curve) and their helpers
+/// (sketch::isEnd(), jointOf(), curveEnd(), curvatureVector(), nearestOnSpline()).
+inline constexpr int kPluginApiVersion = 23;
 
 /// The function every plugin provides. Khan calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

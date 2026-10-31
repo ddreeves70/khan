@@ -73,6 +73,16 @@
       "run --open arch.khan --save arch.khan sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0",
       "run --open arch.khan --save arch.khan sketch.add_line sketch=Sketch1 from=40,0 to=0,0",
       "run --open arch.khan --save arch.khan sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start"
+    ],
+    "smooth": [
+      "run --save join.khan feature.add_sketch",
+      "run --open join.khan --save join.khan sketch.add_line sketch=Sketch1 from=-30,0 to=0,0",
+      "run --open join.khan --save join.khan sketch.add_spline sketch=Sketch1 poles=0,0/15,0/25,20/40,20",
+      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Spline1.start",
+      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
+      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
+      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=fix on=Spline1.pole4",
+      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=smooth on=Spline1,Line1"
     ]
   },
   "pictures": [
@@ -1110,6 +1120,29 @@
         198,
         380,
         400
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-sketch-smooth.png",
+      "size": "1280x800",
+      "script": "smooth",
+      "app": {
+        "open": "join.khan",
+        "select": [
+          "Sketch1"
+        ],
+        "trigger": [
+          "kh.sketcher.edit",
+          "kh.shell.show.kh.featuretree.panel",
+          "kh.shell.show.kh.properties.panel",
+          "kh.shell.show.kh.sketcher.panel"
+        ]
+      },
+      "crop": [
+        390,
+        300,
+        560,
+        220
       ]
     },
     {

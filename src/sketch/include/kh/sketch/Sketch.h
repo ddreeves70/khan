@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -106,11 +107,16 @@ enum class ConstraintKind {
     Equal,          ///< entities[0] and entities[1] are the same length (lines) or radius (circles, arcs).
     PointOnLine,    ///< points[0] is on the line through entities[0].
     PointOnCircle,  ///< points[0] is on the circle of entities[0] (a circle or arc).
+    PointOnSpline,  ///< points[0] is on entities[0], a spline.
     Midpoint,       ///< points[0] is in the middle of entities[0], a line.
     Tangent,        ///< entities[0] touches entities[1] without crossing: a line and a circle or arc, or two
-                    ///< circles or arcs.
-    Distance,       ///< points[0] and points[1] are `value` mm apart.
-    Length,         ///< entities[0], a line, is `value` mm long.
+                    ///< circles or arcs. Or, where a spline's end is joined to the end of a line, arc or
+                    ///< spline (see jointOf()), they head the same way there, so the join has no corner.
+    Smooth,    ///< Where entities[0] and entities[1] are joined end to end (see jointOf()), at least one a
+               ///< spline: Tangent, and they bend equally there too (the same curvature, G2), so the join
+               ///< can't be seen.
+    Distance,  ///< points[0] and points[1] are `value` mm apart.
+    Length,    ///< entities[0], a line, is `value` mm long.
     HorizontalDistance,  ///< points[1] is `value` mm to the right of points[0] (negative: to the left).
     VerticalDistance,    ///< points[1] is `value` mm above points[0] (negative: below).
     Radius,              ///< entities[0], a circle or arc, has a radius of `value` mm.
@@ -197,6 +203,48 @@ std::string pointKey(const PointRef& ref);
 /// @param key "", "start", "end", "center", or "pole" and a number from 1.
 /// @return The point, or nothing if the name isn't one.
 std::optional<PointRef> pointFromKey(const EntityId& entity, std::string_view key);
+
+/// Whether a point is an end of a curve: a line's or arc's start or end, or an
+/// open spline's first or last control point.
+/// @param sketch The sketch.
+/// @param ref The point.
+/// @return True for an end.
+bool isEnd(const Sketch& sketch, const PointRef& ref);
+
+/// Finds where two curves are joined end to end: a Coincident between an end
+/// (see isEnd()) of each.
+/// @param sketch The sketch.
+/// @param a One curve.
+/// @param b The other.
+/// @return The joined ends, `a`'s first; nothing if they aren't joined.
+std::optional<std::pair<PointRef, PointRef>> jointOf(const Sketch& sketch, const EntityId& a,
+                                                     const EntityId& b);
+
+/// A curve at one of its ends: the point and how the curve moves there.
+struct CurveEnd {
+    Point2 at{};  ///< The end (mm).
+    Point2 d1{};  ///< The first derivative there, along the curve from its start to its end (mm per unit).
+    Point2 d2{};  ///< The second derivative there.
+};
+
+/// Measures a line, arc or open spline at one of its ends.
+/// @param shape The curve.
+/// @param end Its start or end (for a spline, also its first or last pole).
+/// @return The end, or nothing if `end` isn't an end of this shape.
+std::optional<CurveEnd> curveEnd(const Shape& shape, const PointRef& end);
+
+/// Gives a curve's curvature vector at an end: towards the inside of the bend,
+/// as long as 1 / the radius of the circle that fits the bend there (0 for a
+/// straight line). The same whichever way along the curve it's measured.
+/// @param end The curve at the end.
+/// @return The curvature vector (1/mm).
+Point2 curvatureVector(const CurveEnd& end);
+
+/// Finds the point of a spline nearest to a point.
+/// @param spline The spline.
+/// @param p The point (mm).
+/// @return Where along the spline it is, from 0 to 1 (as for splinePoint()).
+double nearestOnSpline(const SplineShape& spline, Point2 p);
 
 /// Gives the points of an entity a constraint can use, in a fixed order: Self,
 /// Start, End, Center, then each pole (a spline's start and end are its first
