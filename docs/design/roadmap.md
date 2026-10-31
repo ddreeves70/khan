@@ -82,7 +82,7 @@ Phase 1 started Oct 28, 2026.
   - Import a spline from a file of points, with Reload from file.
   - PlaneGCS already represents B-splines and has a few constraints; we add the rest in our extracted copy, behind `ISolver`, and offer the changes back to FreeCAD (LGPL requires publishing them anyway, and upstream keeps them maintained).
   - **Spline exit:** every item above works in the app, each spline constraint has a property test (really tangent, really through its fit points), and tricky splines are in the regression corpus. (Met Oct 31, 2026: 9 spline cases, weighted, degree 1 and 5, closed, joined tangentially, cut as a pocket, standing up and turned, each checked against values worked out without Khan. That found and fixed wrong surface areas on spline walls. Revolve comes with Phase 2.)
-- **Exit:** a new user can draw and fully constrain a bracket profile in under 5 minutes in a hallway test. (Bracket tools started Oct 31, 2026: Rectangle. Rounding corners, Trim and Symmetric next. See [The sketcher](sketcher.md), step 8.)
+- **Exit:** a new user can draw and fully constrain a bracket profile in under 5 minutes in a hallway test. (Bracket tools started Oct 31, 2026: Rectangle and rounding corners. Trim and Symmetric next. See [The sketcher](sketcher.md), step 8.)
 
 ### Phase 2: Parametric core
 

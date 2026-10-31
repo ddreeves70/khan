@@ -402,8 +402,21 @@ under 5 minutes. These tools cut the clicks for that, one pull request each:
   adds Coincident or On for the two clicked corners that snapped onto something,
   in the same undo step.
 
-**B. Rounding a corner (fillet):** pick the corner where two lines meet, type a
-radius; the lines are cut back and a tangent arc joins them.
+**B. Rounding a corner (fillet)** (`kh_model`, the sketcher plugin; built):
+
+- `model::roundCorner()` (and `sketch.round_corner at=Line1.end radius=5`) cuts
+  both lines back by r / tan(angle / 2) and adds an arc tangent to both (joined
+  with Coincident, Tangent at each join) with a Radius dimension. Lines only, for
+  now; parallel lines and radii that don't fit are refused in plain words.
+- **The virtual sharp:** the corner stays as a construction point kept on both
+  lines (Point on line twice). Constraints on the corner move to it, and a Length
+  on either line becomes a Distance from its far end to it, so sizes keep
+  measuring to the corner and nothing jumps. The freedom count doesn't change:
+  +5 (arc) +2 (point) +2 (the corner's Coincident goes) - 2 (on lines) - 4 (joins)
+  - 2 (tangents) - 1 (radius) = 0.
+- The **Round corner** tool rounds the clicked corner with a quarter of the
+  biggest radius that fits (`largestCornerRadius()`), rounded down to a whole mm,
+  and puts the cursor in its Radius in the Sketch panel.
 
 **C. Trim:** click the part of a line or arc past where it crosses something.
 

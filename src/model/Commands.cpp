@@ -2,8 +2,12 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <map>
+#include <numbers>
+#include <optional>
 #include <set>
+#include <sstream>
 #include <utility>
 
 #include "kh/model/Document.h"
@@ -654,6 +658,202 @@ RectangleLines addRectangle(sketch::Sketch& s, sketch::Point2 a, sketch::Point2 
     add(ConstraintKind::Horizontal, {}, {l[2]});
     add(ConstraintKind::Vertical, {}, {l[3]});
     return out;
+}
+
+namespace {
+
+// Two lines meeting at a corner, for roundCorner() and largestCornerRadius().
+struct Corner {
+    sketch::PointRef first, second;  // the two lines' joined ends
+    ConstraintId joint;              // the Coincident joining them
+    sketch::Point2 at, far1, far2;   // the corner, and the lines' other ends
+    double len1 = 0, len2 = 0;       // the lines' lengths
+    double theta = 0;                // the corner's angle, 0 to pi
+};
+
+Diagnostics cornerProblem(std::string message) {
+    return {{"sketch.round_corner", Severity::Error, std::move(message), {}}};
+}
+
+// Finds the corner at a line's end, or says what's wrong.
+std::optional<Corner> findCorner(const sketch::Sketch& s, const sketch::PointRef& at, Diagnostics& problems) {
+    using sketch::ConstraintKind;
+    using sketch::PointRef;
+    using sketch::PointRole;
+    auto lineOf = [&](const EntityId& id) -> const sketch::LineShape* {
+        const auto* e = s.find(id);
+        return e ? std::get_if<sketch::LineShape>(&e->shape) : nullptr;
+    };
+    auto nameOf = [&](const EntityId& id) { return s.find(id) ? s.find(id)->name : std::string("?"); };
+    auto isLineEnd = [&](const PointRef& p) {
+        return lineOf(p.entity) && (p.role == PointRole::Start || p.role == PointRole::End);
+    };
+    if (!isLineEnd(at)) {
+        problems =
+            cornerProblem("Round a corner where two lines meet: pick a line's start or end, like Line1.end.");
+        return std::nullopt;
+    }
+    const std::string here = nameOf(at.entity) + "'s " + (at.role == PointRole::Start ? "start" : "end");
+    Corner c;
+    c.first = at;
+    int partners = 0;
+    for (const auto& k : s.constraints) {
+        if (k.kind != ConstraintKind::Coincident || k.points.size() != 2) continue;
+        for (int i = 0; i < 2; ++i) {
+            const auto& mine = k.points[static_cast<std::size_t>(i)];
+            const auto& theirs = k.points[static_cast<std::size_t>(1 - i)];
+            if (mine == at && isLineEnd(theirs) && theirs.entity != at.entity) {
+                c.second = theirs;
+                c.joint = k.id;
+                ++partners;
+            }
+        }
+    }
+    if (partners == 0) {
+        problems = cornerProblem(
+            here + " isn't joined to another line's end. Join two lines' ends with Coincident first.");
+        return std::nullopt;
+    }
+    if (partners > 1) {
+        problems = cornerProblem("More than two lines meet at " + here +
+                                 ", so Khan can't tell which corner to round.");
+        return std::nullopt;
+    }
+    const auto* l1 = lineOf(c.first.entity);
+    const auto* l2 = lineOf(c.second.entity);
+    c.at = c.first.role == PointRole::Start ? l1->start : l1->end;
+    c.far1 = c.first.role == PointRole::Start ? l1->end : l1->start;
+    c.far2 = c.second.role == PointRole::Start ? l2->end : l2->start;
+    c.len1 = std::hypot(c.far1.x - c.at.x, c.far1.y - c.at.y);
+    c.len2 = std::hypot(c.far2.x - c.at.x, c.far2.y - c.at.y);
+    if (c.len1 <= 0 || c.len2 <= 0) {
+        problems = cornerProblem("A line at that corner has no length, so there's nothing to round.");
+        return std::nullopt;
+    }
+    const sketch::Point2 u1{(c.far1.x - c.at.x) / c.len1, (c.far1.y - c.at.y) / c.len1};
+    const sketch::Point2 u2{(c.far2.x - c.at.x) / c.len2, (c.far2.y - c.at.y) / c.len2};
+    c.theta = std::atan2(std::abs(u1.x * u2.y - u1.y * u2.x), u1.x * u2.x + u1.y * u2.y);
+    if (c.theta < 1e-6 || c.theta > std::numbers::pi - 1e-6) {
+        problems = cornerProblem(
+            nameOf(c.first.entity) + " and " + nameOf(c.second.entity) +
+            " carry straight on at that corner (or fold back on each other), so there's nothing "
+            "to round.");
+        return std::nullopt;
+    }
+    return c;
+}
+
+}  // namespace
+
+std::optional<double> largestCornerRadius(const sketch::Sketch& sketch, const sketch::PointRef& at) {
+    Diagnostics problems;
+    const auto c = findCorner(sketch, at, problems);
+    if (!c) return std::nullopt;
+    return std::min(c->len1, c->len2) * std::tan(c->theta / 2);
+}
+
+Diagnostics roundCorner(sketch::Sketch& s, const sketch::PointRef& at, double radius, RoundedCorner* made) {
+    using sketch::ConstraintKind;
+    using sketch::PointRef;
+    using sketch::PointRole;
+    auto nameOf = [&](const EntityId& id) { return s.find(id) ? s.find(id)->name : std::string("?"); };
+    auto lineOf = [&](const EntityId& id) -> sketch::LineShape* {
+        for (auto& e : s.entities) {
+            if (e.id == id) return std::get_if<sketch::LineShape>(&e.shape);
+        }
+        return nullptr;
+    };
+    Diagnostics problems;
+    const auto found = findCorner(s, at, problems);
+    if (!found) return problems;
+    if (!(radius > 0))
+        return cornerProblem("A corner's radius must be more than 0 mm. Type a bigger number.");
+    const auto& corner = *found;
+    const auto other = std::optional<PointRef>(corner.second);
+    const ConstraintId joint = corner.joint;
+    auto* l1 = lineOf(at.entity);
+    auto* l2 = lineOf(other->entity);
+    auto cornerOf = [](sketch::LineShape& l, PointRole r) -> sketch::Point2& {
+        return r == PointRole::Start ? l.start : l.end;
+    };
+    const sketch::Point2 p = corner.at, f1 = corner.far1, f2 = corner.far2;
+    const double len1 = corner.len1, len2 = corner.len2, theta = corner.theta;
+    const sketch::Point2 u1{(f1.x - p.x) / len1, (f1.y - p.y) / len1},
+        u2{(f2.x - p.x) / len2, (f2.y - p.y) / len2};
+    auto problem = [](std::string message) { return cornerProblem(std::move(message)); };
+    const double cut = radius / std::tan(theta / 2);  // how far back each line is cut
+    if (cut >= std::min(len1, len2)) {
+        const double most = std::min(len1, len2) * std::tan(theta / 2);
+        std::ostringstream fit;
+        fit.precision(3);
+        fit << "A " << radius << " mm radius doesn't fit that corner: it would cut back past the end of "
+            << nameOf(len1 <= len2 ? at.entity : other->entity) << ". Use a radius under " << most << " mm.";
+        return problem(fit.str());
+    }
+    const sketch::Point2 t1{p.x + u1.x * cut, p.y + u1.y * cut}, t2{p.x + u2.x * cut, p.y + u2.y * cut};
+    const double bl = std::hypot(u1.x + u2.x, u1.y + u2.y);
+    const sketch::Point2 bisector{(u1.x + u2.x) / bl, (u1.y + u2.y) / bl};
+    const double out = radius / std::sin(theta / 2);
+    const sketch::Point2 center{p.x + bisector.x * out, p.y + bisector.y * out};
+    // Counterclockwise the short way round, from whichever tangent point that starts at.
+    double a1 = std::atan2(t1.y - center.y, t1.x - center.x),
+           a2 = std::atan2(t2.y - center.y, t2.x - center.x);
+    double sweep = a2 - a1;
+    while (sweep <= 0) sweep += 2 * std::numbers::pi;
+    const bool fromFirst = sweep <= std::numbers::pi;
+    const double start = fromFirst ? a1 : a2;
+    double end = fromFirst ? a1 + sweep : a2 + (2 * std::numbers::pi - sweep);
+
+    // The lines, cut back to where the arc meets them.
+    cornerOf(*l1, at.role) = t1;
+    cornerOf(*l2, other->role) = t2;
+    const EntityId arcId = EntityId::generate(), cornerId = EntityId::generate();
+    s.entities.push_back(
+        {arcId, uniqueSketchName(s, "Arc"), sketch::ArcShape{center, radius, start, end}, false});
+    s.entities.push_back({cornerId, uniqueSketchName(s, "Point"), sketch::PointShape{p}, true});
+
+    // What was on the corner moves to the helper point; Lengths of the two lines
+    // become distances from their far ends to it.
+    const PointRef first = at, second = *other, sharp{cornerId, PointRole::Self};
+    std::erase_if(s.constraints, [&](const sketch::Constraint& c) { return c.id == joint; });
+    for (auto& c : s.constraints) {
+        for (auto& q : c.points) {
+            if (q == first || q == second) q = sharp;
+        }
+        if (c.kind == ConstraintKind::Length && c.entities.size() == 1 &&
+            (c.entities[0] == first.entity || c.entities[0] == second.entity)) {
+            const bool one = c.entities[0] == first.entity;
+            const auto role = one ? first.role : second.role;
+            c.kind = ConstraintKind::Distance;
+            c.points = {{c.entities[0], role == PointRole::Start ? PointRole::End : PointRole::Start}, sharp};
+            c.entities.clear();
+        }
+    }
+    auto add = [&](ConstraintKind kind, std::vector<PointRef> points, std::vector<EntityId> entities,
+                   double value = 0) {
+        sketch::Constraint k;
+        k.id = ConstraintId::generate();
+        k.kind = kind;
+        k.points = std::move(points);
+        k.entities = std::move(entities);
+        k.value = value;
+        std::string base;
+        for (char ch : sketch::kindName(kind)) {
+            if (ch != ' ') base += ch;
+        }
+        k.name = uniqueSketchName(s, base);
+        s.constraints.push_back(std::move(k));
+        return s.constraints.back().id;
+    };
+    add(ConstraintKind::PointOnLine, {sharp}, {first.entity});
+    add(ConstraintKind::PointOnLine, {sharp}, {second.entity});
+    add(ConstraintKind::Coincident, {first, {arcId, fromFirst ? PointRole::Start : PointRole::End}}, {});
+    add(ConstraintKind::Coincident, {second, {arcId, fromFirst ? PointRole::End : PointRole::Start}}, {});
+    add(ConstraintKind::Tangent, {}, {first.entity, arcId});
+    add(ConstraintKind::Tangent, {}, {arcId, second.entity});
+    const auto radiusId = add(ConstraintKind::Radius, {}, {arcId}, radius);
+    if (made) *made = {arcId, cornerId, radiusId};
+    return {};
 }
 
 Diagnostics EditSketchCommand::apply(DocumentEditor& editor) {

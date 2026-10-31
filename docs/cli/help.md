@@ -47,6 +47,7 @@ Commands for kh_cli run:
   sketch.import_spline     Import spline
   sketch.reload_spline     Reload spline from file
   sketch.remove_pole       Remove control point
+  sketch.round_corner      Round corner
   sketch.set_spline        Change spline
   sketch.set_value         Change dimension
   sketch.set_weight        Change control point weight

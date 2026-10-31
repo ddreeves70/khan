@@ -24,7 +24,8 @@ dimensions, and the solver makes it exact.
 2. Pick a tool in **Sketch > Draw**, then click in the view. The status bar says
    what to click next. The tools (and **Finish sketch**) are grey until you're
    editing a sketch. While you edit, the toolbar changes to just the sketch
-   buttons (**Finish sketch**, **Select**, **Line**, **Rectangle**, **Circle**,
+   buttons (**Finish sketch**, **Select**, **Line**, **Rectangle**, **Round
+   corner**, **Circle**,
    **Arc**, **Point** and the spline tools); when you finish, the 3D buttons (**Box**, **Cylinder** and the
    rest) come back.
 
@@ -32,9 +33,12 @@ dimensions, and the solver makes it exact.
 | --- | --- |
 | **Line** | Where it starts, then where it ends. The next line starts where this one ended, so a few clicks draw a closed shape. |
 | **Rectangle** | One corner, then the opposite corner. Its four lines come joined at the corners, with **Horizontal** and **Vertical** on its sides, so it stays a rectangle: add a width and a height with **Dimension**, and it's sized. |
+| **Round corner** | A corner where two lines meet. Both lines are cut back and an arc joins them, tangent to both, with a **Radius** dimension: the cursor is in its number in the Sketch panel, so type the size you want and press **Enter**. The sharp corner stays as a helper point, so dimensions to the corner still measure to it. |
 | **Circle** | Its center, then a point on its edge. |
 | **Arc** | Its center, where it starts, then where it ends. It goes counterclockwise. |
 | **Point** | Where it goes. |
+
+![A rectangle's corner rounded to 6 mm: the arc, and the helper point where the sharp corner was, kept On both lines](images/app-sketch-rounded.png)
 
 3. **Escape** steps back one thing at a time: it stops the shape you're
    drawing, then switches to **Select**, then lets go of what's picked, then

@@ -96,7 +96,8 @@ TEST_CASE("kh.modeling loads and its commands work", "[plugin][host]") {
               "material.delete",     "sketch.add_arc",      "sketch.add_circle",    "sketch.add_line",
               "sketch.add_point",    "sketch.add_pole",     "sketch.add_rectangle", "sketch.add_spline",
               "sketch.constrain",    "sketch.delete",       "sketch.import_spline", "sketch.reload_spline",
-              "sketch.remove_pole",  "sketch.set_spline",   "sketch.set_value",     "sketch.set_weight"});
+              "sketch.remove_pole",  "sketch.round_corner", "sketch.set_spline",    "sketch.set_value",
+              "sketch.set_weight"});
 
     const DocId doc = host.documents().add(std::make_unique<model::Document>());
     REQUIRE(host.documents().run(doc, "feature.add_box", {{"size", kernel::Vec3{2, 3, 4}}}).empty());

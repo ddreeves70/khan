@@ -83,6 +83,14 @@
       "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
       "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=fix on=Spline1.pole4",
       "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=smooth on=Spline1,Line1"
+    ],
+    "rounded": [
+      "run --save rounded.khan feature.add_sketch",
+      "run --open rounded.khan --save rounded.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20",
+      "run --open rounded.khan --save rounded.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
+      "run --open rounded.khan --save rounded.khan sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
+      "run --open rounded.khan --save rounded.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
+      "run --open rounded.khan --save rounded.khan sketch.round_corner sketch=Sketch1 at=Line2.end radius=6"
     ]
   },
   "pictures": [
@@ -1143,6 +1151,29 @@
         300,
         560,
         220
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-sketch-rounded.png",
+      "size": "1280x800",
+      "script": "rounded",
+      "app": {
+        "open": "rounded.khan",
+        "select": [
+          "Sketch1"
+        ],
+        "trigger": [
+          "kh.sketcher.edit",
+          "kh.shell.show.kh.featuretree.panel",
+          "kh.shell.show.kh.properties.panel",
+          "kh.shell.show.kh.sketcher.panel"
+        ]
+      },
+      "crop": [
+        570,
+        310,
+        390,
+        200
       ]
     },
     {
