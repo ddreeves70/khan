@@ -545,6 +545,33 @@ CommandRegistry makeBuiltin() {
                                argBool(a, "construction", false), argText(a, "name"), "Line");
           });
 
+    r.add(
+        {"sketch.add_rectangle",
+         "Add rectangle",
+         "Adds a rectangle: four lines between two opposite corners, joined at the corners and kept level "
+         "and "
+         "upright, so only its place and size can change.",
+         {sketchArg,
+          {"from", ArgType::Vec2, "One corner, in mm, like 0,0.", true, {}},
+          {"to", ArgType::Vec2, "The opposite corner, in mm, like 40,20.", true, {}},
+          constructionArg}},
+        [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+            const auto from = argVec2(a, "from"), to = argVec2(a, "to");
+            const bool construction = argBool(a, "construction", false);
+            return std::make_unique<EditSketchCommand>(
+                argFeature(a, "sketch"), [=](sketch::Sketch& s, std::string& label) -> Diagnostics {
+                    if (from.x == to.x || from.y == to.y) {
+                        return {sketchProblem("sketch.rectangle",
+                                              "A rectangle needs a width and a height: put the corners apart "
+                                              "both left to right and up and down, like from=0,0 to=40,20.")};
+                    }
+                    const auto lines = addRectangle(s, from, to, construction);
+                    label = "Add rectangle (" + s.find(lines.lines[0])->name + " to " +
+                            s.find(lines.lines[3])->name + ")";
+                    return {};
+                });
+        });
+
     r.add({"sketch.add_circle",
            "Add circle",
            "Adds a circle to a sketch.",

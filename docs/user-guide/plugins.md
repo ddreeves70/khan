@@ -33,6 +33,7 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
            command sketch.add_line
            command sketch.add_point
            command sketch.add_pole
+           command sketch.add_rectangle
            command sketch.add_spline
            command sketch.constrain
            command sketch.delete

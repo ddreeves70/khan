@@ -506,6 +506,44 @@ s: 1 step
 wrote s.khan
 ```
 
+## sketch.add_rectangle
+
+Adds a rectangle: four lines between two opposite corners (`Line1` along the
+first corner's side, then round), joined at the corners with `coincident` and
+kept level and upright with `horizontal` and `vertical`. It can only move and
+change size, so 2 dimensions and a `fix` make it fully constrained.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `sketch` | step name | yes | The sketch |
+| `from` | x,y (mm) | yes | One corner |
+| `to` | x,y (mm) | yes | The opposite corner |
+| `construction` | true or false | no | `true` for helper geometry. Default `false` |
+
+A 40 × 20 mm plate, extruded 3 mm, is 2400 mm³:
+
+<!-- cli-example -->
+```console
+$ kh_cli run --save plate.khan feature.add_sketch
+plate: 1 step
+  Sketch1      ok  empty
+wrote plate.khan
+$ kh_cli run --open plate.khan --save plate.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
+plate: 1 step
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+wrote plate.khan
+$ kh_cli run --open plate.khan feature.add_extrude sketch=Sketch1 distance=3
+plate: 2 steps
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+  Extrude1     ok  volume 2400.00 mm^3  mass 2.98 g (PLA)
+```
+
+<!-- cli-example exit=1 -->
+```console
+$ kh_cli run --open plate.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,0
+error [sketch.rectangle]: A rectangle needs a width and a height: put the corners apart both left to right and up and down, like from=0,0 to=40,20.
+```
+
 ## sketch.add_circle
 
 Adds a circle. Its point is `.center`.

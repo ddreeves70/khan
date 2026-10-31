@@ -620,6 +620,42 @@ std::string uniqueSketchName(const sketch::Sketch& sketch, const std::string& ba
 EditSketchCommand::EditSketchCommand(FeatureId sketch, Change change)
     : id_(sketch), change_(std::move(change)) {}
 
+RectangleLines addRectangle(sketch::Sketch& s, sketch::Point2 a, sketch::Point2 c, bool construction) {
+    using sketch::ConstraintKind;
+    using sketch::PointRole;
+    const sketch::Point2 corners[4] = {a, {c.x, a.y}, c, {a.x, c.y}};
+    RectangleLines out;
+    for (int i = 0; i < 4; ++i) {
+        const auto id = EntityId::generate();
+        out.lines[static_cast<std::size_t>(i)] = id;
+        s.entities.push_back({id, uniqueSketchName(s, "Line"),
+                              sketch::LineShape{corners[i], corners[(i + 1) % 4]}, construction});
+    }
+    auto add = [&](ConstraintKind kind, std::vector<sketch::PointRef> points,
+                   std::vector<EntityId> entities) {
+        sketch::Constraint k;
+        k.id = ConstraintId::generate();
+        k.kind = kind;
+        k.points = std::move(points);
+        k.entities = std::move(entities);
+        // "Horizontal" for Horizontal, as the sketcher's buttons name them.
+        std::string base;
+        for (char ch : sketch::kindName(kind)) {
+            if (ch != ' ') base += ch;
+        }
+        k.name = uniqueSketchName(s, base);
+        s.constraints.push_back(std::move(k));
+    };
+    const auto& l = out.lines;
+    for (std::size_t i = 0; i < 4; ++i)
+        add(ConstraintKind::Coincident, {{l[i], PointRole::End}, {l[(i + 1) % 4], PointRole::Start}}, {});
+    add(ConstraintKind::Horizontal, {}, {l[0]});
+    add(ConstraintKind::Vertical, {}, {l[1]});
+    add(ConstraintKind::Horizontal, {}, {l[2]});
+    add(ConstraintKind::Vertical, {}, {l[3]});
+    return out;
+}
+
 Diagnostics EditSketchCommand::apply(DocumentEditor& editor) {
     Feature* f = editor.find(id_);
     if (!f) return {error("feature.not_found", "That step isn't in the design anymore.")};

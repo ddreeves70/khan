@@ -40,6 +40,7 @@ Commands for kh_cli run:
   sketch.add_line          Add line
   sketch.add_point         Add point
   sketch.add_pole          Add control point
+  sketch.add_rectangle     Add rectangle
   sketch.add_spline        Add spline
   sketch.constrain         Add constraint
   sketch.delete            Delete from sketch

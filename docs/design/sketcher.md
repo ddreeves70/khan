@@ -387,6 +387,28 @@ because its integration uses a fixed number of points per knot span. `massProps(
 now measures each free-form face from a copy cut into pieces 8 times shorter (the
 same shape), exact to 1e-9; two older cases' areas were corrected.
 
+## Bracket tools (step 8)
+
+Phase 1 ends when a new user can draw and fully constrain a bracket profile in
+under 5 minutes. These tools cut the clicks for that, one pull request each:
+
+**A. Rectangle** (`kh_model`, the sketcher plugin; built):
+
+- Two clicks (or `sketch.add_rectangle from= to=`) give four lines, each
+  starting where the one before ends, with 4 Coincident, 2 Horizontal and 2
+  Vertical: free to move 4 ways (place and size), so two dimensions and a Fix
+  finish it.
+- `model::addRectangle()` builds it, for the command and the tool alike; the tool
+  adds Coincident or On for the two clicked corners that snapped onto something,
+  in the same undo step.
+
+**B. Rounding a corner (fillet):** pick the corner where two lines meet, type a
+radius; the lines are cut back and a tangent arc joins them.
+
+**C. Trim:** click the part of a line or arc past where it crosses something.
+
+**D. Symmetric:** two points mirrored about a line.
+
 ## Choices
 
 - **A copy of PlaneGCS, not all of FreeCAD.** Only `src/Mod/Sketcher/App/planegcs/`

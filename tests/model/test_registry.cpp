@@ -35,14 +35,14 @@ TEST_CASE("The built-in registry lists its commands sorted by name", "[model][re
     for (const auto* c : cmds) names.push_back(c->name);
     REQUIRE(names ==
             std::vector<std::string>{
-                "document.set_units",  "feature.add_boolean",  "feature.add_box",      "feature.add_cylinder",
-                "feature.add_extrude", "feature.add_move",     "feature.add_sketch",   "feature.delete",
-                "feature.duplicate",   "feature.rename",       "feature.set_material", "feature.suppress",
-                "folder.add",          "folder.delete",        "folder.rename",        "material.define",
-                "material.delete",     "sketch.add_arc",       "sketch.add_circle",    "sketch.add_line",
-                "sketch.add_point",    "sketch.add_pole",      "sketch.add_spline",    "sketch.constrain",
-                "sketch.delete",       "sketch.import_spline", "sketch.reload_spline", "sketch.remove_pole",
-                "sketch.set_spline",   "sketch.set_value",     "sketch.set_weight"});
+                "document.set_units",  "feature.add_boolean", "feature.add_box",      "feature.add_cylinder",
+                "feature.add_extrude", "feature.add_move",    "feature.add_sketch",   "feature.delete",
+                "feature.duplicate",   "feature.rename",      "feature.set_material", "feature.suppress",
+                "folder.add",          "folder.delete",       "folder.rename",        "material.define",
+                "material.delete",     "sketch.add_arc",      "sketch.add_circle",    "sketch.add_line",
+                "sketch.add_point",    "sketch.add_pole",     "sketch.add_rectangle", "sketch.add_spline",
+                "sketch.constrain",    "sketch.delete",       "sketch.import_spline", "sketch.reload_spline",
+                "sketch.remove_pole",  "sketch.set_spline",   "sketch.set_value",     "sketch.set_weight"});
     for (const auto* c : cmds) {
         REQUIRE_FALSE(c->label.empty());
         REQUIRE_FALSE(c->description.empty());

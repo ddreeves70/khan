@@ -89,14 +89,14 @@ TEST_CASE("kh.modeling loads and its commands work", "[plugin][host]") {
     CHECK(modeling.builtin);
     CHECK(modeling.commands ==
           std::vector<std::string>{
-              "document.set_units",  "feature.add_boolean",  "feature.add_box",      "feature.add_cylinder",
-              "feature.add_extrude", "feature.add_move",     "feature.add_sketch",   "feature.delete",
-              "feature.duplicate",   "feature.rename",       "feature.set_material", "feature.suppress",
-              "folder.add",          "folder.delete",        "folder.rename",        "material.define",
-              "material.delete",     "sketch.add_arc",       "sketch.add_circle",    "sketch.add_line",
-              "sketch.add_point",    "sketch.add_pole",      "sketch.add_spline",    "sketch.constrain",
-              "sketch.delete",       "sketch.import_spline", "sketch.reload_spline", "sketch.remove_pole",
-              "sketch.set_spline",   "sketch.set_value",     "sketch.set_weight"});
+              "document.set_units",  "feature.add_boolean", "feature.add_box",      "feature.add_cylinder",
+              "feature.add_extrude", "feature.add_move",    "feature.add_sketch",   "feature.delete",
+              "feature.duplicate",   "feature.rename",      "feature.set_material", "feature.suppress",
+              "folder.add",          "folder.delete",       "folder.rename",        "material.define",
+              "material.delete",     "sketch.add_arc",      "sketch.add_circle",    "sketch.add_line",
+              "sketch.add_point",    "sketch.add_pole",     "sketch.add_rectangle", "sketch.add_spline",
+              "sketch.constrain",    "sketch.delete",       "sketch.import_spline", "sketch.reload_spline",
+              "sketch.remove_pole",  "sketch.set_spline",   "sketch.set_value",     "sketch.set_weight"});
 
     const DocId doc = host.documents().add(std::make_unique<model::Document>());
     REQUIRE(host.documents().run(doc, "feature.add_box", {{"size", kernel::Vec3{2, 3, 4}}}).empty());

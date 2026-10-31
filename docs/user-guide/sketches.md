@@ -24,13 +24,14 @@ dimensions, and the solver makes it exact.
 2. Pick a tool in **Sketch > Draw**, then click in the view. The status bar says
    what to click next. The tools (and **Finish sketch**) are grey until you're
    editing a sketch. While you edit, the toolbar changes to just the sketch
-   buttons (**Finish sketch**, **Select**, **Line**, **Circle**, **Arc**,
-   **Point**); when you finish, the 3D buttons (**Box**, **Cylinder** and the
+   buttons (**Finish sketch**, **Select**, **Line**, **Rectangle**, **Circle**,
+   **Arc**, **Point** and the spline tools); when you finish, the 3D buttons (**Box**, **Cylinder** and the
    rest) come back.
 
 | Tool | Click |
 | --- | --- |
 | **Line** | Where it starts, then where it ends. The next line starts where this one ended, so a few clicks draw a closed shape. |
+| **Rectangle** | One corner, then the opposite corner. Its four lines come joined at the corners, with **Horizontal** and **Vertical** on its sides, so it stays a rectangle: add a width and a height with **Dimension**, and it's sized. |
 | **Circle** | Its center, then a point on its edge. |
 | **Arc** | Its center, where it starts, then where it ends. It goes counterclockwise. |
 | **Point** | Where it goes. |
