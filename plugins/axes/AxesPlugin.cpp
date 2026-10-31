@@ -84,8 +84,10 @@ std::vector<AxesOverlay> axesOverlays(bool onCube, bool labels, bool atOrigin) {
                          {"y", "Y", {0, 1, 0}, {46, 155, 79}},
                          {"z", "Z", {0, 0, 1}, {52, 101, 196}}};
     // On the cube, in pixels: from the corner nearest (-x, -y, -z), along its
-    // edges just outside their bevels, and a little past them, like Fusion's.
-    const double corner = -(plugin::kViewCubeHalfSize - plugin::kViewCubeBevel / 2 + kCubeAxisGap);
+    // edges and a little past them, like Fusion's. Just outside its sides, not
+    // tucked into the bevels: looking straight at a side (Top, Front, Right), an
+    // axis tucked in is behind that side, and the student sees no axes at all.
+    const double corner = -(plugin::kViewCubeHalfSize + kCubeAxisGap);
     const double cubeEnd = plugin::kViewCubeHalfSize + kCubeAxisOvershoot;
     struct Set {
         const char* prefix;

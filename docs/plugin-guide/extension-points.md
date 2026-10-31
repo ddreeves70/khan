@@ -481,9 +481,10 @@ ctx.overlays().set("guides", guide);  // its id is "sam.notes.guides"
   Then `points` are in screen pixels from the cube's middle, along x, y and z: it
   turns with the cube but doesn't pan or zoom, and the cube hides what's behind
   it. The cube's sides are `kh::plugin::kViewCubeHalfSize` (26) pixels from its
-  middle, and its edges are bevelled `kViewCubeBevel` (6) pixels in, so a line
-  along an edge needs to be more than 23 pixels out on both sides. Lattices can't
-  go on the cube.
+  middle, and its edges are bevelled `kViewCubeBevel` (6) pixels in. A line along
+  an edge shows when it's more than 23 pixels out on both sides, but draw it more
+  than 26 out if it should also show when the cube is seen straight at a side (in
+  the Top, Front and Right views). Lattices can't go on the cube.
 - Every change sends `kh.OverlaysChanged`, which the viewer listens to.
 - If your plugin fails to start, Khan removes its overlays.
 
