@@ -1,6 +1,6 @@
 # Design model
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
+> **Draft.** This design changes as SketchBillet is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 The core is 14 C++ libraries in strict layers. The model never calls OCCT or Qt directly, so it runs headless in tests and the kernel can be replaced later.
 
@@ -8,11 +8,11 @@ The core is 14 C++ libraries in strict layers. The model never calls OCCT or Qt 
 
 ![Module map: libraries in six layers](images/module-map.png)
 
-Each box is a CMake target. A library may depend only on layers below it; `kh_core` is the only library every target links.
+Each box is a CMake target. A library may depend only on layers below it; `sb_core` is the only library every target links.
 
 ## Domain model
 
-![Domain model: core classes in kh_model](images/domain-model.png)
+![Domain model: core classes in sb_model](images/domain-model.png)
 
 A `GeometryRef` is resolved against the `NameMap` of an upstream `FeatureResult`; that lookup is the topological naming system. Features never hold raw kernel shapes between rebuilds, only names.
 
@@ -20,24 +20,24 @@ A `GeometryRef` is resolved against the `NameMap` of an upstream `FeatureResult`
 
 | Class | Library | Responsibility | Key members |
 | --- | --- | --- | --- |
-| `Document` | kh\_model | Owns everything in one design file; the unit of save, undo, and regeneration | `params`, `graph`, `components`, `commands`, `regenerate()` |
-| `ParameterTable` | kh\_model | Named values with units and expressions; dependency order for evaluation | `define()`, `set()`, `evaluate()`, `dependents()` |
-| `Expression` | kh\_model | Parsed formula such as `Sketch1.height / 2`; unit-checked | `parse()`, `eval()`, `references()` |
-| `FeatureGraph` | kh\_model | DAG of features; topological order; dirty tracking | `insert()`, `remove()`, `reorder()`, `rollbackTo()`, `dirtyFrom()` |
-| `Feature` (abstract) | kh\_model | One timeline step: typed inputs in, `FeatureResult` out | `id`, `name`, `suppressed`, `inputs()`, `execute()` |
-| `SketchFeature` | kh\_features | Sketch on a plane or face; owns entities and constraints | `plane`, `entities`, `constraints`, `solve()`, `profiles()` |
-| `ExtrudeFeature`, `HoleFeature`, `FilletFeature`, … | kh\_features | Concrete modeling operations calling the kernel | per-feature parameters and `GeometryRef` inputs |
-| `GeometryRef` | kh\_model | A durable pointer to a face, edge, vertex or profile | `name: PersistentName`, `signature`, `resolve()` |
-| `PersistentName` | kh\_model | History-based name: creating feature, source element, role | `featureId`, `source`, `role`, `index` |
-| `FeatureResult` | kh\_model | Output of one feature | `shape: ShapeHandle`, `names: NameMap`, `diagnostics` |
-| `NameMap` | kh\_model | Maps kernel sub-shapes to `PersistentName`s for one result | `nameOf()`, `find()` |
-| `ShapeHandle` | kh\_kernel | Opaque, ref-counted handle to a kernel shape | `id()`, `bounds()` |
-| `IKernel` | kh\_kernel | The Kernel Abstraction Layer; all geometry goes through it | `extrude()`, `boolean()`, `fillet()`, `tessellate()`, `history()` |
-| `OcctKernel` | kh\_kernel\_occt | `IKernel` on Open CASCADE | wraps `BRepAlgoAPI_*`, `BRepFilletAPI_*`, `BRepMesh` |
-| `ISketchSolver` / `PlaneGcsSolver` | kh\_sketch | Solves sketch constraints; reports degrees of freedom and conflicts | `solve()`, `dof()`, `conflicts()` |
-| `Command` / `CommandStack` | kh\_commands | Every user change as an undoable command | `apply()`, `revert()`, `merge()` |
-| `Lesson` / `LessonCheck` | kh\_lesson | Lesson steps and model checks (thickness, hole size) | `steps`, `evaluate(Document&)` |
-| `Exporter` / `PrintCheck` | kh\_io | STEP, STL, 3MF out; print-ready checks | `write()`, `run(ShapeHandle)` |
+| `Document` | sb\_model | Owns everything in one design file; the unit of save, undo, and regeneration | `params`, `graph`, `components`, `commands`, `regenerate()` |
+| `ParameterTable` | sb\_model | Named values with units and expressions; dependency order for evaluation | `define()`, `set()`, `evaluate()`, `dependents()` |
+| `Expression` | sb\_model | Parsed formula such as `Sketch1.height / 2`; unit-checked | `parse()`, `eval()`, `references()` |
+| `FeatureGraph` | sb\_model | DAG of features; topological order; dirty tracking | `insert()`, `remove()`, `reorder()`, `rollbackTo()`, `dirtyFrom()` |
+| `Feature` (abstract) | sb\_model | One timeline step: typed inputs in, `FeatureResult` out | `id`, `name`, `suppressed`, `inputs()`, `execute()` |
+| `SketchFeature` | sb\_features | Sketch on a plane or face; owns entities and constraints | `plane`, `entities`, `constraints`, `solve()`, `profiles()` |
+| `ExtrudeFeature`, `HoleFeature`, `FilletFeature`, … | sb\_features | Concrete modeling operations calling the kernel | per-feature parameters and `GeometryRef` inputs |
+| `GeometryRef` | sb\_model | A durable pointer to a face, edge, vertex or profile | `name: PersistentName`, `signature`, `resolve()` |
+| `PersistentName` | sb\_model | History-based name: creating feature, source element, role | `featureId`, `source`, `role`, `index` |
+| `FeatureResult` | sb\_model | Output of one feature | `shape: ShapeHandle`, `names: NameMap`, `diagnostics` |
+| `NameMap` | sb\_model | Maps kernel sub-shapes to `PersistentName`s for one result | `nameOf()`, `find()` |
+| `ShapeHandle` | sb\_kernel | Opaque, ref-counted handle to a kernel shape | `id()`, `bounds()` |
+| `IKernel` | sb\_kernel | The Kernel Abstraction Layer; all geometry goes through it | `extrude()`, `boolean()`, `fillet()`, `tessellate()`, `history()` |
+| `OcctKernel` | sb\_kernel\_occt | `IKernel` on Open CASCADE | wraps `BRepAlgoAPI_*`, `BRepFilletAPI_*`, `BRepMesh` |
+| `ISketchSolver` / `PlaneGcsSolver` | sb\_sketch | Solves sketch constraints; reports degrees of freedom and conflicts | `solve()`, `dof()`, `conflicts()` |
+| `Command` / `CommandStack` | sb\_commands | Every user change as an undoable command | `apply()`, `revert()`, `merge()` |
+| `Lesson` / `LessonCheck` | sb\_lesson | Lesson steps and model checks (thickness, hole size) | `steps`, `evaluate(Document&)` |
+| `Exporter` / `PrintCheck` | sb\_io | STEP, STL, 3MF out; print-ready checks | `write()`, `run(ShapeHandle)` |
 
 ## Key interfaces
 
@@ -46,7 +46,7 @@ These are sketches of the contracts between libraries, in C++20. Each is small o
 **Kernel Abstraction Layer.** Every geometry call returns a result with history, so features can name what they made.
 
 ```cpp
-namespace kh::kernel {
+namespace sb::kernel {
 
 struct OpResult {
   ShapeHandle shape;
@@ -70,13 +70,13 @@ public:
   virtual MassProps massProps(ShapeHandle s) const = 0;
 };
 
-} // namespace kh::kernel
+} // namespace sb::kernel
 ```
 
 **Features.** A feature reads its inputs, calls the kernel, and names its outputs.
 
 ```cpp
-namespace kh::model {
+namespace sb::model {
 
 class Feature {
 public:
@@ -100,7 +100,7 @@ struct ExecContext {
   CancelToken cancel;
 };
 
-} // namespace kh::model
+} // namespace sb::model
 ```
 
 **References.** A reference never stores a raw kernel index; it stores a name and a fallback signature.
@@ -135,9 +135,9 @@ public:
 };
 ```
 
-## File format (.khan)
+## File format (.sb)
 
-A `.khan` file is a zip container. Intent lives in small JSON files that diff well in Git; geometry caches are optional and rebuilt when missing or stale.
+A `.sb` file is a zip container. Intent lives in small JSON files that diff well in Git; geometry caches are optional and rebuilt when missing or stale.
 
 | Path in the zip | Content | Required |
 | --- | --- | --- |
@@ -222,6 +222,6 @@ This is the edit-a-dimension user flow in code. When the student clicks Edit Hol
 **Testing hooks**
 
 - `IKernel` has a recording decorator that writes every call and result to a trace for replaying bugs.
-- A headless `kh_cli` loads a `.khan`, regenerates it, and prints per-feature status, volume and face counts; the regression corpus runs through it in CI.
+- A headless `sketchbillet_cli` loads a `.sb`, regenerates it, and prints per-feature status, volume and face counts; the regression corpus runs through it in CI.
 - Naming is fuzzed: random parameter changes on corpus models must keep every `GeometryRef` either Exact/Matched or reported, never silently rebound.
 - Lesson checks and print checks are pure functions of a `Document`, so each has unit tests with fixture files.

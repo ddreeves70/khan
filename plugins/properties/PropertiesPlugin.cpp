@@ -1,4 +1,4 @@
-#include "kh/plugins/Properties.h"
+#include "sb/plugins/Properties.h"
 
 #include <QColorDialog>
 #include <QComboBox>
@@ -22,22 +22,22 @@
 #include <string>
 #include <vector>
 
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/model/Material.h"
-#include "kh/plugin/Events.h"
-#include "kh/ui/UiRegistry.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/model/Material.h"
+#include "sb/plugin/Events.h"
+#include "sb/ui/UiRegistry.h"
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
 constexpr const char* kManifest = R"({
-  "id": "kh.properties",
+  "id": "sb.properties",
   "name": "Properties",
   "version": "0.1.0",
   "description": "The panel for changing the selected step's name and numbers.",
-  "requires": ["kh.modeling"],
+  "requires": ["sb.modeling"],
   "tier": "ui"
 })";
 
@@ -122,11 +122,11 @@ using Change = std::function<void(model::Feature&)>;
 class Properties final : public QWidget {
 public:
     Properties(plugin::PluginContext& ctx, ui::UiRegistry& ui) : ctx_(ctx), ui_(ui) {
-        setObjectName(QStringLiteral("kh.properties.widget"));
+        setObjectName(QStringLiteral("sb.properties.widget"));
         setMinimumWidth(340);
         auto* outer = new QVBoxLayout(this);
         title_ = new QLabel(this);
-        title_->setObjectName(QStringLiteral("kh.properties.title"));
+        title_->setObjectName(QStringLiteral("sb.properties.title"));
         title_->setWordWrap(true);
         QFont bold = title_->font();
         bold.setBold(true);
@@ -135,7 +135,7 @@ public:
         form_ = new QWidget(this);
         outer->addWidget(form_);
         status_ = new QLabel(this);
-        status_->setObjectName(QStringLiteral("kh.properties.status"));
+        status_->setObjectName(QStringLiteral("sb.properties.status"));
         status_->setWordWrap(true);
         status_->setStyleSheet(QStringLiteral("color: #c42b1c"));
         outer->addWidget(status_);
@@ -775,7 +775,7 @@ void registerProperties(plugin::PluginContext& ctx) {
         ctx.log("No desktop app here, so the Properties panel isn't shown.");
         return;
     }
-    ui::PanelSpec spec{"kh.properties.panel", QObject::tr("Properties"), ui::PanelArea::Right,
+    ui::PanelSpec spec{"sb.properties.panel", QObject::tr("Properties"), ui::PanelArea::Right,
                        [&ctx, ui] { return new Properties(ctx, *ui); }};
     spec.floatsOverView = true;  // at the view's top right
     ui->addPanel(std::move(spec));
@@ -787,4 +787,4 @@ plugin::BuiltinPlugin propertiesPlugin() {
     return {kManifest, &registerProperties};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins

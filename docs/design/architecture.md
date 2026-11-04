@@ -1,6 +1,6 @@
 # Architecture
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
+> **Draft.** This design changes as SketchBillet is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 ## Purpose and goals
 
@@ -188,7 +188,7 @@ The UX is where we beat FreeCAD and match Fusion. Set a hard budget: 60 fps orbi
 
 ## UI and plugin architecture
 
-Khan's app is a small shell, and every capability, including the box tool and the 3D viewer, ships as a plugin built on the same public API outside developers use. Decided Oct 22, 2026: docking uses the Qt Advanced Docking System, and plugins follow the binary-compatibility plan below.
+SketchBillet's app is a small shell, and every capability, including the box tool and the 3D viewer, ships as a plugin built on the same public API outside developers use. Decided Oct 22, 2026: docking uses the Qt Advanced Docking System, and plugins follow the binary-compatibility plan below.
 
 ![Plugin architecture: plugins, plugin API, shell, core libraries](images/plugin-architecture.png)
 
@@ -196,45 +196,45 @@ Plugins register into one versioned API; the shell hosts them and the core libra
 
 Mockups of the main window, split views, two monitors and the Plugin manager, each with a numbered breakdown: [UI screens](ui-screens.md).
 
-**The shell** owns the main window, the docking layout, the plugin host, the event bus, the shared selection and the list of open documents. It has no modeling features of its own. If Khan's own features can be built through the plugin API, the API is good enough for everyone else.
+**The shell** owns the main window, the docking layout, the plugin host, the event bus, the shared selection and the list of open documents. It has no modeling features of its own. If SketchBillet's own features can be built through the plugin API, the API is good enough for everyone else.
 
-**A plugin** is a folder with a `plugin.json` manifest (id, name, version, `apiVersion`, dependencies, permissions) and either a shared library with one entry function, `kh_plugin_register(PluginContext&)`, or a Python module. At start the host reads every manifest, checks the API version and dependencies, loads plugins in dependency order and calls each entry function. A plugin that fails to load shows in the Plugin manager with a plain message, and Khan still starts.
+**A plugin** is a folder with a `plugin.json` manifest (id, name, version, `apiVersion`, dependencies, permissions) and either a shared library with one entry function, `sb_plugin_register(PluginContext&)`, or a Python module. At start the host reads every manifest, checks the API version and dependencies, loads plugins in dependency order and calls each entry function. A plugin that fails to load shows in the Plugin manager with a plain message, and SketchBillet still starts.
 
 **Built-in plugins**
 
 | Plugin | What it adds | Phase |
 | --- | --- | --- |
-| `kh.modeling` | Box, cylinder and Boolean commands and feature types; later sketch, extrude, fillet | 0 |
-| `kh.viewer` | The 3D viewer type, split layouts, view cube, picking and selection tools | 0 |
-| `kh.sketcher` | Draws sketches in the viewers and edits them with the mouse (Line, Circle, Arc, Point, snapping; picking and dragging) through the viewer's tools (`kh.viewer/3`) | 1 |
-| `kh.parameters` | The Parameters panel: the design's named values, added, changed, renamed and deleted in place through the `parameter.*` commands | 1 |
-| `kh.movehandles` | Arrows and a square on the picked body; dragging them slides it (`SlideBodyCommand`), through the viewer's handles (`kh.viewer/3`) | 1 |
-| `kh.featuretree` | The feature tree panel | 0 |
-| `kh.properties` | The properties panel for the selected step | 0 |
-| `kh.io` | `.khan` save and open, STEP and STL import and export | 0 |
-| `kh.timeline` | The timeline bar with the rollback marker | 2 |
-| `kh.lessons` | The lesson panel, lesson steps and checks | 3 |
-| `kh.assistant` | The AI assistant panel and its tools | 3 (checks), 4 to 5 (AI) |
-| `kh.makeit` | The Make it button: print checks and service export | 3 |
+| `sb.modeling` | Box, cylinder and Boolean commands and feature types; later sketch, extrude, fillet | 0 |
+| `sb.viewer` | The 3D viewer type, split layouts, view cube, picking and selection tools | 0 |
+| `sb.sketcher` | Draws sketches in the viewers and edits them with the mouse (Line, Circle, Arc, Point, snapping; picking and dragging) through the viewer's tools (`sb.viewer/3`) | 1 |
+| `sb.parameters` | The Parameters panel: the design's named values, added, changed, renamed and deleted in place through the `parameter.*` commands | 1 |
+| `sb.movehandles` | Arrows and a square on the picked body; dragging them slides it (`SlideBodyCommand`), through the viewer's handles (`sb.viewer/3`) | 1 |
+| `sb.featuretree` | The feature tree panel | 0 |
+| `sb.properties` | The properties panel for the selected step | 0 |
+| `sb.io` | `.sb` save and open, STEP and STL import and export | 0 |
+| `sb.timeline` | The timeline bar with the rollback marker | 2 |
+| `sb.lessons` | The lesson panel, lesson steps and checks | 3 |
+| `sb.assistant` | The AI assistant panel and its tools | 3 (checks), 4 to 5 (AI) |
+| `sb.makeit` | The Make it button: print checks and service export | 3 |
 
-**Extension points.** Two layers keep Qt out of the core libraries. Model-layer extensions also work in `kh_cli`, Python scripts and a future server.
+**Extension points.** Two layers keep Qt out of the core libraries. Model-layer extensions also work in `sketchbillet_cli`, Python scripts and a future server.
 
 | Area | Layer | What a plugin registers | Built-in user |
 | --- | --- | --- | --- |
-| Commands | Model | Name, typed arguments, factory (the `CommandRegistry`, done) | `kh.modeling` |
-| Feature types | Model | Type id, factory, save and load, schema version | `kh.modeling` |
-| Importers and exporters | Model | File extensions, read or write function | `kh.io` |
-| Assistant tools | Model | Tool name, description, arguments, the command it runs | `kh.assistant` |
-| Lesson checks | Model | Check type and `evaluate(doc)` | `kh.lessons` |
+| Commands | Model | Name, typed arguments, factory (the `CommandRegistry`, done) | `sb.modeling` |
+| Feature types | Model | Type id, factory, save and load, schema version | `sb.modeling` |
+| Importers and exporters | Model | File extensions, read or write function | `sb.io` |
+| Assistant tools | Model | Tool name, description, arguments, the command it runs | `sb.assistant` |
+| Lesson checks | Model | Check type and `evaluate(doc)` | `sb.lessons` |
 | Menus, toolbars, ribbon tabs | UI | Actions that run a command by name | every plugin |
-| Panels | UI | A dockable widget factory and its default dock area | `kh.featuretree`, `kh.properties` |
-| Viewer types | UI | A view factory: 3D model, drawing sheet, CAM simulation | `kh.viewer` |
-| Viewer tools | UI | An interaction mode: mouse and keys, live preview, then a command | `kh.viewer`, `kh.modeling` |
-| Overlays | UI | Things drawn in a viewer: dimensions, manipulators, labels | `kh.modeling` |
-| Property editors | UI | The editor for one feature type | `kh.properties` |
+| Panels | UI | A dockable widget factory and its default dock area | `sb.featuretree`, `sb.properties` |
+| Viewer types | UI | A view factory: 3D model, drawing sheet, CAM simulation | `sb.viewer` |
+| Viewer tools | UI | An interaction mode: mouse and keys, live preview, then a command | `sb.viewer`, `sb.modeling` |
+| Overlays | UI | Things drawn in a viewer: dimensions, manipulators, labels | `sb.modeling` |
+| Property editors | UI | The editor for one feature type | `sb.properties` |
 | Settings pages | UI | A page in Settings | any |
 
-Three rules hold for every plugin. It changes a document only by running commands, so undo always works. Every contribution has a stable id such as `kh.modeling.add_box`, so saved layouts, shortcuts and toolbars survive updates. Model-layer code never includes Qt.
+Three rules hold for every plugin. It changes a document only by running commands, so undo always works. Every contribution has a stable id such as `sb.modeling.add_box`, so saved layouts, shortcuts and toolbars survive updates. Model-layer code never includes Qt.
 
 **Events.** Input in one place updates every view through the shell's event bus.
 
@@ -249,26 +249,26 @@ Three rules hold for every plugin. It changes a document only by running command
 | `CameraChanged` | A viewer | View id, camera | Viewers linked to it |
 | `ToolChanged` | The tool manager | Tool id | Status bar, properties |
 
-Built so far (Phase 0): the plugin host, manifests, the event bus, the document list, the shared selection and actions in `kh_plugin` (all Qt-free; the selection moved here from the planned `kh_app` so `kh_cli` and Python share it); `UiRegistry` for panels in a small Qt library, `kh_ui`, rather than in `kh_app`, so plugins can link it; the `kh.modeling`, `kh.featuretree` and `kh.properties` built-in plugins; the desktop shell with Qt ADS docking and named layouts; and the 3D viewer: `kh_view` (OCCT's AIS/V3d in a `QOpenGLWidget`, plus a flat fallback without OpenGL) and the `kh.viewer` plugin, whose panel is the shell's central widget and which `PanelSpec::allowMultiple` lets the student open more than once (plugin API 3). Hover, camera-link and tool events are still to come.
+Built so far (Phase 0): the plugin host, manifests, the event bus, the document list, the shared selection and actions in `sb_plugin` (all Qt-free; the selection moved here from the planned `sketchbillet` so `sketchbillet_cli` and Python share it); `UiRegistry` for panels in a small Qt library, `sb_ui`, rather than in `sketchbillet`, so plugins can link it; the `sb.modeling`, `sb.featuretree` and `sb.properties` built-in plugins; the desktop shell with Qt ADS docking and named layouts; and the 3D viewer: `sb_view` (OCCT's AIS/V3d in a `QOpenGLWidget`, plus a flat fallback without OpenGL) and the `sb.viewer` plugin, whose panel is the shell's central widget and which `PanelSpec::allowMultiple` lets the student open more than once (plugin API 3). Hover, camera-link and tool events are still to come.
 
 Events carry ids, never pointers. They are delivered in order on the UI thread. A listener that wants to change the design runs a command; events only report. Event types are part of the versioned plugin API.
 
 **Viewer.** One viewer can show 1, 2 (side by side or stacked) or 4 panes; the four-pane layout is Top, Front, Right and a 3D view. Each pane has its own camera and display mode (shaded, wireframe, hidden lines). All panes and viewers of one document share one scene: one OCCT `V3d_Viewer` and `AIS_InteractiveContext` with a `V3d_View` per pane, so the model is not copied and a selection shows everywhere. Window > New viewer opens another viewer of the same part, and viewers of different parts can sit side by side. Two viewers can link cameras, so orbiting one moves both. *As built (Oct 24, 2026):* each pane is its own `QOpenGLWidget` with its own `V3d_Viewer` and `AIS_InteractiveContext` (all on one shared OCCT graphics driver, with Qt's shared OpenGL contexts), because one OCCT viewer redrawing views that live in other Qt widgets' contexts isn't safe. The selection still shows everywhere through the shared `Selection`. Panes draw a copy of each body (new topology, shared geometry), so meshing for the screen never changes the kernel's shapes or later STL exports (rule 5).
 
-**Docking.** Every panel and viewer is a dock widget in the [Qt Advanced Docking System](https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System) (LGPL-2.1). It can dock to any side, tab with others, split, float as its own window and move to another monitor. Viewers live in the central area, panels around it. Named layouts (Modeling, Classroom, Review) are saved per user; Khan reopens the last layout on the same screens and pulls a window back onto a remaining screen if a monitor is gone.
+**Docking.** Every panel and viewer is a dock widget in the [Qt Advanced Docking System](https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System) (LGPL-2.1). It can dock to any side, tab with others, split, float as its own window and move to another monitor. Viewers live in the central area, panels around it. Named layouts (Modeling, Classroom, Review) are saved per user; SketchBillet reopens the last layout on the same screens and pulls a window back onto a remaining screen if a monitor is gone.
 
 **Binary compatibility**
 
 | Plugin kind | Built with | Works with |
 | --- | --- | --- |
-| Built-in C++ | The Khan repo and its compiler | Every release, automatically |
-| Outside C++ | The Khan SDK for one release, with the same compiler (MSVC on Windows, Clang on macOS, GCC on Linux) | That release; rebuilt for each release. `apiVersion` is checked at load |
+| Built-in C++ | The SketchBillet repo and its compiler | Every release, automatically |
+| Outside C++ | The SketchBillet SDK for one release, with the same compiler (MSVC on Windows, Clang on macOS, GCC on Linux) | That release; rebuilt for each release. `apiVersion` is checked at load |
 | Python | The pybind11 bindings of the same API | Any release with that API version; no compiler needed |
 | Stable C API | Later, if the community needs it | Across releases |
 
-Plugins run inside Khan's process: fast, but a crashing C++ plugin can crash Khan. Python plugins get the sandboxing and signing described under Scripting, plugins and integrations.
+Plugins run inside SketchBillet's process: fast, but a crashing C++ plugin can crash SketchBillet. Python plugins get the sandboxing and signing described under Scripting, plugins and integrations.
 
-**Shared concepts.** Some ideas, like the grid or snapping, are used by several plugins. A plugin can add such a concept for others to use without any change to Khan's base: it publishes a versioned contract (an interface and events), offers it as a service, and other plugins list it in `requires` or `uses`. Startup has two phases (register, then start), loops between plugins are allowed, built-in plugins follow the same rules as any other, and plugins can declare (and add) tiers that point out dependencies running the wrong way. Agreed Oct 25, 2026: [Shared concepts between plugins](plugin-contracts.md).
+**Shared concepts.** Some ideas, like the grid or snapping, are used by several plugins. A plugin can add such a concept for others to use without any change to SketchBillet's base: it publishes a versioned contract (an interface and events), offers it as a service, and other plugins list it in `requires` or `uses`. Startup has two phases (register, then start), loops between plugins are allowed, built-in plugins follow the same rules as any other, and plugins can declare (and add) tiers that point out dependencies running the wrong way. Agreed Oct 25, 2026: [Shared concepts between plugins](plugin-contracts.md).
 
 **Plugin developer guide.** The guide lives in the repo at `docs/plugin-guide/` and is published with the API reference. It starts with the shell (Phase 0, weeks 4 to 5) as a Hello plugin tutorial, and every change to the plugin API updates it in the same pull request.
 
@@ -297,7 +297,7 @@ Offline-first, with collaboration as an optional layer users can self-host. This
 A stable API is how an open project grows faster than a closed one.
 
 - **Python API:** full access to documents, parameters, sketches, features, assemblies, CAM, and export. Also usable headless for batch jobs and code-CAD.
-- **Plugin system:** versioned plugin manifest, custom features that participate in the timeline, custom commands, panels, importers, exporters, and post-processors. Khan's own features use the same API; see UI and plugin architecture.
+- **Plugin system:** versioned plugin manifest, custom features that participate in the timeline, custom commands, panels, importers, exporters, and post-processors. SketchBillet's own features use the same API; see UI and plugin architecture.
 - **Sandboxing:** plugins run with declared permissions; post-processors run in a restricted interpreter.
 - **Extension registry:** a community catalog, like VS Code's marketplace, with signing.
 - **Electronics:** bidirectional KiCad bridge. Push the board outline and mounting holes to KiCad, pull back the populated board as STEP, and flag collisions with the enclosure.

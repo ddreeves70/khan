@@ -25,7 +25,7 @@
 #pragma once
 
 #include "Util.h"
-#include <cmath>  // Khan: replaces an unused Boost include (boost/math/constants/constants.hpp) that brought it in
+#include <cmath>  // SketchBillet: replaces an unused Boost include (boost/math/constants/constants.hpp) that brought it in
 #include "../../SketcherGlobal.h"
 
 #ifdef _MSC_VER

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
-// Khan: stands in for FreeCAD's Base/Console.h and Base/TimeElapsed. PlaneGCS
-// only logs debugging text and times its own steps; Khan reports problems as
+// SketchBillet: stands in for FreeCAD's Base/Console.h and Base/TimeElapsed. PlaneGCS
+// only logs debugging text and times its own steps; SketchBillet reports problems as
 // diagnostics instead, so the log is dropped.
 #pragma once
 

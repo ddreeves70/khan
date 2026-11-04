@@ -11,19 +11,19 @@
 #include <numbers>
 
 #include "FakeKernel.h"
-#include "kh/model/CommandRegistry.h"
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/sketch/Profiles.h"
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/sketch/Profiles.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
 
-using namespace kh;
-using namespace kh::model;
+using namespace sb;
+using namespace sb::model;
 using Catch::Approx;
 
 namespace {
 
-// A design with a sketch, built through the registry like kh_cli does.
+// A design with a sketch, built through the registry like sketchbillet_cli does.
 struct Drawing {
     Document doc;
     test::FakeKernel kernel;
@@ -130,7 +130,8 @@ TEST_CASE("sketch commands explain what's wrong in plain words", "[model][sketch
     CHECK(message("parallel", "Line1") == "Parallel needs two lines, like on=Line1,Line2.");
     CHECK(message("length", "Line9") ==
           "There's nothing called Line9 in this sketch. Length needs one line, like on=Line1.");
-    CHECK(message("length", "Line1") == "Length needs a value, like value=40 (mm), or a formula, like formula=\"wall * 2\".");
+    CHECK(message("length", "Line1") ==
+          "Length needs a value, like value=40 (mm), or a formula, like formula=\"wall * 2\".");
     CHECK(message("angle", "Line1,Line1", 30.0) == "Angle needs two different lines.");
     CHECK(message("horizontal", "Line1", 3.0) == "Horizontal has no number. Leave out value.");
     CHECK(message("horizontal", "Circle1") == "Horizontal needs one line.");
@@ -396,7 +397,7 @@ namespace {
 struct PointsFile {
     std::filesystem::path dir =
         std::filesystem::temp_directory_path() /
-        ("kh_points_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+        ("sb_points_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::filesystem::path path = dir / "wave.csv";
     PointsFile() { std::filesystem::create_directories(dir); }
     ~PointsFile() {
@@ -470,7 +471,7 @@ TEST_CASE("importing and reloading say what's wrong with the file, in plain word
     PointsFile file;
     auto problems = d.sk("sketch.import_spline", {{"file", file.name()}});  // not written yet
     REQUIRE(problems.size() == 1);
-    CHECK(problems[0].message == "Khan can't open wave.csv (looked for it at " + file.name() +
+    CHECK(problems[0].message == "SketchBillet can't open wave.csv (looked for it at " + file.name() +
                                      "). Check the file is there, and try again.");
     file.write("0,0\n1,x\n");
     problems = d.sk("sketch.import_spline", {{"file", file.name()}});

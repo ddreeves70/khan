@@ -9,9 +9,9 @@
 
 #include "Constrain.h"
 
-using namespace kh;
-using namespace kh::sketch;
-using namespace kh::plugins::sketcher;
+using namespace sb;
+using namespace sb::sketch;
+using namespace sb::plugins::sketcher;
 using Catch::Approx;
 using K = ConstraintKind;
 

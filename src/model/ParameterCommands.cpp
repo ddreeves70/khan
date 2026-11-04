@@ -3,11 +3,11 @@
 #include <algorithm>
 #include <cmath>
 
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/model/Formulas.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/model/Formulas.h"
 
-namespace kh::model {
+namespace sb::model {
 
 namespace {
 
@@ -354,7 +354,7 @@ Diagnostics SetNumberCommand::apply(DocumentEditor& editor) {
         if (!r.ok()) return r.issues;
         value = r.value->value;
     } else if (!std::isfinite(value)) {
-        // (kh::model's commands get NaN when neither, or both, were given.)
+        // (sb::model's commands get NaN when neither, or both, were given.)
         return {error("feature.number", "Give " + what +
                                             " one value, like value=10, or one formula, like "
                                             "formula=\"wall * 2\". Not both.")};
@@ -372,4 +372,4 @@ void SetNumberCommand::revert(DocumentEditor& editor) {
     if (other_) other_ = editor.replace(std::move(other_));
 }
 
-}  // namespace kh::model
+}  // namespace sb::model

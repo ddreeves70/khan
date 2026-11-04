@@ -1,11 +1,11 @@
-#include "kh/plugin/Selection.h"
+#include "sb/plugin/Selection.h"
 
 #include <algorithm>
 #include <utility>
 
-#include "kh/plugin/Events.h"
+#include "sb/plugin/Events.h"
 
-namespace kh::plugin {
+namespace sb::plugin {
 
 Selection::Selection(EventBus& bus, const DocumentList& docs) : bus_(bus), docs_(docs) {
     subscriptions_.push_back(bus_.subscribe<DocumentChanged>([this](const DocumentChanged& e) {
@@ -57,4 +57,4 @@ void Selection::prune() {
     set(doc_, features_);  // drops steps that are gone
 }
 
-}  // namespace kh::plugin
+}  // namespace sb::plugin

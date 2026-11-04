@@ -3,11 +3,11 @@
 #include <algorithm>
 
 #include "FakeKernel.h"
-#include "kh/model/CommandRegistry.h"
-#include "kh/model/Document.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/model/Document.h"
 
-using namespace kh;
-using namespace kh::model;
+using namespace sb;
+using namespace sb::model;
 
 namespace {
 
@@ -68,10 +68,10 @@ TEST_CASE("Registry commands build a design that rebuilds", "[model][registry]")
     REQUIRE(c.axis().z == 1.0);   // default axis is up
     REQUIRE(c.height() == 10.0);  // an integer is accepted for a number
 
-    kh::test::FakeKernel k;
+    sb::test::FakeKernel k;
     const auto report = doc.regenerate(k);
     REQUIRE(report.ok());
-    REQUIRE(kh::test::FakeKernel::volumeOf(*report.shapeOf(cut)) == 1000.0 - 3.0 * 4.0 * 10.0);
+    REQUIRE(sb::test::FakeKernel::volumeOf(*report.shapeOf(cut)) == 1000.0 - 3.0 * 4.0 * 10.0);
 
     run(doc, "feature.rename", {{"feature", cut}, {"name", std::string("Body")}});
     REQUIRE(doc.find(cut)->name() == "Body");

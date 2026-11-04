@@ -2,11 +2,11 @@
 
 #include <memory>
 
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
 
-using namespace kh;
-using namespace kh::model;
+using namespace sb;
+using namespace sb::model;
 
 namespace {
 

@@ -1,6 +1,6 @@
-# kh_model: document, features, parameters, commands and undo. The feature graph
+# sb_model: document, features, parameters, commands and undo. The feature graph
 # and naming follow in Phase 2.
-kh_add_library(kh_model
+sb_add_library(sb_model
   SOURCES
     Feature.cpp
     Document.cpp
@@ -12,7 +12,7 @@ kh_add_library(kh_model
     ParameterCommands.cpp
     Formulas.cpp
   DEPS
-    kh::core
-    kh::kernel
-    kh::sketch
+    sb::core
+    sb::kernel
+    sb::sketch
 )

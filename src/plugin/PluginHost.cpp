@@ -1,4 +1,4 @@
-#include "kh/plugin/PluginHost.h"
+#include "sb/plugin/PluginHost.h"
 
 #include <algorithm>
 #include <chrono>
@@ -13,11 +13,11 @@
 #include "Library.h"
 #include "Tiers.h"
 
-namespace kh::plugin {
+namespace sb::plugin {
 
 namespace {
 
-constexpr std::string_view kReservedPrefix = "kh.";
+constexpr std::string_view kReservedPrefix = "sb.";
 
 Diagnostic problem(std::string code, std::string message, std::string detail = {}) {
     return {std::move(code), Severity::Error, std::move(message), std::move(detail)};
@@ -76,7 +76,7 @@ std::string milliseconds(std::chrono::steady_clock::duration d) {
 struct detail::HostShared {
     struct Service {
         void* pointer = nullptr;
-        std::string provider;  // plugin id; empty for the program running Khan
+        std::string provider;  // plugin id; empty for the program running SketchBillet
         bool deprecated = false;
     };
     enum class Phase { Register, Start, Running };
@@ -180,7 +180,7 @@ public:
             const auto* by = providerManifest(provider);
             const std::string byName = by ? shortName(*by) : provider;
             // While registering, only a plugin in "requires" is sure to have
-            // registered already (Khan loads it first); anything else is luck.
+            // registered already (SketchBillet loads it first); anything else is luck.
             if (shared_.phase == Shared::Phase::Register && !contains(self.dependencies, provider)) {
                 warnOnce(warning("plugin.early_lookup",
                                  shortName(self) + " asked for " + std::string(name) +
@@ -193,7 +193,7 @@ public:
                                  shortName(self) + " uses " + std::string(name) + " from " + byName +
                                      " but doesn't list " + provider +
                                      " in its plugin.json. Add it to \"uses\" (or \"requires\") so "
-                                     "Khan loads them in the right order."));
+                                     "SketchBillet loads them in the right order."));
             }
             if (it->second.deprecated) {
                 warnOnce(warning("plugin.old_contract",
@@ -217,7 +217,7 @@ public:
 
     void notePublish(std::string_view type) override {
         const auto& self = info_->manifest;
-        // ActionsChanged is Khan's, but made for plugins to send.
+        // ActionsChanged is SketchBillet's, but made for plugins to send.
         if (type != ActionsChanged::kType && !startsWith(type, self.id + ".")) {
             warnOnce(warning("plugin.event_name", shortName(self) + " sent the event " + std::string(type) +
                                                       ". Event names must start with the plugin id, like " +
@@ -235,7 +235,7 @@ public:
         warnOnce(warning("plugin.undeclared_dependency",
                          shortName(self) + " listens to " + std::string(type) + " from " +
                              (by ? shortName(*by) : owner) + " but doesn't list " + owner +
-                             " in its plugin.json. Add it to \"uses\" (or \"requires\") so Khan "
+                             " in its plugin.json. Add it to \"uses\" (or \"requires\") so SketchBillet "
                              "loads them in the right order."));
     }
 
@@ -411,22 +411,23 @@ void PluginHost::loadAll() {
         byId.emplace(m.id, i);
         if (m.apiVersion != kPluginApiVersion) {
             refuse(problem("plugin.api_version",
-                           who + " was made for a different version of Khan (plugin API " +
-                               std::to_string(m.apiVersion) + "; this Khan uses " +
+                           who + " was made for a different version of SketchBillet (plugin API " +
+                               std::to_string(m.apiVersion) + "; this SketchBillet uses " +
                                std::to_string(kPluginApiVersion) +
-                               "). Get a version of the plugin made for this Khan.",
+                               "). Get a version of the plugin made for this SketchBillet.",
                            m.folder.string()));
         } else if (!info.builtin && startsWith(m.id, kReservedPrefix)) {
-            refuse(problem("plugin.reserved_id",
-                           who +
-                               " uses an id starting with \"kh.\", which is kept for Khan's own plugins. "
-                               "Its author should pick another id, like \"yourname." +
-                               m.id.substr(kReservedPrefix.size()) + "\".",
-                           m.folder.string()));
+            refuse(problem(
+                "plugin.reserved_id",
+                who +
+                    " uses an id starting with \"sb.\", which is kept for SketchBillet's own plugins. "
+                    "Its author should pick another id, like \"yourname." +
+                    m.id.substr(kReservedPrefix.size()) + "\".",
+                m.folder.string()));
         } else if (!info.builtin && m.library.empty()) {
             refuse(problem("plugin.no_library",
                            who + " has no \"library\" in its plugin.json. Plugins written in Python "
-                                 "come in a later version of Khan.",
+                                 "come in a later version of SketchBillet.",
                            m.folder.string()));
         }
     }
@@ -486,11 +487,11 @@ void PluginHost::loadAll() {
             const auto& m = found[i].manifest;
             if (m.tier.empty()) continue;
             if (!tiers.known(m.tier)) {
-                found[i].issues.push_back(
-                    warning("plugin.tier_unknown", shortName(m) + " says it belongs to the tier \"" + m.tier +
-                                                       "\", which no plugin adds, so Khan can't check its "
-                                                       "dependencies. Use one of these: " +
-                                                       allTiers + "."));
+                found[i].issues.push_back(warning(
+                    "plugin.tier_unknown", shortName(m) + " says it belongs to the tier \"" + m.tier +
+                                               "\", which no plugin adds, so SketchBillet can't check its "
+                                               "dependencies. Use one of these: " +
+                                               allTiers + "."));
                 continue;
             }
             for (const auto* list : {&m.dependencies, &m.uses}) {
@@ -528,7 +529,7 @@ void PluginHost::loadAll() {
                 info.issues.push_back(
                     problem("plugin.missing_dependency", displayName(info.manifest) + " needs the plugin " +
                                                              dep + ", which isn't installed. Install " + dep +
-                                                             " and restart Khan."));
+                                                             " and restart SketchBillet."));
                 return false;
             }
             const auto& needed = found[d->second];
@@ -696,11 +697,12 @@ void PluginHost::loadAll() {
         }
         hc->stagedActions_.clear();
         if (slowStartLimit_.count() > 0 && hc->took > slowStartLimit_) {
-            info.issues.push_back(warning("plugin.slow_start",
-                                          shortName(info.manifest) + " took " + milliseconds(hc->took) +
-                                              " to start, which slows Khan's start. Do slow work later, "
-                                              "when it's first needed.",
-                                          "limit " + std::to_string(slowStartLimit_.count()) + " ms"));
+            info.issues.push_back(
+                warning("plugin.slow_start",
+                        shortName(info.manifest) + " took " + milliseconds(hc->took) +
+                            " to start, which slows SketchBillet's start. Do slow work later, "
+                            "when it's first needed.",
+                        "limit " + std::to_string(slowStartLimit_.count()) + " ms"));
         }
     }
     shared_->phase = detail::HostShared::Phase::Running;
@@ -745,16 +747,16 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
         if (!lib) {
             failed(problem("plugin.library_bad",
                            who + "'s program file couldn't be loaded. It may be made for another computer or "
-                                 "another version of Khan. Get a version made for this Khan.",
+                                 "another version of SketchBillet. Get a version made for this SketchBillet.",
                            file.string() + ": " + why));
             return;
         }
         using VersionFn = int (*)();
-        auto version = lib->function<VersionFn>("kh_plugin_api_version");
-        fn = lib->function<RegisterFn>("kh_plugin_register");
+        auto version = lib->function<VersionFn>("sb_plugin_api_version");
+        fn = lib->function<RegisterFn>("sb_plugin_register");
         if (!version || !fn) {
             failed(problem("plugin.library_bad",
-                           who + "'s program file isn't a Khan plugin (it has no KH_PLUGIN_ENTRY). "
+                           who + "'s program file isn't a SketchBillet plugin (it has no SB_PLUGIN_ENTRY). "
                                  "Ask its author for a fixed version.",
                            file.string()));
             libraries_.push_back(std::move(lib));
@@ -762,9 +764,10 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
         }
         if (const int v = version(); v != kPluginApiVersion) {
             failed(problem("plugin.api_version",
-                           who + " was built for a different version of Khan (plugin API " +
-                               std::to_string(v) + "; this Khan uses " + std::to_string(kPluginApiVersion) +
-                               "). Get a version of the plugin made for this Khan.",
+                           who + " was built for a different version of SketchBillet (plugin API " +
+                               std::to_string(v) + "; this SketchBillet uses " +
+                               std::to_string(kPluginApiVersion) +
+                               "). Get a version of the plugin made for this SketchBillet.",
                            file.string()));
             libraries_.push_back(std::move(lib));
             return;
@@ -791,13 +794,13 @@ void PluginHost::loadOne(Candidate& c, PluginInfo& info) {
             auto taken = shared_->services.find(name);
             if (taken != shared_->services.end()) {
                 const auto& owner = taken->second.provider;
-                const std::string ownerName = owner.empty() ? "Khan"
+                const std::string ownerName = owner.empty() ? "SketchBillet"
                                                             : (shared_->manifests.count(owner)
                                                                    ? shortName(*shared_->manifests.at(owner))
                                                                    : owner);
                 hc.warnOnce(warning("plugin.service_taken",
                                     shortName(m) + " tried to provide " + name + ", which " + ownerName +
-                                        " already provides. Khan kept " + ownerName + "'s."));
+                                        " already provides. SketchBillet kept " + ownerName + "'s."));
                 continue;
             }
             shared_->services[name] = service;
@@ -834,4 +837,4 @@ void PluginHost::withdraw(Candidate& c, PluginInfo& info) {
     overlays_.removeOwner(info.manifest.id);
 }
 
-}  // namespace kh::plugin
+}  // namespace sb::plugin

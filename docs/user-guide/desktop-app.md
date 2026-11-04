@@ -1,16 +1,16 @@
 # The desktop app
 
-`kh_app` is Khan's desktop app. You build a part by adding steps from the menus,
+`sketchbillet` is SketchBillet's desktop app. You build a part by adding steps from the menus,
 see it in 3D as it grows, see every step in the feature tree, and change any
 step's numbers in Properties. Everything you do can be undone.
 
-![The Khan window with the desk organizer open](images/app-main.png)
+![The SketchBillet window with the desk organizer open](images/app-main.png)
 
 | # | Part | What it's for |
 | --- | --- | --- |
 | 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, folders, delete), Create (shapes), Combine (union, cut, intersect), Modify (move), Sketch (new, edit, draw), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away, each with a picture and its name. While you edit a sketch it shows the sketch tools instead, plus the constraint buttons that fit what you picked. If they don't all fit across the window, the rest go on a second row |
-| 3 | **Feature tree** | Every step of the design, in the order Khan builds them, with how each one built. It floats over the viewer, see-through, and starts with the design's **Document settings** |
+| 3 | **Feature tree** | Every step of the design, in the order SketchBillet builds them, with how each one built. It floats over the viewer, see-through, and starts with the design's **Document settings** |
 | 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse, the view cube or the **view bar** at its bottom, and click a body to pick it |
 | 5 | **Properties** | The selected step's name and numbers. Change them here. It floats over the viewer's top right, under the view cube |
 | 6 | **Status bar** | Messages, and what went wrong when something does |
@@ -18,30 +18,30 @@ step's numbers in Properties. Everything you do can be undone.
 
 ## Starting it
 
-After you build Khan, the app is in your build folder:
+After you build SketchBillet, the app is in your build folder:
 
 | System | Path |
 | --- | --- |
-| Windows | `build\win\apps\kh_app\kh_app.exe` |
-| macOS | `build/dev/apps/kh_app/kh_app.app` |
-| Linux | `build/dev/apps/kh_app/kh_app` |
+| Windows | `build\win\apps\sketchbillet\sketchbillet.exe` |
+| macOS | `build/dev/apps/sketchbillet/sketchbillet.app` |
+| Linux | `build/dev/apps/sketchbillet/sketchbillet` |
 
 It starts with an empty design called Untitled. To open a design straight away,
-give its file: `kh_app tag.khan`.
+give its file: `sketchbillet tag.sb`.
 
 ## Make a part
 
 The same keychain tag as [Tutorial 1](../tutorials/01-keychain-tag.md), with the
 mouse:
 
-1. **Create > Box.** Khan adds `Box1`, a 20 mm cube, and selects it.
+1. **Create > Box.** SketchBillet adds `Box1`, a 20 mm cube, and selects it.
 2. In **Properties**, set the size to x 60, y 30, z 4, and change the name to
    `Plate`. Each change rebuilds the design, and the viewer shows the new plate.
 3. **Create > Cylinder.** In Properties, set radius 2.5, height 6, base
    x 9, y 15, z -1, and name it `Hole`.
 4. In the feature tree, click **Plate**, then hold Ctrl (⌘ on a Mac) and click
    **Hole**. The order matters: first the body to keep, then the cutting tool.
-5. **Combine > Cut.** Khan adds `Cut1`: the plate with the hole cut out.
+5. **Combine > Cut.** SketchBillet adds `Cut1`: the plate with the hole cut out.
 6. **File > Save**, and pick a name.
 
 ## The 3D viewer
@@ -79,7 +79,7 @@ Z always stays pointing up while you orbit, so the floor stays the floor.
 
 Orbit, Pan and Zoom change only the left button: the right and middle buttons
 always pan, and the wheel always zooms. A click still picks, whichever one is on.
-Khan remembers the display style next time it starts.
+SketchBillet remembers the display style next time it starts.
 
 **Wireframe** draws just the edges, so you can see inside the part, like where
 the pen hole of the desk organizer ends:
@@ -122,8 +122,8 @@ finished bodies instead:
 ![The viewer with 3D graphics turned off](images/app-viewer-flat.png)
 
 If the 3D view crashes or draws garbage on your computer, you can turn it off:
-set the environment variable `KH_NO_3D` to `1` before starting Khan (on Windows:
-`set KH_NO_3D=1`, then `kh_app`).
+set the environment variable `SB_NO_3D` to `1` before starting SketchBillet (on Windows:
+`set SB_NO_3D=1`, then `sketchbillet`).
 
 ## Panels over the viewer
 
@@ -144,7 +144,7 @@ Properties is at the top right, under the view cube, with the Sketch panel
   item again to float it over the viewer once more.
 - **Window > *panel*** hides it and shows it again.
 
-Khan remembers all of this next time it starts.
+SketchBillet remembers all of this next time it starts.
 
 ## The feature tree
 
@@ -161,7 +161,7 @@ Under them, each row is one step: its name, its kind, and its status.
 | `blocked` | It uses a step that failed |
 | `off` | It's turned off |
 
-- **Pick** a step by clicking it. Ctrl-click (⌘-click) picks more than one; Khan
+- **Pick** a step by clicking it. Ctrl-click (⌘-click) picks more than one; SketchBillet
   remembers the order you picked them in.
 - **Rename** a step by double-clicking its name, or pressing F2.
 - **Delete** a step with the Delete key, or right-click > Delete step. A step that
@@ -246,7 +246,7 @@ you judge sizes and line things up. It starts **on**, every **10 mm**, drawn as
 | ![The grid as lines, 10 mm apart](images/app-grid-lines.png) | ![The grid as dots, 5 mm apart](images/app-grid-dots.png) |
 
 The status bar (7 in the picture at the top) always shows the
-grid's settings, like "Grid 10 mm, lines, snap off". Khan remembers your grid
+grid's settings, like "Grid 10 mm, lines, snap off". SketchBillet remembers your grid
 settings for next time, and they're also in the [View options](#view-options)
 panel, where Grid spacing takes any size.
 
@@ -255,8 +255,8 @@ panel, where Grid spacing takes any size.
   grid stays quick to draw.
 - **Snapping** matters once you place things with the mouse, in sketches (coming
   soon). Numbers you type in Properties are never snapped.
-- **The grid is a plugin,** `kh.grid`, built into Khan. That's why it isn't in
-  `kh_cli`: there's nothing to draw it on there.
+- **The grid is a plugin,** `sb.grid`, built into SketchBillet. That's why it isn't in
+  `sketchbillet_cli`: there's nothing to draw it on there.
 
 ## The axes
 
@@ -277,16 +277,16 @@ edge of a real box. Turn the view (try the cube's **Top** face) and it shows.
 | View > Show axis labels | Shows or hides just the letters X, Y and Z | on |
 | View > Show axes at the origin | Also draws the axes at the origin (0, 0, 0), 25 mm long, in your design. Handy when you sketch around the origin | off |
 
-Khan remembers all three for next time, and they're also in the
+SketchBillet remembers all three for next time, and they're also in the
 [View options](#view-options) panel. The letters always face you and stay the
-same size as you zoom. The axes are a plugin too, `kh.axes`, built into Khan.
+same size as you zoom. The axes are a plugin too, `sb.axes`, built into SketchBillet.
 
 ## View options
 
 Everything the viewer can show, the grid and the axes so far, is also in one
 place: **View > View options...** opens the **View options** panel. It lists every
 option, grouped, and changing one there is the same as using the View menu: the
-menu's check marks follow, and Khan remembers it.
+menu's check marks follow, and SketchBillet remembers it.
 
 ![The View options panel](images/app-view-options.png)
 
@@ -320,7 +320,7 @@ Things to know:
 - **New panes start like all the others.** Switching from 1 to 4 panes gives the
   new panes the all-panes options. Going back to fewer panes forgets the own
   options of the panes that close.
-- Khan remembers each pane's own options for next time.
+- SketchBillet remembers each pane's own options for next time.
 - The status bar's grid text shows the grid of the pane you clicked last.
 
 ## Folders
@@ -377,7 +377,7 @@ Tips:
   Pick a copy and use Modify > Move to put it somewhere else (see
   [Moving bodies](moving.md)).
 - What you copy is plain text, so you can paste it into a message or a file and
-  paste it back into Khan later.
+  paste it back into SketchBillet later.
 
 ## Undo and redo
 
@@ -393,13 +393,13 @@ Opening a design starts a fresh undo history.
 | Menu item | Keys | What it does |
 | --- | --- | --- |
 | File > New | Ctrl+N | Starts an empty design |
-| File > Open... | Ctrl+O | Opens a `.khan` design |
+| File > Open... | Ctrl+O | Opens a `.sb` design |
 | File > Save | Ctrl+S | Saves to the design's file (asks for a name the first time) |
 | File > Save as... | Ctrl+Shift+S | Saves under a new name |
 | File > Export... | Ctrl+E | Writes the part as STL (for 3D printing) or STEP (for other CAD programs) |
 
-A `*` after the name in the title bar means there are unsaved changes. Khan asks
-before closing or replacing a design with unsaved changes. Khan has one design
+A `*` after the name in the title bar means there are unsaved changes. SketchBillet asks
+before closing or replacing a design with unsaved changes. SketchBillet has one design
 open at a time for now.
 
 ## Exporting
@@ -415,11 +415,11 @@ Export writes one body:
 - If you picked one step in the feature tree, that step's shape is exported
   (even one a later step used up, like the Hole of a Cut).
 - Otherwise, the design's one finished body.
-- If the design has two or more finished bodies and none is picked, Khan says so:
+- If the design has two or more finished bodies and none is picked, SketchBillet says so:
   pick the one you want in the feature tree, or join them with
   [Combine > Union](combining.md#union).
 
-An exported file holds only the shape, so keep your `.khan` file too: it's the
+An exported file holds only the shape, so keep your `.sb` file too: it's the
 one you can change later. More about the formats is on the
 [Files](files.md#exporting) page.
 
@@ -435,7 +435,7 @@ Every panel can be moved:
 - The feature tree, Properties, the Sketch panel and View options float over the
   viewer until you dock them; see [Panels over the viewer](#panels-over-the-viewer).
 
-Khan remembers where your panels were and puts them back next time. If a panel
+SketchBillet remembers where your panels were and puts them back next time. If a panel
 was on a monitor that's no longer plugged in, it comes back onto your main screen.
 
 **Window > Layouts** keeps named layouts:
@@ -448,12 +448,12 @@ was on a monitor that's no longer plugged in, it comes back onto your main scree
 ## Plugins in the app
 
 The viewer, the feature tree, Properties, and the Create and Combine menus all
-come from plugins that ship with Khan. Plugins you add (see [Plugins](plugins.md)) can add
+come from plugins that ship with SketchBillet. Plugins you add (see [Plugins](plugins.md)) can add
 menu items and panels too. Put plugin folders in a `plugins` folder next to
-`kh_app`, or in Khan's folder in your user data:
+`sketchbillet`, or in SketchBillet's folder in your user data:
 
 | System | Folder |
 | --- | --- |
-| Windows | `%APPDATA%\Khan\Khan\plugins` |
-| macOS | `~/Library/Application Support/Khan/Khan/plugins` |
-| Linux | `~/.local/share/Khan/Khan/plugins` |
+| Windows | `%APPDATA%\SketchBillet\SketchBillet\plugins` |
+| macOS | `~/Library/Application Support/SketchBillet/SketchBillet/plugins` |
+| Linux | `~/.local/share/SketchBillet/SketchBillet/plugins` |

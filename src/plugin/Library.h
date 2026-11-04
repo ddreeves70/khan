@@ -1,13 +1,13 @@
 #pragma once
 
 // Loads a shared library and finds functions in it (dlopen or LoadLibrary).
-// Internal to kh_plugin.
+// Internal to sb_plugin.
 
 #include <filesystem>
 #include <memory>
 #include <string>
 
-namespace kh::plugin::detail {
+namespace sb::plugin::detail {
 
 class Library {
 public:
@@ -32,4 +32,4 @@ private:
     void* handle_;
 };
 
-}  // namespace kh::plugin::detail
+}  // namespace sb::plugin::detail

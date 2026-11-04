@@ -1,11 +1,11 @@
-# kh_io: the .khan file format (zip container + JSON). Import and export of other
+# sb_io: the .sb file format (zip container + JSON). Import and export of other
 # formats (STEP, STL, 3MF) moves here as file-format plugins in the plugin shell.
-kh_add_library(kh_io
+sb_add_library(sb_io
   SOURCES
-    KhanFile.cpp
+    SketchBilletFile.cpp
   DEPS
-    kh::core
-    kh::model
+    sb::core
+    sb::model
   PRIVATE_DEPS
     nlohmann_json::nlohmann_json
     libzip::zip

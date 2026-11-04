@@ -1,4 +1,4 @@
-// Tests for the kh.movehandles plugin: arrows on the picked body, and dragging
+// Tests for the sb.movehandles plugin: arrows on the picked body, and dragging
 // them slides it, as one undo step.
 
 #include <catch2/catch_approx.hpp>
@@ -6,16 +6,16 @@
 
 #include <memory>
 
-#include "kh/kernel_occt/OcctKernel.h"
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugins/Modeling.h"
-#include "kh/plugins/MoveHandles.h"
-#include "kh/plugins/Viewer.h"
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/kernel_occt/OcctKernel.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugins/Modeling.h"
+#include "sb/plugins/MoveHandles.h"
+#include "sb/plugins/Viewer.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
 
-using namespace kh;
+using namespace sb;
 using Catch::Approx;
 
 namespace {
@@ -25,22 +25,22 @@ void peekViewer(plugin::PluginContext& ctx) {
     ctx.onStart([&ctx] { peekedViewer = ctx.service<viewer::IViewer>(); });
 }
 
-// Khan without the desktop app's window: the viewer's service and the move handles.
-struct Khan {
+// SketchBillet without the desktop app's window: the viewer's service and the move handles.
+struct SketchBillet {
     std::unique_ptr<kernel::IKernel> kernel = kernel::makeOcctKernel();
     std::unique_ptr<sketch::ISketchSolver> solver = sketch::makePlaneGcsSolver();
     plugin::PluginHost host{kernel.get(), solver.get()};
     DocId doc;
     viewer::IViewer* viewer = nullptr;
 
-    Khan() {
+    SketchBillet() {
         host.addBuiltin(plugins::modelingPlugin());
         host.addBuiltin(plugins::viewerPlugin());
         host.addBuiltin(plugins::moveHandlesPlugin());
-        host.addBuiltin({R"({"id": "test.peek", "name": "Peek", "version": "1", "requires": ["kh.viewer"]})",
+        host.addBuiltin({R"({"id": "test.peek", "name": "Peek", "version": "1", "requires": ["sb.viewer"]})",
                          &peekViewer});
         host.loadAll();
-        REQUIRE(host.find("kh.movehandles")->state == plugin::PluginState::Loaded);
+        REQUIRE(host.find("sb.movehandles")->state == plugin::PluginState::Loaded);
         viewer = peekedViewer;
         REQUIRE(viewer);
         doc = host.documents().add(std::make_unique<model::Document>());
@@ -89,7 +89,7 @@ TEST_CASE("the handles are arrows along x, y and z from the body's middle, and a
 }
 
 TEST_CASE("handles show on one picked body, and not on a sketch, nothing or two bodies", "[movehandles]") {
-    Khan k;
+    SketchBillet k;
     const auto box = k.run("feature.add_box", {{"size", kernel::Vec3{40, 20, 10}}});
     const auto other =
         k.run("feature.add_box", {{"corner", kernel::Vec3{100, 0, 0}}, {"size", kernel::Vec3{5, 5, 5}}});
@@ -108,7 +108,7 @@ TEST_CASE("handles show on one picked body, and not on a sketch, nothing or two 
 
 TEST_CASE("dragging an arrow slides the box in whole mm, follows it, and undoes in one step",
           "[movehandles]") {
-    Khan k;
+    SketchBillet k;
     const auto box = k.run("feature.add_box", {{"size", kernel::Vec3{40, 20, 10}}});
     k.pick({box});
     auto* user = k.viewer->handleUser();
@@ -136,7 +136,7 @@ TEST_CASE("dragging an arrow slides the box in whole mm, follows it, and undoes 
 
 TEST_CASE("dragging another body adds a Move step, which is then what's picked and dragged",
           "[movehandles]") {
-    Khan k;
+    SketchBillet k;
     const auto a = k.run("feature.add_box", {{"size", kernel::Vec3{10, 10, 10}}});
     const auto b = k.run("feature.add_cylinder", {{"radius", 2.0}, {"height", 20.0}});
     const auto cut = k.run("feature.add_boolean", {{"operation", std::string("cut")}, {"a", a}, {"b", b}});
@@ -158,7 +158,7 @@ TEST_CASE("dragging another body adds a Move step, which is then what's picked a
 }
 
 TEST_CASE("Escape during a drag puts the body back, and what was picked", "[movehandles]") {
-    Khan k;
+    SketchBillet k;
     const auto a = k.run("feature.add_box", {{"size", kernel::Vec3{10, 10, 10}}});
     const auto b = k.run("feature.add_cylinder", {{"radius", 2.0}, {"height", 20.0}});
     const auto cut = k.run("feature.add_boolean", {{"operation", std::string("cut")}, {"a", a}, {"b", b}});

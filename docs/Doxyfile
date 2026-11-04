@@ -1,9 +1,9 @@
-# Doxygen settings for Khan's public API documentation.
+# Doxygen settings for SketchBillet's public API documentation.
 # Build with:  cmake --build --preset dev --target docs
 # or directly: mkdir -p build/docs && doxygen docs/Doxyfile   (from the repository root)
 # Output goes to build/docs/html/index.html.
 
-PROJECT_NAME           = Khan
+PROJECT_NAME           = SketchBillet
 PROJECT_BRIEF          = "Free, open-source parametric CAD"
 OUTPUT_DIRECTORY       = build/docs
 CREATE_SUBDIRS         = NO

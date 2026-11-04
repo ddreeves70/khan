@@ -1,4 +1,4 @@
-// Tests for the PlaneGCS sketch solver. Every answer is checked with Khan's own
+// Tests for the PlaneGCS sketch solver. Every answer is checked with SketchBillet's own
 // error() measures, so these test the solver, not just that it runs.
 
 #include <catch2/catch_approx.hpp>
@@ -11,12 +11,12 @@
 #include <numbers>
 
 #include "SketchHelpers.h"
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
 
-using namespace kh;
-using namespace kh::sketch;
+using namespace sb;
+using namespace sb::sketch;
 using Catch::Approx;
-using kh::test::SketchBuilder;
+using sb::test::SketchBuilder;
 using K = ConstraintKind;
 
 namespace {

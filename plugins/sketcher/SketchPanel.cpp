@@ -19,11 +19,11 @@
 #include <numbers>
 
 #include "Constrain.h"
-#include "kh/model/Feature.h"
-#include "kh/sketch/Profiles.h"
-#include "kh/ui/UiRegistry.h"
+#include "sb/model/Feature.h"
+#include "sb/sketch/Profiles.h"
+#include "sb/ui/UiRegistry.h"
 
-namespace kh::plugins::sketcher {
+namespace sb::plugins::sketcher {
 
 namespace {
 
@@ -465,4 +465,4 @@ void SketchPanel::setValue(const std::string& name, double value) {
     }
 }
 
-}  // namespace kh::plugins::sketcher
+}  // namespace sb::plugins::sketcher

@@ -1,4 +1,4 @@
-#include "kh/plugins/Parameters.h"
+#include "sb/plugins/Parameters.h"
 
 #include <QColor>
 #include <QHBoxLayout>
@@ -13,24 +13,24 @@
 #include <string>
 #include <vector>
 
-#include "kh/model/Document.h"
-#include "kh/plugin/Events.h"
-#include "kh/ui/UiRegistry.h"
+#include "sb/model/Document.h"
+#include "sb/plugin/Events.h"
+#include "sb/ui/UiRegistry.h"
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
 constexpr const char* kManifest = R"({
-  "id": "kh.parameters",
+  "id": "sb.parameters",
   "name": "Parameters",
   "version": "0.1.0",
   "description": "The Parameters panel: the design's named values, like wall = 3 mm, that dimensions and steps can use.",
-  "requires": ["kh.modeling"],
+  "requires": ["sb.modeling"],
   "tier": "ui"
 })";
 
-constexpr const char* kPanelId = "kh.parameters.panel";
+constexpr const char* kPanelId = "sb.parameters.panel";
 
 // The table's columns.
 enum Column { kName = 0, kValue = 1, kIs = 2, kNote = 3 };
@@ -43,7 +43,7 @@ QString qs(const std::string& s) {
 class ParametersPanel final : public QWidget {
 public:
     ParametersPanel(plugin::PluginContext& ctx, ui::UiRegistry& ui) : ctx_(ctx), ui_(ui) {
-        setObjectName(QStringLiteral("kh.parameters.widget"));
+        setObjectName(QStringLiteral("sb.parameters.widget"));
         setMinimumWidth(320);
         auto* about =
             new QLabel(tr("Named values, like wall = 3 mm. Sketch dimensions and steps can use them in "
@@ -52,7 +52,7 @@ public:
         about->setWordWrap(true);
         about->setContentsMargins(4, 2, 4, 2);
         table_ = new QTableWidget(0, 4, this);
-        table_->setObjectName(QStringLiteral("kh.parameters.table"));
+        table_->setObjectName(QStringLiteral("sb.parameters.table"));
         table_->setHorizontalHeaderLabels({tr("Name"), tr("Value"), tr("Is"), tr("Note")});
         table_->verticalHeader()->hide();
         // As tall as its rows, so floating over the view it covers no more than it needs.
@@ -72,10 +72,10 @@ public:
             tr("What the value works out to, in the design's unit."));
 
         add_ = new QPushButton(tr("Add"), this);
-        add_->setObjectName(QStringLiteral("kh.parameters.add"));
+        add_->setObjectName(QStringLiteral("sb.parameters.add"));
         add_->setToolTip(tr("Add a parameter. Then type its name and value."));
         remove_ = new QPushButton(tr("Delete"), this);
-        remove_->setObjectName(QStringLiteral("kh.parameters.delete"));
+        remove_->setObjectName(QStringLiteral("sb.parameters.delete"));
         remove_->setToolTip(tr("Delete the picked parameters. One that something uses can't be deleted."));
         auto* buttons = new QHBoxLayout;
         buttons->addWidget(add_);
@@ -246,7 +246,7 @@ void registerParameters(plugin::PluginContext& ctx) {
     spec.startHidden = true;     // Modify > Parameters opens it
     spec.floatsOverView = true;  // see-through over the view, under the feature tree, like the other panels
     ui->addPanel(std::move(spec));
-    ctx.addAction(plugin::ActionSpec{.id = "kh.parameters.show",
+    ctx.addAction(plugin::ActionSpec{.id = "sb.parameters.show",
                                      .text = "Parameters",
                                      .menu = "Modify",
                                      .tip = "Open the Parameters panel: named values, like wall = 3 mm, that "
@@ -260,4 +260,4 @@ plugin::BuiltinPlugin parametersPlugin() {
     return {kManifest, &registerParameters};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins

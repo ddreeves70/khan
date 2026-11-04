@@ -1,10 +1,10 @@
-#include "kh/model/Feature.h"
+#include "sb/model/Feature.h"
 
 #include <utility>
 
-#include "kh/sketch/Profiles.h"
+#include "sb/sketch/Profiles.h"
 
-namespace kh::model {
+namespace sb::model {
 
 BoxFeature::BoxFeature(std::string name, kernel::Vec3 corner, kernel::Vec3 size)
     : BoxFeature(FeatureId::generate(), std::move(name), corner, size) {}
@@ -106,9 +106,9 @@ sketch::Point2 toSketch(SketchPlane plane, const kernel::Vec3& p) {
     return {d.x * a.x.x + d.y * a.x.y + d.z * a.x.z, d.x * a.y.x + d.y * a.y.y + d.z * a.y.z};
 }
 
-}  // namespace kh::model
+}  // namespace sb::model
 
-namespace kh::model {
+namespace sb::model {
 
 ExtrudeFeature::ExtrudeFeature(std::string name, FeatureId sketch, double distance, ExtrudeSide side)
     : Feature(std::move(name)), sketch_(sketch), distance_(distance), side_(side) {}
@@ -326,4 +326,4 @@ bool ExtrudeFeature::setNumber(std::string_view key, double value) {
     return true;
 }
 
-}  // namespace kh::model
+}  // namespace sb::model

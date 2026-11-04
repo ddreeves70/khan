@@ -1,6 +1,6 @@
 {
   "name": "extrude-spline-quintic",
-  "description": "The highest degree Khan allows: a degree 5 spline through 8 poles (3 knot spans, so its pieces meet with 4 continuous derivatives), from (0,0) to (60,0) and closed by a line, extruded 3 mm. Area 1393.3764 mm^2 and perimeter 156.8416 mm, worked out independently of Khan (SciPy B-spline, Green's theorem, adaptive integration per span). 4 faces.",
+  "description": "The highest degree SketchBillet allows: a degree 5 spline through 8 poles (3 knot spans, so its pieces meet with 4 continuous derivatives), from (0,0) to (60,0) and closed by a line, extruded 3 mm. Area 1393.3764 mm^2 and perimeter 156.8416 mm, worked out independently of SketchBillet (SciPy B-spline, Green's theorem, adaptive integration per span). 4 faces.",
   "steps": [
     {
       "id": "face",

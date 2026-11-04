@@ -1,14 +1,14 @@
-// Tests for the kh.axes plugin: what it draws, and its view options.
+// Tests for the sb.axes plugin: what it draws, and its view options.
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <string>
 
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugins/Axes.h"
-#include "kh/plugins/ViewOptions.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugins/Axes.h"
+#include "sb/plugins/ViewOptions.h"
 
-using namespace kh;
+using namespace sb;
 
 TEST_CASE("the axes run along the view cube's edges, with their letters past the ends", "[axes]") {
     const auto all = plugins::axesOverlays(true, true, false);
@@ -79,40 +79,40 @@ TEST_CASE("the axes at the origin are three 25 mm lines, drawn as well as the cu
     for (std::size_t i = 0; i < 6; ++i) CHECK_FALSE(all[i].overlay.visible);  // the cube's are off
 }
 
-TEST_CASE("kh.axes follows its view options, and Khan remembers them", "[axes]") {
+TEST_CASE("sb.axes follows its view options, and SketchBillet remembers them", "[axes]") {
     plugin::MemorySettings store;
-    store.write("plugins/kh.viewoptions/kh.axes.labels", "false");  // turned off last time
+    store.write("plugins/sb.viewoptions/sb.axes.labels", "false");  // turned off last time
     plugin::PluginHost host;
     host.setSettings(store);
     host.addBuiltin(plugins::viewOptionsPlugin());
     host.addBuiltin(plugins::axesPlugin());
     host.loadAll();
-    REQUIRE(host.find("kh.axes")->state == plugin::PluginState::Loaded);
-    CHECK(host.find("kh.axes")->issues.empty());
+    REQUIRE(host.find("sb.axes")->state == plugin::PluginState::Loaded);
+    CHECK(host.find("sb.axes")->issues.empty());
     auto visible = [&](const char* id) { return host.overlays().find(id)->visible; };
-    CHECK(visible("kh.axes.x"));
-    CHECK_FALSE(visible("kh.axes.x_label"));
+    CHECK(visible("sb.axes.x"));
+    CHECK_FALSE(visible("sb.axes.x_label"));
 
     const plugin::ActionSpec* show = nullptr;
     for (const auto& a : host.actions()) {
-        if (a.id == "kh.axes.show") show = &a;
+        if (a.id == "sb.axes.show") show = &a;
     }
     REQUIRE(show);
-    CHECK(show->plugin == "kh.axes");  // the menu item is the axes' own
+    CHECK(show->plugin == "sb.axes");  // the menu item is the axes' own
     show->run();                       // View > Show axes: off
-    CHECK_FALSE(visible("kh.axes.z"));
-    CHECK(store.read("plugins/kh.viewoptions/kh.axes.show") == "false");
+    CHECK_FALSE(visible("sb.axes.z"));
+    CHECK(store.read("plugins/sb.viewoptions/sb.axes.show") == "false");
 
-    CHECK_FALSE(visible("kh.axes.origin_x"));  // off until the student asks
+    CHECK_FALSE(visible("sb.axes.origin_x"));  // off until the student asks
     const plugin::ActionSpec* origin = nullptr;
     for (const auto& a : host.actions()) {
-        if (a.id == "kh.axes.origin") origin = &a;
+        if (a.id == "sb.axes.origin") origin = &a;
     }
     REQUIRE(origin);
     origin->run();  // View > Show axes at the origin: on, even with the cube's off
-    CHECK(visible("kh.axes.origin_x"));
-    CHECK_FALSE(visible("kh.axes.origin_x_label"));  // the letters are still off
-    CHECK(store.read("plugins/kh.viewoptions/kh.axes.origin") == "true");
+    CHECK(visible("sb.axes.origin_x"));
+    CHECK_FALSE(visible("sb.axes.origin_x_label"));  // the letters are still off
+    CHECK(store.read("plugins/sb.viewoptions/sb.axes.origin") == "true");
 }
 
 namespace {
@@ -131,7 +131,7 @@ TEST_CASE("a pane can hide its axis labels on its own", "[axes][panes]") {
     host.addBuiltin(plugins::viewOptionsPlugin());
     host.addBuiltin(plugins::axesPlugin());
     host.addBuiltin(
-        {R"({"id": "test.peek", "name": "Peek", "version": "1", "requires": ["kh.viewoptions"]})", &peek});
+        {R"({"id": "test.peek", "name": "Peek", "version": "1", "requires": ["sb.viewoptions"]})", &peek});
     host.loadAll();
     viewoptions::IViewOptions* options = peeked;
     REQUIRE(options);
@@ -139,14 +139,14 @@ TEST_CASE("a pane can hide its axis labels on its own", "[axes][panes]") {
     options->addPane({"v1.p2", "Viewer 1, right pane"});
     auto labelsShown = [&](const char* pane) {
         for (const auto& o : host.overlays().forPane(pane)) {
-            if (o.id == "kh.axes.x_label") return o.visible;
+            if (o.id == "sb.axes.x_label") return o.visible;
         }
         return false;
     };
-    REQUIRE(options->setInPane("kh.axes.labels", false, "v1.p1").empty());
+    REQUIRE(options->setInPane("sb.axes.labels", false, "v1.p1").empty());
     CHECK_FALSE(labelsShown("v1.p1"));
     CHECK(labelsShown("v1.p2"));
-    REQUIRE(options->set("kh.axes.labels", true).empty());  // a change for all panes
+    REQUIRE(options->set("sb.axes.labels", true).empty());  // a change for all panes
     CHECK(labelsShown("v1.p1"));
-    CHECK(host.overlays().find("kh.axes.x_label", "v1.p1") == nullptr);
+    CHECK(host.overlays().find("sb.axes.x_label", "v1.p1") == nullptr);
 }

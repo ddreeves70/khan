@@ -11,10 +11,10 @@
 #include <string>
 #include <vector>
 
-#include "kh/core/Id.h"
-#include "kh/model/CommandRegistry.h"
-#include "kh/plugin/PluginContext.h"
-#include "kh/sketch/Sketch.h"
+#include "sb/core/Id.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/plugin/PluginContext.h"
+#include "sb/sketch/Sketch.h"
 
 class QCheckBox;
 class QDoubleSpinBox;
@@ -23,7 +23,7 @@ class QPushButton;
 class QSpinBox;
 class QTableWidget;
 
-namespace kh::plugins::sketcher {
+namespace sb::plugins::sketcher {
 
 // A spline picked in the viewer, or one of its control points (from 0).
 struct SplinePick {
@@ -77,4 +77,4 @@ private:
     bool updating_ = false;
 };
 
-}  // namespace kh::plugins::sketcher
+}  // namespace sb::plugins::sketcher

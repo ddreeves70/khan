@@ -1,13 +1,13 @@
-#include "kh/view/Layout.h"
+#include "sb/view/Layout.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <string>
 
-#include "kh/view/Scene.h"
+#include "sb/view/Scene.h"
 
-namespace kh::view {
+namespace sb::view {
 
 int paneCount(PaneLayout layout) {
     switch (layout) {
@@ -224,4 +224,4 @@ std::optional<kernel::Vec3> rayHitsPlane(const kernel::Vec3& from, const kernel:
     return kernel::Vec3{from.x + t * direction.x, from.y + t * direction.y, from.z + t * direction.z};
 }
 
-}  // namespace kh::view
+}  // namespace sb::view

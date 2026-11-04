@@ -6,8 +6,8 @@
 
 Some ideas are used by several plugins at once: the grid (drawn by viewers, used
 to snap points by the sketcher, set from a menu), snapping, units, measure. If
-every such idea needed a change to Khan's base libraries (`kh_core` to
-`kh_plugin`, `kh_ui`), the base would grow with every feature, and every new
+every such idea needed a change to SketchBillet's base libraries (`sb_core` to
+`sb_plugin`, `sb_ui`), the base would grow with every feature, and every new
 idea would wait for a base change.
 
 This page describes how a **plugin can add a shared concept, and other plugins
@@ -16,10 +16,10 @@ can use it, with no change to the base.**
 ## The rule
 
 **The base only gains new *kinds* of extension, never concepts.** A change that
-teaches `kh_plugin` what a grid is has the wrong shape. A change that lets
+teaches `sb_plugin` what a grid is has the wrong shape. A change that lets
 plugins save settings has the right shape, and every later concept reuses it.
 
-Today the grid breaks this rule: `Grid` lives in `kh_plugin`, and the shell owns
+Today the grid breaks this rule: `Grid` lives in `sb_plugin`, and the shell owns
 its View menu, status text and saved settings. The grid is the worked example
 below, and it moves out first.
 
@@ -30,12 +30,12 @@ an interface, its event types and a version, and no implementation. Other
 plugins code against the contract, never against the plugin's code.
 
 ```cpp
-// plugins/grid/include/kh/grid/Grid.h: the contract, shipped with kh.grid
-namespace kh::grid {
+// plugins/grid/include/sb/grid/Grid.h: the contract, shipped with sb.grid
+namespace sb::grid {
 
 /// Sent when the grid's settings change.
 struct GridChanged {
-    static constexpr const char* kType = "kh.grid.changed";  // starts with the plugin id
+    static constexpr const char* kType = "sb.grid.changed";  // starts with the plugin id
     double spacing = 10;  // mm
     bool visible = true;
     bool snap = false;
@@ -44,28 +44,28 @@ struct GridChanged {
 /// The grid, as other plugins see it.
 class IGrid {
 public:
-    static constexpr const char* kServiceName = "kh.grid/1";  // version in the name
+    static constexpr const char* kServiceName = "sb.grid/1";  // version in the name
     virtual ~IGrid() = default;
     virtual double spacing() const = 0;                         // mm
     virtual kernel::Vec3 snap(kernel::Vec3 point) const = 0;    // unchanged when snapping is off
 };
 
-}  // namespace kh::grid
+}  // namespace sb::grid
 ```
 
 ```cpp
-// In kh.grid: offer the service during registration.
-ctx.provide<kh::grid::IGrid>(grid_);
+// In sb.grid: offer the service during registration.
+ctx.provide<sb::grid::IGrid>(grid_);
 
-// In kh.sketcher, which lists kh.grid in "uses": look it up when started.
+// In sb.sketcher, which lists sb.grid in "uses": look it up when started.
 ctx.onStart([&ctx] {
-    if (auto* grid = ctx.service<kh::grid::IGrid>()) { /* snap with it */ }
+    if (auto* grid = ctx.service<sb::grid::IGrid>()) { /* snap with it */ }
 });
-ctx.listen<kh::grid::GridChanged>([](const auto& e) { /* redraw */ });
+ctx.listen<sb::grid::GridChanged>([](const auto& e) { /* redraw */ });
 ```
 
 - **Contracts are versioned in the service name.** A breaking change publishes
-  `kh.grid/2` next to `kh.grid/1` for at least one release, so users have time
+  `sb.grid/2` next to `sb.grid/1` for at least one release, so users have time
   to move. Adding a function at the end of an interface is not allowed (it
   changes the layout); add a new versioned interface instead.
 - **Contracts are abstract classes plus plain structs.** No STL containers with
@@ -73,10 +73,10 @@ ctx.listen<kh::grid::GridChanged>([](const auto& e) { /* redraw */ });
   model-layer contracts. Built-in and outside C++ plugins are built with the same
   compiler per release (see Binary compatibility), so this is about keeping
   contracts stable, not about mixing compilers.
-- **Names start with the plugin id:** services `kh.grid/1`, events
-  `kh.grid.changed`. Khan's own base events keep their current names.
-- **Contracts ship in the SDK** as header-only CMake targets (`kh::grid_api`), so
-  an outside plugin can use `kh.grid` without linking to it.
+- **Names start with the plugin id:** services `sb.grid/1`, events
+  `sb.grid.changed`. SketchBillet's own base events keep their current names.
+- **Contracts ship in the SDK** as header-only CMake targets (`sb::grid_api`), so
+  an outside plugin can use `sb.grid` without linking to it.
 
 ## What the base provides, once
 
@@ -86,16 +86,16 @@ ctx.listen<kh::grid::GridChanged>([](const auto& e) { /* redraw */ });
 | **Plugin events** | Define and publish its own event types | Works already (events are keyed by a string name); add the naming rule |
 | **Two-phase startup** | Register first (offer services, events, commands, extension points), then start (look up and connect to others) | One phase: the register function |
 | **`requires` and `uses`** | Hard dependencies, and optional ones the plugin works without | `requires` only |
-| **Settings store** | Remembered settings per plugin (`ctx.settings()`), saved by the app (QSettings) and by `kh_cli` (none, or a file) | The shell saves the grid's settings itself |
-| **Design data** | Plugin-owned data saved in the `.khan` file (`plugins/<id>.json`), changed only through that plugin's commands, so undo works | Not yet; built when a concept first needs it |
+| **Settings store** | Remembered settings per plugin (`ctx.settings()`), saved by the app (QSettings) and by `sketchbillet_cli` (none, or a file) | The shell saves the grid's settings itself |
+| **Design data** | Plugin-owned data saved in the `.sb` file (`plugins/<id>.json`), changed only through that plugin's commands, so undo works | Not yet; built when a concept first needs it |
 | **UI hooks** | Check-mark menu items bound to a setting, status-bar items | Plain menu items and panels only |
 | **View overlays** | Things for a viewer to draw, as plain data: points and lines in mm, with a color | Not yet |
 | **Plugin-defined extension points** | A contract that itself accepts contributions from other plugins | Comes with plugin services |
 
 The last row is what stops the base from growing. Snapping is the example: a
-`kh.snap` plugin offers a service that other plugins *add snap sources to*
-(grid crossings from `kh.grid`, line ends and midpoints from the sketcher). The
-sketcher asks `kh.snap` for the best point. A new kind of snap, even from an
+`sb.snap` plugin offers a service that other plugins *add snap sources to*
+(grid crossings from `sb.grid`, line ends and midpoints from the sketcher). The
+sketcher asks `sb.snap` for the best point. A new kind of snap, even from an
 outside plugin, needs no change to the base or the sketcher.
 
 ## Startup and dependencies
@@ -126,7 +126,7 @@ ready at the same time load in id order, so the order is the same on every
 computer.
 
 **Loops are allowed.** If plugins depend on each other in a loop (A requires B,
-B requires A), Khan loads them: two-phase startup means none of them needs
+B requires A), SketchBillet loads them: two-phase startup means none of them needs
 another during registration. Inside a loop they load in id order. There is no
 warning. (Decided Oct 25, 2026; an earlier version of this design warned about
 loops.)
@@ -137,30 +137,30 @@ loop or outside) doesn't load, as with any failed dependency; plugins that only
 
 ## Warnings
 
-During loading Khan watches for things that work but are probably not what the
+During loading SketchBillet watches for things that work but are probably not what the
 author meant, and reports them as **warnings**: `Severity::Warning` diagnostics
 on the plugin. Warnings never stop a plugin loading. They show in
-`kh_cli plugins`, in the Plugin manager (a yellow mark on the plugin), and in the
+`sketchbillet_cli plugins`, in the Plugin manager (a yellow mark on the plugin), and in the
 app's log. Students aren't interrupted with pop-ups; plugin developers see them
 where they look.
 
 | Code | When | Message (plain words, says how to fix) |
 | --- | --- | --- |
-| `plugin.undeclared_dependency` | A plugin uses a service or listens to an event from a plugin it doesn't list in `requires` or `uses` | "Sketcher uses kh.grid/1 from Grid but doesn't list kh.grid in its plugin.json. Add it to \"uses\" so Khan loads them in the right order." |
-| `plugin.early_lookup` | A plugin looks up another plugin's service during registration instead of in `onStart`, and doesn't `require` that plugin (a required plugin always registers first, so that's fine) | "Sketcher asked for kh.grid/1 while registering. That only works because of the load order; look it up in onStart instead." |
-| `plugin.service_taken` | Two plugins provide the same service name | The first (in load order) keeps it; the second gets "Grid Pro tried to provide kh.grid/1, which Grid already provides. Khan kept Grid's." |
+| `plugin.undeclared_dependency` | A plugin uses a service or listens to an event from a plugin it doesn't list in `requires` or `uses` | "Sketcher uses sb.grid/1 from Grid but doesn't list sb.grid in its plugin.json. Add it to \"uses\" so SketchBillet loads them in the right order." |
+| `plugin.early_lookup` | A plugin looks up another plugin's service during registration instead of in `onStart`, and doesn't `require` that plugin (a required plugin always registers first, so that's fine) | "Sketcher asked for sb.grid/1 while registering. That only works because of the load order; look it up in onStart instead." |
+| `plugin.service_taken` | Two plugins provide the same service name | The first (in load order) keeps it; the second gets "Grid Pro tried to provide sb.grid/1, which Grid already provides. SketchBillet kept Grid's." |
 | `plugin.event_name` | A plugin publishes an event whose type doesn't start with its id | "Sam's cube sent the event cube.made. Event names must start with the plugin id, like sam.cube.made, so they don't clash." |
-| `plugin.old_contract` | A plugin uses a contract version that has a newer one, or that the provider marks as going away | "Sketcher uses kh.grid/1; Grid also offers kh.grid/2. kh.grid/1 will be removed in a later version." |
+| `plugin.old_contract` | A plugin uses a contract version that has a newer one, or that the provider marks as going away | "Sketcher uses sb.grid/1; Grid also offers sb.grid/2. sb.grid/1 will be removed in a later version." |
 | `plugin.uses_missing` | A `uses` plugin isn't installed | Info, not a warning: "Sketcher can use Grid, which isn't installed, so snapping to the grid is off." |
-| `plugin.slow_start` | Register or start takes longer than the slow-start limit (500 ms unless changed, see below) | "Sam's cube took 1.2 s to start, which slows Khan's start. Do slow work later, when it's first needed." |
+| `plugin.slow_start` | Register or start takes longer than the slow-start limit (500 ms unless changed, see below) | "Sam's cube took 1.2 s to start, which slows SketchBillet's start. Do slow work later, when it's first needed." |
 | `plugin.tier_order` | A plugin requires or uses a plugin in a higher tier (see Tiers) | "Grid (Foundation) uses Viewer (UI). A plugin should only use plugins in lower tiers; move the shared part down or use events." |
 | `plugin.tier_unknown`, `plugin.tier_conflict` | A plugin names a tier nobody defined, or defines a tier that clashes with another definition | "Mill says it belongs to the tier sam.mill.machining, which no plugin adds, so its tier isn't checked." |
 
-`kh_cli plugins --strict` turns warnings into failures, for plugin authors' CI.
+`sketchbillet_cli plugins --strict` turns warnings into failures, for plugin authors' CI.
 
 **The slow-start limit is an application setting,** not a constant: 500 ms by
 default, changed with the `plugins/slowStartMs` setting in the desktop app's
-settings, or `--slow-start-ms <n>` for `kh_cli`. 0 turns the warning off. (A
+settings, or `--slow-start-ms <n>` for `sketchbillet_cli`. 0 turns the warning off. (A
 slow school laptop might want 1500 ms; a plugin author's CI might want 200 ms.)
 
 ## Patterns for sharing
@@ -169,31 +169,31 @@ Three patterns keep dependencies pointing from higher tiers to lower ones:
 
 | Pattern | How it works | Example |
 | --- | --- | --- |
-| **Move the shared part down** | Put what both need into a third, lower plugin (or contract) that both depend on | Viewer and sketcher both need snapping: `kh.snap`, which both use and which uses neither |
-| **Turn the arrow around with an extension point** | The lower plugin offers a slot; the higher one plugs into it. The lower one never knows who plugged in | `kh.snap` doesn't depend on the sketcher; the sketcher adds snap sources to `kh.snap` |
-| **Talk back with events** | The lower plugin announces changes; anyone interested listens. Events create no dependency | The grid publishes `kh.grid.changed`; viewers listen; the grid doesn't know viewers exist |
+| **Move the shared part down** | Put what both need into a third, lower plugin (or contract) that both depend on | Viewer and sketcher both need snapping: `sb.snap`, which both use and which uses neither |
+| **Turn the arrow around with an extension point** | The lower plugin offers a slot; the higher one plugs into it. The lower one never knows who plugged in | `sb.snap` doesn't depend on the sketcher; the sketcher adds snap sources to `sb.snap` |
+| **Talk back with events** | The lower plugin announces changes; anyone interested listens. Events create no dependency | The grid publishes `sb.grid.changed`; viewers listen; the grid doesn't know viewers exist |
 
 ## Tiers
 
 **Built-in plugins get no special treatment.** They use only the public plugin
 API, follow the same rules and get the same warnings as any other plugin. The
 only differences are packaging: they ship with each release, and ids starting
-with `kh.` are kept for them.
+with `sb.` are kept for them.
 
 A plugin can say which **tier** it belongs to, in `plugin.json`:
 
 ```json
-{ "id": "kh.grid", "tier": "foundation", "uses": ["kh.snap"] }
+{ "id": "sb.grid", "tier": "foundation", "uses": ["sb.snap"] }
 ```
 
 Tiers are ordered, lowest first, and a plugin should only `require` or `use`
-plugins in its own tier or lower ones. Khan defines three:
+plugins in its own tier or lower ones. SketchBillet defines three:
 
-| Tier | For | Khan's own plugins |
+| Tier | For | SketchBillet's own plugins |
 | --- | --- | --- |
-| `foundation` | Shared concepts other plugins build on | `kh.modeling`, `kh.grid`, `kh.snap`, units |
+| `foundation` | Shared concepts other plugins build on | `sb.modeling`, `sb.grid`, `sb.snap`, units |
 | `tools` | Things the student does | sketcher, measure, later CAM |
-| `ui` | Panels and views that show the design | `kh.viewer`, `kh.featuretree`, `kh.properties`, later the timeline |
+| `ui` | Panels and views that show the design | `sb.viewer`, `sb.featuretree`, `sb.properties`, later the timeline |
 
 A dependency into a higher tier gets the `plugin.tier_order`
 warning; a plugin with no tier isn't checked. Tiers never change the load order,
@@ -213,7 +213,7 @@ machining suite that wants its own layer between tools and the views:
 
 - A new tier's name starts with the plugin id that defines it and a dot
   (`sam.mill.machining`),
-  so two plugins can't define the same name by accident. Khan's three keep their
+  so two plugins can't define the same name by accident. SketchBillet's three keep their
   short names.
 - `after` and `before` name existing tiers; at least one is needed. A plugin can
   only add tiers, never move or remove existing ones.
@@ -221,29 +221,29 @@ machining suite that wants its own layer between tools and the views:
   side by side: neither is above the other, and a dependency between them gets no
   tier warning.
 - A tier whose placement contradicts the others (say `after: ui, before: tools`),
-  or a name already defined, gets `plugin.tier_conflict`; Khan ignores that
+  or a name already defined, gets `plugin.tier_conflict`; SketchBillet ignores that
   definition and carries on.
 - A plugin naming a tier nobody defines gets `plugin.tier_unknown`, and its tier
   isn't checked.
 
-**Khan's own CI** checks its own plugins strictly: `kh_cli plugins --strict` on
-`kh.modeling` and the guide's example plugins (the `cli.plugins_strict` test),
+**SketchBillet's own CI** checks its own plugins strictly: `sketchbillet_cli plugins --strict` on
+`sb.modeling` and the guide's example plugins (the `cli.plugins_strict` test),
 and an app test that every built-in plugin loads with no warnings and has a
-tier. For them a tier warning fails the build. That's how Khan holds itself to
+tier. For them a tier warning fails the build. That's how SketchBillet holds itself to
 the rule; it's the same check every plugin gets, made strict.
 
 ## Worked example: the grid
 
 | | Today | After |
 | --- | --- | --- |
-| Settings and snapping | `kh::plugin::Grid` in `kh_plugin`, provided by the app | `kh.grid` plugin; `IGrid` contract (`kh.grid/1`) |
-| Remembering settings | The shell writes QSettings keys | `kh.grid` uses the settings store |
-| View menu items | Built by the shell | Check-mark actions from `kh.grid`, bound to its settings |
-| Status bar text | Built by the shell | A status-bar item from `kh.grid` |
-| Drawing it | `kh.viewer` reads `GridChanged` and tells each pane | `kh.grid` adds a view overlay; the viewer draws overlays and knows nothing about grids |
-| Snapping | `Grid::snap()` | `kh.grid` adds grid crossings as a snap source to `kh.snap` (Phase 1) |
+| Settings and snapping | `sb::plugin::Grid` in `sb_plugin`, provided by the app | `sb.grid` plugin; `IGrid` contract (`sb.grid/1`) |
+| Remembering settings | The shell writes QSettings keys | `sb.grid` uses the settings store |
+| View menu items | Built by the shell | Check-mark actions from `sb.grid`, bound to its settings |
+| Status bar text | Built by the shell | A status-bar item from `sb.grid` |
+| Drawing it | `sb.viewer` reads `GridChanged` and tells each pane | `sb.grid` adds a view overlay; the viewer draws overlays and knows nothing about grids |
+| Snapping | `Grid::snap()` | `sb.grid` adds grid crossings as a snap source to `sb.snap` (Phase 1) |
 
-After the move, the shell, `kh_plugin` and `kh.viewer` contain no grid code.
+After the move, the shell, `sb_plugin` and `sb.viewer` contain no grid code.
 
 ## What stays in the base
 
@@ -251,7 +251,7 @@ Concepts that every design and every plugin depends on stay in the core
 libraries, because they are the model itself, not features on top of it:
 documents, features, commands and undo, the selection, the kernel, and
 **materials** (a body's mass, cost and later its strength depend on them, and
-they're saved with each step). The test for "core or plugin?" is: could Khan
+they're saved with each step). The test for "core or plugin?" is: could SketchBillet
 still be a working CAD program without it? If yes, it's a plugin.
 
 ## Building it
@@ -260,26 +260,26 @@ still be a working CAD program without it? If yes, it's a plugin.
    services, two-phase startup, `uses`, loops allowed (first with a warning,
    which was later removed), the warnings, `--strict`, the configurable slow-start limit, and the guide's Ruler
    and Tape example (API 4); then the settings store (`ctx.settings()`,
-   `kh.SettingChanged`), actions that run plugin code with a check mark,
+   `sb.SettingChanged`), actions that run plugin code with a check mark,
    submenus, and status-bar items (API 5). Ruler now remembers its unit.
    Originally planned as one step: plugin services, two-phase startup
    (`onStart`), `uses`, loops allowed, the other warnings,
    `--strict`, the configurable slow-start limit, the settings store, check-mark actions and status-bar items. The
    plugin guide gets a "Share something with other plugins" page with a worked
    example built and loaded by a test.
-2. **The grid moves out:** view overlays, the `kh.grid` plugin, tiers in
-   `plugin.json` (with plugin-defined tiers), and `kh_cli plugins --strict` on
+2. **The grid moves out:** view overlays, the `sb.grid` plugin, tiers in
+   `plugin.json` (with plugin-defined tiers), and `sketchbillet_cli plugins --strict` on
    the built-in plugins in CI.
    The user's guide is unchanged: the grid looks and works the same.
    *Built Oct 25, 2026 (plugin API 6):* view overlays (`ctx.overlays()`: lines,
-   dots and lattices as plain data, drawn by `kh.viewer` without knowing what
-   they are) and the `kh.grid` plugin with its `kh.grid/1` contract. The shell,
-   `kh_plugin` and `kh.viewer` now contain no grid code. Overlays live in the base
-   rather than in `kh.viewer`, so a foundation plugin like `kh.grid` can draw
+   dots and lattices as plain data, drawn by `sb.viewer` without knowing what
+   they are) and the `sb.grid` plugin with its `sb.grid/1` contract. The shell,
+   `sb_plugin` and `sb.viewer` now contain no grid code. Overlays live in the base
+   rather than in `sb.viewer`, so a foundation plugin like `sb.grid` can draw
    without depending on a view plugin. *Tiers built the same day (plugin API 7),*
    with same-tier dependencies allowed and the loop warning removed, as decided
    then.
-3. **Later, when first needed:** design data, `kh.snap` (with the sketcher in
+3. **Later, when first needed:** design data, `sb.snap` (with the sketcher in
    Phase 1), plugin-defined extension points beyond snapping.
 
 Other applications built this way: VS Code (an extension returns an API from

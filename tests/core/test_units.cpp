@@ -1,11 +1,11 @@
-// Tests for the units a design shows lengths in (kh/core/Units.h).
+// Tests for the units a design shows lengths in (sb/core/Units.h).
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include "kh/core/Units.h"
+#include "sb/core/Units.h"
 
-using namespace kh;
+using namespace sb;
 using Catch::Approx;
 
 TEST_CASE("length units turn into and out of millimeters", "[core][units]") {

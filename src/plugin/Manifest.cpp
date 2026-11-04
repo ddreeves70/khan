@@ -1,13 +1,13 @@
-#include "kh/plugin/Manifest.h"
+#include "sb/plugin/Manifest.h"
 
 #include <fstream>
 #include <sstream>
 
 #include <nlohmann/json.hpp>
 
-#include "kh/plugin/Api.h"
+#include "sb/plugin/Api.h"
 
-namespace kh::plugin {
+namespace sb::plugin {
 
 namespace {
 
@@ -51,8 +51,9 @@ ManifestResult parseManifest(std::string_view text, const std::filesystem::path&
 
     const json j = json::parse(text, nullptr, false);
     if (j.is_discarded() || !j.is_object()) {
-        problem("The plugin.json file of " + where(folder) + " is damaged, so Khan can't load it." + fix,
-                "plugin.json is not a JSON object");
+        problem(
+            "The plugin.json file of " + where(folder) + " is damaged, so SketchBillet can't load it." + fix,
+            "plugin.json is not a JSON object");
         return result;
     }
 
@@ -167,10 +168,10 @@ ManifestResult readManifest(const std::filesystem::path& folder) {
     std::ifstream f(folder / "plugin.json", std::ios::binary);
     if (!f) {
         ManifestResult r;
-        r.issues.push_back(
-            {"plugin.manifest_missing", Severity::Error,
-             "Khan couldn't read plugin.json in " + folder.string() + ". Every plugin folder needs one.",
-             (folder / "plugin.json").string()});
+        r.issues.push_back({"plugin.manifest_missing", Severity::Error,
+                            "SketchBillet couldn't read plugin.json in " + folder.string() +
+                                ". Every plugin folder needs one.",
+                            (folder / "plugin.json").string()});
         return r;
     }
     std::ostringstream text;
@@ -178,4 +179,4 @@ ManifestResult readManifest(const std::filesystem::path& folder) {
     return parseManifest(text.str(), folder);
 }
 
-}  // namespace kh::plugin
+}  // namespace sb::plugin

@@ -1,4 +1,4 @@
-#include "kh/sketch/Profiles.h"
+#include "sb/sketch/Profiles.h"
 
 #include <algorithm>
 #include <cmath>
@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-namespace kh::sketch {
+namespace sb::sketch {
 
 namespace {
 
@@ -188,7 +188,8 @@ Profiles findProfiles(const Sketch& sketch, double tolerance) {
                  Severity::Warning,
                  std::to_string(here.size()) + " lines and arcs meet at " + p.entity->name + "'s " +
                      roleWord(p.startVertex == static_cast<int>(v) ? PointRole::Start : PointRole::End) +
-                     ", so Khan can't tell which closed shape they belong to. Delete the extra one, or make "
+                     ", so SketchBillet can't tell which closed shape they belong to. Delete the extra one, "
+                     "or make "
                      "it a "
                      "helper line.",
                  {}});
@@ -330,4 +331,4 @@ std::optional<Loop> loopAround(const Sketch& sketch, Point2 point, double tolera
     return best;
 }
 
-}  // namespace kh::sketch
+}  // namespace sb::sketch

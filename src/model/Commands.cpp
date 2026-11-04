@@ -1,4 +1,4 @@
-#include "kh/model/Commands.h"
+#include "sb/model/Commands.h"
 
 #include <algorithm>
 #include <cctype>
@@ -10,9 +10,9 @@
 #include <sstream>
 #include <utility>
 
-#include "kh/model/Document.h"
+#include "sb/model/Document.h"
 
-namespace kh::model {
+namespace sb::model {
 
 namespace {
 
@@ -240,9 +240,10 @@ Diagnostics SetMaterialCommand::apply(DocumentEditor& editor) {
     if (!wanted_.empty()) {
         const Material* m = doc.findMaterial(wanted_);
         if (!m) {
-            return {error("material.unknown", "There is no material called " + wanted_ +
-                                                  ". See the list with kh_cli materials, or add your own "
-                                                  "with material.define.")};
+            return {error("material.unknown",
+                          "There is no material called " + wanted_ +
+                              ". See the list with sketchbillet_cli materials, or add your own "
+                              "with material.define.")};
         }
         key = m->key;
         material_ = m->name;
@@ -286,15 +287,16 @@ std::string DefineMaterialCommand::label() const {
 
 Diagnostics DefineMaterialCommand::apply(DocumentEditor& editor) {
     if (!badColor_.empty()) {
-        return {error("material.color", "Khan can't read the color " + badColor_ +
+        return {error("material.color", "SketchBillet can't read the color " + badColor_ +
                                             ". Write it as # and six hex digits, like #3366cc.")};
     }
     if (auto issues = checkMaterial(material_); !issues.empty()) return issues;
     if (findBuiltinMaterial(material_.name)) {
-        return {error("material.builtin", material_.name +
-                                              " is one of Khan's own materials, which can't be changed. Give "
-                                              "yours another name, like My " +
-                                              material_.name + ".")};
+        return {error("material.builtin",
+                      material_.name +
+                          " is one of SketchBillet's own materials, which can't be changed. Give "
+                          "yours another name, like My " +
+                          material_.name + ".")};
     }
     auto& list = editor.materials();
     const auto it = std::find_if(list.begin(), list.end(),
@@ -338,7 +340,7 @@ Diagnostics DeleteMaterialCommand::apply(DocumentEditor& editor) {
     if (it == list.end()) {
         if (findBuiltinMaterial(wanted_)) {
             return {error("material.builtin",
-                          wanted_ + " is one of Khan's own materials, which can't be deleted.")};
+                          wanted_ + " is one of SketchBillet's own materials, which can't be deleted.")};
         }
         return {error("material.unknown", "This design has no material of its own called " + wanted_ + ".")};
     }
@@ -361,9 +363,9 @@ void DeleteMaterialCommand::revert(DocumentEditor& editor) {
     list.insert(list.begin() + static_cast<std::ptrdiff_t>(std::min(index_, list.size())), *removed_);
 }
 
-}  // namespace kh::model
+}  // namespace sb::model
 
-namespace kh::model {
+namespace sb::model {
 
 // ---------------------------------------------------------------------------
 // Copying steps, and AddFeaturesCommand
@@ -469,9 +471,9 @@ void AddFeaturesCommand::revertMaterials(DocumentEditor& editor) {
     addedMaterials_.clear();
 }
 
-}  // namespace kh::model
+}  // namespace sb::model
 
-namespace kh::model {
+namespace sb::model {
 
 // ---------------------------------------------------------------------------
 // Turning steps off and on
@@ -518,9 +520,9 @@ void SuppressFeaturesCommand::revert(DocumentEditor& editor) {
     }
 }
 
-}  // namespace kh::model
+}  // namespace sb::model
 
-namespace kh::model {
+namespace sb::model {
 
 // ---------------------------------------------------------------------------
 // Folders
@@ -635,9 +637,9 @@ void DeleteFolderCommand::revert(DocumentEditor& editor) {
     folders.insert(folders.begin() + static_cast<std::ptrdiff_t>(std::min(index_, folders.size())), removed_);
 }
 
-}  // namespace kh::model
+}  // namespace sb::model
 
-namespace kh::model {
+namespace sb::model {
 
 // ---------------------------------------------------------------------------
 // Editing sketches
@@ -740,7 +742,7 @@ std::optional<Corner> findCorner(const sketch::Sketch& s, const sketch::PointRef
     }
     if (partners > 1) {
         problems = cornerProblem("More than two lines meet at " + here +
-                                 ", so Khan can't tell which corner to round.");
+                                 ", so SketchBillet can't tell which corner to round.");
         return std::nullopt;
     }
     const auto* l1 = lineOf(c.first.entity);
@@ -1284,9 +1286,9 @@ void EditSketchCommand::revert(DocumentEditor& editor) {
     }
 }
 
-}  // namespace kh::model
+}  // namespace sb::model
 
-namespace kh::model {
+namespace sb::model {
 
 // ---------------------------------------------------------------------------
 // SlideBodyCommand
@@ -1362,4 +1364,4 @@ bool SlideBodyCommand::mergeWith(const Command& next) {
     return true;
 }
 
-}  // namespace kh::model
+}  // namespace sb::model

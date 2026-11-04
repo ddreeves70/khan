@@ -2,9 +2,9 @@
 
 This page gets you from nothing to a part ready to 3D print.
 
-## 1. Get Khan
+## 1. Get SketchBillet
 
-Khan has no installer yet, so you build it from its source code. The main
+SketchBillet has no installer yet, so you build it from its source code. The main
 [README](../../README.md) has the steps for Windows, macOS and Linux. It takes
 about 30 minutes the first time, mostly downloading libraries.
 
@@ -12,11 +12,11 @@ When it's done, check that it works:
 
 <!-- cli-example -->
 ```console
-$ kh_cli --version
-kh_cli 0.0.1
+$ sketchbillet_cli --version
+sketchbillet_cli 0.0.1
 ```
 
-`kh_cli` is in your build folder; see [Where to find it](../cli/README.md#where-to-find-it).
+`sketchbillet_cli` is in your build folder; see [Where to find it](../cli/README.md#where-to-find-it).
 
 ## 2. Make your first part
 
@@ -25,14 +25,14 @@ and 10 mm tall:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save first.khan feature.add_box size=40,30,10
+$ sketchbillet_cli run --save first.sb feature.add_box size=40,30,10
 first: 1 step
   Box1         ok  volume 12000.00 mm^3  mass 14.88 g (PLA)
-wrote first.khan
+wrote first.sb
 ```
 
-Khan made a design with one step, `Box1`, checked that it builds (`ok`), and saved
-it as `first.khan`.
+SketchBillet made a design with one step, `Box1`, checked that it builds (`ok`), and saved
+it as `first.sb`.
 
 ## 3. Add to it
 
@@ -41,28 +41,28 @@ then cut it out of the box:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open first.khan --save first.khan feature.add_cylinder base=20,15,-1 radius=6 height=12
+$ sketchbillet_cli run --open first.sb --save first.sb feature.add_cylinder base=20,15,-1 radius=6 height=12
 first: 2 steps
   Box1         ok  volume 12000.00 mm^3  mass 14.88 g (PLA)
   Cylinder1    ok  volume 1357.17 mm^3  mass 1.68 g (PLA)
-wrote first.khan
-$ kh_cli run --open first.khan --save first.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1
+wrote first.sb
+$ sketchbillet_cli run --open first.sb --save first.sb feature.add_boolean operation=cut a=Box1 b=Cylinder1
 first: 3 steps
   Box1         ok  volume 12000.00 mm^3
   Cylinder1    ok  volume 1357.17 mm^3
   Cut1         ok  volume 10869.03 mm^3  mass 13.48 g (PLA)
-wrote first.khan
+wrote first.sb
 ```
 
 ![The box with a hole through it](../cli/images/run-block.png)
 
 ## 4. Export it
 
-In the desktop app, that's **File > Export...** (Ctrl+E). With `kh_cli`:
+In the desktop app, that's **File > Export...** (Ctrl+E). With `sketchbillet_cli`:
 
 <!-- cli-example -->
 ```console
-$ kh_cli open first.khan --export first.stl
+$ sketchbillet_cli open first.sb --export first.stl
 first: 3 steps
   Box1         ok  volume 12000.00 mm^3
   Cylinder1    ok  volume 1357.17 mm^3
@@ -74,7 +74,7 @@ Open `first.stl` in a slicer to print it, or in any 3D viewer to look at it.
 
 ## Or use the desktop app
 
-Everything above also works in the desktop app, `kh_app`, with menus instead of
+Everything above also works in the desktop app, `sketchbillet`, with menus instead of
 commands: see [The desktop app](desktop-app.md).
 
 ## Next

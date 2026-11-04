@@ -1,6 +1,6 @@
 # UI screens
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
+> **Draft.** This design changes as SketchBillet is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 Four mockups show the shell, the plugins and the docking from [UI and plugin architecture](architecture.md#ui-and-plugin-architecture). Each numbered marker matches a row in the table under its screen. The part is the 40 × 30 × 10 mm block with a 5 mm radius hole from PR #3's test, so the numbers shown are real.
 
@@ -9,7 +9,7 @@ Four mockups show the shell, the plugins and the docking from [UI and plugin arc
 > browser and dialogs in Fusion (`ui::PanelSpec::floatsOverView`): the tree at
 > its top left, the others stacked at its top right under the view cube. Each can
 > fold to its title, be resized, or be docked as an ordinary Qt ADS panel, and
-> Khan remembers which. The tree starts with the design's name and **Document
+> SketchBillet remembers which. The tree starts with the design's name and **Document
 > settings** (`Selection::pickDesign()`), where units will be chosen. The strip
 > of view buttons across the top of the viewer became a floating **view bar** at
 > its bottom middle, like Fusion's: Orbit, Pan and Zoom (what a left drag does),
@@ -27,17 +27,17 @@ Four mockups show the shell, the plugins and the docking from [UI and plugin arc
 | --- | --- | --- | --- |
 | 1 | Workspace switcher: Design, Drawing, Make | Shell | Workspaces |
 | 2 | Command search finds any command by its name | Shell | Command registry |
-| 3 | Ribbon groups Create, Combine, Inspect, Export | `kh.modeling`, `kh.io`, `kh.makeit` | Toolbar and ribbon extension point |
+| 3 | Ribbon groups Create, Combine, Inspect, Export | `sb.modeling`, `sb.io`, `sb.makeit` | Toolbar and ribbon extension point |
 | 4 | A community plugin's own ribbon group | Gear generator (Python) | Same extension point as the built-ins |
 | 5 | Layout menu: switch or save named layouts | Shell | Qt ADS perspectives |
-| 6 | Feature tree panel | `kh.featuretree` | Panel extension point |
+| 6 | Feature tree panel | `sb.featuretree` | Panel extension point |
 | 7 | Dock buttons: float, maximize, close; drag the title to move | Shell | Qt ADS |
-| 8 | Pane layout: 1, 2 side by side, 2 stacked, 4 | `kh.viewer` | Viewer type |
-| 9 | Top, Front, Right and 3D panes, each with its own camera | `kh.viewer` | One `V3d_View` per pane, one shared scene |
-| 10 | The selected step is highlighted in the tree too | `kh.featuretree` | `SelectionChanged` event |
-| 11 | View cube in the active pane (orange outline) | `kh.viewer` | Viewer tool |
-| 12 | Properties of the step and the picked face, with units | `kh.properties` | Property editor, `SelectionChanged` |
-| 13 | Timeline with the rollback marker | `kh.timeline` (Phase 2) | Panel extension point |
+| 8 | Pane layout: 1, 2 side by side, 2 stacked, 4 | `sb.viewer` | Viewer type |
+| 9 | Top, Front, Right and 3D panes, each with its own camera | `sb.viewer` | One `V3d_View` per pane, one shared scene |
+| 10 | The selected step is highlighted in the tree too | `sb.featuretree` | `SelectionChanged` event |
+| 11 | View cube in the active pane (orange outline) | `sb.viewer` | Viewer tool |
+| 12 | Properties of the step and the picked face, with units | `sb.properties` | Property editor, `SelectionChanged` |
+| 13 | Timeline with the rollback marker | `sb.timeline` (Phase 2) | Panel extension point |
 | 14 | Status bar: what is under the mouse, units, plugin count | Shell | `HoverChanged` event |
 
 ## 2. Two viewers and docking a panel
@@ -46,14 +46,14 @@ Four mockups show the shell, the plugins and the docking from [UI and plugin arc
 
 | # | What you see | From | How it works |
 | --- | --- | --- | --- |
-| 1 | Viewer 1 showing one 3D pane | `kh.viewer` | Viewer type |
+| 1 | Viewer 1 showing one 3D pane | `sb.viewer` | Viewer type |
 | 2 | New viewer button (also Window > New viewer) | Shell | Opens another viewer of the active part |
-| 3 | Viewer 2 of the same part, Front and Right stacked | `kh.viewer` | Shares the part's scene |
+| 3 | Viewer 2 of the same part, Front and Right stacked | `sb.viewer` | Shares the part's scene |
 | 4 | The Properties panel, dragged by its title | Shell | Qt ADS |
 | 5 | Drop targets: left, right, top, bottom, or center to add it as a tab | Shell | Qt ADS |
 | 6 | Preview of where the panel will land | Shell | Qt ADS |
-| 7 | Panels tabbed together: Lesson and Plugin output | `kh.lessons`, shell | Panel extension point |
-| 8 | Link camera: two viewers follow each other | `kh.viewer` | `CameraChanged` event |
+| 7 | Panels tabbed together: Lesson and Plugin output | `sb.lessons`, shell | Panel extension point |
+| 8 | Link camera: two viewers follow each other | `sb.viewer` | `CameraChanged` event |
 
 ## 3. Two monitors
 
@@ -62,9 +62,9 @@ Four mockups show the shell, the plugins and the docking from [UI and plugin arc
 | # | What you see | From | How it works |
 | --- | --- | --- | --- |
 | 1 | Main window on the laptop with one 3D pane | Shell | Qt ADS |
-| 2 | Viewer 2 floated onto the external monitor in four panes; Dock back returns it | Shell, `kh.viewer` | Qt ADS floating window |
-| 3 | Properties floated in its own window | `kh.properties` | Qt ADS floating window |
-| 4 | The same face is highlighted on both screens | `kh.viewer` | `SelectionChanged` event |
+| 2 | Viewer 2 floated onto the external monitor in four panes; Dock back returns it | Shell, `sb.viewer` | Qt ADS floating window |
+| 3 | Properties floated in its own window | `sb.properties` | Qt ADS floating window |
+| 4 | The same face is highlighted on both screens | `sb.viewer` | `SelectionChanged` event |
 | 5 | The saved layout Two screens remembers which window goes on which monitor | Shell | Qt ADS perspective plus screen positions |
 | 6 | A pick on either screen updates every view | Shell | Event bus |
 

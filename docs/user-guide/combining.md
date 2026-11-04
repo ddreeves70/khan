@@ -1,6 +1,6 @@
 # Combining bodies
 
-Most parts are simple shapes added together or cut from each other. Khan does
+Most parts are simple shapes added together or cut from each other. SketchBillet does
 this with a **Boolean** step, which combines two bodies into one. There are three
 kinds.
 
@@ -11,15 +11,15 @@ cylinder that overlaps its right side.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save parts.khan feature.add_box size=30,30,10
+$ sketchbillet_cli run --save parts.sb feature.add_box size=30,30,10
 parts: 1 step
   Box1         ok  volume 9000.00 mm^3  mass 11.16 g (PLA)
-wrote parts.khan
-$ kh_cli run --open parts.khan --save parts.khan feature.add_cylinder base=30,15,0 radius=10 height=20
+wrote parts.sb
+$ sketchbillet_cli run --open parts.sb --save parts.sb feature.add_cylinder base=30,15,0 radius=10 height=20
 parts: 2 steps
   Box1         ok  volume 9000.00 mm^3  mass 11.16 g (PLA)
   Cylinder1    ok  volume 6283.19 mm^3  mass 7.79 g (PLA)
-wrote parts.khan
+wrote parts.sb
 ```
 
 | Kind | Keeps | Use it for |
@@ -36,7 +36,7 @@ wrote parts.khan
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open parts.khan feature.add_boolean operation=union a=Box1 b=Cylinder1
+$ sketchbillet_cli run --open parts.sb feature.add_boolean operation=union a=Box1 b=Cylinder1
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
@@ -55,7 +55,7 @@ The cylinder (orange outline) is taken away from the box. The order matters:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open parts.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1
+$ sketchbillet_cli run --open parts.sb feature.add_boolean operation=cut a=Box1 b=Cylinder1
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
@@ -71,7 +71,7 @@ bodies).
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open parts.khan feature.add_boolean operation=intersect a=Box1 b=Cylinder1
+$ sketchbillet_cli run --open parts.sb feature.add_boolean operation=intersect a=Box1 b=Cylinder1
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3

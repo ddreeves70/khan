@@ -1,6 +1,6 @@
 #pragma once
 
-// The parts of the 3D view that use OCCT's OpenGL classes (private to kh_view).
+// The parts of the 3D view that use OCCT's OpenGL classes (private to sb_view).
 //
 // They live in their own file because OCCT's OpenGL headers and Qt's (which
 // bring in the system's gl.h) clash on macOS: no file may include both.
@@ -11,7 +11,7 @@
 
 #include <string>
 
-namespace kh::view::detail {
+namespace sb::view::detail {
 
 // The one OCCT graphics driver every view shares, made the first time it's
 // asked for; null if OCCT couldn't make it (no display). Never throws.
@@ -31,4 +31,4 @@ std::string attachContext(const Handle(V3d_View) & view, bool coreProfile, Aspec
 // an empty string when it could.
 std::string useQtFramebuffer(const Handle(V3d_View) & view);
 
-}  // namespace kh::view::detail
+}  // namespace sb::view::detail

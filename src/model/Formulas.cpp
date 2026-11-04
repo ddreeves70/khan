@@ -1,8 +1,8 @@
-#include "kh/model/Formulas.h"
+#include "sb/model/Formulas.h"
 
 #include <algorithm>
 
-namespace kh::model {
+namespace sb::model {
 
 Dimension dimensionOf(sketch::ConstraintKind kind) {
     return kind == sketch::ConstraintKind::Angle ? kAngle : kLength;
@@ -71,4 +71,4 @@ std::vector<std::string> dimensionsUsing(const sketch::Sketch& sketch, std::stri
     return out;
 }
 
-}  // namespace kh::model
+}  // namespace sb::model

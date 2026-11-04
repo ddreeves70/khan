@@ -35,7 +35,7 @@
 # include <cassert>
 #endif
 
-#include <cassert>  // Khan: replaces an unused Boost include (boost/graph/graph_concepts.hpp) that brought it in
+#include <cassert>  // SketchBillet: replaces an unused Boost include (boost/graph/graph_concepts.hpp) that brought it in
 
 #include "Constraints.h"
 

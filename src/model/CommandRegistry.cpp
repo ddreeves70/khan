@@ -1,4 +1,4 @@
-#include "kh/model/CommandRegistry.h"
+#include "sb/model/CommandRegistry.h"
 
 #include <algorithm>
 #include <cctype>
@@ -9,11 +9,11 @@
 #include <sstream>
 #include <utility>
 
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/model/Formulas.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/model/Formulas.h"
 
-namespace kh::model {
+namespace sb::model {
 
 namespace {
 
@@ -340,8 +340,8 @@ sketch::PointsFile readPointsFile(const std::string& file, LengthUnit unit) {
     if (!in) {
         sketch::PointsFile out;
         out.issues.push_back(
-            sketchProblem("sketch.points_file", "Khan can't open " + name + " (looked for it at " + file +
-                                                    "). Check the file is there, and try again."));
+            sketchProblem("sketch.points_file", "SketchBillet can't open " + name + " (looked for it at " +
+                                                    file + "). Check the file is there, and try again."));
         return out;
     }
     std::ostringstream text;
@@ -725,7 +725,7 @@ CommandRegistry makeBuiltin() {
              {}},
             {"through",
              ArgType::Vec2List,
-             "Points it passes through, in mm, split by /, like 0,0/20,15/40,0. Khan works out the "
+             "Points it passes through, in mm, split by /, like 0,0/20,15/40,0. SketchBillet works out the "
              "control points (one for each). Give this or poles.",
              false,
              {}},
@@ -769,7 +769,7 @@ CommandRegistry makeBuiltin() {
     r.add({"sketch.import_spline",
            "Import spline",
            "Adds a spline made from a file of points: one point per line, x then y (a spreadsheet's CSV "
-           "works). Khan "
+           "works). SketchBillet "
            "remembers the file, so sketch.reload_spline can read it again after it changes.",
            {sketchArg,
             {"file", ArgType::Text, "The file of points, like wave.csv.", true, {}},
@@ -1217,7 +1217,8 @@ CommandRegistry makeBuiltin() {
            {{"feature", ArgType::FeatureRef, "The step.", true, {}},
             {"material",
              ArgType::Text,
-             "A material's name, like PLA or \"Aluminum 6061\" (see kh_cli materials). Leave it empty to "
+             "A material's name, like PLA or \"Aluminum 6061\" (see sketchbillet_cli materials). Leave it "
+             "empty to "
              "use the material of the step it was made from (or PLA).",
              true,
              {}}}},
@@ -1255,7 +1256,8 @@ CommandRegistry makeBuiltin() {
 
     r.add({"document.set_units",
            "Set units",
-           "Changes the units the design shows lengths in. Nothing changes size: Khan keeps every length in "
+           "Changes the units the design shows lengths in. Nothing changes size: SketchBillet keeps every "
+           "length in "
            "mm inside.",
            {{"unit",
              ArgType::Choice,
@@ -1472,4 +1474,4 @@ bool argBool(const Args& args, const std::string& name, bool fallback) {
     return fallback;
 }
 
-}  // namespace kh::model
+}  // namespace sb::model

@@ -1,12 +1,12 @@
 # Contributing
 
-Thanks for helping. Khan is early, so the most useful contributions right now
+Thanks for helping. SketchBillet is early, so the most useful contributions right now
 are bug reports, build fixes on your platform, and tests.
 
 ## Ground rules
 
 - Read the architecture rules in [CLAUDE.md](CLAUDE.md). Pull requests that break the
-  layer rules (for example OCCT types outside `kh_kernel_occt`) will be asked to change.
+  layer rules (for example OCCT types outside `sb_kernel_occt`) will be asked to change.
 - Keep pull requests small and focused on one thing.
 - Add or update tests with every change. CI must pass on Windows, macOS and Linux.
 - Format code with `clang-format` using the repository's `.clang-format`.

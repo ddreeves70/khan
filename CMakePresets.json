@@ -31,7 +31,7 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "KH_WARNINGS_AS_ERRORS": "ON"
+        "SB_WARNINGS_AS_ERRORS": "ON"
       }
     },
     {

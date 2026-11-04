@@ -1,5 +1,5 @@
-#include "kh/kernel_occt/OcctKernel.h"
-#include "kh/kernel_occt/OcctShape.h"
+#include "sb/kernel_occt/OcctKernel.h"
+#include "sb/kernel_occt/OcctShape.h"
 
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepAlgoAPI_Common.hxx>
@@ -63,7 +63,7 @@
 #include <utility>
 #include <variant>
 
-namespace kh::kernel {
+namespace sb::kernel {
 
 namespace {
 
@@ -103,7 +103,7 @@ std::string utf8(const std::filesystem::path& p) {
 }
 
 // OCCT prints progress and statistics (for example from the STEP writer) to the
-// console by default. Khan reports problems through Diagnostics instead, so the
+// console by default. SketchBillet reports problems through Diagnostics instead, so the
 // default console printers are removed once per process.
 void silenceOcctConsole() {
     static std::once_flag once;
@@ -715,4 +715,4 @@ std::unique_ptr<IKernel> makeOcctKernel() {
     return std::make_unique<OcctKernel>();
 }
 
-}  // namespace kh::kernel
+}  // namespace sb::kernel

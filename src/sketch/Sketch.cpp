@@ -1,4 +1,4 @@
-#include "kh/sketch/Sketch.h"
+#include "sb/sketch/Sketch.h"
 
 #include <algorithm>
 #include <cmath>
@@ -6,7 +6,7 @@
 #include <numbers>
 #include <set>
 
-namespace kh::sketch {
+namespace sb::sketch {
 
 namespace {
 
@@ -641,7 +641,7 @@ Diagnostics check(const Sketch& sketch) {
         }
     }
 
-    // Names are how students and kh_cli point at things, so no two may match.
+    // Names are how students and sketchbillet_cli point at things, so no two may match.
     std::set<std::string> names;
     auto nameOnce = [&](const std::string& name) {
         if (!name.empty() && !names.insert(name).second) {
@@ -1054,4 +1054,4 @@ double error(const Sketch& sketch, const Constraint& c) {
     return kHuge;
 }
 
-}  // namespace kh::sketch
+}  // namespace sb::sketch

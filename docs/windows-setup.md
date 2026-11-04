@@ -1,6 +1,6 @@
 # Windows development setup
 
-Step-by-step setup for building Khan on Windows 10 or 11 with Visual Studio 2022.
+Step-by-step setup for building SketchBillet on Windows 10 or 11 with Visual Studio 2022.
 Every step here fixes a problem that came up during the first Windows build, so
 following them in order saves a lot of time.
 
@@ -87,14 +87,14 @@ cd C:\dev\khan
 cmake --preset win
 cmake --build --preset win
 ctest --preset win
-.\build\win\apps\kh_cli\kh_cli.exe demo tag.step
-.\build\win\apps\kh_app\kh_app.exe
+.\build\win\apps\sketchbillet_cli\sketchbillet_cli.exe demo tag.step
+.\build\win\apps\sketchbillet\sketchbillet.exe
 ```
 
 The first `cmake --preset win` builds OCCT through vcpkg and takes 30-60 minutes. Leave
 the window alone and close Visual Studio while it runs. Later configures take seconds.
 
-The build copies Qt's runtime files next to `kh_app.exe` automatically, so the app runs
+The build copies Qt's runtime files next to `sketchbillet.exe` automatically, so the app runs
 without changing `PATH`.
 
 ## Troubleshooting
@@ -106,7 +106,7 @@ without changing `PATH`.
 | `Permission denied` while vcpkg copies files | Folder locked by Defender, OneDrive or another build | Move to `C:\dev`, close Visual Studio, add the Defender exclusion |
 | `Could not find a package configuration file provided by "Qt6"` | Wrong Qt folder, or MinGW Qt | Install **MSVC 2022 64-bit** Qt; fix the path in `CMakeUserPresets.json`; `cmake --preset win --fresh` |
 | Link errors like `unresolved external symbol __std_search_1` | vcpkg libraries built by a newer compiler than the one linking | Update Visual Studio, use the `vsdev` function, delete `build` and reconfigure |
-| `kh_app.exe` does nothing | Qt runtime files missing | Rebuild (they are copied automatically) or run `windeployqt` on the exe |
+| `sketchbillet.exe` does nothing | Qt runtime files missing | Rebuild (they are copied automatically) or run `windeployqt` on the exe |
 
 When in doubt: open a new window, run `vsdev`, delete the `build` folder and configure again.
 CMake remembers the compiler and toolchain from the first configure.

@@ -1,4 +1,4 @@
-// Tests for plugin settings (kh_plugin): typed values, each plugin's own keys,
+// Tests for plugin settings (sb_plugin): typed values, each plugin's own keys,
 // SettingChanged events, and number text that's the same on every computer.
 
 #include <catch2/catch_test_macros.hpp>
@@ -7,12 +7,12 @@
 #include <string>
 #include <vector>
 
-#include "kh/plugin/Events.h"
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugin/Settings.h"
+#include "sb/plugin/Events.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugin/Settings.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 TEST_CASE("settings keep text, numbers and yes/no values", "[plugin][settings]") {
     MemorySettings store;

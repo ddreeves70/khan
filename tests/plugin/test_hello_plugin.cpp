@@ -9,17 +9,17 @@
 #include <vector>
 
 #include "../model/FakeKernel.h"
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugins/Modeling.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugins/Modeling.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 TEST_CASE("the guide's Hello plugin loads and adds a working command", "[plugin][hello]") {
     test::FakeKernel kernel;
     PluginHost host(&kernel);
     host.addBuiltin(plugins::modelingPlugin());
-    host.addFolder(KH_PLUGIN_FOLDER);
+    host.addFolder(SB_PLUGIN_FOLDER);
     host.loadAll();
 
     const auto* hello = host.find("example.hello");
@@ -31,11 +31,11 @@ TEST_CASE("the guide's Hello plugin loads and adds a working command", "[plugin]
     CHECK(hello->commands == std::vector<std::string>{"example.hello.add_cube"});
     CHECK(hello->actions == std::vector<std::string>{"example.hello.cube"});
 
-    // It needs kh.modeling, so it loads after it.
+    // It needs sb.modeling, so it loads after it.
     std::vector<std::string> order;
     for (const auto& p : host.plugins()) order.push_back(p.manifest.id);
     const auto at = [&](const char* id) { return std::find(order.begin(), order.end(), id) - order.begin(); };
-    CHECK(at("kh.modeling") < at("example.hello"));
+    CHECK(at("sb.modeling") < at("example.hello"));
 
     // Run its command: a 20 mm cube by default, and 5 mm when asked.
     auto& docs = host.documents();

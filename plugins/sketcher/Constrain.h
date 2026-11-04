@@ -7,10 +7,10 @@
 #include <string>
 #include <vector>
 
-#include "kh/core/Units.h"
-#include "kh/sketch/Sketch.h"
+#include "sb/core/Units.h"
+#include "sb/sketch/Sketch.h"
 
-namespace kh::plugins::sketcher {
+namespace sb::plugins::sketcher {
 
 // What's picked, sorted: points (ends, centers, control points, point
 // entities), lines, round things (circles and arcs) and whole splines.
@@ -46,7 +46,7 @@ enum class Rule {
 
 // A button's words, tip, and what to pick for it (said when it doesn't fit).
 struct RuleInfo {
-    const char* id;     // the action id after "kh.sketcher.", e.g. "horizontal"
+    const char* id;     // the action id after "sb.sketcher.", e.g. "horizontal"
     const char* text;   // e.g. "Horizontal"
     const char* tip;    // one sentence, starting with what it does, ending with what to pick
     const char* needs;  // e.g. "one or more lines"
@@ -84,4 +84,4 @@ std::optional<LabelPlace> labelPlace(const sketch::Constraint& c, const sketch::
 // Name base for a new constraint, e.g. "HorizontalDistance".
 std::string constraintBase(sketch::ConstraintKind kind);
 
-}  // namespace kh::plugins::sketcher
+}  // namespace sb::plugins::sketcher

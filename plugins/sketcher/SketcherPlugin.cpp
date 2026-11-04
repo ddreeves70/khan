@@ -1,4 +1,4 @@
-#include "kh/plugins/Sketcher.h"
+#include "sb/plugins/Sketcher.h"
 
 #include <QFileInfo>
 #include <QObject>
@@ -18,31 +18,31 @@
 #include "Constrain.h"
 #include "SketchPanel.h"
 #include "SketcherIcons.h"
-#include "kh/grid/Grid.h"
-#include "kh/model/Commands.h"
-#include "kh/plugin/Events.h"
-#include "kh/plugin/PluginContext.h"
-#include "kh/sketch/Profiles.h"
-#include "kh/ui/UiRegistry.h"
-#include "kh/viewer/Viewer.h"
+#include "sb/grid/Grid.h"
+#include "sb/model/Commands.h"
+#include "sb/plugin/Events.h"
+#include "sb/plugin/PluginContext.h"
+#include "sb/sketch/Profiles.h"
+#include "sb/ui/UiRegistry.h"
+#include "sb/viewer/Viewer.h"
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
 constexpr const char* kManifest = R"({
-  "id": "kh.sketcher",
+  "id": "sb.sketcher",
   "name": "Sketcher",
   "version": "0.1.0",
   "description": "Draws sketches in the viewers, and draws in them with the mouse: lines, circles, arcs and points.",
-  "requires": ["kh.modeling", "kh.viewer"],
-  "uses": ["kh.grid"],
+  "requires": ["sb.modeling", "sb.viewer"],
+  "uses": ["sb.grid"],
   "tier": "ui"
 })";
 
 constexpr double kPi = std::numbers::pi;
 // The toolbar mode while a sketch is being edited: only the sketch buttons show.
-constexpr std::string_view kEditingMode = "kh.sketcher.editing";
+constexpr std::string_view kEditingMode = "sb.sketcher.editing";
 constexpr double kSnapPixels = 8;  // how close the mouse must be to a point to snap to it
 
 QString qs(const std::string& s) {
@@ -203,7 +203,7 @@ public:
         draw();
         hint();
         ctx_.setToolbarMode(std::string(kEditingMode));  // the toolbar shows the sketch buttons
-        if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showPanel("kh.sketcher.panel");
+        if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showPanel("sb.sketcher.panel");
         refreshPanels();
         ctx_.publish(plugin::ActionsChanged{});  // Finish and the tools turn on, Edit turns off
     }
@@ -219,7 +219,7 @@ public:
             refreshPanels();
             ctx_.setToolbarMode({});  // back to the usual toolbar
             // The Sketch panel is only for editing: put it away, so it doesn't cover the view.
-            if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->hidePanel("kh.sketcher.panel");
+            if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->hidePanel("sb.sketcher.panel");
             ctx_.publish(plugin::ActionsChanged{});
         }
     }
@@ -1656,7 +1656,8 @@ private:
 
 void registerSketcher(plugin::PluginContext& ctx) {
     if (!ctx.service<viewer::IViewer>()) {
-        ctx.fail("The sketcher needs the 3D viewer plugin (kh.viewer). Reinstall Khan to get it back.");
+        ctx.fail(
+            "The sketcher needs the 3D viewer plugin (sb.viewer). Reinstall SketchBillet to get it back.");
         return;
     }
     auto sketcher = std::make_shared<Sketcher>(ctx);
@@ -1677,7 +1678,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
         ctx.selection().set(doc, {id});
         sketcher->begin(id, Tool::Line);  // a new sketch starts with lines
     };
-    ctx.addAction(ActionSpec{.id = "kh.sketcher.new_xy",
+    ctx.addAction(ActionSpec{.id = "sb.sketcher.new_xy",
                              .text = "New sketch on XY (the ground)",
                              .menu = "Sketch",
                              .shortcut = "Ctrl+Shift+K",
@@ -1686,12 +1687,12 @@ void registerSketcher(plugin::PluginContext& ctx) {
                              .icon = std::string(icons::sketcher::new_sketch_svg),
                              .tip = "Start a sketch lying flat, seen from the top, and draw in it.",
                              .run = [newSketch] { newSketch("xy"); }});
-    ctx.addAction(ActionSpec{.id = "kh.sketcher.new_xz",
+    ctx.addAction(ActionSpec{.id = "sb.sketcher.new_xz",
                              .text = "New sketch on XZ (standing, from the front)",
                              .menu = "Sketch",
                              .tip = "Start a sketch standing up, seen from the front, and draw in it.",
                              .run = [newSketch] { newSketch("xz"); }});
-    ctx.addAction(ActionSpec{.id = "kh.sketcher.new_yz",
+    ctx.addAction(ActionSpec{.id = "sb.sketcher.new_yz",
                              .text = "New sketch on YZ (standing, from the right)",
                              .menu = "Sketch",
                              .tip = "Start a sketch standing up, seen from the right, and draw in it.",
@@ -1707,7 +1708,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
         return f->id();
     };
     ctx.addAction(ActionSpec{
-        .id = "kh.sketcher.edit",
+        .id = "sb.sketcher.edit",
         .text = "Edit sketch",
         .menu = "Sketch",
         .shortcut = "Ctrl+K",
@@ -1728,7 +1729,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
             },
         // Only with one sketch picked, and not while already editing one.
         .enabled = [sketcher, pickedSketch] { return !sketcher->editing() && pickedSketch().has_value(); }});
-    ctx.addAction(ActionSpec{.id = "kh.sketcher.finish",
+    ctx.addAction(ActionSpec{.id = "sb.sketcher.finish",
                              .text = "Finish sketch",
                              .menu = "Sketch",
                              .toolbar = true,
@@ -1738,7 +1739,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
                              .run = [sketcher] { sketcher->finish(); },
                              .enabled = [sketcher] { return sketcher->editing(); }});
     ctx.addAction(
-        ActionSpec{.id = "kh.sketcher.select",
+        ActionSpec{.id = "sb.sketcher.select",
                    .text = "Select",
                    .menu = "Sketch/Draw",
                    .toolbar = true,
@@ -1749,7 +1750,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
                    .checked = [sketcher] { return sketcher->editing() && sketcher->tool() == Tool::Select; },
                    .enabled = [sketcher] { return sketcher->editing(); }});
     ctx.addAction(
-        ActionSpec{.id = "kh.sketcher.delete",
+        ActionSpec{.id = "sb.sketcher.delete",
                    .text = "Delete picked",
                    .menu = "Sketch",
                    .shortcut = "Delete",
@@ -1766,37 +1767,37 @@ void registerSketcher(plugin::PluginContext& ctx) {
         const char* button = "";  // a shorter word for its button, if it needs one
     };
     for (const auto& t :
-         {ToolItem{"kh.sketcher.line", "Line", Tool::Line,
+         {ToolItem{"sb.sketcher.line", "Line", Tool::Line,
                    "Draw lines: click where each one starts and ends. They join up as you go.",
                    icons::sketcher::line_svg},
           ToolItem{
-              "kh.sketcher.rectangle", "Rectangle", Tool::Rectangle,
+              "sb.sketcher.rectangle", "Rectangle", Tool::Rectangle,
               "Draw a rectangle: click one corner, then the opposite one. Its sides stay level and upright.",
               icons::sketcher::rectangle_svg},
-          ToolItem{"kh.sketcher.round_corner", "Round corner", Tool::RoundCorner,
+          ToolItem{"sb.sketcher.round_corner", "Round corner", Tool::RoundCorner,
                    "Round a corner where two lines meet: click it, then type the radius in the Sketch panel. "
                    "Sizes "
                    "that were to the sharp corner still measure to it.",
                    icons::sketcher::round_corner_svg},
-          ToolItem{"kh.sketcher.trim", "Trim", Tool::Trim,
+          ToolItem{"sb.sketcher.trim", "Trim", Tool::Trim,
                    "Cut away the piece of a line, circle or arc between the places where other lines cross "
                    "it. The "
                    "piece under the mouse shows red; click to cut it.",
                    icons::sketcher::trim_svg},
-          ToolItem{"kh.sketcher.circle", "Circle", Tool::Circle,
+          ToolItem{"sb.sketcher.circle", "Circle", Tool::Circle,
                    "Draw a circle: click its center, then its edge.", icons::sketcher::circle_svg},
-          ToolItem{"kh.sketcher.arc", "Arc", Tool::Arc,
+          ToolItem{"sb.sketcher.arc", "Arc", Tool::Arc,
                    "Draw an arc: click the center, where it starts, then where it ends.",
                    icons::sketcher::arc_svg},
-          ToolItem{"kh.sketcher.point", "Point", Tool::Point, "Draw a point: click where it goes.",
+          ToolItem{"sb.sketcher.point", "Point", Tool::Point, "Draw a point: click where it goes.",
                    icons::sketcher::point_svg},
           ToolItem{
-              "kh.sketcher.spline", "Spline", Tool::Spline,
+              "sb.sketcher.spline", "Spline", Tool::Spline,
               "Draw a smooth curve by its control points: click them in order. The curve is pulled towards "
               "them. Click the last one again to finish, or the first one to make a loop.",
               icons::sketcher::spline_svg},
           ToolItem{
-              "kh.sketcher.spline_through", "Spline through points", Tool::SplineThrough,
+              "sb.sketcher.spline_through", "Spline through points", Tool::SplineThrough,
               "Draw a smooth curve through points: click them in order. Click the last one again to finish, "
               "or the first one to make a loop.",
               icons::sketcher::spline_through_svg, "Fit spline"}}) {
@@ -1817,14 +1818,14 @@ void registerSketcher(plugin::PluginContext& ctx) {
 
     // Importing a spline from a file of points (sketch.import_spline).
     ctx.addAction(
-        ActionSpec{.id = "kh.sketcher.import_through",
+        ActionSpec{.id = "sb.sketcher.import_through",
                    .text = "Import spline through points...",
                    .menu = "Sketch",
                    .tip = "Make a spline that goes through every point in a file (one x, y per line; a "
                           "spreadsheet's CSV works), in the design's unit.",
                    .run = [sketcher] { sketcher->importSpline(true); },
                    .enabled = [sketcher] { return sketcher->editing(); }});
-    ctx.addAction(ActionSpec{.id = "kh.sketcher.import_poles",
+    ctx.addAction(ActionSpec{.id = "sb.sketcher.import_poles",
                              .text = "Import spline with control points...",
                              .menu = "Sketch",
                              .tip =
@@ -1834,7 +1835,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
                              .enabled = [sketcher] { return sketcher->editing(); }});
 
     // Constraints added while drawing (On, Horizontal, Vertical, Tangent): on by default.
-    ctx.addAction(ActionSpec{.id = "kh.sketcher.auto",
+    ctx.addAction(ActionSpec{.id = "sb.sketcher.auto",
                              .text = "Add constraints while drawing",
                              .menu = "Sketch",
                              .tip = "Snap onto lines and keep lines level or upright as you draw, adding the "
@@ -1849,7 +1850,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
     // The Sketch panel: the edited sketch's constraints, with numbers to type.
     if (auto* ui = ctx.service<ui::UiRegistry>()) {
         ui->addPanel(
-            {"kh.sketcher.panel", QObject::tr("Sketch"), ui::PanelArea::Right,
+            {"sb.sketcher.panel", QObject::tr("Sketch"), ui::PanelArea::Right,
              [&ctx, sketcher] {
                  auto* panel = new sketcher::SketchPanel(
                      ctx,
@@ -1908,7 +1909,7 @@ void registerSketcher(plugin::PluginContext& ctx) {
         const bool dimension =
             rule == Rule::Dimension || rule == Rule::HorizontalDimension || rule == Rule::VerticalDimension;
         ctx.addAction(
-            ActionSpec{.id = std::string("kh.sketcher.") + info.id,
+            ActionSpec{.id = std::string("sb.sketcher.") + info.id,
                        .text = info.text,
                        .menu = dimension ? "Sketch/Dimension" : "Sketch/Constrain",
                        .toolbar = true,
@@ -1969,4 +1970,4 @@ plugin::BuiltinPlugin sketcherPlugin() {
     return {kManifest, &registerSketcher};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins

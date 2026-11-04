@@ -1,4 +1,4 @@
-#include "kh/plugin/EventBus.h"
+#include "sb/plugin/EventBus.h"
 
 #include <deque>
 #include <exception>
@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace kh::plugin {
+namespace sb::plugin {
 
 // The bus keeps its data in a shared State, so Subscriptions can hold a weak
 // pointer and stay safe to destroy after the bus is gone.
@@ -49,8 +49,9 @@ struct Subscription::State {
     void report(const std::string& type, const std::string& what) {
         if (!onError) return;
         onError({"event.listener_failed", Severity::Error,
-                 "Part of Khan had a problem while reacting to a change. What you see may be out of date; "
-                 "save your work and restart Khan if it looks wrong.",
+                 "Part of SketchBillet had a problem while reacting to a change. What you see may be out of "
+                 "date; "
+                 "save your work and restart SketchBillet if it looks wrong.",
                  type + ": " + what});
     }
 };
@@ -126,4 +127,4 @@ void EventBus::publishRaw(std::string_view type, std::shared_ptr<const void> eve
     state->delivering = false;
 }
 
-}  // namespace kh::plugin
+}  // namespace sb::plugin

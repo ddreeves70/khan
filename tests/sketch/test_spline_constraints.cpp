@@ -9,12 +9,12 @@
 #include <numbers>
 
 #include "SketchHelpers.h"
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
 
-using namespace kh;
-using namespace kh::sketch;
+using namespace sb;
+using namespace sb::sketch;
 using Catch::Approx;
-using kh::test::SketchBuilder;
+using sb::test::SketchBuilder;
 using K = ConstraintKind;
 
 namespace {
@@ -116,7 +116,7 @@ TEST_CASE("a point on a spline ends up on the curve, open or closed; it takes aw
         SketchBuilder b;
         const auto s = b.spline({{0, 0}, {0, 30}, {40, 30}, {40, 0}}, 3, closed);
         const auto p = b.point(25, 45);
-        b.constrain(K::PointOnSpline, {kh::test::self(p)}, {s});
+        b.constrain(K::PointOnSpline, {sb::test::self(p)}, {s});
         const auto r = solved(b.sketch);
         CHECK(r.freedom == 8 + 2 - 1);
         const Point2 at = std::get<PointShape>(r.entities[1].shape).at;
@@ -135,7 +135,7 @@ TEST_CASE("tangent at a join: the spline leaves its end the way the line, arc or
         SketchBuilder b;
         const auto s = b.spline(arch);
         const auto l = b.line(40, 0, 60, -10);
-        b.constrain(K::Coincident, {kh::test::pole(s, 3), kh::test::start(l)}, {});
+        b.constrain(K::Coincident, {sb::test::pole(s, 3), sb::test::start(l)}, {});
         b.constrain(K::Tangent, {}, {s, l});
         const auto r = solved(b.sketch);
         CHECK(r.freedom == 8 + 4 - 2 - 1);
@@ -148,12 +148,12 @@ TEST_CASE("tangent at a join: the spline leaves its end the way the line, arc or
         SketchBuilder b;
         const auto s = b.spline(arch);
         const auto a = b.arc(50, 0, 10, std::numbers::pi, 1.5 * std::numbers::pi);  // starts at (40, 0)
-        b.constrain(K::Coincident, {kh::test::end(s), kh::test::start(a)}, {});
+        b.constrain(K::Coincident, {sb::test::end(s), sb::test::start(a)}, {});
         b.constrain(K::Tangent, {}, {s, a});
         const auto r = solved(b.sketch);
         CHECK(r.freedom == 8 + 5 - 2 - 1);
-        const auto es = curveEnd(r.entities[0].shape, kh::test::end(s));
-        const auto ea = curveEnd(r.entities[1].shape, kh::test::start(a));
+        const auto es = curveEnd(r.entities[0].shape, sb::test::end(s));
+        const auto ea = curveEnd(r.entities[1].shape, sb::test::start(a));
         REQUIRE(es);
         REQUIRE(ea);
         CHECK(offParallel(es->d1, ea->d1) < 1e-6);
@@ -163,12 +163,12 @@ TEST_CASE("tangent at a join: the spline leaves its end the way the line, arc or
         SketchBuilder b;
         const auto s = b.spline(arch);
         const auto t = b.spline({{40, 0}, {55, 5}, {60, -20}, {80, -10}});
-        b.constrain(K::Coincident, {kh::test::pole(s, 3), kh::test::pole(t, 0)}, {});
+        b.constrain(K::Coincident, {sb::test::pole(s, 3), sb::test::pole(t, 0)}, {});
         b.constrain(K::Tangent, {}, {s, t});
         const auto r = solved(b.sketch);
         CHECK(r.freedom == 8 + 8 - 2 - 1);
-        const auto es = curveEnd(r.entities[0].shape, kh::test::end(s));
-        const auto et = curveEnd(r.entities[1].shape, kh::test::start(t));
+        const auto es = curveEnd(r.entities[0].shape, sb::test::end(s));
+        const auto et = curveEnd(r.entities[1].shape, sb::test::start(t));
         REQUIRE(es);
         REQUIRE(et);
         CHECK(offParallel(es->d1, et->d1) < 1e-6);
@@ -192,11 +192,11 @@ TEST_CASE("smooth at a join: tangent, and bending equally (the same curvature)",
         SketchBuilder b;
         const auto s = b.spline(arch);
         const auto l = b.line(40, 0, 60, -10);
-        b.constrain(K::Coincident, {kh::test::pole(s, 3), kh::test::start(l)}, {});
+        b.constrain(K::Coincident, {sb::test::pole(s, 3), sb::test::start(l)}, {});
         b.constrain(K::Smooth, {}, {s, l});
         const auto r = solved(b.sketch);
         CHECK(r.freedom == 8 + 4 - 2 - 2);
-        CHECK(length(same(r, kh::test::end(s), kh::test::start(l))) < 1e-6);
+        CHECK(length(same(r, sb::test::end(s), sb::test::start(l))) < 1e-6);
         const auto& p = splineIn(r, 0).poles;
         CHECK(std::abs((p[2].x - p[1].x) * (p[3].y - p[1].y) - (p[2].y - p[1].y) * (p[3].x - p[1].x)) < 1e-4);
     }
@@ -205,32 +205,32 @@ TEST_CASE("smooth at a join: tangent, and bending equally (the same curvature)",
         const auto s = b.spline(arch);
         // The arc ends where the arch ends, bending the same way (its center is inside the arch).
         const auto a = b.arc(30, 0, 10, -std::numbers::pi / 2, 0);
-        b.constrain(K::Coincident, {kh::test::end(s), kh::test::end(a)}, {});
+        b.constrain(K::Coincident, {sb::test::end(s), sb::test::end(a)}, {});
         b.constrain(K::Smooth, {}, {s, a});
         b.constrain(K::Radius, {}, {a}, 10);
         const auto r = solved(b.sketch);
         CHECK(r.freedom == 8 + 5 - 2 - 2 - 1);
-        CHECK(length(same(r, kh::test::end(s), kh::test::end(a))) == Approx(0.1).margin(1e-6));
+        CHECK(length(same(r, sb::test::end(s), sb::test::end(a))) == Approx(0.1).margin(1e-6));
     }
     SECTION("an arc bending the other way: the spline's bend turns around to match it") {
         SketchBuilder b;
         const auto s = b.spline(arch);
         const auto a = b.arc(50, 0, 10, std::numbers::pi, 1.5 * std::numbers::pi);  // starts at (40, 0)
-        b.constrain(K::Coincident, {kh::test::end(s), kh::test::start(a)}, {});
+        b.constrain(K::Coincident, {sb::test::end(s), sb::test::start(a)}, {});
         b.constrain(K::Smooth, {}, {s, a});
         b.constrain(K::Radius, {}, {a}, 10);
         const auto r = solved(b.sketch);
-        CHECK(length(same(r, kh::test::end(s), kh::test::start(a))) == Approx(0.1).margin(1e-6));
+        CHECK(length(same(r, sb::test::end(s), sb::test::start(a))) == Approx(0.1).margin(1e-6));
     }
     SECTION("another spline, with weights") {
         SketchBuilder b;
         const auto s = b.spline(arch, 3, false, {1, 2, 1, 1});
         const auto t = b.spline({{40, 0}, {45, -15}, {65, -20}, {70, 0}, {90, 5}});
-        b.constrain(K::Coincident, {kh::test::pole(s, 3), kh::test::pole(t, 0)}, {});
+        b.constrain(K::Coincident, {sb::test::pole(s, 3), sb::test::pole(t, 0)}, {});
         b.constrain(K::Smooth, {}, {s, t});
         const auto r = solved(b.sketch);
         CHECK(r.freedom == 8 + 10 - 2 - 2);
-        CHECK(length(same(r, kh::test::end(s), kh::test::start(t))) > 0);  // it really bends there
+        CHECK(length(same(r, sb::test::end(s), sb::test::start(t))) > 0);  // it really bends there
     }
 }
 
@@ -248,9 +248,9 @@ TEST_CASE("joins need joining first, and closed splines have no ends", "[sketch]
     CHECK(message(b.sketch) ==
           "Smooth needs the two joined end to end: join an end of each with Coincident first.");
     // A join somewhere other than their ends isn't a join.
-    b.constrain(K::Coincident, {kh::test::pole(s, 1), kh::test::start(l)}, {});
+    b.constrain(K::Coincident, {sb::test::pole(s, 1), sb::test::start(l)}, {});
     CHECK_FALSE(message(b.sketch).empty());
-    b.sketch.constraints[1].points[0] = kh::test::pole(s, 3);
+    b.sketch.constraints[1].points[0] = sb::test::pole(s, 3);
     CHECK(message(b.sketch).empty());
 
     SketchBuilder c;
@@ -261,13 +261,13 @@ TEST_CASE("joins need joining first, and closed splines have no ends", "[sketch]
     SketchBuilder d;  // Smooth is for splines
     const auto l1 = d.line(0, 0, 10, 0);
     const auto a1 = d.arc(10, 5, 5, -std::numbers::pi / 2, 0);
-    d.constrain(K::Coincident, {kh::test::end(l1), kh::test::start(a1)}, {});
+    d.constrain(K::Coincident, {sb::test::end(l1), sb::test::start(a1)}, {});
     d.constrain(K::Smooth, {}, {l1, a1});
     CHECK(message(d.sketch) == "Smooth needs a spline with ends and a line, arc or spline.");
     SketchBuilder e;
     const auto sp = e.spline({{0, 0}, {0, 30}, {40, 30}, {40, 0}});
     const auto pt = e.point(1, 1);
-    e.constrain(K::PointOnSpline, {kh::test::self(pt)}, {pt});
+    e.constrain(K::PointOnSpline, {sb::test::self(pt)}, {pt});
     CHECK(message(e.sketch) == "Point on spline needs one point and one spline.");
     e.sketch.constraints[0].entities = {sp};
     CHECK(message(e.sketch).empty());
@@ -279,7 +279,7 @@ TEST_CASE("symmetric points end up mirror images across the line; it takes away 
     const auto axis = b.line(0, -10, 3, 30);  // a slanted line
     const auto p = b.point(-12, 5);
     const auto q = b.point(20, 14);
-    b.constrain(K::Symmetric, {kh::test::self(p), kh::test::self(q)}, {axis});
+    b.constrain(K::Symmetric, {sb::test::self(p), sb::test::self(q)}, {axis});
     const auto r = solved(b.sketch);
     CHECK(r.freedom == 4 + 2 + 2 - 2);
     const auto& l = std::get<LineShape>(r.entities[0].shape);
@@ -293,7 +293,7 @@ TEST_CASE("symmetric points end up mirror images across the line; it takes away 
     CHECK(length({c.x - a.x, c.y - a.y}) > 1);  // not squashed onto the line
     CHECK(error({r.entities, b.sketch.constraints}, b.sketch.constraints[0]) < 1e-9);
     // Two of the same point, or no line, can't be symmetric.
-    b.sketch.constraints[0].points[1] = kh::test::self(p);
+    b.sketch.constraints[0].points[1] = sb::test::self(p);
     CHECK(check(b.sketch).front().message ==
           "Symmetric needs two different points and a line to mirror them across.");
 }

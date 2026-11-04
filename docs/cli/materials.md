@@ -1,16 +1,16 @@
-# kh_cli materials
+# sketchbillet_cli materials
 
-Lists the materials a body can be made of: Khan's own, and with a design, the
+Lists the materials a body can be made of: SketchBillet's own, and with a design, the
 ones it added. Use the names with
 [`feature.set_material`](commands.md#featureset_material).
 
 ```text
-kh_cli materials [<file.khan>]
+sketchbillet_cli materials [<file.sb>]
 ```
 
 | Option | Meaning |
 | --- | --- |
-| `<file.khan>` | Also list the materials this design added, after Khan's own |
+| `<file.sb>` | Also list the materials this design added, after SketchBillet's own |
 
 | Column | Meaning |
 | --- | --- |
@@ -27,7 +27,7 @@ materials; for anything that must not break, use the supplier's data sheet.
 
 <!-- cli-example -->
 ```console
-$ kh_cli materials
+$ sketchbillet_cli materials
 material                density stiffness  poisson    yield   price
                          g/cm^3       GPa               MPa  per kg
 PLA                        1.24      3.50     0.36       50   20.00
@@ -48,19 +48,19 @@ Plywood (birch)            0.68      9.00     0.30       30    2.50
 MDF                        0.75      4.00     0.25       18    1.00
 ```
 
-A design's own materials come after Khan's:
+A design's own materials come after SketchBillet's:
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan material.define name="Glow PLA" density=1.3 color=#a8f0a0
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb material.define name="Glow PLA" density=1.3 color=#a8f0a0
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote tag.khan
-$ kh_cli materials tag.khan
+wrote tag.sb
+$ sketchbillet_cli materials tag.sb
 material                density stiffness  poisson    yield   price
                          g/cm^3       GPa               MPa  per kg
 ...
@@ -72,6 +72,6 @@ Glow PLA                   1.30         -        -        -       -
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli materials missing.khan
-error [file.cant_read]: Khan couldn't open missing.khan. Check that the file is still there and that you're allowed to open it. missing.khan
+$ sketchbillet_cli materials missing.sb
+error [file.cant_read]: SketchBillet couldn't open missing.sb. Check that the file is still there and that you're allowed to open it. missing.sb
 ```

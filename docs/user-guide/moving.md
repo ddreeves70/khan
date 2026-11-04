@@ -12,15 +12,15 @@ Slide the [demo tag](../cli/demo.md) 40 mm along y:
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan feature.add_move body=Tag by=0,40,0
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.add_move body=Tag by=0,40,0
 Demo tag: 4 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3
   Move1        ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 The volume stays 7121.46 mm³: moving never changes a body's size.
@@ -39,15 +39,15 @@ Turn the tag 30° about its middle (it's 60 × 30 mm, so its middle is at 30, 15
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan feature.add_move body=Tag turn=30 about=30,15,0
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.add_move body=Tag turn=30 about=30,15,0
 Demo tag: 4 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3
   Move1        ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 ## Dragging a body
@@ -80,8 +80,8 @@ What a drag changes depends on the body:
 
 A body that a later step uses can't be dragged on its own (dragging the Hole out
 of the Tag would leave the Tag behind): drag the finished body instead. You can
-do the same from `kh_cli` with [`feature.slide`](../cli/commands.md#featureslide).
-The arrows are a plugin too, `kh.movehandles`, built into Khan; a plugin of your
+do the same from `sketchbillet_cli` with [`feature.slide`](../cli/commands.md#featureslide).
+The arrows are a plugin too, `sb.movehandles`, built into SketchBillet; a plugin of your
 own can put [handles](../plugin-guide/extension-points.md#handles-to-drag-desktop-app-only)
 in the viewer the same way.
 

@@ -1,6 +1,6 @@
 # Shapes
 
-Every part starts with simple shapes. Khan has two today: boxes and cylinders.
+Every part starts with simple shapes. SketchBillet has two today: boxes and cylinders.
 More come with sketches (draw a profile, then extrude or revolve it).
 
 ## Where things go: x, y and z
@@ -26,7 +26,7 @@ corner nearest the origin. The box grows from the corner along +x, +y and +z.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run feature.add_box size=40,30,20
+$ sketchbillet_cli run feature.add_box size=40,30,20
 Untitled: 1 step
   Box1         ok  volume 24000.00 mm^3  mass 29.76 g (PLA)
 ```
@@ -35,7 +35,7 @@ Move it by changing the corner. This box starts 10 mm to the right and 5 mm up:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run feature.add_box corner=10,0,5 size=40,30,20
+$ sketchbillet_cli run feature.add_box corner=10,0,5 size=40,30,20
 Untitled: 1 step
   Box1         ok  volume 24000.00 mm^3  mass 29.76 g (PLA)
 ```
@@ -51,7 +51,7 @@ center of its bottom circle), and an **axis** (the direction it points).
 
 <!-- cli-example -->
 ```console
-$ kh_cli run feature.add_cylinder radius=10 height=25
+$ sketchbillet_cli run feature.add_cylinder radius=10 height=25
 Untitled: 1 step
   Cylinder1    ok  volume 7853.98 mm^3  mass 9.74 g (PLA)
 ```
@@ -63,7 +63,7 @@ default), `1,0,0` points along x, `0,1,0` along y.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run feature.add_cylinder radius=5 height=40 axis=1,0,0
+$ sketchbillet_cli run feature.add_cylinder radius=5 height=40 axis=1,0,0
 Untitled: 1 step
   Cylinder1    ok  volume 3141.59 mm^3  mass 3.90 g (PLA)
 ```

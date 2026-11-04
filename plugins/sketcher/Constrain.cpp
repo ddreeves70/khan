@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <numbers>
 
-namespace kh::plugins::sketcher {
+namespace sb::plugins::sketcher {
 
 namespace {
 
@@ -476,4 +476,4 @@ std::string constraintBase(sketch::ConstraintKind kind) {
     return base;
 }
 
-}  // namespace kh::plugins::sketcher
+}  // namespace sb::plugins::sketcher

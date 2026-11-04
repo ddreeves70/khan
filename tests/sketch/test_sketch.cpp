@@ -1,4 +1,4 @@
-// Tests for kh_sketch: lookups, check() and Khan's own error() measures.
+// Tests for sb_sketch: lookups, check() and SketchBillet's own error() measures.
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -8,10 +8,10 @@
 
 #include "SketchHelpers.h"
 
-using namespace kh;
-using namespace kh::sketch;
+using namespace sb;
+using namespace sb::sketch;
 using Catch::Approx;
-using kh::test::SketchBuilder;
+using sb::test::SketchBuilder;
 
 TEST_CASE("pointOf finds each kind of point, and only the ones an entity has", "[sketch]") {
     SketchBuilder b;
@@ -99,7 +99,8 @@ TEST_CASE("check() explains constraints that use the wrong things", "[sketch]") 
     CHECK(problems[0].message == "Horizontal needs one line.");
     CHECK(problems[1].message == "Parallel needs two different lines.");
     CHECK(problems[2].message ==
-          "Tangent needs a line and a circle or arc, two circles or arcs, or a spline and a curve joined to it.");
+          "Tangent needs a line and a circle or arc, two circles or arcs, or a spline and a curve joined to "
+          "it.");
     CHECK(problems[3].message == "A Length must be more than 0 mm. Type a bigger number.");
     CHECK(problems[4].message == "Coincident needs two different points.");
     CHECK(problems[5].code == "sketch.missing");

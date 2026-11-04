@@ -1,10 +1,10 @@
 // The Ruler plugin: shares a ruler that shows lengths in inches or mm. The
-// student picks with View > Ruler shows inches, and Khan remembers it.
+// student picks with View > Ruler shows inches, and SketchBillet remembers it.
 #include <string>
 
 #include "example/ruler/Ruler.h"
-#include "kh/plugin/Api.h"
-#include "kh/plugin/PluginContext.h"
+#include "sb/plugin/Api.h"
+#include "sb/plugin/PluginContext.h"
 
 namespace {
 
@@ -18,9 +18,9 @@ public:
     double fromMm(double mm) const override { return inches ? mm / 25.4 : mm; }  // 25.4 mm in an inch
 };
 
-Ruler ruler;  // lives until Khan closes
+Ruler ruler;  // lives until SketchBillet closes
 
-void registerRuler(kh::plugin::PluginContext& ctx) {
+void registerRuler(sb::plugin::PluginContext& ctx) {
     // The unit the student picked last time ("in" the first time).
     auto& settings = ctx.settings();
     ruler.inches = settings.text("unit", "in") == "in";
@@ -37,7 +37,7 @@ void registerRuler(kh::plugin::PluginContext& ctx) {
                    .checked = [] { return ruler.inches; }});
 
     // When the setting changes, change the ruler and tell the other plugins.
-    ctx.listen<kh::plugin::SettingChanged>([&ctx, &settings](const kh::plugin::SettingChanged& e) {
+    ctx.listen<sb::plugin::SettingChanged>([&ctx, &settings](const sb::plugin::SettingChanged& e) {
         if (e.plugin != "example.ruler" || e.key != "unit") return;
         ruler.inches = settings.text("unit", "in") == "in";
         ctx.publish(UnitChanged{ruler.unit()});
@@ -49,4 +49,4 @@ void registerRuler(kh::plugin::PluginContext& ctx) {
 
 }  // namespace
 
-KH_PLUGIN_ENTRY(registerRuler)
+SB_PLUGIN_ENTRY(registerRuler)

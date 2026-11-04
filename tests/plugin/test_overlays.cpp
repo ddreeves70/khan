@@ -1,4 +1,4 @@
-// Tests for view overlays (kh_plugin): each plugin's names, OverlaysChanged
+// Tests for view overlays (sb_plugin): each plugin's names, OverlaysChanged
 // events, and cleaning up after a plugin that fails.
 
 #include <catch2/catch_test_macros.hpp>
@@ -6,11 +6,11 @@
 #include <string>
 #include <vector>
 
-#include "kh/plugin/Overlays.h"
-#include "kh/plugin/PluginHost.h"
+#include "sb/plugin/Overlays.h"
+#include "sb/plugin/PluginHost.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 namespace {
 

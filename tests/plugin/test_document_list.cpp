@@ -1,4 +1,4 @@
-// Tests for the list of open designs (kh_plugin).
+// Tests for the list of open designs (sb_plugin).
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -7,12 +7,12 @@
 #include <vector>
 
 #include "../model/FakeKernel.h"
-#include "kh/model/CommandRegistry.h"
-#include "kh/plugin/DocumentList.h"
-#include "kh/plugin/Events.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/plugin/DocumentList.h"
+#include "sb/plugin/Events.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 namespace {
 

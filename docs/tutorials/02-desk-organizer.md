@@ -29,10 +29,10 @@ step is the finished part.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save organizer.khan feature.add_box name=Base size=120,60,8
+$ sketchbillet_cli run --save organizer.sb feature.add_box name=Base size=120,60,8
 organizer: 1 step
   Base         ok  volume 57600.00 mm^3  mass 71.42 g (PLA)
-wrote organizer.khan
+wrote organizer.sb
 ```
 
 ## Step 2: The cup
@@ -43,11 +43,11 @@ edge is 8 mm from the base's left side.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open organizer.khan --save organizer.khan feature.add_cylinder name=Cup base=30,30,0 radius=22 height=80
+$ sketchbillet_cli run --open organizer.sb --save organizer.sb feature.add_cylinder name=Cup base=30,30,0 radius=22 height=80
 organizer: 2 steps
   Base         ok  volume 57600.00 mm^3  mass 71.42 g (PLA)
   Cup          ok  volume 121642.47 mm^3  mass 150.84 g (PLA)
-wrote organizer.khan
+wrote organizer.sb
 ```
 
 ![The base and the cup are still two separate bodies](images/organizer-two-bodies.png)
@@ -61,12 +61,12 @@ would get two separate parts. Next you'll join them.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open organizer.khan --save organizer.khan feature.add_boolean name=Body operation=union a=Base b=Cup
+$ sketchbillet_cli run --open organizer.sb --save organizer.sb feature.add_boolean name=Body operation=union a=Base b=Cup
 organizer: 3 steps
   Base         ok  volume 57600.00 mm^3
   Cup          ok  volume 121642.47 mm^3
   Body         ok  volume 167078.22 mm^3  mass 207.18 g (PLA)
-wrote organizer.khan
+wrote organizer.sb
 ```
 
 Why isn't Body's volume 57 600 + 121 642.47? Because the bottom 8 mm of the cup
@@ -81,16 +81,16 @@ up past the top of the cup.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open organizer.khan --save organizer.khan feature.add_cylinder name=PenHole base=30,30,6 radius=18 height=80
+$ sketchbillet_cli run --open organizer.sb --save organizer.sb feature.add_cylinder name=PenHole base=30,30,6 radius=18 height=80
 organizer: 4 steps
 ...
   PenHole      ok  volume 81430.08 mm^3  mass 100.97 g (PLA)
-wrote organizer.khan
-$ kh_cli run --open organizer.khan --save organizer.khan feature.add_boolean name=Hollow operation=cut a=Body b=PenHole
+wrote organizer.sb
+$ sketchbillet_cli run --open organizer.sb --save organizer.sb feature.add_boolean name=Hollow operation=cut a=Body b=PenHole
 organizer: 5 steps
 ...
   Hollow       ok  volume 91755.40 mm^3  mass 113.78 g (PLA)
-wrote organizer.khan
+wrote organizer.sb
 ```
 
 (`...` stands for the steps you've already seen.)
@@ -105,16 +105,16 @@ base. Like the hole in Tutorial 1, it sticks out above the top (to z = 9).
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open organizer.khan --save organizer.khan feature.add_box name=Slot corner=65,24,4 size=45,12,5
+$ sketchbillet_cli run --open organizer.sb --save organizer.sb feature.add_box name=Slot corner=65,24,4 size=45,12,5
 organizer: 6 steps
 ...
   Slot         ok  volume 2700.00 mm^3  mass 3.35 g (PLA)
-wrote organizer.khan
-$ kh_cli run --open organizer.khan --save organizer.khan feature.add_boolean name=Slotted operation=cut a=Hollow b=Slot
+wrote organizer.sb
+$ sketchbillet_cli run --open organizer.sb --save organizer.sb feature.add_boolean name=Slotted operation=cut a=Hollow b=Slot
 organizer: 7 steps
 ...
   Slotted      ok  volume 89595.40 mm^3  mass 111.10 g (PLA)
-wrote organizer.khan
+wrote organizer.sb
 ```
 
 ![The slot's box (orange) before it is cut from the base](images/organizer-slot.png)
@@ -127,7 +127,7 @@ The last step is the finished part, so call it that:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open organizer.khan --save organizer.khan feature.rename feature=Slotted name=Organizer
+$ sketchbillet_cli run --open organizer.sb --save organizer.sb feature.rename feature=Slotted name=Organizer
 organizer: 7 steps
   Base         ok  volume 57600.00 mm^3
   Cup          ok  volume 121642.47 mm^3
@@ -136,7 +136,7 @@ organizer: 7 steps
   Hollow       ok  volume 91755.40 mm^3
   Slot         ok  volume 2700.00 mm^3
   Organizer    ok  volume 89595.40 mm^3  mass 111.10 g (PLA)
-wrote organizer.khan
+wrote organizer.sb
 ```
 
 Renaming doesn't break anything: steps point at each other by an id that never
@@ -146,7 +146,7 @@ changes, not by name.
 
 <!-- cli-example -->
 ```console
-$ kh_cli open organizer.khan --export organizer.stl
+$ sketchbillet_cli open organizer.sb --export organizer.stl
 organizer: 7 steps
 ...
   Organizer    ok  volume 89595.40 mm^3  mass 111.10 g (PLA)

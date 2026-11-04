@@ -1,4 +1,4 @@
-# Khan
+# SketchBillet
 
 Free, open-source parametric CAD for classrooms, makers and small shops.
 Works offline, owns no part of your data, and stays free forever.
@@ -6,15 +6,15 @@ Works offline, owns no part of your data, and stays free forever.
 > **Status:** Phase 0 (foundations). You can design simple parts in the desktop app
 > or from the command line; the 3D view is being built.
 
-![A desk organizer designed with Khan](docs/tutorials/images/organizer-done.png)
+![A desk organizer designed with SketchBillet](docs/tutorials/images/organizer-done.png)
 
 ## What works today
 
-- **Design parts with `kh_cli`:** boxes, cylinders, union, cut and intersect; name,
-  rename and delete steps. Each `kh_cli run` adds one step to a design.
-- **Save and open designs** as `.khan` files, and **export** STL for 3D printing or
+- **Design parts with `sketchbillet_cli`:** boxes, cylinders, union, cut and intersect; name,
+  rename and delete steps. Each `sketchbillet_cli run` adds one step to a design.
+- **Save and open designs** as `.sb` files, and **export** STL for 3D printing or
   STEP for other CAD programs.
-- **Plugins:** Khan's own modeling commands are a plugin, and you can write your own.
+- **Plugins:** SketchBillet's own modeling commands are a plugin, and you can write your own.
 - **The desktop app:** a feature tree, a Properties panel for changing numbers,
   undo and redo, save and open, and dockable panels with saved layouts.
 
@@ -22,22 +22,22 @@ Works offline, owns no part of your data, and stays free forever.
 
 | Guide | For |
 | --- | --- |
-| [User's guide](docs/user-guide/README.md) | How Khan works and what it can do, with pictures |
+| [User's guide](docs/user-guide/README.md) | How SketchBillet works and what it can do, with pictures |
 | [Tutorials](docs/tutorials/README.md) | Step-by-step projects: a keychain tag, a desk organizer |
-| [kh_cli reference](docs/cli/README.md) | Every command and option, with examples |
+| [sketchbillet_cli reference](docs/cli/README.md) | Every command and option, with examples |
 | [Plugin developer guide](docs/plugin-guide/README.md) | Writing your own plugins |
 
-Every example in these guides is run by Khan's tests, so they always match what
-Khan does.
+Every example in these guides is run by SketchBillet's tests, so they always match what
+SketchBillet does.
 
 ## Dependencies
 
-Khan is built on Open CASCADE, Qt and a few other open-source libraries. The full
+SketchBillet is built on Open CASCADE, Qt and a few other open-source libraries. The full
 list, with licenses and plans, is in [docs/dependencies.md](docs/dependencies.md).
 
 ## Design
 
-The full design, including architecture, UI mockups, class diagrams and the phased roadmap, is in **[docs/design](docs/design/README.md)**. It is a draft and changes as Khan is built.
+The full design, including architecture, UI mockups, class diagrams and the phased roadmap, is in **[docs/design](docs/design/README.md)**. It is a draft and changes as SketchBillet is built.
 
 ## Building
 
@@ -61,11 +61,11 @@ cd C:\dev\khan
 cmake --preset win
 cmake --build --preset win
 ctest --preset win
-.\build\win\apps\kh_app\kh_app.exe
+.\build\win\apps\sketchbillet\sketchbillet.exe
 ```
 
 The first configure builds OCCT through vcpkg and takes 30-60 minutes; later builds
-reuse it. Qt's runtime files are copied next to `kh_app.exe` automatically.
+reuse it. Qt's runtime files are copied next to `sketchbillet.exe` automatically.
 
 ### macOS and Linux with vcpkg
 
@@ -91,21 +91,21 @@ The desktop app's docking panels use the
 (LGPL-2.1). CMake downloads its pinned release the first time you configure; to build
 offline, pass `-DFETCHCONTENT_SOURCE_DIR_QTADS=<path to a copy>`.
 
-Build options: `-DKH_BUILD_APP=OFF` skips the Qt app, `-DKH_WITH_OCCT=OFF` builds only
+Build options: `-DSB_BUILD_APP=OFF` skips the Qt app, `-DSB_WITH_OCCT=OFF` builds only
 the kernel-independent libraries.
 
 ## Repository layout
 
 ```
-apps/kh_app        Qt desktop application
-apps/kh_cli        command-line tool: design, open, export, plugins, regression corpus
+apps/sketchbillet        Qt desktop application
+apps/sketchbillet_cli        command-line tool: design, open, export, plugins, regression corpus
 src/core           ids, diagnostics, version
 src/kernel         IKernel interface, no OCCT types
 src/kernel_occt    IKernel on Open CASCADE
 src/model          document, commands, feature graph (growing in Phase 0-2)
-src/io             .khan files
+src/io             .sb files
 src/plugin         plugin host, event bus, open documents
-plugins/           built-in plugins (kh.modeling)
+plugins/           built-in plugins (sb.modeling)
 tests/             Catch2 unit tests, regression corpus, test plugins
 tools/docs         docs checker and picture renderer
 cmake/             build helpers

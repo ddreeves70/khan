@@ -1,4 +1,4 @@
-// Tests for the event bus (kh_plugin).
+// Tests for the event bus (sb_plugin).
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -7,11 +7,11 @@
 #include <string>
 #include <vector>
 
-#include "kh/plugin/EventBus.h"
-#include "kh/plugin/Events.h"
+#include "sb/plugin/EventBus.h"
+#include "sb/plugin/Events.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 namespace {
 
@@ -121,7 +121,7 @@ TEST_CASE("a listener that throws is reported, and others still get the event", 
     CHECK(calls == 1);
     REQUIRE(problems.size() == 1);
     CHECK(problems[0].code == "event.listener_failed");
-    CHECK(problems[0].detail.find("kh.DocumentChanged") != std::string::npos);
+    CHECK(problems[0].detail.find("sb.DocumentChanged") != std::string::npos);
     CHECK(problems[0].detail.find("oops") != std::string::npos);
 }
 

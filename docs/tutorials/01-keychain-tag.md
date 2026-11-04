@@ -1,7 +1,7 @@
 # Tutorial 1: Keychain tag
 
 You'll make a keychain tag: a flat plate with a hole for the key ring. On the
-way you'll learn how a Khan design is built from **steps**, and how to cut a hole.
+way you'll learn how a SketchBillet design is built from **steps**, and how to cut a hole.
 
 ![The finished keychain tag](images/tag-done.png)
 
@@ -10,9 +10,9 @@ exporting for 3D printing. **Time:** about 10 minutes.
 
 ## How a design works
 
-A Khan design is a list of **steps**, like a recipe. Each step makes or changes a
-shape: "a box 60 mm wide", "a cylinder", "cut the cylinder out of the box". Khan
-builds the steps in order to get the finished part. Because Khan keeps the recipe,
+A SketchBillet design is a list of **steps**, like a recipe. Each step makes or changes a
+shape: "a box 60 mm wide", "a cylinder", "cut the cylinder out of the box". SketchBillet
+builds the steps in order to get the finished part. Because SketchBillet keeps the recipe,
 not just the shape, you can change any step later and the part rebuilds.
 
 The tag takes three steps:
@@ -27,10 +27,10 @@ Run this in an empty folder:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save tag.khan feature.add_box name=Plate size=60,30,4
+$ sketchbillet_cli run --save tag.sb feature.add_box name=Plate size=60,30,4
 tag: 1 step
   Plate        ok  volume 7200.00 mm^3  mass 8.93 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 What each part means:
@@ -38,12 +38,12 @@ What each part means:
 | Part | Meaning |
 | --- | --- |
 | `run` | Run one modeling command |
-| `--save tag.khan` | Save the design in `tag.khan` |
+| `--save tag.sb` | Save the design in `tag.sb` |
 | `feature.add_box` | The command: add a box |
 | `name=Plate` | Call this step "Plate" |
 | `size=60,30,4` | 60 mm wide (x), 30 mm deep (y), 4 mm tall (z) |
 
-Khan rebuilt the design and printed each step: the plate built (`ok`), and its
+SketchBillet rebuilt the design and printed each step: the plate built (`ok`), and its
 volume is 60 × 30 × 4 = 7200 mm^3.
 
 ![The plate: a 60 x 30 x 4 mm box](images/tag-plate.png)
@@ -58,14 +58,14 @@ The hole goes near the left end: 9 mm from the left edge and in the middle of th
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open tag.khan --save tag.khan feature.add_cylinder name=Hole base=9,15,-1 radius=2.5 height=6
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.add_cylinder name=Hole base=9,15,-1 radius=2.5 height=6
 tag: 2 steps
   Plate        ok  volume 7200.00 mm^3  mass 8.93 g (PLA)
   Hole         ok  volume 117.81 mm^3  mass 0.15 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
-`--open tag.khan` starts from the design you saved, and `--save tag.khan` saves it
+`--open tag.sb` starts from the design you saved, and `--save tag.sb` saves it
 again with the new step.
 
 ![The cylinder (orange) passes right through the plate](images/tag-hole.png)
@@ -81,12 +81,12 @@ Now cut the cylinder out of the plate:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open tag.khan --save tag.khan feature.add_boolean name=Tag operation=cut a=Plate b=Hole
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.add_boolean name=Tag operation=cut a=Plate b=Hole
 tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 `operation=cut` keeps `a` (the plate) and takes away `b` (the hole's cylinder).
@@ -98,12 +98,12 @@ Check the volume: the hole takes away the part of the cylinder inside the plate,
 
 ## Step 4: Export it for 3D printing
 
-In the desktop app, open `tag.khan` and pick **File > Export...** (Ctrl+E), then
-save it as `tag.stl`. With `kh_cli`:
+In the desktop app, open `tag.sb` and pick **File > Export...** (Ctrl+E), then
+save it as `tag.stl`. With `sketchbillet_cli`:
 
 <!-- cli-example -->
 ```console
-$ kh_cli open tag.khan --export tag.stl
+$ sketchbillet_cli open tag.sb --export tag.stl
 tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
@@ -122,12 +122,12 @@ PETG for the plate. The tag is cut from the plate, so it's PETG too:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open tag.khan --save tag.khan feature.set_material feature=Plate material=PETG
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.set_material feature=Plate material=PETG
 tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 9.04 g (PETG)
-wrote tag.khan
+wrote tag.sb
 ```
 
 PETG is a little heavier than PLA, so the same tag weighs 9.04 g. (A real print
@@ -137,17 +137,17 @@ with some infill weighs less: your slicer gives the exact filament weight.)
 
 - Make the tag 50 mm long instead: start again with `size=50,30,4`.
 - Make the hole bigger. A key ring needs about 4 mm, so try `radius=3`.
-- Export a STEP file, for another CAD program: `kh_cli open tag.khan --export tag.step`.
-- How heavy would it be in brass? Try `material="Brass (C360)"`. [`kh_cli materials`](../cli/materials.md) lists them all.
+- Export a STEP file, for another CAD program: `sketchbillet_cli open tag.sb --export tag.step`.
+- How heavy would it be in brass? Try `material="Brass (C360)"`. [`sketchbillet_cli materials`](../cli/materials.md) lists them all.
 
 ## What you learned
 
-- A design is a list of steps. Khan rebuilds them in order.
+- A design is a list of steps. SketchBillet rebuilds them in order.
 - `feature.add_box` and `feature.add_cylinder` make shapes; `size`, `base` and
   `radius` are in mm.
 - `feature.add_boolean` with `operation=cut` cuts one body out of another. Make
   the cutting tool stick out past the faces.
-- `kh_cli open --export` writes a file for 3D printing.
+- `sketchbillet_cli open --export` writes a file for 3D printing.
 - `feature.set_material` picks what a body is made of, which sets its mass.
 
 **Next:** [Tutorial 2: Desk organizer](02-desk-organizer.md).

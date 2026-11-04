@@ -1,11 +1,11 @@
-"""Makes the pictures in Khan's guides from real designs.
+"""Makes the pictures in SketchBillet's guides from real designs.
 
-Each picture in docs/pictures.json is built by running kh_cli commands in a
+Each picture in docs/pictures.json is built by running sketchbillet_cli commands in a
 fresh folder, exporting the steps to show as STL, and rendering them with
 render.py. Run it after changing a picture's recipe or anything that changes how
 parts are built, then commit the PNG files:
 
-    python3 tools/docs/make_images.py --kh-cli build/dev/apps/kh_cli/kh_cli [name...]
+    python3 tools/docs/make_images.py --sketchbillet-cli build/dev/apps/sketchbillet_cli/sketchbillet_cli [name...]
 
 docs/pictures.json holds {"scripts": {name: [commands]}, "pictures": [recipe, ...]}.
 A recipe (a "script" runs that shared list of commands before its own "commands"):
@@ -14,24 +14,24 @@ A recipe (a "script" runs that shared list of commands before its own "commands"
       "out": "docs/tutorials/images/tag-hole.png",   picture to write
       "size": "560x360",                              optional, pixels
       "view": "iso",                                   optional: iso, front, top, right
-      "commands": ["run --save tag.khan feature.add_box size=60,30,4"],
-      "show": [{"file": "tag.khan", "step": "Plate", "color": "blue"},
-               {"file": "tag.khan", "step": "Hole", "color": "orange", "ghost": true}],
+      "commands": ["run --save tag.sb feature.add_box size=60,30,4"],
+      "show": [{"file": "tag.sb", "step": "Plate", "color": "blue"},
+               {"file": "tag.sb", "step": "Hole", "color": "orange", "ghost": true}],
       "labels": [{"at": [0, 0, 0], "text": "origin", "color": "#1f2328"}]   optional
     }
 
-An "app" recipe takes a screenshot of the desktop app instead (pass --kh-app):
+An "app" recipe takes a screenshot of the desktop app instead (pass --sketchbillet-app):
 
     {"out": "docs/user-guide/images/app-main.png",
-     "commands": [...], "app": {"open": "o.khan", "select": ["Cup"], "settings": {"grid/style": "lines"},
-                                "trigger": ["kh.viewer.layout.fourpanes"], "flat": false},
+     "commands": [...], "app": {"open": "o.sb", "select": ["Cup"], "settings": {"grid/style": "lines"},
+                                "trigger": ["sb.viewer.layout.fourpanes"], "flat": false},
      "crop": [x, y, width, height], "callouts": [{"at": [x, y], "n": 1}]}   both optional
 
 A "sketch" recipe draws a sketch twice, side by side: as it was drawn (from the
-.khan file) and as the solver left it (from `kh_cli open --sketch`):
+.sb file) and as the solver left it (from `sketchbillet_cli open --sketch`):
 
     {"out": "docs/user-guide/images/sketch-rectangle.png", "commands": [...],
-     "sketch": {"file": "r.khan", "name": "Sketch1"}, "size": "720x300"}
+     "sketch": {"file": "r.sb", "name": "Sketch1"}, "size": "720x300"}
 
 "trigger" clicks menu items and buttons by object name before the picture is
 taken. The 3D viewer needs OpenGL: on Linux the app runs on a virtual screen
@@ -86,11 +86,11 @@ def mark_up(png, crop, callouts):
     plt.close(fig)
 
 
-def read_drawn(khan, name):
-    """The entities of a sketch as drawn: [(name, kind, numbers, construction)], from the .khan zip."""
+def read_drawn(sketchbillet, name):
+    """The entities of a sketch as drawn: [(name, kind, numbers, construction)], from the .sb zip."""
     import zipfile
 
-    with zipfile.ZipFile(khan) as z:
+    with zipfile.ZipFile(sketchbillet) as z:
         for entry in z.namelist():
             if not entry.startswith("features/"):
                 continue
@@ -112,11 +112,11 @@ def read_drawn(khan, name):
                                               math.degrees(e["end_angle"])]
                     out.append((e["name"], t, nums, e.get("construction", False)))
                 return out
-    sys.exit(f"{khan}: no sketch called {name}")
+    sys.exit(f"{sketchbillet}: no sketch called {name}")
 
 
 def read_solved(text):
-    """Parses `kh_cli open --sketch` output: (state line, [(name, kind, numbers, construction)])."""
+    """Parses `sketchbillet_cli open --sketch` output: (state line, [(name, kind, numbers, construction)])."""
     import re
 
     state = ""
@@ -189,13 +189,13 @@ def draw_sketch(out, panels, size):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--kh-cli", required=True)
-    ap.add_argument("--kh-app", help="kh_app, for screenshots of the desktop app (recipes with \"app\")")
+    ap.add_argument("--sketchbillet-cli", required=True)
+    ap.add_argument("--sketchbillet-app", help="sketchbillet, for screenshots of the desktop app (recipes with \"app\")")
     ap.add_argument("--repo", default=str(HERE.parent.parent))
     ap.add_argument("names", nargs="*", help="only pictures whose file name contains one of these")
     args = ap.parse_args()
     repo = Path(args.repo).resolve()
-    kh_cli = str(Path(args.kh_cli).resolve())
+    sketchbillet_cli = str(Path(args.sketchbillet_cli).resolve())
     data = json.loads((repo / "docs/pictures.json").read_text(encoding="utf-8"))
     scripts = data.get("scripts", {})
 
@@ -203,18 +203,18 @@ def main():
         out = repo / recipe["out"]
         if args.names and not any(n in out.name for n in args.names):
             continue
-        with tempfile.TemporaryDirectory(prefix="kh_pictures_") as tmp:
+        with tempfile.TemporaryDirectory(prefix="sb_pictures_") as tmp:
             commands = scripts.get(recipe.get("script"), []) + recipe.get("commands", [])
             for command in commands:
-                argv = [kh_cli] + [str(repo / a) if a.startswith(("tests/", "docs/")) else a
+                argv = [sketchbillet_cli] + [str(repo / a) if a.startswith(("tests/", "docs/")) else a
                                    for a in shlex.split(command)]
                 proc = subprocess.run(argv, cwd=tmp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 if proc.returncode != 0 and recipe.get("check", True):  # "check": false for pictures of failures
                     sys.exit(f"{out.name}: '{command}' failed:\n{proc.stdout.decode()}")
             if "app" in recipe:
                 # A screenshot of the desktop app with a design open.
-                if not args.kh_app:
-                    print(f"skipped {out.relative_to(repo)}: needs --kh-app")
+                if not args.sketchbillet_app:
+                    print(f"skipped {out.relative_to(repo)}: needs --sketchbillet-app")
                     continue
                 app = recipe["app"]
                 w, h = (int(v) for v in recipe.get("size", "1280x800").split("x"))
@@ -226,7 +226,7 @@ def main():
                         sections.setdefault(group, []).append(f"{name}={value}")
                     ini = "".join(f"[{g}]\n" + "\n".join(lines) + "\n" for g, lines in sections.items())
                     (Path(tmp) / "settings.ini").write_text(ini)
-                argv = [str(Path(args.kh_app).resolve()), "--settings", str(Path(tmp) / "settings.ini"),
+                argv = [str(Path(args.sketchbillet_app).resolve()), "--settings", str(Path(tmp) / "settings.ini"),
                         "--screenshot", str(out)]
                 if "open" in app:
                     argv += ["--open", app["open"]]
@@ -236,7 +236,7 @@ def main():
                     argv += ["--trigger", ",".join(app["trigger"])]
                 env = dict(os.environ)
                 if app.get("flat"):
-                    env.update(QT_QPA_PLATFORM="offscreen", KH_NO_3D="1")
+                    env.update(QT_QPA_PLATFORM="offscreen", SB_NO_3D="1")
                 elif sys.platform.startswith("linux"):
                     xvfb = shutil.which("xvfb-run")
                     if not xvfb:
@@ -246,13 +246,13 @@ def main():
                 out.parent.mkdir(parents=True, exist_ok=True)
                 proc = subprocess.run(argv, cwd=tmp, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 if proc.returncode != 0 or not out.exists():
-                    sys.exit(f"{out.name}: kh_app failed:\n{proc.stdout.decode()}")
+                    sys.exit(f"{out.name}: sketchbillet failed:\n{proc.stdout.decode()}")
                 mark_up(out, recipe.get("crop"), recipe.get("callouts", []))
                 print(f"wrote {out.relative_to(repo)}")
                 continue
             if "sketch" in recipe:
                 sk = recipe["sketch"]
-                proc = subprocess.run([kh_cli, "open", sk["file"], "--sketch", sk["name"]], cwd=tmp,
+                proc = subprocess.run([sketchbillet_cli, "open", sk["file"], "--sketch", sk["name"]], cwd=tmp,
                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 state, solved = read_solved(proc.stdout.decode())
                 drawn = read_drawn(Path(tmp) / sk["file"], sk["name"])
@@ -264,7 +264,7 @@ def main():
             bodies = []
             for i, show in enumerate(recipe["show"]):
                 stl = Path(tmp) / f"body{i}.stl"
-                argv = [kh_cli, "open", show["file"], "--export", str(stl)]
+                argv = [sketchbillet_cli, "open", show["file"], "--export", str(stl)]
                 if "step" in show:
                     argv += ["--step", show["step"]]
                 proc = subprocess.run(argv, cwd=tmp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

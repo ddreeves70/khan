@@ -5,9 +5,9 @@
 #include <filesystem>
 #include <numbers>
 
-#include "kh/kernel_occt/OcctKernel.h"
+#include "sb/kernel_occt/OcctKernel.h"
 
-using namespace kh::kernel;
+using namespace sb::kernel;
 using Catch::Approx;
 
 TEST_CASE("Box has the expected volume and bounds", "[kernel][occt]") {
@@ -31,7 +31,7 @@ TEST_CASE("Invalid sizes are reported, not thrown", "[kernel][occt]") {
 // Bug: a 0, 0, 0 axis reached OCCT and came back as "Standard_ConstructionError:
 // gp_Dir() - input vector has zero norm".
 TEST_CASE("A cylinder with no axis direction gets a plain message", "[kernel][occt]") {
-    auto kernel = kh::kernel::makeOcctKernel();
+    auto kernel = sb::kernel::makeOcctKernel();
     const auto cyl = kernel->makeCylinder({0, 0, 0}, {0, 0, 0}, 5, 20);
     REQUIRE_FALSE(cyl.ok());
     REQUIRE(cyl.issues[0].code == "kernel.cylinder.axis");
@@ -83,7 +83,7 @@ TEST_CASE("Tessellation and STL export produce output", "[kernel][occt]") {
     const auto mesh = k->tessellate(box.shape, {});
     REQUIRE(mesh.triangles.size() >= 12);
 
-    const auto path = std::filesystem::temp_directory_path() / "kh_test_box.stl";
+    const auto path = std::filesystem::temp_directory_path() / "sb_test_box.stl";
     REQUIRE(k->exportFile(box.shape, ExportFormat::Stl, path).empty());
     REQUIRE(std::filesystem::file_size(path) > 0);
     std::filesystem::remove(path);
@@ -205,7 +205,7 @@ const Plane kGround{};  // XY: x right, y up, normal +z
 }  // namespace
 
 TEST_CASE("a rectangle extruded 10 mm is a 40 x 20 x 10 block", "[kernel][occt][extrude]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     const auto face = k->makeFace({rectangle(0, 0, 40, 20), {}}, kGround);
     REQUIRE(face.ok());
     const auto solid = k->extrude(face.shape, {0, 0, 10});
@@ -224,7 +224,7 @@ TEST_CASE("a rectangle extruded 10 mm is a 40 x 20 x 10 block", "[kernel][occt][
 }
 
 TEST_CASE("a hole in the face goes through the solid", "[kernel][occt][extrude]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     // The hole runs clockwise, as findProfiles() gives holes.
     const Profile2 plate{rectangle(0, 0, 40, 20), {Loop2{Edge2{Circle2{{10, 10}, 4}, true}}}};
     const auto solid = k->extrude(k->makeFace(plate, kGround).shape, {0, 0, 5});
@@ -235,7 +235,7 @@ TEST_CASE("a hole in the face goes through the solid", "[kernel][occt][extrude]"
 }
 
 TEST_CASE("a slot of lines and arcs extrudes to its exact volume", "[kernel][occt][extrude]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     // 30 mm lines 10 mm apart, closed by half circles of radius 5, counterclockwise.
     const Loop2 slot{Edge2{Line2{{0, 0}, {30, 0}}}, Edge2{Arc2{{30, 5}, 5, -kPi / 2, kPi / 2}},
                      Edge2{Line2{{30, 10}, {0, 10}}}, Edge2{Arc2{{0, 5}, 5, kPi / 2, 3 * kPi / 2}}};
@@ -246,7 +246,7 @@ TEST_CASE("a slot of lines and arcs extrudes to its exact volume", "[kernel][occ
 }
 
 TEST_CASE("an outline that runs backwards along some edges still makes a face", "[kernel][occt][extrude]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     // The triangle (0,0) -> (10,0) -> (0,10), with two of its lines stored the other way round.
     const Loop2 tri{Edge2{Line2{{10, 0}, {0, 0}}, true}, Edge2{Line2{{10, 0}, {0, 10}}},
                     Edge2{Line2{{0, 0}, {0, 10}}, true}};
@@ -256,7 +256,7 @@ TEST_CASE("an outline that runs backwards along some edges still makes a face", 
 }
 
 TEST_CASE("extrude goes either way, and works on any plane", "[kernel][occt][extrude]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     SECTION("downwards") {
         const auto solid = k->extrude(k->makeFace({rectangle(0, 0, 10, 10), {}}, kGround).shape, {0, 0, -4});
         REQUIRE(solid.ok());
@@ -285,7 +285,7 @@ TEST_CASE("extrude goes either way, and works on any plane", "[kernel][occt][ext
 }
 
 TEST_CASE("ends a hair apart join; ends far apart get a plain message", "[kernel][occt][extrude]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     auto loop = rectangle(0, 0, 10, 10);
     std::get<Line2>(loop[1].curve).start.x += 2e-6;  // as a solver might leave it
     const auto ok = k->makeFace({loop, {}}, kGround);
@@ -301,7 +301,7 @@ TEST_CASE("ends a hair apart join; ends far apart get a plain message", "[kernel
 }
 
 TEST_CASE("faces and extrudes that can't be made say why", "[kernel][occt][extrude]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     CHECK(k->makeFace({}, kGround).issues.at(0).code == "kernel.face.outline");
     const Loop2 dot{Edge2{Line2{{1, 1}, {1, 1}}}, Edge2{Line2{{1, 1}, {1, 1}}}};
     CHECK(k->makeFace({dot, {}}, kGround).issues.at(0).message.find("no length") != std::string::npos);
@@ -316,7 +316,7 @@ TEST_CASE("faces and extrudes that can't be made say why", "[kernel][occt][extru
 }
 
 TEST_CASE("extruding the same face twice gives the same solid", "[kernel][occt][extrude]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     const Profile2 plate{rectangle(0, 0, 40, 20), {Loop2{Edge2{Circle2{{10, 10}, 4}, true}}}};
     auto make = [&] { return k->extrude(k->makeFace(plate, kGround).shape, {0, 0, 5}).shape; };
     const auto a = make(), b = make();
@@ -334,7 +334,7 @@ TEST_CASE("extruding the same face twice gives the same solid", "[kernel][occt][
 
 TEST_CASE("a spline arch closed by a line extrudes to the area under the curve",
           "[kernel][occt][extrude][spline]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     // A cubic Bezier from (0, 0) up through poles (0, 30) and (40, 30) to (40, 0):
     // the area under it is 3/5 of the 40 x 30 box, 720 mm^2. Closed by the line back.
     const Loop2 arch{Edge2{Spline2{{{0, 0}, {0, 30}, {40, 30}, {40, 0}}, {}, 3, false}, true},
@@ -352,7 +352,7 @@ TEST_CASE("a spline arch closed by a line extrudes to the area under the curve",
 }
 
 TEST_CASE("a closed spline extrudes on its own, and as a hole", "[kernel][occt][extrude][spline]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     // A uniform cubic B-spline round a 20 x 20 square: a rounded square.
     const Spline2 round{{{-10, -10}, {10, -10}, {10, 10}, {-10, 10}}, {}, 3, true};
     const auto disc = k->extrude(k->makeFace({{Edge2{round}}, {}}, kGround).shape, {0, 0, 2});
@@ -375,7 +375,7 @@ TEST_CASE("a closed spline extrudes on its own, and as a hole", "[kernel][occt][
 TEST_CASE("surface areas of spline walls are right: kinks, weights and seams", "[kernel][occt][spline]") {
     // Each wall's area is its curve's length times the height, so a solid's surface
     // is 2 x its section's area + its outline's length x the height.
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     auto surface = [&](const Loop2& loop, double height) {
         const auto solid = k->extrude(k->makeFace({loop, {}}, kGround).shape, {0, 0, height});
         REQUIRE(solid.ok());
@@ -409,7 +409,7 @@ TEST_CASE("surface areas of spline walls are right: kinks, weights and seams", "
 
 TEST_CASE("weights pull a spline edge; splines that can't be made say why",
           "[kernel][occt][extrude][spline]") {
-    auto k = kh::kernel::makeOcctKernel();
+    auto k = sb::kernel::makeOcctKernel();
     auto arch = [](std::vector<double> weights) {
         return Loop2{Edge2{Spline2{{{0, 0}, {0, 30}, {40, 30}, {40, 0}}, std::move(weights), 3, false}, true},
                      Edge2{Line2{{0, 0}, {40, 0}}}};

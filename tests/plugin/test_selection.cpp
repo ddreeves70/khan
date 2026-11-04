@@ -1,17 +1,17 @@
-// Tests for the shared selection (kh_plugin).
+// Tests for the shared selection (sb_plugin).
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <memory>
 #include <vector>
 
-#include "kh/model/CommandRegistry.h"
-#include "kh/plugin/DocumentList.h"
-#include "kh/plugin/Events.h"
-#include "kh/plugin/Selection.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/plugin/DocumentList.h"
+#include "sb/plugin/Events.h"
+#include "sb/plugin/Selection.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 namespace {
 

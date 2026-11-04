@@ -6,11 +6,11 @@
 #include <cmath>
 #include <set>
 
-#include "kh/view/Layout.h"
-#include "kh/view/Scene.h"
+#include "sb/view/Layout.h"
+#include "sb/view/Scene.h"
 
-using namespace kh;
-using namespace kh::view;
+using namespace sb;
+using namespace sb::view;
 using Catch::Approx;
 
 namespace {

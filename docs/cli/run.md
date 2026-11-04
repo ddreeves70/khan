@@ -1,18 +1,18 @@
-# kh_cli run
+# sketchbillet_cli run
 
 Runs one modeling command, such as "add a box" or "cut a hole", on a new or saved
 design. Then it rebuilds the design, prints every step, and saves it.
 
 ```text
-kh_cli run [--plugins <folder>]... [--open <in.khan>] [--save <out.khan>] <command> [name=value]...
+sketchbillet_cli run [--plugins <folder>]... [--open <in.sb>] [--save <out.sb>] <command> [name=value]...
 ```
 
 | Option | Meaning |
 | --- | --- |
-| `<command>` | The modeling command to run, e.g. `feature.add_box`. See [Modeling commands](commands.md), or run [`kh_cli help`](help.md) |
+| `<command>` | The modeling command to run, e.g. `feature.add_box`. See [Modeling commands](commands.md), or run [`sketchbillet_cli help`](help.md) |
 | `name=value` | One setting for the command, e.g. `size=40,30,10`. Settings that aren't required can be left out |
-| `--open <in.khan>` | Start from this saved design. Without it, `run` starts a new, empty design |
-| `--save <out.khan>` | Save the result here. It may be the same file as `--open`. A new design is named after this file |
+| `--open <in.sb>` | Start from this saved design. Without it, `run` starts a new, empty design |
+| `--save <out.sb>` | Save the result here. It may be the same file as `--open`. A new design is named after this file |
 | `--plugins <folder>` | Load the plugins in this folder, so their commands can run. Can be given more than once |
 
 Without `--save`, nothing is saved: useful to try a command first.
@@ -23,21 +23,21 @@ Each `run` adds one step. Save to the same file each time to build up a design:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save block.khan feature.add_box size=40,30,10
+$ sketchbillet_cli run --save block.sb feature.add_box size=40,30,10
 block: 1 step
   Box1         ok  volume 12000.00 mm^3  mass 14.88 g (PLA)
-wrote block.khan
-$ kh_cli run --open block.khan --save block.khan feature.add_cylinder base=20,15,-1 radius=6 height=12
+wrote block.sb
+$ sketchbillet_cli run --open block.sb --save block.sb feature.add_cylinder base=20,15,-1 radius=6 height=12
 block: 2 steps
   Box1         ok  volume 12000.00 mm^3  mass 14.88 g (PLA)
   Cylinder1    ok  volume 1357.17 mm^3  mass 1.68 g (PLA)
-wrote block.khan
-$ kh_cli run --open block.khan --save block.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1
+wrote block.sb
+$ sketchbillet_cli run --open block.sb --save block.sb feature.add_boolean operation=cut a=Box1 b=Cylinder1
 block: 3 steps
   Box1         ok  volume 12000.00 mm^3
   Cylinder1    ok  volume 1357.17 mm^3
   Cut1         ok  volume 10869.03 mm^3  mass 13.48 g (PLA)
-wrote block.khan
+wrote block.sb
 ```
 
 ![The block with a hole cut through it](images/run-block.png)
@@ -49,7 +49,7 @@ those names, like `a=Box1`.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run feature.add_box size=10,10,10
+$ sketchbillet_cli run feature.add_box size=10,10,10
 Untitled: 1 step
   Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
 ```
@@ -58,7 +58,7 @@ Untitled: 1 step
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --plugins build/dev/khan-plugins example.hello.add_cube size=25
+$ sketchbillet_cli run --plugins build/dev/sketchbillet-plugins example.hello.add_cube size=25
 Untitled: 1 step
   Cube1        ok  volume 15625.00 mm^3  mass 19.37 g (PLA)
 [example.tape] The ruler shows lengths in in.
@@ -77,7 +77,7 @@ A setting that's missing:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run feature.add_box
+$ sketchbillet_cli run feature.add_box
 error [command.arg_missing]: Add box needs size: Width, depth and height in mm.
 ```
 
@@ -85,7 +85,7 @@ A value of the wrong kind:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run feature.add_box size=10,20
+$ sketchbillet_cli run feature.add_box size=10,20
 error: size must be three numbers in mm, like 10,20,30
 ```
 
@@ -93,7 +93,7 @@ A setting the command doesn't have:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run feature.add_box size=10,20,30 colour=red
+$ sketchbillet_cli run feature.add_box size=10,20,30 colour=red
 error: Add box has no setting called colour. Its settings are: size corner name
 ```
 
@@ -103,7 +103,7 @@ design is still saved, so you can fix the step later:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run feature.add_box size=10,0,10
+$ sketchbillet_cli run feature.add_box size=10,0,10
 Untitled: 1 step
   Box1         failed
     error [kernel.box.size]: A box needs a width, depth and height greater than 0 mm.

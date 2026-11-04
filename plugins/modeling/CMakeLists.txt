@@ -1,10 +1,10 @@
-# kh.modeling: the built-in plugin with Khan's modeling commands.
-kh_add_library(kh_plugin_modeling
+# sb.modeling: the built-in plugin with SketchBillet's modeling commands.
+sb_add_library(sb_plugin_modeling
   SOURCES
     ModelingPlugin.cpp
   DEPS
-    kh::plugin
-    kh::model
+    sb::plugin
+    sb::model
 )
-kh_embed_files(kh_plugin_modeling HEADER ModelingIcons.h NAMESPACE kh::icons::modeling
+sb_embed_files(sb_plugin_modeling HEADER ModelingIcons.h NAMESPACE sb::icons::modeling
   FILES icons/box.svg icons/cylinder.svg icons/union.svg icons/cut.svg icons/intersect.svg icons/move.svg icons/extrude.svg)

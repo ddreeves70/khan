@@ -3,7 +3,7 @@
 A **sketch** is a flat drawing (lines, circles, arcs and points) on one of the
 three main planes. **Constraints** say how the pieces relate (this line is
 horizontal, these two ends meet) and **dimensions** give sizes (this line is
-40 mm long). Khan's solver moves the drawing until every constraint and dimension
+40 mm long). SketchBillet's solver moves the drawing until every constraint and dimension
 is true. Then [extrude](extrude.md) turns a sketch's closed shapes into solid parts.
 
 You don't have to draw exactly: draw roughly, then add constraints and
@@ -15,7 +15,7 @@ dimensions, and the solver makes it exact.
 
 ![Editing a sketch: the view looks straight at it, and the status bar says what to click](images/app-sketch-edit.png)
 
-1. **Sketch > New sketch on XY (the ground)** (Ctrl+Shift+K), or on XZ or YZ. Khan
+1. **Sketch > New sketch on XY (the ground)** (Ctrl+Shift+K), or on XZ or YZ. SketchBillet
    adds `Sketch1`, turns the view to look straight at its plane, and starts
    drawing lines. To work on a sketch you already have, pick it in the feature
    tree and use **Sketch > Edit sketch** (Ctrl+K); it starts with **Select**, for
@@ -49,11 +49,11 @@ dimensions, and the solver makes it exact.
 While drawing:
 
 - **Snapping to points.** A click close to a point of the sketch (an end, a
-  center) lands exactly on it, and Khan joins them with a `coincident`
+  center) lands exactly on it, and SketchBillet joins them with a `coincident`
   constraint. An orange dot shows the point it will snap to. Clicking the first
   point of a closed shape ends the line chain.
 - **Snapping onto lines and circles.** A click close to a line, circle, arc or
-  spline (but not near one of its points) lands exactly on it, and Khan adds an
+  spline (but not near one of its points) lands exactly on it, and SketchBillet adds an
   `On` constraint, so it stays there.
 - **Level, upright and smooth lines.** A line's end within 6 pixels of level
   (or of straight up and down) is made exactly level (or upright), with a
@@ -84,7 +84,7 @@ A closed shape inside another one is a **hole** in it (like the plate's circle).
   and the panel counts them. To close the shape, drag one end onto the other
   (they join), or pick both ends (Ctrl-click) and click **Coincident**.
 - Where three or more lines meet at one point, or two shapes cross each other,
-  Khan can't tell which shape is which: the panel says where. Delete the extra
+  SketchBillet can't tell which shape is which: the panel says where. Delete the extra
   line, or make it a helper line.
 - Helper (construction) lines and points are never part of a shape.
 
@@ -164,7 +164,7 @@ Sketch panel then shows its settings:
 - A spline being edited shows its control points, joined by thin lines (its
   *control polygon*). **Drag a control point** to reshape the curve; drag the
   curve itself to move all of it.
-- In `kh_cli`, the same things are [`sketch.add_spline`](../cli/commands.md#sketchadd_spline)
+- In `sketchbillet_cli`, the same things are [`sketch.add_spline`](../cli/commands.md#sketchadd_spline)
   (with `poles` or `through`), [`sketch.set_spline`](../cli/commands.md#sketchset_spline),
   [`sketch.set_weight`](../cli/commands.md#sketchset_weight),
   [`sketch.add_pole`](../cli/commands.md#sketchadd_pole) and
@@ -172,7 +172,7 @@ Sketch panel then shows its settings:
 - Constraints work on its control points like on any point: join its end to a
   line's end with `coincident`, `fix` a control point, or put two of them a
   distance apart with **Dimension**. Name them `Spline1.pole1`, `Spline1.pole2`,
-  ... in `kh_cli`.
+  ... in `sketchbillet_cli`.
 - **Where a spline meets another curve.** Draw a spline starting on the end of a
   line, arc or spline, and they're joined. Then pick both and click:
 
@@ -210,15 +210,15 @@ x,y
 - Commas, spaces, tabs or semicolons can go between the numbers, so a
   spreadsheet saved as CSV works. A first line like `x,y` is skipped, a `#`
   starts a comment, and a third number (z) is left out. Up to 500 points.
-- **Reload from file.** Khan remembers the file. Change it (in a spreadsheet,
+- **Reload from file.** SketchBillet remembers the file. Change it (in a spreadsheet,
   say), then pick the spline and click **Reload from file** in the Sketch panel:
   the spline follows. Its degree and weights stay; constraints on control
   points it doesn't have anymore go. Undo puts the old points back.
 - If you move the design to another computer, take the file too: Reload looks
   for it where it was, and says so if it isn't there.
-- A line Khan can't read is named, like *Line 4 of wave.csv isn't 2 numbers (x
+- A line SketchBillet can't read is named, like *Line 4 of wave.csv isn't 2 numbers (x
   and y): "20,1O"*, so you can fix it.
-- In `kh_cli`: [`sketch.import_spline`](../cli/commands.md#sketchimport_spline)
+- In `sketchbillet_cli`: [`sketch.import_spline`](../cli/commands.md#sketchimport_spline)
   and [`sketch.reload_spline`](../cli/commands.md#sketchreload_spline).
 - A closed shape can have spline edges, so [extrude](extrude.md) turns it into a
   solid, and a closed spline is a shape on its own, like a circle.
@@ -273,47 +273,47 @@ the window, the rest go on a second row.
 ![Two dimensions that can't both be true are red, and the Sketch panel says which](images/app-sketch-conflict.png)
 
 If constraints can't all be true at once (a line can't be 40 mm long *and*
-30 mm wide while it's horizontal), Khan doesn't change the drawing: it shows
+30 mm wide while it's horizontal), SketchBillet doesn't change the drawing: it shows
 those constraints, and what they're on, in **red**, and the status bar and the
 Sketch panel say which ones. Undo, delete one of them, or change a number.
 
 A constraint in **amber** says what others already say (a line that's horizontal
 twice). The sketch still works; you can delete it to tidy up.
 
-## Example with kh_cli
+## Example with sketchbillet_cli
 
 Make a sketch, draw a line, and pin it down: horizontal, starting where it is,
 40 mm long.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save line.khan feature.add_sketch
+$ sketchbillet_cli run --save line.sb feature.add_sketch
 line: 1 step
   Sketch1      ok  empty
-wrote line.khan
-$ kh_cli run --open line.khan --save line.khan sketch.add_line sketch=Sketch1 from=0,0 to=38,3
+wrote line.sb
+$ sketchbillet_cli run --open line.sb --save line.sb sketch.add_line sketch=Sketch1 from=0,0 to=38,3
 line: 1 step
   Sketch1      ok  1 line, 0 constraints, free to move 4 ways
-wrote line.khan
-$ kh_cli run --open line.khan --save line.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line1
+wrote line.sb
+$ sketchbillet_cli run --open line.sb --save line.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line1
 line: 1 step
   Sketch1      ok  1 line, 1 constraint, free to move 3 ways
-wrote line.khan
-$ kh_cli run --open line.khan --save line.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start
+wrote line.sb
+$ sketchbillet_cli run --open line.sb --save line.sb sketch.constrain sketch=Sketch1 kind=fix on=Line1.start
 line: 1 step
   Sketch1      ok  1 line, 2 constraints, free to move 1 way
-wrote line.khan
-$ kh_cli run --open line.khan --save line.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40
+wrote line.sb
+$ sketchbillet_cli run --open line.sb --save line.sb sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40
 line: 1 step
   Sketch1      ok  1 line, 3 constraints, fully constrained
-wrote line.khan
+wrote line.sb
 ```
 
-See where the solver put the line with [`kh_cli open --sketch`](../cli/open.md):
+See where the solver put the line with [`sketchbillet_cli open --sketch`](../cli/open.md):
 
 <!-- cli-example -->
 ```console
-$ kh_cli open line.khan --sketch Sketch1
+$ sketchbillet_cli open line.sb --sketch Sketch1
 line: 1 step
   Sketch1      ok  1 line, 3 constraints, fully constrained
 Sketch1 (XY plane): fully constrained
@@ -389,7 +389,7 @@ changes when they do.
 
 ## Free to move: degrees of freedom
 
-Khan counts how many ways the drawing can still move or change size. A free line
+SketchBillet counts how many ways the drawing can still move or change size. A free line
 can move 4 ways (each end, across and up). Each constraint takes some away: a
 horizontal line can move 3 ways; fix its start and it can only stretch (1 way);
 give it a length and it's **fully constrained** (0). Aim for 0, so the part comes
@@ -397,11 +397,11 @@ out the same every time.
 
 ## When constraints fight
 
-If constraints can't all be true at once, the sketch fails and Khan names them:
+If constraints can't all be true at once, the sketch fails and SketchBillet names them:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open line.khan sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Line1.end value=50
+$ sketchbillet_cli run --open line.sb sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Line1.end value=50
 line: 1 step
   Sketch1      failed
     error [sketch.conflicting]: These constraints can't all be true at once: Length1, HorizontalDistance1. Delete one of them, or change a dimension.
@@ -409,7 +409,7 @@ line: 1 step
 
 A line can't be 40 mm long and reach 50 mm across. Delete one, or change a value.
 If a constraint only repeats what others already say, the sketch still works, and
-Khan says which one you could delete.
+SketchBillet says which one you could delete.
 
 ## Tips
 

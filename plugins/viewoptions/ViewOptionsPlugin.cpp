@@ -1,4 +1,4 @@
-#include "kh/plugins/ViewOptions.h"
+#include "sb/plugins/ViewOptions.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -20,10 +20,10 @@
 #include <map>
 #include <memory>
 
-#include "kh/plugin/Events.h"
-#include "kh/ui/UiRegistry.h"
+#include "sb/plugin/Events.h"
+#include "sb/ui/UiRegistry.h"
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
@@ -33,7 +33,7 @@ using viewoptions::OptionValue;
 using viewoptions::ViewOptionChanged;
 
 constexpr const char* kManifest = R"({
-  "id": "kh.viewoptions",
+  "id": "sb.viewoptions",
   "name": "View options",
   "version": "0.1.0",
   "description": "Keeps the options for what the viewer shows, with the View options panel.",
@@ -94,7 +94,7 @@ std::string refuse(const OptionSpec& o, const OptionValue& v) {
 class Panel final : public QScrollArea {
 public:
     Panel(ViewOptionsService& options, plugin::EventBus& bus) : options_(options) {
-        setObjectName(QStringLiteral("kh.viewoptions.panel"));
+        setObjectName(QStringLiteral("sb.viewoptions.panel"));
         setWidgetResizable(true);
         setFrameShape(QFrame::NoFrame);
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);  // narrow panels squeeze, not scroll
@@ -103,7 +103,7 @@ public:
 
         auto* scopeRow = new QFormLayout;
         scope_ = new QComboBox;
-        scope_->setObjectName(QStringLiteral("kh.viewoptions.scope"));
+        scope_->setObjectName(QStringLiteral("sb.viewoptions.scope"));
         scope_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
         scope_->setMinimumContentsLength(8);
         scope_->setToolTip(tr("Change options for every pane, or for one pane only."));
@@ -264,7 +264,7 @@ private:
 // A pane's "This pane only" menu: every option, with the pane's values.
 void paneMenu(ViewOptionsService& options, const std::string& pane, QPoint at) {
     QMenu menu;
-    menu.setObjectName(QStringLiteral("kh.viewoptions.panemenu"));
+    menu.setObjectName(QStringLiteral("sb.viewoptions.panemenu"));
     menu.addSection(QObject::tr("This pane only: %1").arg(qs(options.paneName(pane))));
     std::string group;
     for (const auto* o : options.options()) {
@@ -324,15 +324,15 @@ void paneMenu(ViewOptionsService& options, const std::string& pane, QPoint at) {
 }
 
 void registerViewOptions(plugin::PluginContext& ctx) {
-    // Kept alive by the listener below, which Khan keeps while the plugin is loaded.
+    // Kept alive by the listener below, which SketchBillet keeps while the plugin is loaded.
     auto options = std::make_shared<ViewOptionsService>(ctx.settings(), ctx.events());
     ctx.provide<viewoptions::IViewOptions>(*options);
     ctx.listen<plugin::SettingChanged>([options](const plugin::SettingChanged& e) {
-        if (e.plugin == "kh.viewoptions") options->settingChanged(e.key);
+        if (e.plugin == "sb.viewoptions") options->settingChanged(e.key);
     });
 
     auto* ui = ctx.service<ui::UiRegistry>();
-    if (!ui) return;  // kh_cli: options are kept, nothing is shown
+    if (!ui) return;  // sketchbillet_cli: options are kept, nothing is shown
     options->report = [ui](const Diagnostics& d) { ui->showProblems(d); };
     options->paneMenu = [options](const std::string& pane, int x, int y) {
         if (qApp) paneMenu(*options, pane, QPoint(x, y));
@@ -346,16 +346,16 @@ void registerViewOptions(plugin::PluginContext& ctx) {
         return ok ? std::optional<double>(v) : std::nullopt;
     };
     auto& bus = ctx.events();
-    ui::PanelSpec panel{"kh.viewoptions.panel", QObject::tr("View options"), ui::PanelArea::Right,
+    ui::PanelSpec panel{"sb.viewoptions.panel", QObject::tr("View options"), ui::PanelArea::Right,
                         [options, &bus] { return new Panel(*options, bus); }};
     panel.startHidden = true;
     panel.floatsOverView = true;
     ui->addPanel(std::move(panel));
-    ctx.addAction({.id = "kh.viewoptions.show",
+    ctx.addAction({.id = "sb.viewoptions.show",
                    .text = "View options...",
                    .menu = "View",
                    .tip = "Open the panel with every view option, like the grid and the axes.",
-                   .run = [ui] { ui->showPanel("kh.viewoptions.panel"); }});
+                   .run = [ui] { ui->showPanel("sb.viewoptions.panel"); }});
 }
 
 }  // namespace
@@ -564,4 +564,4 @@ plugin::BuiltinPlugin viewOptionsPlugin() {
     return {kManifest, &registerViewOptions};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins
