@@ -1,0 +1,32 @@
+{
+  "name": "sketchbillet-website",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The website for SketchBillet, at sketchbillet.org: a home page, the guides made from docs/, the project's story, its people and where to follow it.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build --outDir dist/site && vite build --ssr src/entry-server.tsx --outDir dist/server && node scripts/prerender.mjs && node scripts/check-links.mjs",
+    "check": "node scripts/check-links.mjs",
+    "preview": "vite preview --outDir dist/site"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "5.3.0",
+    "@fontsource/barlow-condensed": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "14.2.0",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "github-slugger": "2.0.0",
+    "markdown-it": "15.0.2",
+    "typescript": "6.0.3",
+    "vite": "8.3.4"
+  }
+}
