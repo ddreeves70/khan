@@ -127,10 +127,11 @@ set the environment variable `KH_NO_3D` to `1` before starting Khan (on Windows:
 
 ## Panels over the viewer
 
-The feature tree, Properties, the Sketch panel and View options float over the
-viewer, like the browser and dialogs in other CAD programs, so your part gets the
+The feature tree, Properties, the Parameters panel, the Sketch panel and View
+options float over the viewer, like the browser and dialogs in other CAD programs, so your part gets the
 whole window. They're see-through, and only as tall as what's in them, so they
-cover as little of your part as they can. The feature tree is at the top left;
+cover as little of your part as they can. The feature tree is at the top left,
+with Parameters under it when it's open;
 Properties is at the top right, under the view cube, with the Sketch panel
 (while you edit a sketch) and View options under it.
 
@@ -199,7 +200,8 @@ The grid's spacing is a View option, not part of the design: it stays in mm.
 
 ## Parameters
 
-**Modify > Parameters** opens the Parameters panel: the design's named values,
+**Modify > Parameters** opens the Parameters panel, floating over the view under
+the feature tree: the design's named values,
 like `wall = 3 mm`, that sketch dimensions and steps can use in formulas. Type
 in it to add, change, rename or delete them. See
 [Parameters](parameters.md#in-the-desktop-app).

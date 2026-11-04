@@ -13,7 +13,10 @@ can use them. Add and change them in the desktop app's
 
 ## In the desktop app
 
-**Modify > Parameters** opens the Parameters panel, beside the 3D view:
+**Modify > Parameters** opens the Parameters panel. Like the feature tree and
+Properties, it floats over the 3D view, see-through, under the feature tree,
+and is as tall as its rows. Its title bar folds it up or docks it beside the
+view, the same as theirs (see [Panels over the viewer](desktop-app.md#panels-over-the-viewer)):
 
 ![The Parameters panel: wall, width and height, with what each works out to; the box's size uses width and height](images/app-parameters.png)
 

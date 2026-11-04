@@ -21,6 +21,7 @@
 #include "kh/plugin/PluginHost.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/Parameters.h"
+#include "kh/plugins/Viewer.h"
 #include "kh/sketch_planegcs/PlaneGcsSolver.h"
 
 using namespace kh;
@@ -47,6 +48,7 @@ struct App {
         host.setSettings(pluginSettings);
         host.addBuiltin(plugins::modelingPlugin());
         host.addBuiltin(plugins::parametersPlugin());
+        host.addBuiltin(plugins::viewerPlugin());
         host.loadAll();
         shell = std::make_unique<app::Shell>(host, ui, settings);
         shell->askUnsaved = [](const QString&) { return app::Shell::Unsaved::Discard; };
@@ -60,6 +62,10 @@ struct App {
         auto* panel = shell->panelWidget(QStringLiteral("kh.parameters.panel"));
         REQUIRE(panel);
         CHECK(panel->isVisible());
+        // It floats over the view, see-through, like the feature tree and Properties.
+        CHECK(shell->overView(QStringLiteral("kh.parameters.panel")));
+        REQUIRE(shell->overlay(QStringLiteral("kh.parameters.panel")));
+        CHECK(shell->overlay(QStringLiteral("kh.parameters.panel"))->isVisible());
         table = panel->findChild<QTableWidget*>(QStringLiteral("kh.parameters.table"));
         REQUIRE(table);
     }
@@ -144,7 +150,17 @@ TEST_CASE("Add adds a parameter ready to name; Delete deletes the picked ones", 
     REQUIRE(add);
     REQUIRE(remove);
     CHECK_FALSE(remove->isEnabled());  // nothing picked
+    auto* frame = app.shell->overlay(QStringLiteral("kh.parameters.panel"));
+    const int emptyHeight = frame->height();
     add->click();
+    settle();
+    REQUIRE(app.table->rowCount() == 1);
+    add->click();
+    add->click();
+    settle();
+    CHECK(frame->height() > emptyHeight);  // floating, it grows with its rows
+    app.host.documents().undo(app.shell->activeDesign());
+    app.host.documents().undo(app.shell->activeDesign());
     settle();
     REQUIRE(app.table->rowCount() == 1);
     CHECK(app.cell(0, 0) == "size1");

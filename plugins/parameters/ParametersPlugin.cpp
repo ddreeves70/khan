@@ -8,6 +8,7 @@
 #include <QTableWidget>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <set>
 #include <string>
 #include <vector>
@@ -43,6 +44,7 @@ class ParametersPanel final : public QWidget {
 public:
     ParametersPanel(plugin::PluginContext& ctx, ui::UiRegistry& ui) : ctx_(ctx), ui_(ui) {
         setObjectName(QStringLiteral("kh.parameters.widget"));
+        setMinimumWidth(320);
         auto* about =
             new QLabel(tr("Named values, like wall = 3 mm. Sketch dimensions and steps can use them in "
                           "formulas, like wall * 2. Double-click a cell to change it."),
@@ -53,6 +55,8 @@ public:
         table_->setObjectName(QStringLiteral("kh.parameters.table"));
         table_->setHorizontalHeaderLabels({tr("Name"), tr("Value"), tr("Is"), tr("Note")});
         table_->verticalHeader()->hide();
+        // As tall as its rows, so floating over the view it covers no more than it needs.
+        table_->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
         table_->setSelectionBehavior(QAbstractItemView::SelectRows);
         table_->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed |
                                 QAbstractItemView::AnyKeyPressed);
@@ -149,6 +153,7 @@ private:
         filling_ = false;
         add_->setEnabled(doc != nullptr);
         showButtons();
+        table_->updateGeometry();
         updateGeometry();
     }
 
@@ -236,9 +241,10 @@ void registerParameters(plugin::PluginContext& ctx) {
         ctx.log("No desktop app here, so the Parameters panel isn't shown.");
         return;
     }
-    ui::PanelSpec spec{kPanelId, QObject::tr("Parameters"), ui::PanelArea::Right,
+    ui::PanelSpec spec{kPanelId, QObject::tr("Parameters"), ui::PanelArea::Left,
                        [&ctx, ui] { return new ParametersPanel(ctx, *ui); }};
-    spec.startHidden = true;  // Modify > Parameters opens it
+    spec.startHidden = true;     // Modify > Parameters opens it
+    spec.floatsOverView = true;  // see-through over the view, under the feature tree, like the other panels
     ui->addPanel(std::move(spec));
     ctx.addAction(plugin::ActionSpec{.id = "kh.parameters.show",
                                      .text = "Parameters",
