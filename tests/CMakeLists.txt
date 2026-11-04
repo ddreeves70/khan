@@ -102,7 +102,7 @@ if(TARGET sketchbillet_cli)
   else()
     message(STATUS "Python 3 not found: the docs.guides test is off")
   endif()
-  add_test(NAME cli.open_schema1 COMMAND sketchbillet_cli open "${CMAKE_CURRENT_SOURCE_DIR}/files/schema1-keychain-tag.khan")
+  add_test(NAME cli.open_schema1 COMMAND sketchbillet_cli open "${CMAKE_CURRENT_SOURCE_DIR}/files/schema1-keychain-tag.sb")
   set_tests_properties(cli.open_schema1 PROPERTIES PASS_REGULAR_EXPRESSION "Tag +ok +volume 7121.46 mm\\^3")
 endif()
 

@@ -836,9 +836,8 @@ OpenResult readBytes(const Bytes& data, std::string_view displayName) {
         return fail(why.rfind("missing", 0) == 0 ? notSketchBillet(displayName, why)
                                                  : damaged(displayName, why));
     }
-    // "khan" is what designs saved before the rename to SketchBillet say; they open the same.
     const std::string format = manifest->is_object() ? manifest->value("format", "") : std::string();
-    if (format != "sketchbillet" && format != "khan") {
+    if (format != "sketchbillet") {
         return fail(notSketchBillet(displayName, "manifest format is not \"sketchbillet\""));
     }
     const auto schema = manifest->value("schema", -1);
@@ -1011,7 +1010,6 @@ OpenResult openFile(const std::filesystem::path& path) {
 
 namespace {
 constexpr const char* kStepsFormat = "sketchbillet-steps";
-constexpr const char* kOldStepsFormat = "khan-steps";  // copied before the rename to SketchBillet
 }  // namespace
 
 std::string stepsToText(const Document& doc, const std::vector<FeatureId>& ids) {
@@ -1035,9 +1033,8 @@ std::string stepsToText(const Document& doc, const std::vector<FeatureId>& ids) 
 }
 
 bool looksLikeSteps(std::string_view text) {
-    const bool named = text.find(std::string("\"") + kStepsFormat + "\"") != std::string_view::npos ||
-                       text.find(std::string("\"") + kOldStepsFormat + "\"") != std::string_view::npos;
-    return named && text.find_first_not_of(" \t\r\n") != std::string_view::npos &&
+    return text.find(std::string("\"") + kStepsFormat + "\"") != std::string_view::npos &&
+           text.find_first_not_of(" \t\r\n") != std::string_view::npos &&
            text[text.find_first_not_of(" \t\r\n")] == '{';
 }
 
@@ -1050,8 +1047,7 @@ StepsResult stepsFromText(std::string_view text) {
         return std::move(result);
     };
     const json j = json::parse(text, nullptr, false);
-    if (j.is_discarded() || !j.is_object() ||
-        (j.value("format", "") != kStepsFormat && j.value("format", "") != kOldStepsFormat)) {
+    if (j.is_discarded() || !j.is_object() || j.value("format", "") != kStepsFormat) {
         return fail("paste.not_steps",
                     "What's on the clipboard isn't steps copied from SketchBillet. Copy steps in "
                     "the feature tree first (Edit > Copy), then paste.");

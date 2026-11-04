@@ -206,7 +206,7 @@ void Shell::buildMenus() {
     auto* openAct = file->addAction(tr("&Open..."), this, [this] {
         if (!confirmLoseChanges()) return;
         const auto path = QFileDialog::getOpenFileName(this, tr("Open design"), QString(),
-                                                       tr("SketchBillet designs (*.sb *.khan)"));
+                                                       tr("SketchBillet designs (*.sb)"));
         if (!path.isEmpty()) openDesign(path.toStdWString());
     });
     openAct->setShortcut(QKeySequence::Open);
@@ -888,14 +888,12 @@ bool Shell::save() {
 namespace {
 
 constexpr auto kStepsMime = "application/x-sketchbillet-steps";
-constexpr auto kOldStepsMime = "application/x-khan-steps";  // copied before the rename to SketchBillet
 
 QString clipboardSteps() {
     const auto* data = QGuiApplication::clipboard()->mimeData();
     if (!data) return {};
-    for (const char* mime : {kStepsMime, kOldStepsMime}) {
-        if (data->hasFormat(QString::fromLatin1(mime)))
-            return QString::fromUtf8(data->data(QString::fromLatin1(mime)));
+    if (data->hasFormat(QString::fromLatin1(kStepsMime))) {
+        return QString::fromUtf8(data->data(QString::fromLatin1(kStepsMime)));
     }
     const QString text = data->text();
     return io::looksLikeSteps(text.toStdString()) ? text : QString();

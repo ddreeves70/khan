@@ -146,8 +146,7 @@ int main(int argc, char** argv) {
 
     QString open = option(args, QStringLiteral("--open"));
     if (open.isEmpty() && args.size() > 1 &&
-        (args.at(1).endsWith(QStringLiteral(".sb"), Qt::CaseInsensitive) ||
-         args.at(1).endsWith(QStringLiteral(".khan"), Qt::CaseInsensitive))) {  // saved before the rename
+        args.at(1).endsWith(QStringLiteral(".sb"), Qt::CaseInsensitive)) {
         open = args.at(1);
     }
     if (!open.isEmpty()) shell.openDesign(QDir::current().absoluteFilePath(open).toStdWString());

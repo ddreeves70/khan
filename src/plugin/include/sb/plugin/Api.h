@@ -79,9 +79,9 @@ class PluginContext;
 /// Version 32 added handles to drag in the viewers (sb.viewer/3:
 /// viewer::Handle, IHandleUser, IViewer::setHandles()) and sliding bodies
 /// (model::SlideBodyCommand, feature.slide).
-/// Version 33 is the rename from Khan to SketchBillet: namespaces sb (was kh),
-/// headers sb/... (was kh/...), libraries sb_... and plugin ids sb.... (was
-/// kh....). Rebuild outside plugins against it.
+/// Version 33 renamed everything to SketchBillet's: namespace sb, headers
+/// sb/..., libraries sb_... and plugin ids sb.... Rebuild outside plugins
+/// against it.
 inline constexpr int kPluginApiVersion = 33;
 
 /// The function every plugin provides. SketchBillet calls it once, at start, to let the

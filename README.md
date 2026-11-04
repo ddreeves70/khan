@@ -3,9 +3,6 @@
 Free, open-source parametric CAD for classrooms, makers and small shops.
 Works offline, owns no part of your data, and stays free forever.
 
-SketchBillet was called **Khan** until November 2026. Designs saved then end in
-`.khan`, and still open; new designs end in `.sb`.
-
 > **Status:** Phase 0 (foundations). You can design simple parts in the desktop app
 > or from the command line; the 3D view is being built.
 

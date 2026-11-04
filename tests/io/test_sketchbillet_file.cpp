@@ -311,37 +311,6 @@ TEST_CASE("a step's formulas survive saving and opening, and copying", "[io][par
     CHECK(pasted.steps.front()->formula("size_z") == "wall * 2");
 }
 
-TEST_CASE("designs and copied steps from before the rename to SketchBillet still open", "[io]") {
-    // Saved by Khan: "format" is "khan".
-    std::string old = manifest();
-    const auto at = old.find("\"sketchbillet\"");
-    REQUIRE(at != std::string::npos);
-    old.replace(at, std::string("\"sketchbillet\"").size(), "\"khan\"");
-    auto opened = io::readBytes(makeZip({{"manifest.json", old},
-                                         {"timeline.json", timeline()},
-                                         {"features/" + kBoxId + ".json", boxFeature()}}),
-                                "old.khan");
-    REQUIRE(opened.ok());
-    CHECK(opened.document->featureCount() == 1);
-    io::Bytes bytes;
-    REQUIRE(io::writeBytes(*opened.document, bytes).empty());
-    CHECK(readZip(bytes).at("manifest.json").find("\"format\": \"sketchbillet\"") != std::string::npos);
-
-    // Steps copied by Khan.
-    auto doc = makeDesign();
-    std::string text = io::stepsToText(*doc, {doc->featureAt(0).id()});
-    const auto f = text.find("sketchbillet-steps");
-    REQUIRE(f != std::string::npos);
-    text.replace(f, std::string("sketchbillet-steps").size(), "khan-steps");
-    CHECK(io::looksLikeSteps(text));
-    CHECK(io::stepsFromText(text).ok());
-    // Anything else is still refused.
-    std::string other = old;
-    other.replace(other.find("\"khan\""), 6, "\"other\"");
-    CHECK_FALSE(
-        io::readBytes(makeZip({{"manifest.json", other}, {"timeline.json", timeline()}}), "x.sb").ok());
-}
-
 TEST_CASE("a design without parameters has no parameters file", "[io][parameters]") {
     auto doc = makeDesign();
     io::Bytes bytes;
@@ -560,7 +529,7 @@ TEST_CASE("a hand-made file with only the required parts opens", "[io]") {
 // A schema-1 file checked into the repo. Every future version of SketchBillet must still
 // open it (through a migration if the schema changes). Never regenerate it.
 TEST_CASE("the checked-in schema 1 file still opens", "[io][compat]") {
-    auto r = io::openFile(std::filesystem::path(SB_TEST_FILES_DIR) / "schema1-keychain-tag.khan");
+    auto r = io::openFile(std::filesystem::path(SB_TEST_FILES_DIR) / "schema1-keychain-tag.sb");
     REQUIRE(r.ok());
     const auto& doc = *r.document;
     CHECK(doc.id().toString() == "a3c4e5f6-0718-4293-a4b5-c6d7e8f90a1b");

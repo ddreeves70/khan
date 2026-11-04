@@ -1,8 +1,6 @@
 # The .sb file format (schema 1)
 
-A `.sb` file is a design. SketchBillet was called Khan before Nov 2026, and its
-designs ended in `.khan`: those are the same format, and still open (see
-[Changing the format](#changing-the-format)). It is an ordinary zip file holding JSON text files, so
+A `.sb` file is a design. It is an ordinary zip file holding JSON text files, so
 you can rename it to `.zip`, open it and read every step. The code that reads and
 writes it is `sb_io` (`src/io/SketchBilletFile.cpp`).
 
@@ -47,7 +45,7 @@ tag.sb
 
 | Key | Meaning |
 | --- | --- |
-| `format` | `"sketchbillet"`; `"khan"` in designs saved before the rename, which open the same. A file without it is not a SketchBillet design. |
+| `format` | Always `"sketchbillet"`. A file without it is not a SketchBillet design. |
 | `schema` | The format version, a whole number. This document describes schema 1. |
 | `app` | The SketchBillet version that saved the file. For information only. |
 | `units` | Units of every number in the file: lengths in millimeters, angles in radians. |
@@ -275,7 +273,7 @@ If something is wrong, SketchBillet opens nothing and explains why:
 | Code | When |
 | --- | --- |
 | `file.cant_read` | The file isn't there, or SketchBillet isn't allowed to open it. |
-| `file.not_sketchbillet` | Not a zip, no `manifest.json`, or `format` isn't `"sketchbillet"` (or `"khan"`). |
+| `file.not_sketchbillet` | Not a zip, no `manifest.json`, or `format` isn't `"sketchbillet"`. |
 | `file.too_new` | `schema` is higher than this SketchBillet reads. The message says to update SketchBillet. |
 | `file.unknown_step` | A step's `type` is one this SketchBillet doesn't know (maybe from a plugin). |
 | `file.damaged` | Anything else: bad JSON, a missing step file, a missing number, an input that doesn't exist, a material without its id, name, density or color, a folder whose steps aren't next to each other, a parameter without its id, name or expression, or with a name it can't have. |
@@ -285,13 +283,6 @@ Saving writes `<name>.saving` first and then renames it over the old file, so a
 failed save never damages the last good copy.
 
 ## Changing the format
-
-- **The rename (Nov 2026).** Khan became SketchBillet: new designs end in `.sb`
-  and their `format` is `"sketchbillet"`. Designs that end in `.khan`, with
-  `format` `"khan"`, still open, and save as `"sketchbillet"`. Steps copied by
-  Khan (`"format": "khan-steps"`, `application/x-khan-steps`) still paste. The
-  schema stayed 1. A Khan from before the rename can't open a `.sb` file: it
-  says it isn't a design.
 
 - Adding a step type, or an optional key that older SketchBillet can ignore, keeps schema 1.
   Materials were added this way (Oct 2026): an older SketchBillet opens a design with

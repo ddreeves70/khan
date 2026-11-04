@@ -43,7 +43,7 @@ error [command.arg_missing]: Add box needs size: Width, depth and height in mm.
 | Code | Meaning | Fix |
 | --- | --- | --- |
 | `file.cant_read` | The file isn't there, or you aren't allowed to open it | Check the name and folder |
-| `file.not_sketchbillet` | It isn't a SketchBillet design | Open `.sb` files (or `.khan` files saved before SketchBillet was renamed) only; export files (STL, STEP) can't be opened as designs yet |
+| `file.not_sketchbillet` | It isn't a SketchBillet design | Open `.sb` files only; export files (STL, STEP) can't be opened as designs yet |
 | `file.damaged` | Part of the file is missing or broken | Open an older copy |
 | `file.too_new` | A newer SketchBillet saved it | Update SketchBillet |
 | `file.unknown_step` | It uses a kind of step this SketchBillet doesn't know | Update SketchBillet, or add the plugin that makes that step |
