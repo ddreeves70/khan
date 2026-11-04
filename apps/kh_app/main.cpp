@@ -37,6 +37,7 @@
 #include "kh/plugins/Grid.h"
 #include "kh/plugins/Modeling.h"
 #include "kh/plugins/MoveHandles.h"
+#include "kh/plugins/Parameters.h"
 #include "kh/plugins/Properties.h"
 #include "kh/plugins/Sketcher.h"
 #include "kh/plugins/ViewOptions.h"
@@ -119,6 +120,7 @@ int main(int argc, char** argv) {
     host.addBuiltin(kh::plugins::viewerPlugin());
     host.addBuiltin(kh::plugins::sketcherPlugin());
     host.addBuiltin(kh::plugins::moveHandlesPlugin());
+    host.addBuiltin(kh::plugins::parametersPlugin());
     host.addFolder((QCoreApplication::applicationDirPath() + QStringLiteral("/plugins")).toStdWString());
     host.addFolder(
         (QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/plugins"))

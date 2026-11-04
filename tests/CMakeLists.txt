@@ -139,12 +139,12 @@ endif()
 # The desktop shell and its panels, driven without a screen.
 if(TARGET kh_app_core)
   add_executable(kh_app_tests app/main.cpp app/test_shell.cpp app/test_grid_plugin.cpp app/test_axes.cpp
-  app/test_view_options.cpp app/test_constrain.cpp app/test_movehandles.cpp)
+  app/test_view_options.cpp app/test_constrain.cpp app/test_movehandles.cpp app/test_parameters_panel.cpp)
   # The sketcher's constraint rules (Constrain.h) are tested on their own too.
   target_include_directories(kh_app_tests PRIVATE "${PROJECT_SOURCE_DIR}/plugins/sketcher")
   target_link_libraries(kh_app_tests PRIVATE Catch2::Catch2 kh_app_core kh::kernel_occt kh::view
     kh::plugin_modeling kh::plugin_featuretree kh::plugin_properties kh::plugin_viewoptions kh::plugin_axes kh::plugin_grid kh::plugin_viewer
-    kh::plugin_sketcher kh::plugin_movehandles kh::sketch_planegcs)
+    kh::plugin_sketcher kh::plugin_movehandles kh::plugin_parameters kh::sketch_planegcs)
   kh_set_warnings(kh_app_tests)
   if(WIN32)
     # Qt's DLLs and plugins (including the offscreen platform) and ADS, next to the .exe.

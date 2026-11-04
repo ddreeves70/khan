@@ -88,6 +88,7 @@ if(TARGET kh_view)
   add_subdirectory(plugins/viewer)       # kh.viewer (Qt + OCCT)
   add_subdirectory(plugins/sketcher)     # kh.sketcher (Qt)
   add_subdirectory(plugins/movehandles)  # kh.movehandles
+  add_subdirectory(plugins/parameters)   # kh.parameters (Qt)
 endif()
 if(KH_BUILD_EXAMPLE_PLUGINS)
   add_subdirectory(docs/plugin-guide/hello)

@@ -197,6 +197,13 @@ The unit is saved with the design, so it opens in inches next time, and on a
 classmate's computer too. Changing it is one undo step, like any other change.
 The grid's spacing is a View option, not part of the design: it stays in mm.
 
+## Parameters
+
+**Modify > Parameters** opens the Parameters panel: the design's named values,
+like `wall = 3 mm`, that sketch dimensions and steps can use in formulas. Type
+in it to add, change, rename or delete them. See
+[Parameters](parameters.md#in-the-desktop-app).
+
 ## Properties
 
 Properties shows the picked step's name and numbers. Lengths are in the design's

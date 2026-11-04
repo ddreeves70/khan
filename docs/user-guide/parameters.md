@@ -7,8 +7,29 @@ too. That's what makes a design *parametric*: you change one number, not ten.
 
 Parameters are saved in the design, and [sketch dimensions](#using-parameters-in-a-sketch)
 and [steps' numbers](#using-parameters-in-steps), like how far an extrude goes,
-can use them. Soon a **Parameters** panel in the desktop app will list them.
-Today you add them with [`kh_cli`](../cli/commands.md#parameterset).
+can use them. Add and change them in the desktop app's
+[Parameters panel](#in-the-desktop-app), or with
+[`kh_cli`](../cli/commands.md#parameterset).
+
+## In the desktop app
+
+**Modify > Parameters** opens the Parameters panel, beside the 3D view:
+
+![The Parameters panel: wall, width and height, with what each works out to; the box's size uses width and height](images/app-parameters.png)
+
+| Column | What it is |
+| --- | --- |
+| **Name** | The parameter's name. Type a new one to rename it: every formula that uses it changes too |
+| **Value** | A number with its unit, like `3 mm`, or a formula, like `wall * 10` |
+| **Is** | What the value works out to, in the design's unit. You can't type here |
+| **Note** | What it's for, in your own words |
+
+Double-click a cell (or pick it and start typing), then press Enter. Every
+change is one step of Edit > Undo, and everything that uses the parameter
+changes with it. **Add** adds a parameter called `size1` (`size2`, ...), 10 mm,
+ready for you to type its name. **Delete** deletes the picked rows; one that
+something still uses can't be deleted. If Khan can't make a change, the status
+bar says why and the cell goes back to what it was.
 
 ## An example
 
