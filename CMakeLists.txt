@@ -142,3 +142,5 @@ if(SB_BUILD_DOCS)
     message(STATUS "Doxygen not found: the 'docs' target and docs.api test are off")
   endif()
 endif()
+
+include(SbPackaging)  # install rules and installers (packaging/README.md)

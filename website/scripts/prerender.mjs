@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadDocs } from "./docs.mjs";
+import { loadReleases } from "./releases.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
@@ -16,6 +17,7 @@ const SITE_URL = "https://sketchbillet.org";
 const template = fs.readFileSync(path.join(out, "index.html"), "utf8");
 const { render } = await import(pathToFileURL(path.join(root, "dist", "server", "entry-server.js")).href);
 const docs = loadDocs(repo, out);
+const releases = await loadReleases();
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 
@@ -33,6 +35,13 @@ const pages = [
     title: "SketchBillet: free CAD for parts you can make",
     description:
       "SketchBillet is free, open-source 3D design software for classrooms, makers and small shops. Sketch it, give it real sizes, and 3D print or machine it.",
+  },
+  {
+    kind: "download",
+    route: "/download/",
+    title: "Download",
+    description: "Download SketchBillet for Windows, macOS or Linux. Free, no account, and it works offline.",
+    releases,
   },
   { kind: "story", route: "/story/", title: "Story", description: "Why SketchBillet exists, where it's got to, and where it's going." },
   { kind: "people", route: "/people/", title: "People", description: "The people who make SketchBillet, and how to join them." },

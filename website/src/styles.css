@@ -158,6 +158,18 @@ pre {
 .site-nav a[aria-current="page"] {
   border-bottom-color: var(--blue);
 }
+.site-nav a.nav-download {
+  border: 2px solid var(--blue);
+  border-radius: 4px;
+  padding: 2px 10px;
+  color: var(--blue);
+  font-weight: 600;
+}
+.site-nav a.nav-download:hover,
+.site-nav a.nav-download[aria-current="page"] {
+  background: var(--blue);
+  color: var(--paper);
+}
 .menu-button {
   display: none;
 }
@@ -221,6 +233,68 @@ pre {
   background: var(--blue-deep);
   border-color: var(--blue-deep);
   color: var(--paper);
+}
+
+/* ---- Download --------------------------------------------------------- */
+
+.page-download {
+  max-width: 64rem;
+}
+.release-meta {
+  color: var(--graphite-soft);
+}
+.downloads {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 48px;
+  border-top: 2px solid var(--graphite);
+}
+.download {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 32px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--billet-light);
+}
+.download.yours {
+  border-left: 4px solid var(--safety);
+  padding-left: 16px;
+}
+.download h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.6rem;
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.download-yours {
+  font-family: var(--text);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--safety);
+}
+.download-what p,
+.download-get p {
+  margin: 4px 0 0;
+  color: var(--graphite-soft);
+}
+.download-get {
+  text-align: right;
+}
+.download-steps {
+  grid-column: 1 / -1;
+  margin: 0;
+  max-width: 70ch;
+}
+@media (max-width: 560px) {
+  .download {
+    grid-template-columns: 1fr;
+  }
+  .download-get {
+    text-align: left;
+  }
 }
 
 /* ---- Home ------------------------------------------------------------- */

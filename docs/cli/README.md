@@ -9,7 +9,16 @@ Every example on these pages is run by SketchBillet's tests, and the test fails 
 
 ## Where to find it
 
-After you build SketchBillet, `sketchbillet_cli` is in your build folder:
+If you [installed SketchBillet](../user-guide/install.md#the-command-line-tool),
+`sketchbillet_cli` came with it:
+
+| System | Path |
+| --- | --- |
+| Windows | `C:\Program Files\SketchBillet\bin\sketchbillet_cli.exe` |
+| macOS | `/Applications/SketchBillet.app/Contents/MacOS/sketchbillet_cli` |
+| Linux | Run the AppImage with `cli` first: `./SketchBillet-0.1.0-linux-x64.AppImage cli --version` |
+
+If you built SketchBillet yourself, it's in your build folder:
 
 | System | Path |
 | --- | --- |

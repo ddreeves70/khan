@@ -1,7 +1,8 @@
 name: Website
 
 # Builds sketchbillet.org from website/ and docs/, checks every link, and on
-# main publishes it to GitHub Pages. See website/README.md.
+# main publishes it to GitHub Pages. See website/README.md. CI's "publish" job
+# also starts it after new installers are published, for the Download page.
 
 on:
   push:
@@ -36,6 +37,8 @@ jobs:
       - run: npm ci
       - name: Build every page and check every link
         run: npm run build
+        env:
+          GH_TOKEN: ${{ github.token }}  # to look up the installers (scripts/releases.mjs)
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:

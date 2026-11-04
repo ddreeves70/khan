@@ -26,10 +26,14 @@
 #include <chrono>
 #include <cstdio>
 #include <memory>
+#include <string>
 
+#include "AppLogo.h"
 #include "AppSettings.h"
 #include "AppUi.h"
+#include "Icons.h"
 #include "Shell.h"
+#include "sb/core/Version.h"
 #include "sb/kernel_occt/OcctKernel.h"
 #include "sb/plugin/PluginHost.h"
 #include "sb/plugins/Axes.h"
@@ -98,6 +102,11 @@ int main(int argc, char** argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("SketchBillet"));
     QApplication::setOrganizationName(QStringLiteral("SketchBillet"));
+    QApplication::setApplicationVersion(QString::fromStdString(std::string(sb::version())));
+    // The icon on the window and the taskbar, and on Linux the menu entry that
+    // packaging/linux/org.sketchbillet.SketchBillet.desktop installs.
+    QApplication::setWindowIcon(sb::app::svgIcon(sb::icons::app::sketchbillet_svg));
+    QGuiApplication::setDesktopFileName(QStringLiteral("org.sketchbillet.SketchBillet"));
     const QStringList args = QApplication::arguments();
 
     const QString settingsFile = option(args, QStringLiteral("--settings"));

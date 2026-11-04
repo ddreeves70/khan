@@ -4,9 +4,9 @@ This page gets you from nothing to a part ready to 3D print.
 
 ## 1. Get SketchBillet
 
-SketchBillet has no installer yet, so you build it from its source code. The main
-[README](../../README.md) has the steps for Windows, macOS and Linux. It takes
-about 30 minutes the first time, mostly downloading libraries.
+Download SketchBillet for Windows, macOS or Linux and install it: see
+[Installing SketchBillet](install.md). (Or build it from its source code: the main
+[README](../../README.md) has the steps.)
 
 When it's done, check that it works:
 
@@ -16,7 +16,8 @@ $ sketchbillet_cli --version
 sketchbillet_cli 0.0.1
 ```
 
-`sketchbillet_cli` is in your build folder; see [Where to find it](../cli/README.md#where-to-find-it).
+Where `sketchbillet_cli` is depends on how you got SketchBillet; see
+[Where to find it](../cli/README.md#where-to-find-it).
 
 ## 2. Make your first part
 

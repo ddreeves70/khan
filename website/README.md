@@ -32,6 +32,13 @@ with a list if one is broken. Fix the page in `docs/`, not the checker.
 | How `docs/` becomes the Guide, Tutorials, Command line, Plugins and Design pages | `scripts/docs.mjs` |
 | Building each page, the sitemap and robots.txt | `scripts/prerender.mjs` |
 | The link checker | `scripts/check-links.mjs` |
+| Finding the installers for the Download page | `scripts/releases.mjs` |
+
+The Download page lists the installers of the newest release and of the preview
+build, which it looks up on GitHub when the site is built (see
+`packaging/README.md`). Without the internet, it links to GitHub's releases page
+instead. To see it with made-up releases, point `SB_RELEASES_FILE` at a JSON file
+shaped like what `loadReleases()` returns.
 
 The guides aren't copied into the website: every build reads `docs/` again, so
 a pull request that changes a guide changes the site too. Pictures in `docs/`

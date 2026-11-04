@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/story/", text: "Story" },
   { href: "/people/", text: "People" },
   { href: "/follow/", text: "Follow and support" },
+  { href: "/download/", text: "Download" },
 ];
 
 // The bar across the top. On a phone the links fold into a menu button.
@@ -29,7 +30,12 @@ export function Header({ route }: { route: string }) {
         </button>
         <nav id="site-nav" className={open ? "site-nav open" : "site-nav"} aria-label="Main">
           {LINKS.map((l) => (
-            <a key={l.href} href={l.href} aria-current={route.startsWith(l.href) ? "page" : undefined}>
+            <a
+              key={l.href}
+              href={l.href}
+              className={l.href === "/download/" ? "nav-download" : undefined}
+              aria-current={route.startsWith(l.href) ? "page" : undefined}
+            >
               {l.text}
             </a>
           ))}

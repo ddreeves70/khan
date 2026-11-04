@@ -1,0 +1,68 @@
+SketchBillet: third-party notices
+=================================
+
+SketchBillet is free and open source, under the Apache License 2.0 (LICENSE.txt).
+Its source code is at https://github.com/ddreeves70/sketchbillet
+
+SketchBillet is built on the open-source work below. Each one keeps its own
+license. The LGPL libraries are separate shared libraries (.dll on Windows,
+.dylib on macOS, .so on Linux) that you may replace with your own build of the
+same version. Their full license texts are in the licenses folder next to
+this file.
+
+Want the exact source code of any library below, as built into this copy of
+SketchBillet? Every version is pinned in SketchBillet's repository (vcpkg.json,
+cmake/SbAds.cmake, third_party/), or ask in
+https://github.com/ddreeves70/sketchbillet/discussions and we'll send it to you.
+
+
+Open CASCADE Technology (OCCT)
+  The geometry kernel and the 3D view. SketchBillet makes use of facilities
+  provided by the Open CASCADE Technology software.
+  License: GNU LGPL 2.1 with the Open CASCADE exception
+           (licenses/LGPL-2.1.txt, licenses/OCCT_LGPL_EXCEPTION.txt)
+  Source:  https://github.com/Open-Cascade-SAS/OCCT
+
+Qt 6
+  Windows, menus, panels and drawing on screen.
+  Copyright (C) The Qt Company Ltd. and other contributors.
+  License: GNU LGPL 3 (licenses/LGPL-3.0-only.txt, which adds to
+           licenses/GPL-3.0-only.txt)
+  Source:  https://download.qt.io/official_releases/qt/
+
+Qt Advanced Docking System
+  Panels you can dock, tab and float.
+  Copyright (C) Uwe Kindler and contributors.
+  License: GNU LGPL 2.1 (licenses/LGPL-2.1.txt)
+  Source:  https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System
+
+PlaneGCS (from FreeCAD)
+  The sketch solver. SketchBillet's copy, with its changes, is in
+  third_party/planegcs/ in SketchBillet's repository.
+  Copyright (C) Konstantinos Poulios, the FreeCAD project and contributors.
+  License: GNU LGPL 2.1 or later (licenses/LGPL-2.1.txt)
+  Source:  https://github.com/FreeCAD/FreeCAD
+
+Eigen
+  Linear algebra for the sketch solver, built using only its MPL-2.0 parts.
+  License: Mozilla Public License 2.0, https://www.mozilla.org/MPL/2.0/
+  Source:  https://gitlab.com/libeigen/eigen
+
+libzip
+  The zip container of .sb files.
+  Copyright (C) Dieter Baron and Thomas Klausner.
+  License: BSD 3-Clause, https://libzip.org/license/
+  Source:  https://github.com/nih-at/libzip
+
+zlib
+  Compression. Copyright (C) Jean-loup Gailly and Mark Adler.
+  License: zlib License, https://zlib.net/zlib_license.html
+
+FreeType
+  Drawing text in the 3D view. Portions of this software are copyright
+  (C) The FreeType Project (www.freetype.org). All rights reserved.
+  License: FreeType License, https://freetype.org/license.html
+
+nlohmann/json
+  Reading and writing JSON. Copyright (C) Niels Lohmann.
+  License: MIT, https://github.com/nlohmann/json/blob/develop/LICENSE.MIT
