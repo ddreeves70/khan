@@ -53,6 +53,22 @@ SketchBillet's own code is Apache-2.0, free forever. A dependency must keep it t
 | **GitHub Actions** | CI on Windows, macOS and Linux; actions `checkout`, `cache`, `upload-artifact`, `ilammy/msvc-dev-cmd`, `seanmiddleditch/gha-setup-ninja`, `jurplel/install-qt-action` | Free for public repos; actions are MIT | GitHub | Stays. Pin actions to versions; move off Node 20 actions when GitHub requires it |
 | **autoconf, automake, libtool, pkg-config** | Needed by vcpkg to build some ports on Linux and macOS | GPL tools (build only) | Homebrew, apt | Stays while vcpkg needs them |
 
+### The website (sketchbillet.org, not part of the app)
+
+Built from `website/` by `.github/workflows/website.yml`; see `website/README.md`. Versions are pinned in `website/package.json` and `website/package-lock.json`.
+
+| Dependency | What for | License | How we get it | Long-term plan |
+| --- | --- | --- | --- | --- |
+| **React**, **React DOM** | The site's pages, built into plain HTML ahead of time | MIT | npm | Stays |
+| **Vite**, **@vitejs/plugin-react** | Builds the site | MIT | npm | Stays |
+| **TypeScript** | Type-checks the site's code | Apache-2.0 | npm | Stays |
+| **markdown-it** | Turns the guides in `docs/` into web pages | MIT | npm | Stays |
+| **github-slugger** | Gives headings the same `#links` GitHub does, so links between guides work on both | ISC | npm | Stays |
+| **Barlow**, **Barlow Condensed**, **IBM Plex Mono** (`@fontsource/*`) | The site's fonts, served from the site itself, so no font service sees visitors | SIL Open Font License 1.1 | npm | Stays |
+| **Node.js** | Runs the build | MIT | nodejs.org, `actions/setup-node` | Stays; needs 22+ |
+| **GitHub Pages** | Hosts sketchbillet.org; actions `setup-node`, `upload-pages-artifact`, `deploy-pages` | Free for public repos; actions are MIT | GitHub | Stays. sketchbillet.com forwards to it from the registrar |
+| **`@types/*`** | Type information for React and Node | MIT | npm | Stays |
+
 ## Planned
 
 | Dependency | What it's for | When | License | Plan and open questions |

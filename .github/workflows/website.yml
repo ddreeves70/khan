@@ -1,0 +1,57 @@
+name: Website
+
+# Builds sketchbillet.org from website/ and docs/, checks every link, and on
+# main publishes it to GitHub Pages. See website/README.md.
+
+on:
+  push:
+    branches: [main]
+    paths: ["website/**", "docs/**", ".github/workflows/website.yml"]
+  pull_request:
+    paths: ["website/**", "docs/**", ".github/workflows/website.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One publish at a time; a newer push replaces one that's waiting.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build website
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - name: Build every page and check every link
+        run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: website/dist/site
+
+  deploy:
+    name: publish to GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
