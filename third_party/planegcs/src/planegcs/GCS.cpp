@@ -103,7 +103,7 @@
 #include <Base/Console.h>
 #include <FCConfig.h>
 
-#include <numeric>  // Khan: for std::iota, used instead of Boost.Graph below
+#include <numeric>  // SketchBillet: for std::iota, used instead of Boost.Graph below
 
 using MatrixIndexType = Eigen::FullPivHouseholderQR<Eigen::MatrixXd>::IntDiagSizeVectorType;
 
@@ -1779,7 +1779,7 @@ void System::initSolution(Algorithm alg)
     }
 
     // partitioning into decoupled components
-    // Khan: a union-find instead of Boost.Graph's connected_components, so Khan
+    // SketchBillet: a union-find instead of Boost.Graph's connected_components, so SketchBillet
     // doesn't need Boost. Components are numbered in the order of their first
     // vertex, as connected_components numbers them, so the result is the same.
     const int vertexCount = int(plist.size() + clistR.size());
@@ -1974,7 +1974,7 @@ SolveStatus System::solve(SubSystem* subsys, Algorithm alg, bool isRedundantsolv
         case Algorithm::DogLeg:
             return solve_DL(subsys, isRedundantsolving);
         default:
-            return SolveStatus::Failed;  // Khan: was std::unreachable(), which needs C++23
+            return SolveStatus::Failed;  // SketchBillet: was std::unreachable(), which needs C++23
     }
 }
 

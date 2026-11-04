@@ -1,12 +1,12 @@
-# kh_cli regress
+# sketchbillet_cli regress
 
 Runs geometry regression cases: small reference parts with recorded results.
-Khan's tests run them on every change, so a change in how shapes are built (a new
+SketchBillet's tests run them on every change, so a change in how shapes are built (a new
 kernel version, a refactor) shows up as a failing case. This command is mostly for
-people working on Khan itself.
+people working on SketchBillet itself.
 
 ```text
-kh_cli regress [--update] <case.json|folder>...
+sketchbillet_cli regress [--update] <case.json|folder>...
 ```
 
 | Option | Meaning |
@@ -22,7 +22,7 @@ case failed.
 
 <!-- cli-example -->
 ```console
-$ kh_cli regress tests/corpus/box-basic.json tests/corpus/keychain-tag.json
+$ sketchbillet_cli regress tests/corpus/box-basic.json tests/corpus/keychain-tag.json
 PASS box-basic                         ... ms
 PASS keychain-tag                      ... ms
 
@@ -33,7 +33,7 @@ All cases:
 
 <!-- cli-example -->
 ```console
-$ kh_cli regress tests/corpus
+$ sketchbillet_cli regress tests/corpus
 ...
 ... passed, 0 failed
 ```

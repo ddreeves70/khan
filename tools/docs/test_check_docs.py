@@ -33,8 +33,8 @@ for expected, actual, want, why in CASES:
 print(f"{len(CASES) - failed} of {len(CASES)} matcher cases pass")
 
 # --update rebuilds a block from its commands and their new output.
-block = updated_block([("kh_cli a", ["old"]), ("kh_cli b", [])], [["new 1", "new 2"], ["done"]])
-if block != "$ kh_cli a\nnew 1\nnew 2\n$ kh_cli b\ndone\n":
+block = updated_block([("sketchbillet_cli a", ["old"]), ("sketchbillet_cli b", [])], [["new 1", "new 2"], ["done"]])
+if block != "$ sketchbillet_cli a\nnew 1\nnew 2\n$ sketchbillet_cli b\ndone\n":
     print("FAIL: updated_block")
     failed += 1
 sys.exit(1 if failed else 0)

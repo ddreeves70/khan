@@ -1,25 +1,25 @@
-#include "kh/plugins/Axes.h"
+#include "sb/plugins/Axes.h"
 
 #include <memory>
 #include <set>
 #include <string>
 
-#include "kh/plugin/Events.h"
+#include "sb/plugin/Events.h"
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
 constexpr const char* kManifest = R"({
-  "id": "kh.axes",
+  "id": "sb.axes",
   "name": "Axes",
   "version": "0.1.0",
   "description": "The x, y and z axes on the view cube (and at the origin if you like), with their letters.",
   "tier": "ui",
-  "requires": ["kh.viewoptions"]
+  "requires": ["sb.viewoptions"]
 })";
 
-constexpr const char* kIds[] = {"kh.axes.show", "kh.axes.labels", "kh.axes.origin"};
+constexpr const char* kIds[] = {"sb.axes.show", "sb.axes.labels", "sb.axes.origin"};
 
 // The axes as the options say, for every pane (an empty key) or for one.
 std::vector<AxesOverlay> overlaysFor(const viewoptions::IViewOptions& options, const std::string& pane) {
@@ -48,11 +48,12 @@ void show(plugin::PluginContext& ctx, const viewoptions::IViewOptions& options,
 }
 
 void registerAxes(plugin::PluginContext& ctx) {
-    // Its two settings are view options: kh.viewoptions remembers them and builds
+    // Its two settings are view options: sb.viewoptions remembers them and builds
     // their View menu items. It's in "requires", so it's here already.
     auto* options = ctx.service<viewoptions::IViewOptions>();
     if (!options) {
-        ctx.fail("The axes need the View options plugin (kh.viewoptions). Reinstall Khan to get it back.");
+        ctx.fail(
+            "The axes need the View options plugin (sb.viewoptions). Reinstall SketchBillet to get it back.");
         return;
     }
     for (auto& spec : axesOptions()) {
@@ -65,7 +66,7 @@ void registerAxes(plugin::PluginContext& ctx) {
     show(ctx, *options, *drawn);
     ctx.listen<viewoptions::ViewOptionChanged>(
         [&ctx, options, drawn](const viewoptions::ViewOptionChanged& e) {
-            if (e.option.rfind("kh.axes.", 0) == 0) show(ctx, *options, *drawn);
+            if (e.option.rfind("sb.axes.", 0) == 0) show(ctx, *options, *drawn);
         });
     ctx.listen<viewoptions::PanesChanged>(
         [&ctx, options, drawn](const viewoptions::PanesChanged&) { show(ctx, *options, *drawn); });
@@ -134,19 +135,19 @@ std::vector<AxesOverlay> axesOverlays(bool onCube, bool labels, bool atOrigin) {
 }
 
 std::vector<viewoptions::OptionSpec> axesOptions() {
-    return {{.id = "kh.axes.show",
+    return {{.id = "sb.axes.show",
              .text = "Show axes",
              .group = "Axes",
              .tip = "Show or hide the x, y and z axes on the view cube.",
              .kind = viewoptions::OptionKind::Flag,
              .initial = true},
-            {.id = "kh.axes.labels",
+            {.id = "sb.axes.labels",
              .text = "Show axis labels",
              .group = "Axes",
              .tip = "Write X, Y and Z at the ends of the axes.",
              .kind = viewoptions::OptionKind::Flag,
              .initial = true},
-            {.id = "kh.axes.origin",
+            {.id = "sb.axes.origin",
              .text = "Show axes at the origin",
              .group = "Axes",
              .tip = "Also draw the axes at the origin (0, 0, 0), 25 mm long.",
@@ -158,4 +159,4 @@ plugin::BuiltinPlugin axesPlugin() {
     return {kManifest, &registerAxes};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins

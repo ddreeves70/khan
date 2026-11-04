@@ -10,13 +10,13 @@
 #include <numbers>
 
 #include "SketchHelpers.h"
-#include "kh/sketch/Profiles.h"
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/sketch/Profiles.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
 
-using namespace kh;
-using namespace kh::sketch;
+using namespace sb;
+using namespace sb::sketch;
 using Catch::Approx;
-using kh::test::SketchBuilder;
+using sb::test::SketchBuilder;
 using K = ConstraintKind;
 
 namespace {
@@ -168,7 +168,7 @@ TEST_CASE("check() explains splines it can't use", "[sketch][spline]") {
     // A constraint on a pole it doesn't have.
     SketchBuilder b;
     const auto s = b.spline({{0, 0}, {10, 20}, {30, 20}, {40, 0}});
-    b.constrain(K::Fix, {kh::test::pole(s, 7)}, {});
+    b.constrain(K::Fix, {sb::test::pole(s, 7)}, {});
     REQUIRE_FALSE(check(b.sketch).empty());
     CHECK(check(b.sketch).front().code == "sketch.point");
     // A spline isn't a line or a circle.
@@ -191,11 +191,11 @@ TEST_CASE("the solver moves a spline's poles to make constraints true, and count
 
     // Pin the first pole, put the last one 40 mm to its right on the same level, and
     // join a line's end to the spline's end.
-    b.constrain(K::Fix, {kh::test::pole(s, 0)}, {}, 0, {0, 0});
-    b.constrain(K::HorizontalDistance, {kh::test::pole(s, 0), kh::test::end(s)}, {}, 40);
-    b.constrain(K::VerticalDistance, {kh::test::start(s), kh::test::pole(s, 3)}, {}, 0);
+    b.constrain(K::Fix, {sb::test::pole(s, 0)}, {}, 0, {0, 0});
+    b.constrain(K::HorizontalDistance, {sb::test::pole(s, 0), sb::test::end(s)}, {}, 40);
+    b.constrain(K::VerticalDistance, {sb::test::start(s), sb::test::pole(s, 3)}, {}, 0);
     const auto l = b.line(41, 1, 40, -20);
-    b.constrain(K::Coincident, {kh::test::start(l), kh::test::end(s)}, {});
+    b.constrain(K::Coincident, {sb::test::start(l), sb::test::end(s)}, {});
     r = solver->solve(b.sketch);
     REQUIRE(r.ok());
     const Sketch after{r.entities, b.sketch.constraints};

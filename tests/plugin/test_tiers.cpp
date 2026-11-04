@@ -6,11 +6,11 @@
 #include <string>
 #include <vector>
 
-#include "kh/plugin/Manifest.h"
-#include "kh/plugin/PluginHost.h"
+#include "sb/plugin/Manifest.h"
+#include "sb/plugin/PluginHost.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 namespace {
 

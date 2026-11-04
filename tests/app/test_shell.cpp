@@ -40,24 +40,24 @@
 #include "AppUi.h"
 #include "Icons.h"
 #include "Shell.h"
-#include "kh/grid/Grid.h"
-#include "kh/kernel_occt/OcctKernel.h"
-#include "kh/model/Feature.h"
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugins/Axes.h"
-#include "kh/plugins/FeatureTree.h"
-#include "kh/plugins/Grid.h"
-#include "kh/plugins/Modeling.h"
-#include "kh/plugins/Properties.h"
-#include "kh/plugins/Sketcher.h"
-#include "kh/plugins/ViewOptions.h"
-#include "kh/plugins/Viewer.h"
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
-#include "kh/ui/UiRegistry.h"
-#include "kh/view/FlatView.h"
-#include "kh/viewer/Viewer.h"
+#include "sb/grid/Grid.h"
+#include "sb/kernel_occt/OcctKernel.h"
+#include "sb/model/Feature.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugins/Axes.h"
+#include "sb/plugins/FeatureTree.h"
+#include "sb/plugins/Grid.h"
+#include "sb/plugins/Modeling.h"
+#include "sb/plugins/Properties.h"
+#include "sb/plugins/Sketcher.h"
+#include "sb/plugins/ViewOptions.h"
+#include "sb/plugins/Viewer.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/ui/UiRegistry.h"
+#include "sb/view/FlatView.h"
+#include "sb/viewer/Viewer.h"
 
-using namespace kh;
+using namespace sb;
 using Catch::Approx;
 
 namespace {
@@ -77,7 +77,7 @@ void panelThenFail(plugin::PluginContext& ctx) {
 
 // A plugin with a setting, a check-mark item in a View submenu, and a status-bar
 // item, like the plugin guide's examples.
-bool tapeReady = false;  // something Khan can't see, for the "enabled" rule
+bool tapeReady = false;  // something SketchBillet can't see, for the "enabled" rule
 void units(plugin::PluginContext& ctx) {
     auto& settings = ctx.settings();
     ctx.addAction(
@@ -164,7 +164,7 @@ struct App {
                              std::to_string(plugin::kPluginApiVersion) + "}",
                          &panelThenFail});
         host.addBuiltin(
-            {R"({"id":"test.gridclient","name":"Grid client","version":"1","uses":["kh.grid","kh.viewoptions","kh.viewer"],"apiVersion":)" +
+            {R"({"id":"test.gridclient","name":"Grid client","version":"1","uses":["sb.grid","sb.viewoptions","sb.viewer"],"apiVersion":)" +
                  std::to_string(plugin::kPluginApiVersion) + "}",
              &gridClient});
         host.addBuiltin({R"({"id":"test.units","name":"Units","version":"1","apiVersion":)" +
@@ -182,14 +182,14 @@ struct App {
     }
 
     QAction* menu(const char* id) { return shell->findChild<QAction*>(QString::fromLatin1(id)); }
-    view::FlatView* flat() { return shell->findChild<view::FlatView*>(QStringLiteral("kh.view.flat")); }
+    view::FlatView* flat() { return shell->findChild<view::FlatView*>(QStringLiteral("sb.view.flat")); }
 
     const model::Document& doc() { return *host.documents().find(shell->activeDesign()); }
     QTreeWidget* tree() {
-        return shell->panelWidget(QStringLiteral("kh.featuretree.panel"))
-            ->findChild<QTreeWidget*>(QStringLiteral("kh.featuretree.tree"));
+        return shell->panelWidget(QStringLiteral("sb.featuretree.panel"))
+            ->findChild<QTreeWidget*>(QStringLiteral("sb.featuretree.tree"));
     }
-    QWidget* properties() { return shell->panelWidget(QStringLiteral("kh.properties.panel")); }
+    QWidget* properties() { return shell->panelWidget(QStringLiteral("sb.properties.panel")); }
     template <typename W>
     W* field(const char* name) {
         return properties()->findChild<W*>(QString::fromLatin1(name));
@@ -213,24 +213,24 @@ struct App {
 TEST_CASE("the shell is built from plugins", "[app]") {
     App app;
     CHECK(app.shell->dockIds() ==
-          QStringList({"kh.featuretree.panel", "kh.properties.panel", "kh.sketcher.panel", "kh.viewer.main",
-                       "kh.viewoptions.panel"}));  // no test.broken.panel
-    CHECK(app.shell->action("kh.modeling.box"));
-    CHECK(app.shell->action("kh.modeling.cut"));
-    CHECK_FALSE(app.shell->action("kh.modeling.cut")->isEnabled());  // needs two steps picked
+          QStringList({"sb.featuretree.panel", "sb.properties.panel", "sb.sketcher.panel", "sb.viewer.main",
+                       "sb.viewoptions.panel"}));  // no test.broken.panel
+    CHECK(app.shell->action("sb.modeling.box"));
+    CHECK(app.shell->action("sb.modeling.cut"));
+    CHECK_FALSE(app.shell->action("sb.modeling.cut")->isEnabled());  // needs two steps picked
     CHECK(app.doc().featureCount() == 0);
-    CHECK(app.shell->windowTitle() == QStringLiteral("Untitled[*] - Khan"));
+    CHECK(app.shell->windowTitle() == QStringLiteral("Untitled[*] - SketchBillet"));
 }
 
-TEST_CASE("Khan's own plugins follow the rules: no warnings, and each has a tier", "[app]") {
+TEST_CASE("SketchBillet's own plugins follow the rules: no warnings, and each has a tier", "[app]") {
     App app;
     int builtins = 0;
     for (const auto& p : app.host.plugins()) {
-        if (p.manifest.id.rfind("kh.", 0) != 0) continue;
+        if (p.manifest.id.rfind("sb.", 0) != 0) continue;
         ++builtins;
         INFO(p.manifest.id);
         CHECK(p.state == plugin::PluginState::Loaded);
-        CHECK(p.issues.empty());  // as strict as kh_cli plugins --strict
+        CHECK(p.issues.empty());  // as strict as sketchbillet_cli plugins --strict
         CHECK_FALSE(p.manifest.tier.empty());
     }
     CHECK(builtins == 8);
@@ -238,40 +238,41 @@ TEST_CASE("Khan's own plugins follow the rules: no warnings, and each has a tier
 
 TEST_CASE("every toolbar button has a picture", "[app][icons]") {
     App app;
-    auto* toolbar = app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar"));
+    auto* toolbar = app.shell->findChild<QToolBar*>(QStringLiteral("sb.shell.toolbar"));
     REQUIRE(toolbar);
     CHECK(toolbar->toolButtonStyle() == Qt::ToolButtonTextUnderIcon);  // words too, for new users
     int buttons = 0;
     auto rows = toolbar->actions();
-    rows += app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"))->actions();
+    rows += app.shell->findChild<QToolBar*>(QStringLiteral("sb.shell.toolbar2"))->actions();
     for (auto* a : rows) {
         if (a->isSeparator() || a->objectName().startsWith(QStringLiteral("test.")))
-            continue;                                   // Khan's own only
+            continue;                                   // SketchBillet's own only
         if (qobject_cast<QWidgetAction*>(a)) continue;  // the second row's hint, not a button
         ++buttons;
         INFO(a->text().toStdString());
         CHECK_FALSE(a->icon().isNull());
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
-    CHECK(buttons == 5 + 7 + 2 + 11 + 15);  // Khan's own, kh.modeling, kh.sketcher, sketch tools, constraints
+    CHECK(buttons ==
+          5 + 7 + 2 + 11 + 15);  // SketchBillet's own, sb.modeling, sb.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
-    CHECK_FALSE(app.shell->action("kh.modeling.box")->icon().isNull());
+    CHECK_FALSE(app.shell->action("sb.modeling.box")->icon().isNull());
 }
 
 TEST_CASE("buttons that don't fit go on a second row, which goes away when they fit", "[app][icons]") {
     App app;
-    auto* row1 = app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar"));
-    auto* row2 = app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"));
+    auto* row1 = app.shell->findChild<QToolBar*>(QStringLiteral("sb.shell.toolbar"));
+    auto* row2 = app.shell->findChild<QToolBar*>(QStringLiteral("sb.shell.toolbar2"));
     REQUIRE(row2);
     app.shell->resize(2400, 800);
     settle();
     CHECK(row2->isHidden());
-    CHECK(row1->actions().contains(app.shell->button("kh.sketcher.edit")));
+    CHECK(row1->actions().contains(app.shell->button("sb.sketcher.edit")));
     app.shell->resize(520, 800);  // too narrow for every button
     settle();
     CHECK_FALSE(row2->isHidden());
-    CHECK(row2->actions().contains(app.shell->button("kh.sketcher.edit")));  // the last one wraps
-    CHECK(row1->actions().contains(app.shell->undoAction()));                // Khan's own stay first
+    CHECK(row2->actions().contains(app.shell->button("sb.sketcher.edit")));  // the last one wraps
+    CHECK(row1->actions().contains(app.shell->undoAction()));                // SketchBillet's own stay first
     // Still in order: the first row ends where the second starts.
     QStringList order;
     for (auto* bar : {row1, row2}) {
@@ -280,8 +281,8 @@ TEST_CASE("buttons that don't fit go on a second row, which goes away when they 
                 order << a->objectName();
         }
     }
-    CHECK(order.indexOf(QStringLiteral("kh.modeling.box.button")) <
-          order.indexOf(QStringLiteral("kh.sketcher.edit.button")));
+    CHECK(order.indexOf(QStringLiteral("sb.modeling.box.button")) <
+          order.indexOf(QStringLiteral("sb.sketcher.edit.button")));
     app.shell->resize(2400, 800);
     settle();
     CHECK(row2->isHidden());
@@ -309,7 +310,7 @@ TEST_CASE("an SVG icon follows the theme's text color, and greys out when disabl
 
 TEST_CASE("Create > Box adds a step, selects it, and shows its numbers", "[app]") {
     App app;
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
     REQUIRE(app.doc().featureCount() == 1);
     CHECK(app.tree()->topLevelItemCount() == 1);
     CHECK(app.tree()->topLevelItem(0)->text(0) == QStringLiteral("Box1"));
@@ -322,7 +323,7 @@ TEST_CASE("Create > Box adds a step, selects it, and shows its numbers", "[app]"
 
 TEST_CASE("typing a number in Properties edits the step, and undo puts it back", "[app]") {
     App app;
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
     const auto id = app.doc().featureAt(0).id();
     auto size = [&] { return static_cast<const model::BoxFeature*>(app.doc().find(id))->size(); };
 
@@ -341,7 +342,7 @@ TEST_CASE("typing a number in Properties edits the step, and undo puts it back",
 
 TEST_CASE("quick changes to one number are one undo step", "[app]") {
     App app;
-    app.click("kh.modeling.cylinder");
+    app.click("sb.modeling.cylinder");
     auto* radius = app.field<QDoubleSpinBox>("radius");
     radius->setValue(11.0);
     radius->setValue(12.0);
@@ -354,12 +355,12 @@ TEST_CASE("quick changes to one number are one undo step", "[app]") {
 
 TEST_CASE("picking two steps enables Combine, which makes a Cut", "[app]") {
     App app;
-    app.click("kh.modeling.box");
-    app.click("kh.modeling.cylinder");
-    CHECK_FALSE(app.shell->action("kh.modeling.cut")->isEnabled());
+    app.click("sb.modeling.box");
+    app.click("sb.modeling.cylinder");
+    CHECK_FALSE(app.shell->action("sb.modeling.cut")->isEnabled());
     app.pickRows({0, 1});
     CHECK(app.host.selection().features().size() == 2);
-    app.click("kh.modeling.cut");
+    app.click("sb.modeling.cut");
     REQUIRE(app.doc().featureCount() == 3);
     CHECK(app.doc().featureAt(2).name() == "Cut1");
     CHECK(app.tree()->topLevelItem(2)->text(1) == QStringLiteral("Cut"));
@@ -368,8 +369,8 @@ TEST_CASE("picking two steps enables Combine, which makes a Cut", "[app]") {
 
 TEST_CASE("renaming in the tree, and refusing a taken name", "[app]") {
     App app;
-    app.click("kh.modeling.box");
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
+    app.click("sb.modeling.box");
     app.tree()->topLevelItem(0)->setText(0, QStringLiteral("Plate"));
     settle();
     CHECK(app.doc().featureAt(0).name() == "Plate");
@@ -384,12 +385,12 @@ TEST_CASE("renaming in the tree, and refusing a taken name", "[app]") {
 
 TEST_CASE("Edit > Duplicate step copies the picked step and the steps it uses", "[app][copy]") {
     App app;
-    app.click("kh.modeling.box");
-    app.click("kh.modeling.cylinder");
+    app.click("sb.modeling.box");
+    app.click("sb.modeling.cylinder");
     app.pickRows({0, 1});
-    app.click("kh.modeling.cut");
-    CHECK(app.shell->action("kh.modeling.duplicate")->isEnabled());  // Cut1 is picked
-    app.click("kh.modeling.duplicate");
+    app.click("sb.modeling.cut");
+    CHECK(app.shell->action("sb.modeling.duplicate")->isEnabled());  // Cut1 is picked
+    app.click("sb.modeling.duplicate");
     REQUIRE(app.doc().featureCount() == 6);
     CHECK(app.doc().featureAt(3).name() == "Box2");
     CHECK(app.doc().featureAt(4).name() == "Cylinder2");
@@ -403,21 +404,21 @@ TEST_CASE("Edit > Duplicate step copies the picked step and the steps it uses", 
 
 TEST_CASE("Copy and Paste put steps into another design", "[app][copy]") {
     App app;
-    CHECK_FALSE(app.menu("kh.shell.copy")->isEnabled());  // nothing picked
-    app.click("kh.modeling.box");                         // Box1 is picked
+    CHECK_FALSE(app.menu("sb.shell.copy")->isEnabled());  // nothing picked
+    app.click("sb.modeling.box");                         // Box1 is picked
     app.tree()->topLevelItem(0)->setText(0, QStringLiteral("Plate"));
     settle();
     app.pickRows({0});
-    REQUIRE(app.menu("kh.shell.copy")->isEnabled());
-    app.menu("kh.shell.copy")->trigger();
+    REQUIRE(app.menu("sb.shell.copy")->isEnabled());
+    app.menu("sb.shell.copy")->trigger();
     settle();
-    CHECK(app.menu("kh.shell.paste")->isEnabled());
+    CHECK(app.menu("sb.shell.paste")->isEnabled());
     CHECK(app.shell->statusBar()->currentMessage() == QStringLiteral("Copied 1 step."));
 
     REQUIRE(app.shell->newDesign());
     settle();
     CHECK(app.doc().featureCount() == 0);
-    app.menu("kh.shell.paste")->trigger();
+    app.menu("sb.shell.paste")->trigger();
     settle();
     REQUIRE(app.doc().featureCount() == 1);
     CHECK(app.doc().featureAt(0).name() == "Plate");
@@ -425,7 +426,7 @@ TEST_CASE("Copy and Paste put steps into another design", "[app][copy]") {
     CHECK(app.host.selection().features() == std::vector<FeatureId>{app.doc().featureAt(0).id()});
     CHECK(app.doc().undoLabel() == "Paste 1 step");
 
-    app.menu("kh.shell.paste")->trigger();  // again: a second, renamed copy
+    app.menu("sb.shell.paste")->trigger();  // again: a second, renamed copy
     settle();
     REQUIRE(app.doc().featureCount() == 2);
     CHECK(app.doc().featureAt(1).name() == "Plate1");
@@ -434,14 +435,14 @@ TEST_CASE("Copy and Paste put steps into another design", "[app][copy]") {
 
 TEST_CASE("Edit > Turn off and Turn on change every picked step, as one undo", "[app][suppress]") {
     App app;
-    app.click("kh.modeling.box");
-    app.click("kh.modeling.cylinder");
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
+    app.click("sb.modeling.cylinder");
+    app.click("sb.modeling.box");
     app.tree()->clearSelection();
     settle();
-    CHECK_FALSE(app.shell->action("kh.modeling.turn_off")->isEnabled());  // nothing picked
+    CHECK_FALSE(app.shell->action("sb.modeling.turn_off")->isEnabled());  // nothing picked
     app.pickRows({0, 2});
-    app.click("kh.modeling.turn_off");
+    app.click("sb.modeling.turn_off");
     CHECK(app.doc().featureAt(0).suppressed());
     CHECK_FALSE(app.doc().featureAt(1).suppressed());
     CHECK(app.doc().featureAt(2).suppressed());
@@ -450,12 +451,12 @@ TEST_CASE("Edit > Turn off and Turn on change every picked step, as one undo", "
     CHECK(app.tree()->topLevelItem(1)->text(2) == QStringLiteral("ok"));
     CHECK(app.shell->undoAction()->text() == QStringLiteral("Undo Turn off 2 steps"));
 
-    app.click("kh.modeling.turn_off");  // again: they're already off
+    app.click("sb.modeling.turn_off");  // again: they're already off
     REQUIRE(app.shell->lastProblems().size() == 1);
     CHECK(app.shell->lastProblems()[0].code == "feature.already_off");
 
     app.pickRows({0});
-    app.click("kh.modeling.turn_on");
+    app.click("sb.modeling.turn_on");
     CHECK_FALSE(app.doc().featureAt(0).suppressed());
     CHECK(app.doc().featureAt(2).suppressed());
 
@@ -471,11 +472,11 @@ TEST_CASE("Edit > Turn off and Turn on change every picked step, as one undo", "
 
 TEST_CASE("Edit > New folder puts the picked steps in a folder in the tree", "[app][folders]") {
     App app;
-    app.click("kh.modeling.box");
-    app.click("kh.modeling.cylinder");
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
+    app.click("sb.modeling.cylinder");
+    app.click("sb.modeling.box");
     app.pickRows({0, 1});
-    app.click("kh.modeling.new_folder");
+    app.click("sb.modeling.new_folder");
     REQUIRE(app.doc().folders().size() == 1);
     CHECK(app.doc().folders()[0].name == "Folder1");
 
@@ -499,7 +500,7 @@ TEST_CASE("Edit > New folder puts the picked steps in a folder in the tree", "[a
     CHECK(app.tree()->topLevelItem(0)->child(0)->isSelected());
 
     // Turning the folder's steps off shows the folder as off.
-    app.click("kh.modeling.turn_off");
+    app.click("sb.modeling.turn_off");
     CHECK(app.tree()->topLevelItem(0)->text(2) == QStringLiteral("off"));
 
     // Renaming the folder row renames the folder.
@@ -517,24 +518,24 @@ TEST_CASE("Edit > New folder puts the picked steps in a folder in the tree", "[a
 
 TEST_CASE("a closed folder stays closed when the tree is rebuilt", "[app][folders]") {
     App app;
-    app.click("kh.modeling.box");
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
+    app.click("sb.modeling.box");
     app.pickRows({0});
-    app.click("kh.modeling.new_folder");
+    app.click("sb.modeling.new_folder");
     app.tree()->topLevelItem(0)->setExpanded(false);
     settle();
-    app.click("kh.modeling.box");  // changes the design, so the tree is rebuilt
+    app.click("sb.modeling.box");  // changes the design, so the tree is rebuilt
     CHECK(app.tree()->topLevelItem(0)->text(0) == QStringLiteral("Folder1"));
     CHECK_FALSE(app.tree()->topLevelItem(0)->isExpanded());
 }
 
 TEST_CASE("steps that aren't next to each other can't share a folder", "[app][folders]") {
     App app;
-    app.click("kh.modeling.box");
-    app.click("kh.modeling.box");
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
+    app.click("sb.modeling.box");
+    app.click("sb.modeling.box");
     app.pickRows({0, 2});
-    app.click("kh.modeling.new_folder");
+    app.click("sb.modeling.new_folder");
     CHECK(app.doc().folders().empty());
     REQUIRE(app.shell->lastProblems().size() == 1);
     CHECK(app.shell->lastProblems()[0].code == "folder.not_together");
@@ -542,9 +543,9 @@ TEST_CASE("steps that aren't next to each other can't share a folder", "[app][fo
 
 TEST_CASE("Modify > Move adds a Move step, and Properties changes how far", "[app][move]") {
     App app;
-    CHECK_FALSE(app.shell->action("kh.modeling.move")->isEnabled());  // nothing picked
-    app.click("kh.modeling.box");                                     // Box1 is picked
-    app.click("kh.modeling.move");
+    CHECK_FALSE(app.shell->action("sb.modeling.move")->isEnabled());  // nothing picked
+    app.click("sb.modeling.box");                                     // Box1 is picked
+    app.click("sb.modeling.move");
     REQUIRE(app.doc().featureCount() == 2);
     const auto& move = dynamic_cast<const model::MoveFeature&>(app.doc().featureAt(1));
     CHECK(move.name() == "Move1");
@@ -664,8 +665,8 @@ const model::SketchFeature& sketchAt(App& app, std::size_t i) {
 
 TEST_CASE("Sketch > New sketch, then clicks draw a closed shape, one undo step per line", "[app][sketcher]") {
     App app;
-    app.menu("kh.grid.snap")->trigger();  // so clicks land exactly on whole millimeters
-    app.click("kh.sketcher.new_xy");
+    app.menu("sb.grid.snap")->trigger();  // so clicks land exactly on whole millimeters
+    app.click("sb.sketcher.new_xy");
     REQUIRE(app.doc().featureCount() == 1);
     CHECK(app.doc().featureAt(0).type() == model::FeatureType::Sketch);
     auto* viewer = seenViewer;
@@ -705,10 +706,10 @@ TEST_CASE("Sketch > New sketch, then clicks draw a closed shape, one undo step p
           QStringLiteral("Drawing in Sketch1. Line: click where it starts."));
 
     // The viewer draws it: 4 lines, 4 corners.
-    const auto* lines = app.host.overlays().find("kh.sketcher.edit.lines");
+    const auto* lines = app.host.overlays().find("sb.sketcher.edit.lines");
     REQUIRE(lines);
     CHECK(lines->points.size() == 8);
-    CHECK(app.host.overlays().find("kh.sketcher.edit.points")->points.size() == 8);
+    CHECK(app.host.overlays().find("sb.sketcher.edit.points")->points.size() == 8);
 
     // One undo takes away one line.
     app.shell->undoAction()->trigger();
@@ -718,18 +719,18 @@ TEST_CASE("Sketch > New sketch, then clicks draw a closed shape, one undo step p
 
 TEST_CASE("the Circle, Arc and Point tools draw with clicks", "[app][sketcher]") {
     App app;
-    app.menu("kh.grid.snap")->trigger();
-    app.click("kh.sketcher.new_xy");
+    app.menu("sb.grid.snap")->trigger();
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
-    app.click("kh.sketcher.circle");
-    CHECK(app.shell->action("kh.sketcher.circle")->isChecked());
+    app.click("sb.sketcher.circle");
+    CHECK(app.shell->action("sb.sketcher.circle")->isChecked());
     clickAt(flat, {10, 10, 0});
     clickAt(flat, {20, 10, 0});
-    app.click("kh.sketcher.arc");
+    app.click("sb.sketcher.arc");
     clickAt(flat, {30, 0, 0});   // center
     clickAt(flat, {40, 0, 0});   // start: radius 10, pointing right
     clickAt(flat, {30, 10, 0});  // end: straight up, a quarter turn counterclockwise
-    app.click("kh.sketcher.point");
+    app.click("sb.sketcher.point");
     clickAt(flat, {-10, -10, 0});
     const auto& s = sketchAt(app, 0).sketch();
     REQUIRE(s.entities.size() == 3);
@@ -746,7 +747,7 @@ TEST_CASE("the Circle, Arc and Point tools draw with clicks", "[app][sketcher]")
 
 TEST_CASE("an end close to a point snaps onto it and joins it", "[app][sketcher]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
     clickAt(flat, {0, 0, 0});
     clickAt(flat, {20, 0, 0});
@@ -770,7 +771,7 @@ TEST_CASE("an end close to a point snaps onto it and joins it", "[app][sketcher]
 
 TEST_CASE("Escape stops the shape being drawn, then goes to Select, then stops editing", "[app][sketcher]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
     auto* viewer = seenViewer;
     clickAt(flat, {0, 0, 0});
@@ -781,7 +782,7 @@ TEST_CASE("Escape stops the shape being drawn, then goes to Select, then stops e
     CHECK(sketchAt(app, 0).sketch().entities.size() == 1);  // a new line, not one from 0, 0
     pressEscape(flat);                                      // stops the chain of lines
     pressEscape(flat);                                      // Line tool -> Select
-    CHECK(app.shell->action("kh.sketcher.select")->isChecked());
+    CHECK(app.shell->action("sb.sketcher.select")->isChecked());
     CHECK(viewer->tool() != nullptr);
     pressEscape(flat);  // nothing picked: finish
     CHECK(viewer->tool() == nullptr);
@@ -798,23 +799,23 @@ struct Drawn {
     App app;
     view::FlatView* flat = nullptr;
     Drawn() {
-        app.menu("kh.grid.snap")->trigger();
-        app.menu("kh.sketcher.auto")->trigger();  // off: just the corners join, for these tests
-        app.click("kh.sketcher.new_xy");
+        app.menu("sb.grid.snap")->trigger();
+        app.menu("sb.sketcher.auto")->trigger();  // off: just the corners join, for these tests
+        app.click("sb.sketcher.new_xy");
         flat = app.flat();
         for (auto p : {kernel::Vec3{0, 0, 0}, {60, 0, 0}, {60, 40, 0}, {0, 40, 0}, {0, 0, 0}})
             clickAt(flat, p);
-        app.click("kh.sketcher.circle");
+        app.click("sb.sketcher.circle");
         clickAt(flat, {20, 20, 0});
         clickAt(flat, {30, 20, 0});
-        app.click("kh.sketcher.select");
+        app.click("sb.sketcher.select");
     }
     const sketch::Sketch& sketch() { return sketchAt(app, 0).sketch(); }
     const sketch::LineShape& line(std::size_t i) {
         return std::get<sketch::LineShape>(sketch().entities[i].shape);
     }
     std::size_t overlayPoints(const char* name) {
-        const auto* o = app.host.overlays().find(std::string("kh.sketcher.") + name);
+        const auto* o = app.host.overlays().find(std::string("sb.sketcher.") + name);
         return o ? o->points.size() : 0;
     }
 };
@@ -825,11 +826,11 @@ TEST_CASE("Select: a click picks a line or point, Ctrl-click adds, a click on no
           "[app][sketcher]") {
     Drawn d;
     CHECK(d.overlayPoints("edit.picked") == 0);
-    CHECK_FALSE(d.app.shell->action("kh.sketcher.delete")->isEnabled());
+    CHECK_FALSE(d.app.shell->action("sb.sketcher.delete")->isEnabled());
     clickAt(d.flat, {30, 0, 0});                 // the middle of Line1
     CHECK(d.overlayPoints("edit.picked") == 2);  // one line: two ends
     CHECK(d.app.shell->statusBar()->currentMessage().startsWith(QStringLiteral("Picked Line1.")));
-    CHECK(d.app.shell->action("kh.sketcher.delete")->isEnabled());
+    CHECK(d.app.shell->action("sb.sketcher.delete")->isEnabled());
     ctrlClickAt(d.flat, {60, 20, 0});  // and Line2
     CHECK(d.overlayPoints("edit.picked") == 4);
     ctrlClickAt(d.flat, {30, 0, 0});  // Ctrl-click again: Line1 is let go
@@ -839,7 +840,7 @@ TEST_CASE("Select: a click picks a line or point, Ctrl-click adds, a click on no
     CHECK(d.overlayPoints("edit.picked_points") == 1);
     clickAt(d.flat, {45, 20, 0});  // nothing there
     CHECK(d.overlayPoints("edit.picked_points") == 0);
-    CHECK_FALSE(d.app.shell->action("kh.sketcher.delete")->isEnabled());
+    CHECK_FALSE(d.app.shell->action("sb.sketcher.delete")->isEnabled());
     // Esc lets go of what's picked before it finishes the sketch.
     clickAt(d.flat, {30, 0, 0});
     pressEscape(d.flat);
@@ -854,18 +855,18 @@ TEST_CASE("Delete deletes the picked lines and their constraints, in one undo st
     clickAt(d.flat, {30, 0, 0});
     ctrlClickAt(d.flat, {30, 20, 0});  // Circle1's edge
     // While editing, the Delete key deletes what's picked in the sketch, not the step.
-    CHECK(d.app.shell->action("kh.sketcher.delete")->shortcut() == QKeySequence(QKeySequence::Delete));
-    CHECK(d.app.shell->action("kh.modeling.delete")->shortcut().isEmpty());
-    d.app.click("kh.sketcher.delete");
+    CHECK(d.app.shell->action("sb.sketcher.delete")->shortcut() == QKeySequence(QKeySequence::Delete));
+    CHECK(d.app.shell->action("sb.modeling.delete")->shortcut().isEmpty());
+    d.app.click("sb.sketcher.delete");
     CHECK(d.sketch().entities.size() == 3);
     CHECK(d.sketch().constraints.size() == 2);  // the corners on Line1 went with it
     CHECK(d.app.doc().undoLabel() == "Delete 2 things");
-    CHECK_FALSE(d.app.shell->action("kh.sketcher.delete")->isEnabled());  // nothing picked now
+    CHECK_FALSE(d.app.shell->action("sb.sketcher.delete")->isEnabled());  // nothing picked now
     d.app.shell->undoAction()->trigger();
     settle();
     CHECK(d.sketch().entities.size() == 5);
-    d.app.click("kh.sketcher.finish");
-    CHECK_FALSE(d.app.shell->action("kh.modeling.delete")->shortcut().isEmpty());  // Delete is back
+    d.app.click("sb.sketcher.finish");
+    CHECK_FALSE(d.app.shell->action("sb.modeling.delete")->shortcut().isEmpty());  // Delete is back
 }
 
 TEST_CASE("dragging a corner moves it, and the lines joined to it follow", "[app][sketcher]") {
@@ -883,8 +884,8 @@ TEST_CASE("dragging a corner moves it, and the lines joined to it follow", "[app
 
 TEST_CASE("dropping an end onto another point joins them, in one undo step", "[app][sketcher]") {
     App app;
-    app.click("kh.sketcher.new_xy");
-    app.menu("kh.sketcher.auto")->trigger();  // plain lines, to keep the count simple
+    app.click("sb.sketcher.new_xy");
+    app.menu("sb.sketcher.auto")->trigger();  // plain lines, to keep the count simple
     auto* flat = app.flat();
     clickAt(flat, {0, 0, 0});  // Line1, level
     clickAt(flat, {40, 0, 0});
@@ -904,7 +905,7 @@ TEST_CASE("dropping an end onto another point joins them, in one undo step", "[a
     REQUIRE(s.constraints.size() == 1);
     CHECK(s.constraints[0].kind == sketch::ConstraintKind::Coincident);
     CHECK(app.doc().undoLabel() == "Join Line2's start to Line1's end");
-    const auto* ends = app.host.overlays().find("kh.sketcher.edit.open_ends");
+    const auto* ends = app.host.overlays().find("sb.sketcher.edit.open_ends");
     REQUIRE(ends);
     CHECK(ends->points.size() == 2);     // 4 open ends before, 2 now
     app.shell->undoAction()->trigger();  // one step: back apart, no constraint
@@ -1003,7 +1004,7 @@ TEST_CASE("Escape during a drag puts it back", "[app][sketcher]") {
     };
     send(QEvent::MouseButtonPress, a, Qt::LeftButton, Qt::LeftButton);
     send(QEvent::MouseMove, b, Qt::NoButton, Qt::LeftButton);
-    CHECK(d.app.host.overlays().find("kh.sketcher.edit.lines")->points.size() > 0);
+    CHECK(d.app.host.overlays().find("sb.sketcher.edit.lines")->points.size() > 0);
     pressEscape(d.flat);
     send(QEvent::MouseButtonRelease, b, Qt::LeftButton, Qt::NoButton);
     CHECK(d.line(1).end.x == Approx(60).margin(1e-6));
@@ -1015,12 +1016,12 @@ namespace {
 
 // The texts of one of the sketcher's label overlays.
 std::vector<std::string> labelTexts(App& app, const char* name) {
-    const auto* o = app.host.overlays().find(std::string("kh.sketcher.") + name);
+    const auto* o = app.host.overlays().find(std::string("sb.sketcher.") + name);
     return o ? o->texts : std::vector<std::string>{};
 }
 
 QDoubleSpinBox* numberBox(App& app, const char* constraint) {
-    auto* panel = app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"));
+    auto* panel = app.shell->panelWidget(QStringLiteral("sb.sketcher.panel"));
     return panel ? panel->findChild<QDoubleSpinBox*>(QString::fromLatin1(constraint)) : nullptr;
 }
 
@@ -1035,21 +1036,21 @@ void typeNumber(QDoubleSpinBox* box, double value) {
 TEST_CASE("constraint buttons show only when they fit what's picked", "[app][sketcher][constrain]") {
     Drawn d;
     auto shown = [&](const char* id) { return d.app.shell->button(id)->isVisible(); };
-    CHECK_FALSE(shown("kh.sketcher.horizontal"));  // nothing picked: no constraint buttons
-    CHECK_FALSE(shown("kh.sketcher.dimension"));
+    CHECK_FALSE(shown("sb.sketcher.horizontal"));  // nothing picked: no constraint buttons
+    CHECK_FALSE(shown("sb.sketcher.dimension"));
     clickAt(d.flat, {30, 0, 0});  // Line1
-    CHECK(shown("kh.sketcher.horizontal"));
-    CHECK(shown("kh.sketcher.dimension"));
-    CHECK(shown("kh.sketcher.horizontal_dimension"));
-    CHECK(d.app.shell->button("kh.sketcher.horizontal_dimension")->text() == QStringLiteral("Width"));
-    CHECK_FALSE(shown("kh.sketcher.parallel"));
+    CHECK(shown("sb.sketcher.horizontal"));
+    CHECK(shown("sb.sketcher.dimension"));
+    CHECK(shown("sb.sketcher.horizontal_dimension"));
+    CHECK(d.app.shell->button("sb.sketcher.horizontal_dimension")->text() == QStringLiteral("Width"));
+    CHECK_FALSE(shown("sb.sketcher.parallel"));
     ctrlClickAt(d.flat, {30, 40, 0});  // and Line3
-    CHECK(shown("kh.sketcher.parallel"));
-    CHECK_FALSE(shown("kh.sketcher.coincident"));
+    CHECK(shown("sb.sketcher.parallel"));
+    CHECK_FALSE(shown("sb.sketcher.coincident"));
     // The menu always has them all, greyed out when they don't fit.
-    CHECK_FALSE(d.app.shell->action("kh.sketcher.coincident")->isEnabled());
-    d.app.click("kh.sketcher.finish");
-    CHECK_FALSE(shown("kh.sketcher.parallel"));
+    CHECK_FALSE(d.app.shell->action("sb.sketcher.coincident")->isEnabled());
+    d.app.click("sb.sketcher.finish");
+    CHECK_FALSE(shown("sb.sketcher.parallel"));
 }
 
 TEST_CASE("picking in a narrow window doesn't move the view (the rows stay put)",
@@ -1057,9 +1058,9 @@ TEST_CASE("picking in a narrow window doesn't move the view (the rows stay put)"
     Drawn d;
     d.app.shell->resize(760, 700);  // too narrow for every sketch button on one row
     settle();
-    auto* row2 = d.app.shell->findChild<QToolBar*>(QStringLiteral("kh.shell.toolbar2"));
+    auto* row2 = d.app.shell->findChild<QToolBar*>(QStringLiteral("sb.shell.toolbar2"));
     CHECK_FALSE(row2->isHidden());  // the second row is there while editing, even with nothing picked
-    auto* hint = row2->findChild<QLabel*>(QStringLiteral("kh.shell.toolbar2.hint"));
+    auto* hint = row2->findChild<QLabel*>(QStringLiteral("sb.shell.toolbar2.hint"));
     REQUIRE(hint);
     // The hint shows exactly when none of the row's buttons do. (Which buttons
     // wrap depends on the system font, so this checks the rule, not a count.)
@@ -1071,7 +1072,7 @@ TEST_CASE("picking in a narrow window doesn't move the view (the rows stay put)"
     CHECK(hint->isVisibleTo(row2) == !buttonsShowing());
     const QRect before(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
     clickAt(d.flat, {30, 0, 0});  // Line1: its constraint buttons appear
-    CHECK(d.app.shell->button("kh.sketcher.horizontal")->isVisible());
+    CHECK(d.app.shell->button("sb.sketcher.horizontal")->isVisible());
     CHECK(buttonsShowing());  // constraint buttons there now
     CHECK_FALSE(hint->isVisibleTo(row2));
     const QRect after(d.flat->mapTo(d.app.shell.get(), QPoint(0, 0)), d.flat->size());
@@ -1087,14 +1088,14 @@ TEST_CASE("Horizontal adds a constraint labeled H, as one undo step, and only on
     Drawn d;
     clickAt(d.flat, {30, 0, 0});
     ctrlClickAt(d.flat, {30, 40, 0});
-    d.app.click("kh.sketcher.horizontal");  // both lines, one step
+    d.app.click("sb.sketcher.horizontal");  // both lines, one step
     REQUIRE(d.sketch().constraints.size() == 6);
     CHECK(d.sketch().constraints[4].name == "Horizontal1");
     CHECK(d.app.doc().undoLabel() == "Add 2 constraints");
     CHECK(labelTexts(d.app, "edit.labels") == std::vector<std::string>{"H", "H"});
     CHECK(d.overlayPoints("edit.picked") == 0);  // picks are let go
     clickAt(d.flat, {30, 0, 0});
-    d.app.click("kh.sketcher.horizontal");
+    d.app.click("sb.sketcher.horizontal");
     REQUIRE_FALSE(d.app.shell->lastProblems().empty());
     CHECK(d.app.shell->lastProblems()[0].code == "sketch.already");
     CHECK(d.app.shell->lastProblems()[0].message.find("Horizontal1") != std::string::npos);
@@ -1107,7 +1108,7 @@ TEST_CASE("Dimension: the number is ready to type in the Sketch panel, and typin
           "[app][sketcher][constrain]") {
     Drawn d;
     clickAt(d.flat, {30, 0, 0});
-    d.app.click("kh.sketcher.dimension");
+    d.app.click("sb.sketcher.dimension");
     const auto* length = d.sketch().findConstraint("Length1");
     REQUIRE(length);
     CHECK(length->value == Approx(60));  // today's size: nothing moved
@@ -1129,21 +1130,22 @@ TEST_CASE("Dimension: the number is ready to type in the Sketch panel, and typin
     CHECK(std::hypot(l.end.x - l.start.x, l.end.y - l.start.y) == Approx(45).margin(1e-6));
 }
 
-TEST_CASE("constraints that can't all be true are red, and Khan says which", "[app][sketcher][constrain]") {
+TEST_CASE("constraints that can't all be true are red, and SketchBillet says which",
+          "[app][sketcher][constrain]") {
     Drawn d;
     clickAt(d.flat, {30, 0, 0});
-    d.app.click("kh.sketcher.horizontal");
+    d.app.click("sb.sketcher.horizontal");
     clickAt(d.flat, {30, 0, 0});
-    d.app.click("kh.sketcher.dimension");  // Length1 = 60
+    d.app.click("sb.sketcher.dimension");  // Length1 = 60
     clickAt(d.flat, {30, 0, 0});
-    d.app.click("kh.sketcher.horizontal_dimension");  // Width1 = 60, same thing for a horizontal line
+    d.app.click("sb.sketcher.horizontal_dimension");  // Width1 = 60, same thing for a horizontal line
     CHECK(labelTexts(d.app, "edit.labels_conflict").empty());
     typeNumber(numberBox(d.app, "HorizontalDistance1"), 50);  // can't be 60 long and 50 wide
     CHECK_FALSE(labelTexts(d.app, "edit.labels_conflict").empty());
     CHECK(d.overlayPoints("edit.conflict") > 0);  // the line is red too
     REQUIRE_FALSE(d.app.shell->lastProblems().empty());
     CHECK(d.app.shell->lastProblems()[0].message.find("can't all be true at once") != std::string::npos);
-    auto* status = d.app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"))
+    auto* status = d.app.shell->panelWidget(QStringLiteral("sb.sketcher.panel"))
                        ->findChild<QLabel*>(QStringLiteral("status"));
     CHECK(status->text().contains(QStringLiteral("can't all be true")));
     d.app.shell->undoAction()->trigger();  // back to 60: fine again
@@ -1155,17 +1157,17 @@ TEST_CASE("a constraint's label can be picked and deleted, and the panel follows
           "[app][sketcher][constrain]") {
     Drawn d;
     clickAt(d.flat, {30, 0, 0});
-    d.app.click("kh.sketcher.horizontal");
-    const auto* labels = d.app.host.overlays().find("kh.sketcher.edit.labels");
+    d.app.click("sb.sketcher.horizontal");
+    const auto* labels = d.app.host.overlays().find("sb.sketcher.edit.labels");
     REQUIRE(labels);
     REQUIRE(labels->points.size() == 1);
     clickAt(d.flat, labels->points[0]);  // click the "H"
     CHECK(labelTexts(d.app, "edit.labels_picked") == std::vector<std::string>{"H"});
-    auto* table = d.app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"))
+    auto* table = d.app.shell->panelWidget(QStringLiteral("sb.sketcher.panel"))
                       ->findChild<QTableWidget*>(QStringLiteral("constraints"));
     REQUIRE(table);
     CHECK(table->selectionModel()->selectedRows().size() == 1);  // its row is picked in the panel too
-    d.app.click("kh.sketcher.delete");
+    d.app.click("sb.sketcher.delete");
     CHECK(d.sketch().constraints.size() == 4);
     CHECK(d.app.doc().undoLabel() == "Delete Horizontal1");
     // A click on a row in the panel picks that constraint in the viewer.
@@ -1196,7 +1198,7 @@ std::vector<sketch::ConstraintKind> kindsIn(const sketch::Sketch& s) {
 TEST_CASE("a line drawn nearly level or upright is made so, with H or V; the hint shows first",
           "[app][sketcher][auto]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
     clickAt(flat, {0, 0, 0});
     hoverAt(flat, {30, 1, 0});  // 1 mm off level
@@ -1217,15 +1219,15 @@ TEST_CASE("a line drawn nearly level or upright is made so, with H or V; the hin
 
 TEST_CASE("a click next to a line or circle snaps onto it, with On", "[app][sketcher][auto]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
     clickAt(flat, {0, 0, 0});
     clickAt(flat, {40, 0, 0});
     pressEscape(flat);
-    app.click("kh.sketcher.circle");
+    app.click("sb.sketcher.circle");
     clickAt(flat, {20, 30, 0});
     clickAt(flat, {30, 30, 0});
-    app.click("kh.sketcher.point");
+    app.click("sb.sketcher.point");
     hoverAt(flat, {20, 1, 0});
     CHECK(labelTexts(app, "edit.hint") == std::vector<std::string>{"On"});
     clickAt(flat, {20, 1, 0});   // 1 mm from the line
@@ -1242,13 +1244,13 @@ TEST_CASE("a click next to a line or circle snaps onto it, with On", "[app][sket
 
 TEST_CASE("a line drawn off the end of an arc, in its direction, is made tangent", "[app][sketcher][auto]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
-    app.click("kh.sketcher.arc");
+    app.click("sb.sketcher.arc");
     clickAt(flat, {0, 0, 0});   // center
     clickAt(flat, {20, 0, 0});  // start
     clickAt(flat, {0, 20, 0});  // end: a quarter turn, heading left at the end
-    app.click("kh.sketcher.line");
+    app.click("sb.sketcher.line");
     clickAt(flat, {0, 20, 0});  // the arc's end
     hoverAt(flat, {-25, 21, 0});
     CHECK(labelTexts(app, "edit.hint") == std::vector<std::string>{"T"});
@@ -1265,10 +1267,10 @@ TEST_CASE("a line drawn off the end of an arc, in its direction, is made tangent
 
 TEST_CASE("with Add constraints while drawing off, lines go where they're clicked", "[app][sketcher][auto]") {
     App app;
-    app.click("kh.sketcher.new_xy");
-    CHECK(app.menu("kh.sketcher.auto")->isChecked());
-    app.menu("kh.sketcher.auto")->trigger();
-    CHECK_FALSE(app.menu("kh.sketcher.auto")->isChecked());
+    app.click("sb.sketcher.new_xy");
+    CHECK(app.menu("sb.sketcher.auto")->isChecked());
+    app.menu("sb.sketcher.auto")->trigger();
+    CHECK_FALSE(app.menu("sb.sketcher.auto")->isChecked());
     auto* flat = app.flat();
     clickAt(flat, {0, 0, 0});
     clickAt(flat, {30, 1, 0});
@@ -1279,13 +1281,13 @@ TEST_CASE("with Add constraints while drawing off, lines go where they're clicke
 
 TEST_CASE("the Sketch panel counts closed shapes, and open ends are marked", "[app][sketcher][profiles]") {
     Drawn d;  // a closed rectangle with a circle inside
-    auto* status = d.app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"))
+    auto* status = d.app.shell->panelWidget(QStringLiteral("sb.sketcher.panel"))
                        ->findChild<QLabel*>(QStringLiteral("status"));
     REQUIRE(status);
     CHECK(status->text().contains(QStringLiteral("1 closed shape, with 1 hole.")));
     CHECK(d.overlayPoints("edit.open_ends") == 0);
     clickAt(d.flat, {30, 0, 0});  // Line1
-    d.app.click("kh.sketcher.delete");
+    d.app.click("sb.sketcher.delete");
     CHECK(status->text().contains(QStringLiteral("1 closed shape.")));  // just the circle now
     CHECK(status->text().contains(QStringLiteral("2 ends aren't joined")));
     CHECK(d.overlayPoints("edit.open_ends") == 2);  // where Line1 was
@@ -1293,13 +1295,13 @@ TEST_CASE("the Sketch panel counts closed shapes, and open ends are marked", "[a
 
 TEST_CASE("Edit sketch starts with Select; New sketch starts with Line", "[app][sketcher]") {
     App app;
-    app.click("kh.sketcher.new_xy");
-    CHECK(app.shell->action("kh.sketcher.line")->isChecked());
-    app.click("kh.sketcher.finish");
+    app.click("sb.sketcher.new_xy");
+    CHECK(app.shell->action("sb.sketcher.line")->isChecked());
+    app.click("sb.sketcher.finish");
     app.pickRows({0});
-    app.click("kh.sketcher.edit");
-    CHECK(app.shell->action("kh.sketcher.select")->isChecked());
-    CHECK(app.shell->button("kh.sketcher.select")->isChecked());
+    app.click("sb.sketcher.edit");
+    CHECK(app.shell->action("sb.sketcher.select")->isChecked());
+    CHECK(app.shell->button("sb.sketcher.select")->isChecked());
     CHECK(app.shell->statusBar()->currentMessage().startsWith(QStringLiteral("Editing Sketch1.")));
 }
 
@@ -1307,36 +1309,36 @@ TEST_CASE("Sketch menu items are grey when they can't be used", "[app][sketcher]
     App app;
     auto enabled = [&](const char* id) { return app.shell->action(id)->isEnabled(); };
     auto toolsOn = [&] {
-        return enabled("kh.sketcher.line") && enabled("kh.sketcher.circle") && enabled("kh.sketcher.arc") &&
-               enabled("kh.sketcher.point");
+        return enabled("sb.sketcher.line") && enabled("sb.sketcher.circle") && enabled("sb.sketcher.arc") &&
+               enabled("sb.sketcher.point");
     };
     auto toolsOff = [&] {
-        return !enabled("kh.sketcher.line") && !enabled("kh.sketcher.circle") &&
-               !enabled("kh.sketcher.arc") && !enabled("kh.sketcher.point");
+        return !enabled("sb.sketcher.line") && !enabled("sb.sketcher.circle") &&
+               !enabled("sb.sketcher.arc") && !enabled("sb.sketcher.point");
     };
     // Nothing picked, not editing: only the New sketch items work.
-    CHECK(enabled("kh.sketcher.new_xy"));
-    CHECK_FALSE(enabled("kh.sketcher.edit"));
-    CHECK_FALSE(enabled("kh.sketcher.finish"));
+    CHECK(enabled("sb.sketcher.new_xy"));
+    CHECK_FALSE(enabled("sb.sketcher.edit"));
+    CHECK_FALSE(enabled("sb.sketcher.finish"));
     CHECK(toolsOff());
 
-    app.click("kh.modeling.box");  // Box1 is picked: not a sketch
-    CHECK_FALSE(enabled("kh.sketcher.edit"));
+    app.click("sb.modeling.box");  // Box1 is picked: not a sketch
+    CHECK_FALSE(enabled("sb.sketcher.edit"));
 
-    app.click("kh.sketcher.new_xy");  // editing Sketch2
-    CHECK(enabled("kh.sketcher.finish"));
-    CHECK_FALSE(enabled("kh.sketcher.edit"));  // already editing
+    app.click("sb.sketcher.new_xy");  // editing Sketch2
+    CHECK(enabled("sb.sketcher.finish"));
+    CHECK_FALSE(enabled("sb.sketcher.edit"));  // already editing
     CHECK(toolsOn());
 
-    app.click("kh.sketcher.finish");
-    CHECK_FALSE(enabled("kh.sketcher.finish"));
+    app.click("sb.sketcher.finish");
+    CHECK_FALSE(enabled("sb.sketcher.finish"));
     CHECK(toolsOff());
     app.pickRows({1});  // Sketch1
-    CHECK(enabled("kh.sketcher.edit"));
+    CHECK(enabled("sb.sketcher.edit"));
     app.pickRows({0, 1});  // two steps
-    CHECK_FALSE(enabled("kh.sketcher.edit"));
+    CHECK_FALSE(enabled("sb.sketcher.edit"));
     app.pickRows({0});  // Box1
-    CHECK_FALSE(enabled("kh.sketcher.edit"));
+    CHECK_FALSE(enabled("sb.sketcher.edit"));
 }
 
 TEST_CASE("the toolbar shows sketch buttons while editing, and 3D buttons otherwise", "[app][sketcher]") {
@@ -1346,52 +1348,52 @@ TEST_CASE("the toolbar shows sketch buttons while editing, and 3D buttons otherw
         REQUIRE(b);
         return b->isVisible();
     };
-    const char* sketchButtons[] = {"kh.sketcher.finish", "kh.sketcher.select", "kh.sketcher.line",
-                                   "kh.sketcher.circle", "kh.sketcher.arc",    "kh.sketcher.point"};
-    const char* usualButtons[] = {"kh.modeling.box", "kh.modeling.cylinder", "kh.modeling.move",
-                                  "kh.sketcher.new_xy", "kh.sketcher.edit"};
+    const char* sketchButtons[] = {"sb.sketcher.finish", "sb.sketcher.select", "sb.sketcher.line",
+                                   "sb.sketcher.circle", "sb.sketcher.arc",    "sb.sketcher.point"};
+    const char* usualButtons[] = {"sb.modeling.box", "sb.modeling.cylinder", "sb.modeling.move",
+                                  "sb.sketcher.new_xy", "sb.sketcher.edit"};
     for (const char* id : usualButtons) CHECK(shown(id));
     for (const char* id : sketchButtons) CHECK_FALSE(shown(id));
-    CHECK(app.shell->button("kh.sketcher.new_xy")->text() == QStringLiteral("New sketch"));
-    CHECK(app.shell->button("kh.sketcher.new_xz") == nullptr);  // menu only
+    CHECK(app.shell->button("sb.sketcher.new_xy")->text() == QStringLiteral("New sketch"));
+    CHECK(app.shell->button("sb.sketcher.new_xz") == nullptr);  // menu only
 
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     for (const char* id : usualButtons) CHECK_FALSE(shown(id));
     for (const char* id : sketchButtons) CHECK(shown(id));
-    CHECK(app.shell->undoAction()->isVisible());               // Khan's own buttons stay
-    CHECK(app.shell->action("kh.modeling.box")->isVisible());  // and the menus keep every item
+    CHECK(app.shell->undoAction()->isVisible());               // SketchBillet's own buttons stay
+    CHECK(app.shell->action("sb.modeling.box")->isVisible());  // and the menus keep every item
 
     // A button does what its menu item does, and shows the same check mark.
-    app.shell->button("kh.sketcher.circle")->trigger();
+    app.shell->button("sb.sketcher.circle")->trigger();
     settle();
-    CHECK(app.shell->button("kh.sketcher.circle")->isChecked());
-    CHECK(app.shell->action("kh.sketcher.circle")->isChecked());
-    CHECK_FALSE(app.shell->button("kh.sketcher.line")->isChecked());
+    CHECK(app.shell->button("sb.sketcher.circle")->isChecked());
+    CHECK(app.shell->action("sb.sketcher.circle")->isChecked());
+    CHECK_FALSE(app.shell->button("sb.sketcher.line")->isChecked());
 
-    app.shell->button("kh.sketcher.finish")->trigger();
+    app.shell->button("sb.sketcher.finish")->trigger();
     settle();
     for (const char* id : usualButtons) CHECK(shown(id));
     for (const char* id : sketchButtons) CHECK_FALSE(shown(id));
-    CHECK(app.host.find("kh.sketcher")->issues.empty());  // sending ActionsChanged is allowed
+    CHECK(app.host.find("sb.sketcher")->issues.empty());  // sending ActionsChanged is allowed
 }
 
 TEST_CASE("Edit sketch draws in the picked sketch, and stops if the sketch goes away", "[app][sketcher]") {
     App app;
-    app.click("kh.modeling.box");
-    app.click("kh.sketcher.new_yz");
+    app.click("sb.modeling.box");
+    app.click("sb.sketcher.new_yz");
     auto* viewer = seenViewer;
     CHECK(viewer->tool() != nullptr);
     CHECK(sketchAt(app, 1).plane() == model::SketchPlane::YZ);
     app.shell->undoAction()->trigger();  // the sketch is gone
     settle();
     CHECK(viewer->tool() == nullptr);
-    CHECK_FALSE(app.shell->action("kh.sketcher.finish")->isEnabled());
+    CHECK_FALSE(app.shell->action("sb.sketcher.finish")->isEnabled());
 
     app.pickRows({0});
-    app.click("kh.sketcher.new_xy");
-    app.click("kh.sketcher.finish");
+    app.click("sb.sketcher.new_xy");
+    app.click("sb.sketcher.finish");
     app.pickRows({1});
-    app.click("kh.sketcher.edit");
+    app.click("sb.sketcher.edit");
     CHECK(viewer->tool() != nullptr);
 }
 
@@ -1412,12 +1414,12 @@ TEST_CASE("Create > Extrude makes a solid from the picked sketch; Properties cha
         REQUIRE(docs.run(doc, "sketch.add_line", {{"sketch", sketchId}, {"from", a}, {"to", b}}).empty());
     }
     settle();
-    auto* extrude = app.shell->action("kh.modeling.extrude");
+    auto* extrude = app.shell->action("sb.modeling.extrude");
     app.pickRows({0});  // Box1: not a sketch
     CHECK_FALSE(extrude->isEnabled());
     app.pickRows({1});  // Sketch1
     REQUIRE(extrude->isEnabled());
-    app.click("kh.modeling.extrude");
+    app.click("sb.modeling.extrude");
     REQUIRE(app.doc().featureCount() == 3);
     const auto id = app.doc().featureAt(2).id();
     CHECK(app.doc().featureAt(2).name() == "Extrude1");
@@ -1448,7 +1450,7 @@ TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {
     App app;
     QGuiApplication::clipboard()->setText(QStringLiteral("just some words"));
     settle();
-    CHECK_FALSE(app.menu("kh.shell.paste")->isEnabled());
+    CHECK_FALSE(app.menu("sb.shell.paste")->isEnabled());
     app.shell->pasteSteps();  // Ctrl+V does this even if the menu item is grey
     REQUIRE(app.shell->lastProblems().size() == 1);
     CHECK(app.shell->lastProblems()[0].code == "paste.not_steps");
@@ -1457,18 +1459,18 @@ TEST_CASE("Paste explains when the clipboard has no steps", "[app][copy]") {
 
 TEST_CASE("a step that doesn't build shows as failed, with the reason", "[app]") {
     App app;
-    app.click("kh.modeling.cylinder");
+    app.click("sb.modeling.cylinder");
     // Point the axis nowhere: the kernel can't build it.
     app.field<QDoubleSpinBox>("axis.z")->setValue(0.0);
     settle();
     CHECK(app.tree()->topLevelItem(0)->text(2) == QStringLiteral("failed"));
-    CHECK_FALSE(app.field<QLabel>("kh.properties.status")->text().isEmpty());
+    CHECK_FALSE(app.field<QLabel>("sb.properties.status")->text().isEmpty());
 }
 
 TEST_CASE("save, then open again", "[app]") {
     App app;
-    app.click("kh.modeling.box");
-    const auto path = app.dir.filePath(QStringLiteral("part.khan")).toStdWString();
+    app.click("sb.modeling.box");
+    const auto path = app.dir.filePath(QStringLiteral("part.sb")).toStdWString();
     REQUIRE(app.shell->saveDesign(path).empty());
     CHECK_FALSE(app.shell->isWindowModified());
     CHECK(app.shell->activePath() == std::filesystem::path(path));
@@ -1505,8 +1507,8 @@ QByteArray fileStart(const QString& path) {
 
 TEST_CASE("File > Export writes the part as STL or STEP", "[app][export]") {
     App app;
-    app.click("kh.modeling.box");
-    auto* exportAct = app.menu("kh.shell.export");
+    app.click("sb.modeling.box");
+    auto* exportAct = app.menu("sb.shell.export");
     REQUIRE(exportAct);
     CHECK(exportAct->shortcut() == QKeySequence(QStringLiteral("Ctrl+E")));
     const QString stl = app.dir.filePath(QStringLiteral("part.stl"));
@@ -1540,8 +1542,8 @@ TEST_CASE("Export explains what to do when it can't pick one body", "[app][expor
     CHECK(problems[0].code == "export.nothing");
     CHECK(problems[0].message.find("Create > Box") != std::string::npos);
 
-    app.click("kh.modeling.box");
-    app.click("kh.modeling.cylinder");  // two separate bodies
+    app.click("sb.modeling.box");
+    app.click("sb.modeling.cylinder");  // two separate bodies
     app.tree()->clearSelection();
     settle();
     problems = app.shell->exportDesign(path("two.stl"));
@@ -1559,7 +1561,7 @@ TEST_CASE("Export explains what to do when it can't pick one body", "[app][expor
     REQUIRE(problems.size() == 1);
     CHECK(problems[0].code == "export.stl.failed");
     CHECK(problems[0].message ==
-          "Khan couldn't write part.stl. Check that the folder is still there and that "
+          "SketchBillet couldn't write part.stl. Check that the folder is still there and that "
           "you're allowed to save in it.");
 
     problems = app.shell->exportDesign(path("part.obj"));
@@ -1572,12 +1574,12 @@ TEST_CASE("Phase 0 exit check: box, undo, save, reopen, export STL, all through 
     // docs/design/phase0-exit.md: this runs on Windows, macOS and Linux in CI.
     App app;
     // The box tool and the viewer are plugins.
-    REQUIRE(app.host.find("kh.modeling"));
-    CHECK(app.host.find("kh.modeling")->state == plugin::PluginState::Loaded);
-    CHECK(app.host.find("kh.viewer")->state == plugin::PluginState::Loaded);
-    CHECK(app.shell->panelWidget(QStringLiteral("kh.viewer.main")));
+    REQUIRE(app.host.find("sb.modeling"));
+    CHECK(app.host.find("sb.modeling")->state == plugin::PluginState::Loaded);
+    CHECK(app.host.find("sb.viewer")->state == plugin::PluginState::Loaded);
+    CHECK(app.shell->panelWidget(QStringLiteral("sb.viewer.main")));
 
-    app.click("kh.modeling.box");  // Create > Box
+    app.click("sb.modeling.box");  // Create > Box
     REQUIRE(app.doc().featureCount() == 1);
     app.shell->undoAction()->trigger();  // Edit > Undo
     settle();
@@ -1586,27 +1588,27 @@ TEST_CASE("Phase 0 exit check: box, undo, save, reopen, export STL, all through 
     settle();
     REQUIRE(app.doc().featureCount() == 1);
 
-    const QString khan = app.dir.filePath(QStringLiteral("exit.khan"));
-    app.shell->askSavePath = [&](const QString&) { return khan; };
+    const QString design = app.dir.filePath(QStringLiteral("exit.sb"));
+    app.shell->askSavePath = [&](const QString&) { return design; };
     REQUIRE(app.shell->save());  // File > Save
     CHECK_FALSE(app.shell->isWindowModified());
 
     REQUIRE(app.shell->newDesign());  // File > New, then File > Open
-    REQUIRE(app.shell->openDesign(khan.toStdWString()).empty());
+    REQUIRE(app.shell->openDesign(design.toStdWString()).empty());
     settle();
     REQUIRE(app.doc().featureCount() == 1);
     CHECK(app.doc().featureAt(0).name() == "Box1");
 
     const QString stl = app.dir.filePath(QStringLiteral("exit.stl"));
     app.shell->askExportPath = [&](const QString&) { return stl; };
-    app.menu("kh.shell.export")->trigger();  // File > Export
+    app.menu("sb.shell.export")->trigger();  // File > Export
     settle();
     CHECK(stlTriangles(stl) == 12);
 }
 
 TEST_CASE("unsaved changes: cancel keeps the design", "[app]") {
     App app;
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
     app.shell->askUnsaved = [](const QString&) { return app::Shell::Unsaved::Cancel; };
     CHECK_FALSE(app.shell->newDesign());
     CHECK(app.doc().featureCount() == 1);
@@ -1615,7 +1617,7 @@ TEST_CASE("unsaved changes: cancel keeps the design", "[app]") {
 TEST_CASE("opening a file that isn't a design explains why", "[app]") {
     App app;
     const auto problems =
-        app.shell->openDesign(app.dir.filePath(QStringLiteral("missing.khan")).toStdWString());
+        app.shell->openDesign(app.dir.filePath(QStringLiteral("missing.sb")).toStdWString());
     REQUIRE_FALSE(problems.empty());
     CHECK(problems[0].code == "file.cant_read");
 }
@@ -1632,14 +1634,14 @@ TEST_CASE("named layouts save and open", "[app]") {
     app.shell->resetLayout();
     CHECK(app.shell->openNamedLayout(QStringLiteral("Mine")));
     CHECK(app.shell->saveLayout() == opened);
-    CHECK(app.shell->overView(QStringLiteral("kh.featuretree.panel")));
+    CHECK(app.shell->overView(QStringLiteral("sb.featuretree.panel")));
     CHECK_FALSE(app.shell->openNamedLayout(QStringLiteral("Nope")));
     CHECK(app.shell->lastProblems()[0].code == "layout.bad");
 }
 
 TEST_CASE("leaving a floating panel's border for the panel puts the arrow back", "[app][overlay]") {
     App app;
-    auto* frame = app.shell->overlay(QStringLiteral("kh.featuretree.panel"));
+    auto* frame = app.shell->overlay(QStringLiteral("sb.featuretree.panel"));
     REQUIRE(frame);
     // On the bottom border: the up-down resize arrows.
     const QPointF edge(frame->width() / 2.0, frame->height() - 2.0);
@@ -1658,16 +1660,17 @@ TEST_CASE("leaving a floating panel's border for the panel puts the arrow back",
     CHECK(app.tree()->cursor().shape() == Qt::ArrowCursor);
 }
 
-TEST_CASE("the feature tree floats over the view, folds, docks, and Khan remembers", "[app][overlay]") {
+TEST_CASE("the feature tree floats over the view, folds, docks, and SketchBillet remembers",
+          "[app][overlay]") {
     App app;
-    const QString id = QStringLiteral("kh.featuretree.panel");
+    const QString id = QStringLiteral("sb.featuretree.panel");
     auto* frame = app.shell->overlay(id);
     REQUIRE(frame);
     CHECK(app.shell->overView(id));  // it starts over the view, like Fusion's browser
     CHECK(frame->isVisible());
     CHECK(app.tree()->window() == app.shell.get());
     CHECK(frame->isAncestorOf(app.tree()));
-    auto* viewer = app.shell->panelWidget(QStringLiteral("kh.viewer.main"));
+    auto* viewer = app.shell->panelWidget(QStringLiteral("sb.viewer.main"));
     CHECK(frame->parentWidget()->isAncestorOf(viewer));  // it floats over the view's panel
     CHECK(frame->x() == 8);
     // At the top of the view: its bar is at the bottom.
@@ -1675,8 +1678,8 @@ TEST_CASE("the feature tree floats over the view, folds, docks, and Khan remembe
               viewer->mapTo(app.shell.get(), QPoint(0, 0)).y() ==
           8);
     // Its dock stays closed; Window > Feature tree shows and hides the frame instead.
-    auto* show = app.menu("kh.shell.show.kh.featuretree.panel");
-    auto* over = app.menu("kh.shell.overview.kh.featuretree.panel");
+    auto* show = app.menu("sb.shell.show.sb.featuretree.panel");
+    auto* over = app.menu("sb.shell.overview.sb.featuretree.panel");
     REQUIRE(show);
     REQUIRE(over);
     CHECK(show->isVisible());
@@ -1689,12 +1692,12 @@ TEST_CASE("the feature tree floats over the view, folds, docks, and Khan remembe
 
     // Folding leaves the title bar.
     const int tall = frame->height();
-    frame->findChild<QToolButton*>(QStringLiteral("kh.shell.overlay.fold"))->click();
+    frame->findChild<QToolButton*>(QStringLiteral("sb.shell.overlay.fold"))->click();
     CHECK(frame->height() < tall / 2);
     CHECK_FALSE(app.tree()->isVisible());
 
     // The dock button puts it beside the view as an ordinary panel.
-    frame->findChild<QToolButton*>(QStringLiteral("kh.shell.overlay.dock"))->click();
+    frame->findChild<QToolButton*>(QStringLiteral("sb.shell.overlay.dock"))->click();
     settle();
     CHECK_FALSE(app.shell->overView(id));
     CHECK_FALSE(frame->isVisible());
@@ -1703,14 +1706,14 @@ TEST_CASE("the feature tree floats over the view, folds, docks, and Khan remembe
     CHECK_FALSE(show->isVisible());
     CHECK_FALSE(over->isChecked());
     // It still works there.
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
     CHECK(app.tree()->topLevelItemCount() == 1);
 
-    // Next time Khan starts, it's still docked; Window > ... over the view floats it again.
+    // Next time SketchBillet starts, it's still docked; Window > ... over the view floats it again.
     app.shell.reset();
     app.open();
     CHECK_FALSE(app.shell->overView(id));
-    app.menu("kh.shell.overview.kh.featuretree.panel")->trigger();
+    app.menu("sb.shell.overview.sb.featuretree.panel")->trigger();
     settle();
     CHECK(app.shell->overView(id));
     CHECK(app.shell->overlay(id)->isAncestorOf(app.tree()));
@@ -1725,8 +1728,8 @@ TEST_CASE("the feature tree floats over the view, folds, docks, and Khan remembe
 TEST_CASE("Properties and the Sketch panel float at the view's top right, one under the other",
           "[app][overlay]") {
     App app;
-    const QString props = QStringLiteral("kh.properties.panel");
-    const QString sketch = QStringLiteral("kh.sketcher.panel");
+    const QString props = QStringLiteral("sb.properties.panel");
+    const QString sketch = QStringLiteral("sb.sketcher.panel");
     auto* p = app.shell->overlay(props);
     auto* s = app.shell->overlay(sketch);
     REQUIRE(p);
@@ -1734,30 +1737,30 @@ TEST_CASE("Properties and the Sketch panel float at the view's top right, one un
     CHECK(app.shell->overView(props));
     CHECK(p->isVisible());
     CHECK_FALSE(s->isVisible());  // the Sketch panel waits for a sketch to be edited
-    CHECK_FALSE(app.shell->overlay(QStringLiteral("kh.viewoptions.panel"))->isVisible());
+    CHECK_FALSE(app.shell->overlay(QStringLiteral("sb.viewoptions.panel"))->isVisible());
     auto* host = p->parentWidget();
     CHECK(p->geometry().right() == host->width() - 1 - 8);  // at the right
     CHECK(p->y() >= 118);                                   // below the view cube
 
     // Editing a sketch opens the Sketch panel under Properties; finishing puts it away.
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     CHECK(s->isVisible());
     CHECK(s->y() > p->geometry().bottom());
     CHECK(s->geometry().right() == p->geometry().right());
-    CHECK(app.menu("kh.shell.show.kh.sketcher.panel")->isChecked());
-    app.click("kh.sketcher.finish");
+    CHECK(app.menu("sb.shell.show.sb.sketcher.panel")->isChecked());
+    app.click("sb.sketcher.finish");
     CHECK_FALSE(s->isVisible());
-    CHECK_FALSE(app.menu("kh.shell.show.kh.sketcher.panel")->isChecked());
+    CHECK_FALSE(app.menu("sb.shell.show.sb.sketcher.panel")->isChecked());
 
     // Properties can be docked beside the view like before, and still works there.
-    p->findChild<QToolButton*>(QStringLiteral("kh.shell.overlay.dock"))->click();
+    p->findChild<QToolButton*>(QStringLiteral("sb.shell.overlay.dock"))->click();
     settle();
     CHECK_FALSE(app.shell->overView(props));
     CHECK(app.properties()->isVisible());
-    app.click("kh.modeling.box");
+    app.click("sb.modeling.box");
     CHECK(app.field<QLineEdit>("name")->text() == QStringLiteral("Box1"));
     // A closed panel stays closed when it's docked: the Sketch panel isn't open.
-    app.menu("kh.shell.overview.kh.sketcher.panel")->trigger();
+    app.menu("sb.shell.overview.sb.sketcher.panel")->trigger();
     settle();
     CHECK_FALSE(app.shell->overView(sketch));
     CHECK_FALSE(app.shell->panelWidget(sketch)->isVisible());
@@ -1766,18 +1769,18 @@ TEST_CASE("Properties and the Sketch panel float at the view's top right, one un
 TEST_CASE("Document settings in the feature tree shows the design's settings in Properties",
           "[app][overlay]") {
     App app;
-    app.click("kh.modeling.box");
-    auto* panel = app.shell->panelWidget(QStringLiteral("kh.featuretree.panel"));
-    CHECK(panel->findChild<QLabel*>(QStringLiteral("kh.featuretree.design"))->text() ==
+    app.click("sb.modeling.box");
+    auto* panel = app.shell->panelWidget(QStringLiteral("sb.featuretree.panel"));
+    CHECK(panel->findChild<QLabel*>(QStringLiteral("sb.featuretree.design"))->text() ==
           QStringLiteral("Untitled"));
-    auto* settings = panel->findChild<QToolButton*>(QStringLiteral("kh.featuretree.settings"));
+    auto* settings = panel->findChild<QToolButton*>(QStringLiteral("sb.featuretree.settings"));
     REQUIRE(settings);
     settings->click();
     settle();
     CHECK(settings->isChecked());
     CHECK(app.host.selection().designPicked());
     CHECK_FALSE(app.tree()->topLevelItem(0)->isSelected());
-    CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("kh.properties.title"))->text() ==
+    CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("sb.properties.title"))->text() ==
           QStringLiteral("Document settings"));
     CHECK(app.field<QComboBox>("units")->currentText() == QStringLiteral("Millimeters (mm)"));
     CHECK(app.field<QLabel>("angles")->text() == QStringLiteral("Degrees"));
@@ -1785,14 +1788,15 @@ TEST_CASE("Document settings in the feature tree shows the design's settings in 
     // Picking a step goes back to the step.
     app.pickRows({0});
     CHECK_FALSE(settings->isChecked());
-    CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("kh.properties.title"))->text() ==
+    CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("sb.properties.title"))->text() ==
           QStringLiteral("Box1"));
 }
 
-TEST_CASE("a spline made with kh_cli's command shows in the sketcher; its control points can be dragged",
-          "[app][sketcher][spline]") {
+TEST_CASE(
+    "a spline made with sketchbillet_cli's command shows in the sketcher; its control points can be dragged",
+    "[app][sketcher][spline]") {
     App app;
-    app.click("kh.sketcher.new_xy");  // Sketch1, being edited
+    app.click("sb.sketcher.new_xy");  // Sketch1, being edited
     auto* flat = app.flat();
     const auto sketchId = app.doc().featureAt(0).id();
     REQUIRE(app.host.documents()
@@ -1801,15 +1805,15 @@ TEST_CASE("a spline made with kh_cli's command shows in the sketcher; its contro
                       {"poles", std::vector<sketch::Point2>{{0, 0}, {0, 30}, {40, 30}, {40, 0}}}})
                 .empty());
     settle();
-    app.click("kh.sketcher.select");
+    app.click("sb.sketcher.select");
     // Drawn as a curve, with its control polygon and its 4 control points.
-    const auto* free = app.host.overlays().find("kh.sketcher.edit.points");
+    const auto* free = app.host.overlays().find("sb.sketcher.edit.points");
     REQUIRE(free);
     CHECK(free->points.size() == 4);  // blue: nothing holds them yet
-    const auto* helpers = app.host.overlays().find("kh.sketcher.edit.helpers");
+    const auto* helpers = app.host.overlays().find("sb.sketcher.edit.helpers");
     REQUIRE(helpers);
     CHECK(helpers->points.size() == 6);  // the control polygon: 3 lines, 2 ends each
-    const auto* lines = app.host.overlays().find("kh.sketcher.edit.lines");
+    const auto* lines = app.host.overlays().find("sb.sketcher.edit.lines");
     REQUIRE(lines);
     CHECK(lines->points.size() == 2 * 16);  // the curve, as 16 short lines
     // Drag the second control point from (0, 30) to (10, 40).
@@ -1827,10 +1831,10 @@ TEST_CASE("a spline made with kh_cli's command shows in the sketcher; its contro
 TEST_CASE("drawing a spline by its control points: click them, then the last one again",
           "[app][sketcher][spline]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
-    app.click("kh.sketcher.spline");
-    CHECK(app.menu("kh.sketcher.spline")->isChecked());
+    app.click("sb.sketcher.spline");
+    CHECK(app.menu("sb.sketcher.spline")->isChecked());
     CHECK(app.shell->statusBar()->currentMessage().contains(QStringLiteral("click its first control point")));
     clickAt(flat, {0, 0, 0});
     clickAt(flat, {0, 30, 0});
@@ -1839,10 +1843,10 @@ TEST_CASE("drawing a spline by its control points: click them, then the last one
     QMouseEvent move(QEvent::MouseMove, p, flat->mapToGlobal(p), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
     QApplication::sendEvent(flat, &move);
     settle();
-    REQUIRE(app.host.overlays().find("kh.sketcher.edit.preview_guides"));
-    CHECK(app.host.overlays().find("kh.sketcher.edit.preview_guides")->points.size() == 4);  // 2 lines
-    CHECK(app.host.overlays().find("kh.sketcher.edit.preview_points")->points.size() == 2);
-    REQUIRE(app.host.overlays().find("kh.sketcher.edit.preview"));
+    REQUIRE(app.host.overlays().find("sb.sketcher.edit.preview_guides"));
+    CHECK(app.host.overlays().find("sb.sketcher.edit.preview_guides")->points.size() == 4);  // 2 lines
+    CHECK(app.host.overlays().find("sb.sketcher.edit.preview_points")->points.size() == 2);
+    REQUIRE(app.host.overlays().find("sb.sketcher.edit.preview"));
     clickAt(flat, {40, 30, 0});
     clickAt(flat, {40, 0, 0});
     CHECK(sketchAt(app, 0).sketch().entities.empty());  // not until it's finished
@@ -1861,7 +1865,7 @@ TEST_CASE("drawing a spline by its control points: click them, then the last one
     CHECK(sp.degree == 3);
     CHECK_FALSE(sp.closed);
     CHECK(app.doc().undoLabel() == "Add Spline1");
-    CHECK(app.host.overlays().find("kh.sketcher.edit.preview_guides") == nullptr);  // the preview is gone
+    CHECK(app.host.overlays().find("sb.sketcher.edit.preview_guides") == nullptr);  // the preview is gone
 
     // Another, finished with Esc after two points: a straight one (degree 1). Its start
     // snapped onto Spline1's end, so they're joined.
@@ -1875,17 +1879,17 @@ TEST_CASE("drawing a spline by its control points: click them, then the last one
     CHECK(t.constraints[0].kind == sketch::ConstraintKind::Coincident);
     CHECK(t.constraints[0].points[0] == sketch::PointRef{t.entities[1].id, sketch::PointRole::Pole, 0});
     CHECK(t.constraints[0].points[1] == sketch::PointRef{t.entities[0].id, sketch::PointRole::Pole, 3});
-    CHECK(app.menu("kh.sketcher.spline")->isChecked());  // still drawing splines
+    CHECK(app.menu("sb.sketcher.spline")->isChecked());  // still drawing splines
     pressEscape(flat);                                   // a second Esc stops
-    CHECK(app.menu("kh.sketcher.select")->isChecked());
+    CHECK(app.menu("sb.sketcher.select")->isChecked());
 }
 
 TEST_CASE("drawing a spline through points, and back to the first point for a loop",
           "[app][sketcher][spline]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
-    app.click("kh.sketcher.spline_through");
+    app.click("sb.sketcher.spline_through");
     const std::vector<sketch::Point2> through{{0, 0}, {20, 15}, {40, 0}, {20, -10}};
     for (const auto& q : through) clickAt(flat, {q.x, q.y, 0});
     clickAt(flat, {0, 0, 0});  // the first one again: a loop
@@ -1904,8 +1908,8 @@ TEST_CASE("drawing a spline through points, and back to the first point for a lo
     }
     CHECK(s.constraints.empty());  // nothing to join to
     // It's a closed shape, so it extrudes.
-    app.click("kh.sketcher.finish");
-    app.click("kh.modeling.extrude");
+    app.click("sb.sketcher.finish");
+    app.click("sb.modeling.extrude");
     settle();
     CHECK(app.doc().featureCount() == 2);
 }
@@ -1913,7 +1917,7 @@ TEST_CASE("drawing a spline through points, and back to the first point for a lo
 TEST_CASE("the Sketch panel changes a picked spline: degree, loop, weight, and control points",
           "[app][sketcher][spline]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
     const auto sketchId = app.doc().featureAt(0).id();
     REQUIRE(app.host.documents()
@@ -1922,8 +1926,8 @@ TEST_CASE("the Sketch panel changes a picked spline: degree, loop, weight, and c
                       {"poles", std::vector<sketch::Point2>{{0, 0}, {0, 30}, {40, 30}, {40, 0}}}})
                 .empty());
     settle();
-    app.click("kh.sketcher.select");
-    auto* panel = app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"));
+    app.click("sb.sketcher.select");
+    auto* panel = app.shell->panelWidget(QStringLiteral("sb.sketcher.panel"));
     REQUIRE(panel);
     auto* box = panel->findChild<QWidget*>(QStringLiteral("spline"));
     REQUIRE(box);
@@ -1982,13 +1986,13 @@ TEST_CASE(
     "dimensions",
     "[app][sketcher][spline]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
-    app.click("kh.sketcher.line");
+    app.click("sb.sketcher.line");
     clickAt(flat, {-20, 0, 0});
     clickAt(flat, {0, 0, 0});
     pressEscape(flat);  // stop the chain of lines
-    app.click("kh.sketcher.spline");
+    app.click("sb.sketcher.spline");
     for (auto p : {kernel::Vec3{0, 0, 0}, {10, 30, 0}, {40, 30, 0}, {40, 0, 0}}) clickAt(flat, p);
     clickAt(flat, {40, 0, 0});
     const auto& s = sketchAt(app, 0).sketch();
@@ -1996,15 +2000,15 @@ TEST_CASE(
     REQUIRE(sketch::jointOf(s, s.entities[1].id, s.entities[0].id));  // its start snapped onto Line1's end
 
     // Pick the spline (by its curve) and the line, then Smooth.
-    app.click("kh.sketcher.select");
+    app.click("sb.sketcher.select");
     const auto& sp = std::get<sketch::SplineShape>(s.entities[1].shape);
     const auto middle = sketch::splinePoint(sp, 0.5);
     clickAt(flat, {middle.x, middle.y, 0});
     ctrlClickAt(flat, {-10, 0, 0});
-    REQUIRE(app.menu("kh.sketcher.smooth"));
-    CHECK(app.menu("kh.sketcher.smooth")->isEnabled());
-    CHECK(app.menu("kh.sketcher.tangent")->isEnabled());
-    app.click("kh.sketcher.smooth");
+    REQUIRE(app.menu("sb.sketcher.smooth"));
+    CHECK(app.menu("sb.sketcher.smooth")->isEnabled());
+    CHECK(app.menu("sb.sketcher.tangent")->isEnabled());
+    app.click("sb.sketcher.smooth");
     settle();
     const auto& after = sketchAt(app, 0).sketch();
     REQUIRE(after.findConstraint("Smooth1"));
@@ -2026,7 +2030,7 @@ TEST_CASE(
         CHECK(std::abs((q.x - line.start.x) * along.y - (q.y - line.start.y) * along.x) / len < 1e-6);
     }
     // Its label "S" is beside the join.
-    const auto* labels = app.host.overlays().find("kh.sketcher.edit.labels");
+    const auto* labels = app.host.overlays().find("sb.sketcher.edit.labels");
     REQUIRE(labels);
     CHECK(std::ranges::find(labels->texts, std::string("S")) != labels->texts.end());
 
@@ -2034,8 +2038,8 @@ TEST_CASE(
     const auto p3 = solved.poles[2], p4 = solved.poles[3];
     clickAt(flat, {p3.x, p3.y, 0});
     ctrlClickAt(flat, {p4.x, p4.y, 0});
-    CHECK(app.menu("kh.sketcher.dimension")->isEnabled());
-    app.click("kh.sketcher.dimension");
+    CHECK(app.menu("sb.sketcher.dimension")->isEnabled());
+    app.click("sb.sketcher.dimension");
     settle();
     const auto* d = sketchAt(app, 0).sketch().findConstraint("Distance1");
     REQUIRE(d);
@@ -2058,10 +2062,10 @@ TEST_CASE("Sketch > Import spline through points, and Reload from file after the
         asked = title;
         return file;
     };
-    CHECK_FALSE(app.menu("kh.sketcher.import_through")->isEnabled());  // only while editing a sketch
-    app.click("kh.sketcher.new_xy");
-    REQUIRE(app.menu("kh.sketcher.import_through")->isEnabled());
-    app.click("kh.sketcher.import_through");
+    CHECK_FALSE(app.menu("sb.sketcher.import_through")->isEnabled());  // only while editing a sketch
+    app.click("sb.sketcher.new_xy");
+    REQUIRE(app.menu("sb.sketcher.import_through")->isEnabled());
+    app.click("sb.sketcher.import_through");
     CHECK(asked == QStringLiteral("Import a spline from a file of points"));
     const auto& s = sketchAt(app, 0).sketch();
     REQUIRE(s.entities.size() == 1);
@@ -2070,10 +2074,10 @@ TEST_CASE("Sketch > Import spline through points, and Reload from file after the
     CHECK(sp.source->through);
     CHECK(app.shell->statusBar()->currentMessage().startsWith(
         QStringLiteral("Imported Spline1 from wave.csv")));
-    CHECK(app.menu("kh.sketcher.select")->isChecked());
+    CHECK(app.menu("sb.sketcher.select")->isChecked());
 
     // It's picked, so the Sketch panel says where it's from, with Reload.
-    auto* panel = app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"));
+    auto* panel = app.shell->panelWidget(QStringLiteral("sb.sketcher.panel"));
     REQUIRE(panel);
     auto* source = panel->findChild<QLabel*>(QStringLiteral("spline.source"));
     auto* reload = panel->findChild<QPushButton*>(QStringLiteral("spline.reload"));
@@ -2101,31 +2105,31 @@ TEST_CASE("Sketch > Import spline through points, and Reload from file after the
 
     // Cancelling the file window adds nothing.
     app.ui.answerOpenFile = [](const QString&, const QString&) { return QString(); };
-    app.click("kh.sketcher.import_poles");
+    app.click("sb.sketcher.import_poles");
     CHECK(sketchAt(app, 0).sketch().entities.size() == 1);
 }
 
 TEST_CASE("the Rectangle tool: two clicks make four joined lines, level and upright",
           "[app][sketcher][rectangle]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
-    app.click("kh.sketcher.rectangle");
-    CHECK(app.menu("kh.sketcher.rectangle")->isChecked());
+    app.click("sb.sketcher.rectangle");
+    CHECK(app.menu("sb.sketcher.rectangle")->isChecked());
     clickAt(flat, {0, 0, 0});
     // While choosing the opposite corner, all four sides follow the mouse.
     const QPointF p = flat->toScreen({40, 20, 0});
     QMouseEvent move(QEvent::MouseMove, p, flat->mapToGlobal(p), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
     QApplication::sendEvent(flat, &move);
     settle();
-    REQUIRE(app.host.overlays().find("kh.sketcher.edit.preview"));
-    CHECK(app.host.overlays().find("kh.sketcher.edit.preview")->points.size() == 8);  // 4 lines
+    REQUIRE(app.host.overlays().find("sb.sketcher.edit.preview"));
+    CHECK(app.host.overlays().find("sb.sketcher.edit.preview")->points.size() == 8);  // 4 lines
     clickAt(flat, {40, 20, 0});
     const auto& s = sketchAt(app, 0).sketch();
     REQUIRE(s.entities.size() == 4);
     CHECK(s.constraints.size() == 8);
     CHECK(app.doc().undoLabel() == "Add rectangle (Line1 to Line4)");
-    CHECK(app.menu("kh.sketcher.rectangle")->isChecked());  // ready for another
+    CHECK(app.menu("sb.sketcher.rectangle")->isChecked());  // ready for another
 
     // A second one starting on the first one's corner is joined to it there.
     clickAt(flat, {40, 20, 0});
@@ -2144,12 +2148,12 @@ TEST_CASE("the Rectangle tool: two clicks make four joined lines, level and upri
 
 TEST_CASE("Round corner: click a rectangle's corner, then type the radius", "[app][sketcher][round]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
-    app.click("kh.sketcher.rectangle");
+    app.click("sb.sketcher.rectangle");
     clickAt(flat, {0, 0, 0});
     clickAt(flat, {40, 20, 0});
-    app.click("kh.sketcher.round_corner");
+    app.click("sb.sketcher.round_corner");
     CHECK(app.shell->statusBar()->currentMessage().contains(
         QStringLiteral("click a corner where two lines meet")));
     clickAt(flat, {40, 0, 0});  // Line1's end and Line2's start
@@ -2161,7 +2165,7 @@ TEST_CASE("Round corner: click a rectangle's corner, then type the radius", "[ap
     CHECK(app.doc().undoLabel() == "Round corner (Arc1)");
     CHECK(app.shell->statusBar()->currentMessage().startsWith(QStringLiteral("Rounded the corner")));
     // The cursor is in its radius in the Sketch panel: type 3 and press Enter.
-    auto* panel = app.shell->panelWidget(QStringLiteral("kh.sketcher.panel"));
+    auto* panel = app.shell->panelWidget(QStringLiteral("sb.sketcher.panel"));
     REQUIRE(panel);
     auto* box = panel->findChild<QDoubleSpinBox*>(QStringLiteral("Radius1"));
     REQUIRE(box);
@@ -2177,23 +2181,23 @@ TEST_CASE("Round corner: click a rectangle's corner, then type the radius", "[ap
 
 TEST_CASE("Trim: the piece under the mouse shows red; a click cuts it away", "[app][sketcher][trim]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
-    app.click("kh.sketcher.line");
+    app.click("sb.sketcher.line");
     clickAt(flat, {0, 0, 0});
     clickAt(flat, {40, 0, 0});
     pressEscape(flat);
     clickAt(flat, {30, -10, 0});
     clickAt(flat, {30, 10, 0});
     pressEscape(flat);
-    app.click("kh.sketcher.trim");
+    app.click("sb.sketcher.trim");
     CHECK(app.shell->statusBar()->currentMessage().contains(QStringLiteral("Trim: click the piece")));
     // Over the bit of Line1 past Line2: that bit (30 to 40 mm) shows red.
     const QPointF p = flat->toScreen({36, 0, 0});
     QMouseEvent move(QEvent::MouseMove, p, flat->mapToGlobal(p), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
     QApplication::sendEvent(flat, &move);
     settle();
-    const auto* red = app.host.overlays().find("kh.sketcher.edit.trim");
+    const auto* red = app.host.overlays().find("sb.sketcher.edit.trim");
     REQUIRE(red);
     REQUIRE(red->points.size() == 2);
     CHECK(std::min(red->points[0].x, red->points[1].x) == Approx(30));
@@ -2204,29 +2208,29 @@ TEST_CASE("Trim: the piece under the mouse shows red; a click cuts it away", "[a
     CHECK(app.doc().undoLabel() == "Trim Line1");
     // Nothing under the mouse: nothing red, and a click does nothing.
     clickAt(flat, {20, 20, 0});
-    CHECK(app.host.overlays().find("kh.sketcher.edit.trim") == nullptr);
+    CHECK(app.host.overlays().find("sb.sketcher.edit.trim") == nullptr);
     CHECK(sketchAt(app, 0).sketch().entities.size() == 2);
 }
 
 TEST_CASE("Symmetric: pick two points and a line, and they become mirror images",
           "[app][sketcher][symmetric]") {
     App app;
-    app.click("kh.sketcher.new_xy");
+    app.click("sb.sketcher.new_xy");
     auto* flat = app.flat();
-    app.click("kh.sketcher.line");
+    app.click("sb.sketcher.line");
     clickAt(flat, {0, -20, 0});
     clickAt(flat, {0, 20, 0});
     pressEscape(flat);
-    app.click("kh.sketcher.point");
+    app.click("sb.sketcher.point");
     clickAt(flat, {-10, 3, 0});
     clickAt(flat, {12, 6, 0});
-    app.click("kh.sketcher.select");
+    app.click("sb.sketcher.select");
     clickAt(flat, {-10, 3, 0});
     ctrlClickAt(flat, {12, 6, 0});
     ctrlClickAt(flat, {0, -15, 0});  // the line
-    REQUIRE(app.menu("kh.sketcher.symmetric"));
-    CHECK(app.menu("kh.sketcher.symmetric")->isEnabled());
-    app.click("kh.sketcher.symmetric");
+    REQUIRE(app.menu("sb.sketcher.symmetric"));
+    CHECK(app.menu("sb.sketcher.symmetric")->isEnabled());
+    app.click("sb.sketcher.symmetric");
     settle();
     REQUIRE(sketchAt(app, 0).sketch().findConstraint("Symmetric1"));
     const auto* r =
@@ -2239,7 +2243,7 @@ TEST_CASE("Symmetric: pick two points and a line, and they become mirror images"
     // The line stays upright here only if the solver left it so; check against wherever it is.
     const sketch::Point2 u{line.end.x - line.start.x, line.end.y - line.start.y};
     CHECK(std::abs((b.x - a.x) * u.x + (b.y - a.y) * u.y) < 1e-6);
-    const auto* labels = app.host.overlays().find("kh.sketcher.edit.labels");
+    const auto* labels = app.host.overlays().find("sb.sketcher.edit.labels");
     REQUIRE(labels);
     CHECK(std::ranges::find(labels->texts, std::string("Sym")) != labels->texts.end());
 }
@@ -2247,9 +2251,9 @@ TEST_CASE("Symmetric: pick two points and a line, and they become mirror images"
 TEST_CASE("units: Document settings shows lengths in inches, nothing changes size, and undo",
           "[app][units]") {
     App app;
-    app.click("kh.modeling.box");  // 20 x 20 x 20 mm
-    auto* settings = app.shell->panelWidget(QStringLiteral("kh.featuretree.panel"))
-                         ->findChild<QToolButton*>(QStringLiteral("kh.featuretree.settings"));
+    app.click("sb.modeling.box");  // 20 x 20 x 20 mm
+    auto* settings = app.shell->panelWidget(QStringLiteral("sb.featuretree.panel"))
+                         ->findChild<QToolButton*>(QStringLiteral("sb.featuretree.settings"));
     settings->click();
     settle();
     auto* units = app.field<QComboBox>("units");
@@ -2297,7 +2301,7 @@ TEST_CASE("units: sketch dimensions are labeled and typed in the design's unit",
                 .empty());
     settle();
     clickAt(d.flat, {30, 0, 0});
-    d.app.click("kh.sketcher.dimension");
+    d.app.click("sb.sketcher.dimension");
     CHECK(labelTexts(d.app, "edit.labels") == std::vector<std::string>{"6 cm"});  // 60 mm
     auto* box = numberBox(d.app, "Length1");
     REQUIRE(box);
@@ -2310,19 +2314,19 @@ TEST_CASE("units: sketch dimensions are labeled and typed in the design's unit",
 
 TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {
     App app;
-    REQUIRE(seenGrid);  // other plugins find it as kh.grid/2
+    REQUIRE(seenGrid);  // other plugins find it as sb.grid/2
     const auto g = seenGrid->settings();
     CHECK(g.visible);
     CHECK(g.style == grid::GridStyle::Lines);
     CHECK_FALSE(g.snap);
     CHECK(g.spacing == 10.0);
-    CHECK(app.menu("kh.grid.show")->isChecked());
-    CHECK(app.menu("kh.grid.style.lines")->isChecked());
-    CHECK_FALSE(app.menu("kh.grid.style.dots")->isChecked());
-    CHECK_FALSE(app.menu("kh.grid.snap")->isChecked());
-    CHECK(app.menu("kh.grid.spacing.10")->isChecked());
-    CHECK(app.menu("kh.grid.show")->shortcut() == QKeySequence(QStringLiteral("Ctrl+G")));
-    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.grid.status"))->text() ==
+    CHECK(app.menu("sb.grid.show")->isChecked());
+    CHECK(app.menu("sb.grid.style.lines")->isChecked());
+    CHECK_FALSE(app.menu("sb.grid.style.dots")->isChecked());
+    CHECK_FALSE(app.menu("sb.grid.snap")->isChecked());
+    CHECK(app.menu("sb.grid.spacing.10")->isChecked());
+    CHECK(app.menu("sb.grid.show")->shortcut() == QKeySequence(QStringLiteral("Ctrl+G")));
+    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("sb.grid.status"))->text() ==
           QStringLiteral("Grid 10 mm, lines, snap off"));
     // The viewer draws it as an overlay (no screen in the tests, so it draws flat).
     auto* view = app.flat();
@@ -2333,53 +2337,53 @@ TEST_CASE("the grid starts on, with lines and no snapping", "[app][grid]") {
     CHECK_FALSE(grid->dots);
 }
 
-TEST_CASE("the View menu changes the grid, and Khan remembers it", "[app][grid]") {
+TEST_CASE("the View menu changes the grid, and SketchBillet remembers it", "[app][grid]") {
     App app;
     REQUIRE(seenGrid);
-    app.menu("kh.grid.style.dots")->trigger();
-    app.menu("kh.grid.snap")->trigger();
-    app.menu("kh.grid.spacing.5")->trigger();
-    app.menu("kh.grid.show")->trigger();  // off
+    app.menu("sb.grid.style.dots")->trigger();
+    app.menu("sb.grid.snap")->trigger();
+    app.menu("sb.grid.spacing.5")->trigger();
+    app.menu("sb.grid.show")->trigger();  // off
     settle();
     const auto g = seenGrid->settings();
     CHECK(g.style == grid::GridStyle::Dots);
     CHECK(g.snap);
     CHECK(g.spacing == 5.0);
     CHECK_FALSE(g.visible);
-    CHECK(app.menu("kh.grid.style.dots")->isChecked());
-    CHECK_FALSE(app.menu("kh.grid.style.lines")->isChecked());
-    CHECK(app.menu("kh.grid.spacing.5")->isChecked());
-    CHECK_FALSE(app.menu("kh.grid.spacing.10")->isChecked());
-    CHECK_FALSE(app.menu("kh.grid.show")->isChecked());
-    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.grid.status"))->text() ==
+    CHECK(app.menu("sb.grid.style.dots")->isChecked());
+    CHECK_FALSE(app.menu("sb.grid.style.lines")->isChecked());
+    CHECK(app.menu("sb.grid.spacing.5")->isChecked());
+    CHECK_FALSE(app.menu("sb.grid.spacing.10")->isChecked());
+    CHECK_FALSE(app.menu("sb.grid.show")->isChecked());
+    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("sb.grid.status"))->text() ==
           QStringLiteral("Grid off, snap on"));
     CHECK_FALSE(lattice(app.flat()));     // the viewer follows: no grid to draw
-    app.menu("kh.grid.show")->trigger();  // on again
+    app.menu("sb.grid.show")->trigger();  // on again
     settle();
     REQUIRE(lattice(app.flat()));
     CHECK(lattice(app.flat())->dots);
     CHECK(lattice(app.flat())->spacing == 5.0);
 
     // Saved with the app's settings, so the next run starts the same way.
-    CHECK(app.settings.value(QStringLiteral("plugins/kh.viewoptions/kh.grid.style")).toString() ==
+    CHECK(app.settings.value(QStringLiteral("plugins/sb.viewoptions/sb.grid.style")).toString() ==
           QStringLiteral("dots"));
-    CHECK(app.settings.value(QStringLiteral("plugins/kh.viewoptions/kh.grid.spacing")).toString() ==
+    CHECK(app.settings.value(QStringLiteral("plugins/sb.viewoptions/sb.grid.spacing")).toString() ==
           QStringLiteral("5"));
-    CHECK(app.settings.value(QStringLiteral("plugins/kh.viewoptions/kh.grid.snap")).toString() ==
+    CHECK(app.settings.value(QStringLiteral("plugins/sb.viewoptions/sb.grid.snap")).toString() ==
           QStringLiteral("true"));
 }
 
 TEST_CASE("a spacing that isn't a preset shows in the Other item", "[app][grid]") {
     App app;
-    // Changed in the store, as another part of Khan might: the grid follows.
-    app.pluginSettings.write("plugins/kh.viewoptions/kh.grid.spacing", "12.5");
-    app.host.events().publish(plugin::SettingChanged{"kh.viewoptions", "kh.grid.spacing"});
+    // Changed in the store, as another part of SketchBillet might: the grid follows.
+    app.pluginSettings.write("plugins/sb.viewoptions/sb.grid.spacing", "12.5");
+    app.host.events().publish(plugin::SettingChanged{"sb.viewoptions", "sb.grid.spacing"});
     settle();
     REQUIRE(seenGrid);
     CHECK(seenGrid->settings().spacing == 12.5);
-    CHECK(app.menu("kh.grid.spacing.other")->text() == QStringLiteral("Other (12.5 mm)..."));
-    CHECK_FALSE(app.menu("kh.grid.spacing.10")->isChecked());
-    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("kh.grid.status"))->text() ==
+    CHECK(app.menu("sb.grid.spacing.other")->text() == QStringLiteral("Other (12.5 mm)..."));
+    CHECK_FALSE(app.menu("sb.grid.spacing.10")->isChecked());
+    CHECK(app.shell->findChild<QLabel*>(QStringLiteral("sb.grid.status"))->text() ==
           QStringLiteral("Grid 12.5 mm, lines, snap off"));
 }
 
@@ -2389,8 +2393,8 @@ TEST_CASE("a dense grid is drawn every few lines, so it doesn't turn grey", "[ap
     REQUIRE(view);
     REQUIRE(lattice(view));
     CHECK(view::FlatView::pixelsPerSpace(*lattice(view)) == 40.0);  // 10 mm at 4 px per mm
-    app.pluginSettings.write("plugins/kh.viewoptions/kh.grid.spacing", "0.5");
-    app.host.events().publish(plugin::SettingChanged{"kh.viewoptions", "kh.grid.spacing"});
+    app.pluginSettings.write("plugins/sb.viewoptions/sb.grid.spacing", "0.5");
+    app.host.events().publish(plugin::SettingChanged{"sb.viewoptions", "sb.grid.spacing"});
     settle();
     REQUIRE(lattice(view));
     CHECK(view::FlatView::pixelsPerSpace(*lattice(view)) >= 8.0);  // every 5th line: 2.5 mm = 10 px
@@ -2398,24 +2402,24 @@ TEST_CASE("a dense grid is drawn every few lines, so it doesn't turn grey", "[ap
 
 TEST_CASE("the viewer fills the middle; without 3D graphics it draws flat and says why", "[app][viewer]") {
     App app;
-    auto* panel = app.shell->panelWidget(QStringLiteral("kh.viewer.main"));
+    auto* panel = app.shell->panelWidget(QStringLiteral("sb.viewer.main"));
     REQUIRE(panel);
-    CHECK(panel->objectName() == QStringLiteral("kh.viewer.panel"));
+    CHECK(panel->objectName() == QStringLiteral("sb.viewer.panel"));
     REQUIRE(app.flat());
     CHECK(app.flat()->text().contains(QStringLiteral("running without a screen")));
     CHECK(app.flat()->text().contains(QStringLiteral("Create > Box")));
     // The view bar is hidden: there are no panes to turn, split or redraw.
-    CHECK_FALSE(panel->findChild<QWidget*>(QStringLiteral("kh.viewer.bar"))->isVisible());
+    CHECK_FALSE(panel->findChild<QWidget*>(QStringLiteral("sb.viewer.bar"))->isVisible());
 
-    app.shell->action("kh.modeling.box")->trigger();
+    app.shell->action("sb.modeling.box")->trigger();
     settle();
     CHECK(app.flat()->text().contains(QStringLiteral("Finished bodies: Box1")));
 }
 
 TEST_CASE("the view bar: orbit, pan, zoom, fit, views, display, grid and panes", "[app][viewer][viewbar]") {
     App app;
-    auto* panel = app.shell->panelWidget(QStringLiteral("kh.viewer.main"));
-    auto* bar = panel->findChild<QWidget*>(QStringLiteral("kh.viewer.bar"));
+    auto* panel = app.shell->panelWidget(QStringLiteral("sb.viewer.main"));
+    auto* bar = panel->findChild<QWidget*>(QStringLiteral("sb.viewer.bar"));
     REQUIRE(bar);
     CHECK_FALSE(panel->findChild<QToolBar*>());  // no strip across the top any more
     // Its buttons, left to right.
@@ -2426,37 +2430,37 @@ TEST_CASE("the view bar: orbit, pan, zoom, fit, views, display, grid and panes",
         CHECK_FALSE(b->icon().isNull());
     }
     CHECK(names ==
-          QStringList({"kh.viewer.drag.orbit", "kh.viewer.drag.pan", "kh.viewer.drag.zoom", "kh.viewer.fit",
-                       "kh.viewer.views", "kh.viewer.display", "kh.viewer.grid", "kh.viewer.panes"}));
+          QStringList({"sb.viewer.drag.orbit", "sb.viewer.drag.pan", "sb.viewer.drag.zoom", "sb.viewer.fit",
+                       "sb.viewer.views", "sb.viewer.display", "sb.viewer.grid", "sb.viewer.panes"}));
     // Orbit, Pan and Zoom: one at a time; Orbit at first.
-    CHECK(app.menu("kh.viewer.drag.orbit")->isChecked());
-    app.menu("kh.viewer.drag.pan")->trigger();
-    CHECK(app.menu("kh.viewer.drag.pan")->isChecked());
-    CHECK_FALSE(app.menu("kh.viewer.drag.orbit")->isChecked());
+    CHECK(app.menu("sb.viewer.drag.orbit")->isChecked());
+    app.menu("sb.viewer.drag.pan")->trigger();
+    CHECK(app.menu("sb.viewer.drag.pan")->isChecked());
+    CHECK_FALSE(app.menu("sb.viewer.drag.orbit")->isChecked());
     // Views: all seven, for the active pane.
     for (const char* v : {"front", "top", "right", "iso", "back", "left", "bottom"}) {
-        CHECK(app.menu((std::string("kh.viewer.view.") + v).c_str()));
+        CHECK(app.menu((std::string("sb.viewer.view.") + v).c_str()));
     }
-    CHECK(app.menu("kh.viewer.layout.fourpanes"));
+    CHECK(app.menu("sb.viewer.layout.fourpanes"));
 
     // Display: the style is remembered next time.
-    CHECK(app.menu("kh.viewer.style.shadedwithedges")->isChecked());
-    app.menu("kh.viewer.style.wireframe")->trigger();
+    CHECK(app.menu("sb.viewer.style.shadedwithedges")->isChecked());
+    app.menu("sb.viewer.style.wireframe")->trigger();
     settle();
     app.shell.reset();
     app.open();
-    CHECK(app.menu("kh.viewer.style.wireframe")->isChecked());
-    CHECK_FALSE(app.menu("kh.viewer.style.shadedwithedges")->isChecked());
+    CHECK(app.menu("sb.viewer.style.wireframe")->isChecked());
+    CHECK_FALSE(app.menu("sb.viewer.style.shadedwithedges")->isChecked());
 
     // The Display and Grid menus list the view options, and change them.
-    panel = app.shell->panelWidget(QStringLiteral("kh.viewer.main"));
-    auto* display = panel->findChild<QToolButton*>(QStringLiteral("kh.viewer.display"))->menu();
+    panel = app.shell->panelWidget(QStringLiteral("sb.viewer.main"));
+    auto* display = panel->findChild<QToolButton*>(QStringLiteral("sb.viewer.display"))->menu();
     emit display->aboutToShow();
     QStringList shown;
     for (auto* a : display->actions()) shown << a->text();
     CHECK(shown.contains(QStringLiteral("Show axes")));
     CHECK_FALSE(shown.contains(QStringLiteral("Show grid")));
-    auto* grid = panel->findChild<QToolButton*>(QStringLiteral("kh.viewer.grid"))->menu();
+    auto* grid = panel->findChild<QToolButton*>(QStringLiteral("sb.viewer.grid"))->menu();
     emit grid->aboutToShow();
     QAction* showGrid = nullptr;
     for (auto* a : grid->actions()) {
@@ -2466,7 +2470,7 @@ TEST_CASE("the view bar: orbit, pan, zoom, fit, views, display, grid and panes",
     CHECK(showGrid->isChecked());
     showGrid->trigger();
     settle();
-    CHECK_FALSE(app.menu("kh.grid.show")->isChecked());  // the same option as View > Show grid
+    CHECK_FALSE(app.menu("sb.grid.show")->isChecked());  // the same option as View > Show grid
     emit grid->aboutToShow();                            // listed again, up to date
     for (auto* a : grid->actions()) {
         if (a->text() == QStringLiteral("Show grid")) CHECK_FALSE(a->isChecked());
@@ -2474,12 +2478,12 @@ TEST_CASE("the view bar: orbit, pan, zoom, fit, views, display, grid and panes",
     // ... and opens the View options panel.
     QAction* all = nullptr;
     for (auto* a : grid->actions()) {
-        if (a->objectName() == QStringLiteral("kh.viewer.alloptions")) all = a;
+        if (a->objectName() == QStringLiteral("sb.viewer.alloptions")) all = a;
     }
     REQUIRE(all);
     all->trigger();
     settle();
-    CHECK(app.shell->overlay(QStringLiteral("kh.viewoptions.panel"))->isVisible());
+    CHECK(app.shell->overlay(QStringLiteral("sb.viewoptions.panel"))->isVisible());
 }
 
 TEST_CASE("the flat view draws lines on top of the grid", "[app][viewer]") {
@@ -2526,8 +2530,8 @@ TEST_CASE("the axes are drawn on the view cube with their letters, and View can 
     for (const auto& o : view->overlays()) {
         if (o.shape != view::OverlayShape::Lattice) CHECK(o.onViewCube);
     }
-    auto* axes = app.menu("kh.axes.show");
-    auto* labels = app.menu("kh.axes.labels");
+    auto* axes = app.menu("sb.axes.show");
+    auto* labels = app.menu("sb.axes.labels");
     REQUIRE(axes);
     REQUIRE(labels);
     CHECK(axes->isChecked());
@@ -2538,7 +2542,7 @@ TEST_CASE("the axes are drawn on the view cube with their letters, and View can 
     CHECK_FALSE(labels->isChecked());
     CHECK(countShape(view, view::OverlayShape::Lines) == 3);
     CHECK(countShape(view, view::OverlayShape::Labels) == 0);
-    CHECK(app.settings.value(QStringLiteral("plugins/kh.viewoptions/kh.axes.labels")).toString() ==
+    CHECK(app.settings.value(QStringLiteral("plugins/sb.viewoptions/sb.axes.labels")).toString() ==
           QStringLiteral("false"));
 
     labels->trigger();
@@ -2551,7 +2555,7 @@ TEST_CASE("the axes are drawn on the view cube with their letters, and View can 
     settle();
     CHECK(countShape(view, view::OverlayShape::Labels) == 3);
 
-    auto* origin = app.menu("kh.axes.origin");  // View > Show axes at the origin
+    auto* origin = app.menu("sb.axes.origin");  // View > Show axes at the origin
     REQUIRE(origin);
     CHECK_FALSE(origin->isChecked());
     origin->trigger();
@@ -2565,17 +2569,17 @@ TEST_CASE("the axes are drawn on the view cube with their letters, and View can 
 TEST_CASE("the View options panel starts closed, opens from View, and changes options",
           "[app][viewoptions]") {
     App app;
-    REQUIRE(app.shell->dockIds().contains(QStringLiteral("kh.viewoptions.panel")));
-    auto* panel = app.shell->panelWidget(QStringLiteral("kh.viewoptions.panel"));
+    REQUIRE(app.shell->dockIds().contains(QStringLiteral("sb.viewoptions.panel")));
+    auto* panel = app.shell->panelWidget(QStringLiteral("sb.viewoptions.panel"));
     REQUIRE(panel);
     CHECK_FALSE(panel->isVisible());   // closed until asked for
-    app.click("kh.viewoptions.show");  // View > View options...
+    app.click("sb.viewoptions.show");  // View > View options...
     CHECK(panel->isVisible());
 
     // Every view option is there, grouped: the grid's and the axes'.
-    auto* labels = panel->findChild<QCheckBox*>(QStringLiteral("kh.axes.labels"));
-    auto* spacing = panel->findChild<QDoubleSpinBox*>(QStringLiteral("kh.grid.spacing"));
-    auto* style = panel->findChild<QComboBox*>(QStringLiteral("kh.grid.style"));
+    auto* labels = panel->findChild<QCheckBox*>(QStringLiteral("sb.axes.labels"));
+    auto* spacing = panel->findChild<QDoubleSpinBox*>(QStringLiteral("sb.grid.spacing"));
+    auto* style = panel->findChild<QComboBox*>(QStringLiteral("sb.grid.style"));
     REQUIRE(labels);
     REQUIRE(spacing);
     REQUIRE(style);
@@ -2590,14 +2594,14 @@ TEST_CASE("the View options panel starts closed, opens from View, and changes op
     style->setCurrentIndex(style->findData(QStringLiteral("dots")));
     settle();
     CHECK(countShape(app.flat(), view::OverlayShape::Labels) == 0);
-    CHECK_FALSE(app.menu("kh.axes.labels")->isChecked());
+    CHECK_FALSE(app.menu("sb.axes.labels")->isChecked());
     REQUIRE(seenGrid);
     CHECK(seenGrid->settings().spacing == 5.0);
-    CHECK(app.menu("kh.grid.spacing.5")->isChecked());
-    CHECK(app.menu("kh.grid.style.dots")->isChecked());
+    CHECK(app.menu("sb.grid.spacing.5")->isChecked());
+    CHECK(app.menu("sb.grid.style.dots")->isChecked());
 
     // And the menu changes the panel.
-    app.menu("kh.axes.labels")->trigger();
+    app.menu("sb.axes.labels")->trigger();
     settle();
     CHECK(labels->isChecked());
 }
@@ -2608,11 +2612,11 @@ TEST_CASE("the View options panel can show and change one pane's options", "[app
     // No screen in the tests, so the viewer has no panes; add two as a viewer would.
     seenOptions->addPane({"test.p1", "Viewer 9, left pane"});
     seenOptions->addPane({"test.p2", "Viewer 9, right pane"});
-    app.click("kh.viewoptions.show");
-    auto* panel = app.shell->panelWidget(QStringLiteral("kh.viewoptions.panel"));
-    auto* scope = panel->findChild<QComboBox*>(QStringLiteral("kh.viewoptions.scope"));
-    auto* labels = panel->findChild<QCheckBox*>(QStringLiteral("kh.axes.labels"));
-    auto* reset = panel->findChild<QToolButton*>(QStringLiteral("kh.axes.labels.reset"));
+    app.click("sb.viewoptions.show");
+    auto* panel = app.shell->panelWidget(QStringLiteral("sb.viewoptions.panel"));
+    auto* scope = panel->findChild<QComboBox*>(QStringLiteral("sb.viewoptions.scope"));
+    auto* labels = panel->findChild<QCheckBox*>(QStringLiteral("sb.axes.labels"));
+    auto* reset = panel->findChild<QToolButton*>(QStringLiteral("sb.axes.labels.reset"));
     REQUIRE(scope);
     REQUIRE(labels);
     REQUIRE(reset);
@@ -2625,10 +2629,10 @@ TEST_CASE("the View options panel can show and change one pane's options", "[app
     CHECK_FALSE(reset->isVisible());
     labels->setChecked(false);
     settle();
-    CHECK(seenOptions->hasOwn("kh.axes.labels", "test.p1"));
-    CHECK_FALSE(seenOptions->flag("kh.axes.labels", "test.p1"));
-    CHECK(seenOptions->flag("kh.axes.labels"));  // all panes: still on
-    CHECK(app.menu("kh.axes.labels")->isChecked());
+    CHECK(seenOptions->hasOwn("sb.axes.labels", "test.p1"));
+    CHECK_FALSE(seenOptions->flag("sb.axes.labels", "test.p1"));
+    CHECK(seenOptions->flag("sb.axes.labels"));  // all panes: still on
+    CHECK(app.menu("sb.axes.labels")->isChecked());
     CHECK(reset->isVisible());
     CHECK(labels->font().bold());  // its own value stands out
 
@@ -2641,7 +2645,7 @@ TEST_CASE("the View options panel can show and change one pane's options", "[app
     settle();
     reset->click();  // back to the all-panes value
     settle();
-    CHECK_FALSE(seenOptions->hasOwn("kh.axes.labels", "test.p1"));
+    CHECK_FALSE(seenOptions->hasOwn("sb.axes.labels", "test.p1"));
     CHECK(labels->isChecked());
 
     // A pane that goes away for good leaves the list, and the panel shows all panes.
@@ -2653,20 +2657,20 @@ TEST_CASE("the View options panel can show and change one pane's options", "[app
 
 TEST_CASE("Window > New viewer opens more viewers", "[app][viewer]") {
     App app;
-    auto* more = app.menu("kh.shell.new.kh.viewer.main");
+    auto* more = app.menu("sb.shell.new.sb.viewer.main");
     REQUIRE(more);
     CHECK(more->text() == QStringLiteral("New viewer"));
     more->trigger();
     settle();
-    CHECK(app.shell->dockIds().contains(QStringLiteral("kh.viewer.main.2")));
-    CHECK(app.shell->openAnotherPanel(QStringLiteral("kh.viewer.main")) ==
-          QStringLiteral("kh.viewer.main.3"));
-    auto* second = app.shell->panelWidget(QStringLiteral("kh.viewer.main.2"));
+    CHECK(app.shell->dockIds().contains(QStringLiteral("sb.viewer.main.2")));
+    CHECK(app.shell->openAnotherPanel(QStringLiteral("sb.viewer.main")) ==
+          QStringLiteral("sb.viewer.main.3"));
+    auto* second = app.shell->panelWidget(QStringLiteral("sb.viewer.main.2"));
     REQUIRE(second);
-    CHECK(second->objectName() == QStringLiteral("kh.viewer.panel"));
+    CHECK(second->objectName() == QStringLiteral("sb.viewer.panel"));
     // The feature tree is one of a kind.
-    CHECK(app.shell->openAnotherPanel(QStringLiteral("kh.featuretree.panel")).isEmpty());
-    CHECK_FALSE(app.menu("kh.shell.new.kh.featuretree.panel"));
+    CHECK(app.shell->openAnotherPanel(QStringLiteral("sb.featuretree.panel")).isEmpty());
+    CHECK_FALSE(app.menu("sb.shell.new.sb.featuretree.panel"));
 }
 
 TEST_CASE("the viewer shows finished bodies, and picked used-up steps see-through", "[app][viewer]") {
@@ -2698,7 +2702,7 @@ TEST_CASE("the viewer shows finished bodies, and picked used-up steps see-throug
 
 TEST_CASE("Properties shows a body's material, mass and cost, and picks a material", "[app][material]") {
     App app;
-    app.click("kh.modeling.box");  // a 20 mm cube: 8 cm^3
+    app.click("sb.modeling.box");  // a 20 mm cube: 8 cm^3
     auto* material = app.field<QComboBox>("material");
     REQUIRE(material);
     CHECK(material->currentText() == QStringLiteral("Default: PLA"));
@@ -2775,7 +2779,7 @@ TEST_CASE("a plugin's check-mark item in a View submenu changes its setting", "[
           QStringLiteral("true"));
 
     // A change made somewhere else (another panel, a script) shows as soon as
-    // Khan hears about it.
+    // SketchBillet hears about it.
     app.pluginSettings.write("plugins/test.units/inches", "false");
     app.host.events().publish(plugin::SettingChanged{"test.units", "inches"});
     CHECK_FALSE(a->isChecked());
@@ -2813,10 +2817,10 @@ TEST_CASE("a plugin item is enabled by its own rule, and updates on ActionsChang
     CHECK_FALSE(app.shell->action("test.units.broken_rule")->isEnabled());
 }
 
-TEST_CASE("a plugin action that fails says so, without closing Khan", "[app][settings]") {
+TEST_CASE("a plugin action that fails says so, without closing SketchBillet", "[app][settings]") {
     App app;
     app.click("test.units.oops");
-    auto* problems = app.shell->findChild<QLabel*>(QStringLiteral("kh.shell.problems"));
+    auto* problems = app.shell->findChild<QLabel*>(QStringLiteral("sb.shell.problems"));
     REQUIRE(problems);
     CHECK(problems->text().contains(QStringLiteral("Oops stopped with an error")));
 }

@@ -1,9 +1,9 @@
-#include "kh/model/Parameters.h"
+#include "sb/model/Parameters.h"
 
 #include <algorithm>
 #include <cctype>
 
-namespace kh::model {
+namespace sb::model {
 
 namespace {
 
@@ -32,13 +32,14 @@ std::string listed(const std::vector<std::string>& names) {
 // order each uses the next, the last using the first.
 std::string loopMessage(const std::vector<std::string>& loop) {
     if (loop.size() == 1) {
-        return loop[0] + " uses itself, so Khan can't work it out. Give it a value that doesn't use " +
+        return loop[0] +
+               " uses itself, so SketchBillet can't work it out. Give it a value that doesn't use " +
                loop[0] + ", like 3 mm.";
     }
     std::vector<std::string> uses;
     for (std::size_t i = 0; i < loop.size(); ++i)
         uses.push_back(loop[i] + " uses " + loop[(i + 1) % loop.size()]);
-    return listed(uses) + ", so Khan can't work " + (loop.size() == 2 ? "either" : "any of them") +
+    return listed(uses) + ", so SketchBillet can't work " + (loop.size() == 2 ? "either" : "any of them") +
            " out. Change one so it doesn't use the other" + (loop.size() == 2 ? "" : "s") + ".";
 }
 
@@ -224,4 +225,4 @@ Diagnostics ParameterTable::checkName(std::string_view name) {
     return {};
 }
 
-}  // namespace kh::model
+}  // namespace sb::model

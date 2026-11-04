@@ -2,7 +2,7 @@
 
 #include <vector>
 
-namespace kh::plugin::detail {
+namespace sb::plugin::detail {
 
 namespace {
 
@@ -56,25 +56,25 @@ std::string Tiers::define(const PluginManifest& plugin, const TierSpec& spec, bo
     if (spec.name.size() <= prefix.size() || spec.name.compare(0, prefix.size(), prefix) != 0 ||
         !wellFormed(spec.name)) {
         return what + ", but a new tier's name must start with the plugin's id, like \"" + prefix +
-               "layer\", so two plugins can't pick the same name. Khan ignored it.";
+               "layer\", so two plugins can't pick the same name. SketchBillet ignored it.";
     }
-    if (known(spec.name)) return what + ", which already exists. Khan ignored the second one.";
+    if (known(spec.name)) return what + ", which already exists. SketchBillet ignored the second one.";
     if (spec.after.empty() && spec.before.empty()) {
         return what +
                " without saying where it goes. Add \"after\" or \"before\" with an existing tier, "
-               "like \"after\": \"tools\". Khan ignored it.";
+               "like \"after\": \"tools\". SketchBillet ignored it.";
     }
     for (const auto* ref : {&spec.after, &spec.before}) {
         if (!ref->empty() && !known(*ref)) {
             unknown = true;
             return what + (ref == &spec.after ? " after" : " before") + " the tier \"" + *ref +
-                   "\", which no plugin adds. Khan ignored it.";
+                   "\", which no plugin adds. SketchBillet ignored it.";
         }
     }
     if (!spec.after.empty() && !spec.before.empty() &&
         (spec.after == spec.before || below(spec.before, spec.after))) {
         return what + " after " + spec.after + " and before " + spec.before + ", but " + spec.after +
-               " isn't below " + spec.before + ". Khan ignored it.";
+               " isn't below " + spec.before + ". SketchBillet ignored it.";
     }
     up_[spec.name];
     if (!spec.after.empty()) up_[spec.after].insert(spec.name);
@@ -83,4 +83,4 @@ std::string Tiers::define(const PluginManifest& plugin, const TierSpec& spec, bo
     return {};
 }
 
-}  // namespace kh::plugin::detail
+}  // namespace sb::plugin::detail

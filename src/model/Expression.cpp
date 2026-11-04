@@ -1,4 +1,4 @@
-#include "kh/model/Expression.h"
+#include "sb/model/Expression.h"
 
 #include <algorithm>
 #include <array>
@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <numbers>
 
-namespace kh::model {
+namespace sb::model {
 
 namespace {
 
@@ -192,8 +192,9 @@ public:
                 fail("expression.bracket",
                      "There's a ) with no ( before it in " + quoted() + ". Take it out, or add a (.");
             } else {
-                fail("expression.operator", "Khan can't read " + quoted() + ": something is missing before " +
-                                                t.text + ". Put +, -, * or / between values.");
+                fail("expression.operator", "SketchBillet can't read " + quoted() +
+                                                ": something is missing before " + t.text +
+                                                ". Put +, -, * or / between values.");
             }
             root = nullptr;
         }
@@ -266,8 +267,8 @@ private:
                 std::size_t j = i + 1;
                 while (j < text_.size() && (static_cast<unsigned char>(text_[j]) & 0xC0) == 0x80) ++j;
                 fail("expression.character",
-                     "Khan can't read the " + std::string(text_.substr(i, j - i)) + " in " + quoted() +
-                         ". Use numbers, names, + - * / ^ and brackets, like (wall + 2 mm) * 2.");
+                     "SketchBillet can't read the " + std::string(text_.substr(i, j - i)) + " in " +
+                         quoted() + ". Use numbers, names, + - * / ^ and brackets, like (wall + 2 mm) * 2.");
                 return false;
             }
             t.end = i;
@@ -360,7 +361,8 @@ private:
                     n->number = {t.number * unit->size, unit->dim};
                     n->end = next().end;
                 } else {
-                    fail("expression.unit", "Khan doesn't know the unit " + w.text + " in " + quoted() +
+                    fail("expression.unit", "SketchBillet doesn't know the unit " + w.text + " in " +
+                                                quoted() +
                                                 ". Use mm, cm, m, in, ft, deg or rad, or put * between " +
                                                 t.text + " and " + w.text + " to multiply.");
                     return nullptr;
@@ -408,7 +410,7 @@ private:
             fail("expression.incomplete", quoted() + " stops too soon: a value is missing at the end.");
         } else {
             fail("expression.operator",
-                 "Khan can't read " + quoted() + ": a value is missing before " + t.text + ".");
+                 "SketchBillet can't read " + quoted() + ": a value is missing before " + t.text + ".");
         }
         return nullptr;
     }
@@ -416,8 +418,8 @@ private:
     NodePtr call(const Token& word) {
         const auto* fn = findFunction(word.text);
         if (!fn) {
-            fail("expression.function",
-                 "Khan doesn't know a function called " + word.text + ". It knows " + functionList() + ".");
+            fail("expression.function", "SketchBillet doesn't know a function called " + word.text +
+                                            ". It knows " + functionList() + ".");
             return nullptr;
         }
         next();  // (
@@ -506,7 +508,8 @@ private:
 
     std::optional<Quantity> finite(Quantity q, const Node& n) {
         if (!std::isfinite(q.value)) {
-            fail("expression.too_big", part(n) + " is too big for Khan to work out. Use smaller numbers.");
+            fail("expression.too_big",
+                 part(n) + " is too big for SketchBillet to work out. Use smaller numbers.");
             return std::nullopt;
         }
         return q;
@@ -534,7 +537,7 @@ private:
             if (plain && plain->kind == Node::Kind::Number && (other == kLength || other == kAngle)) {
                 fix += ", like " + part(*plain) + (other == kLength ? " mm" : " deg");
             }
-            fail("expression.units", "Khan can't " + std::string(adding ? "add " : "take ") +
+            fail("expression.units", "SketchBillet can't " + std::string(adding ? "add " : "take ") +
                                          part(*n.parts[1]) + (adding ? " to " : " from ") +
                                          part(*n.parts[0]) + ": " + part(*n.parts[0]) + " is " +
                                          withArticle(a->dim) + " and " + part(*n.parts[1]) + " is " +
@@ -556,7 +559,7 @@ private:
         if (b->value == 0) {
             fail("expression.divide_by_zero",
                  part(*n.parts[1]) + " is 0 in " + part(n) +
-                     ", and Khan can't divide by 0. Change it to another number.");
+                     ", and SketchBillet can't divide by 0. Change it to another number.");
             return std::nullopt;
         }
         return finite({a->value / b->value, {a->dim.length - b->dim.length, a->dim.angle - b->dim.angle}}, n);
@@ -584,8 +587,9 @@ private:
             dim = {a->dim.length * k, a->dim.angle * k};
         }
         if (a->value < 0 && b->value != std::round(b->value)) {
-            fail("expression.negative",
-                 "Khan can't raise a number below 0 to a power with decimals, as in " + part(n) + ".");
+            fail(
+                "expression.negative",
+                "SketchBillet can't raise a number below 0 to a power with decimals, as in " + part(n) + ".");
             return std::nullopt;
         }
         if (a->value == 0 && b->value < 0) {
@@ -606,8 +610,8 @@ private:
         const Quantity x = args.front();
         if (fn == "sqrt") {
             if (x.dim.length % 2 != 0 || x.dim.angle % 2 != 0) {
-                fail("expression.units", "Khan can't take the square root of " + withArticle(x.dim) + " (" +
-                                             part(*n.parts[0]) +
+                fail("expression.units", "SketchBillet can't take the square root of " + withArticle(x.dim) +
+                                             " (" + part(*n.parts[0]) +
                                              "). Square roots work on plain numbers and areas.");
                 return std::nullopt;
             }
@@ -720,4 +724,4 @@ bool Expression::isReservedWord(std::string_view word) {
     return word == "pi" || findUnit(word) || findFunction(word);
 }
 
-}  // namespace kh::model
+}  // namespace sb::model

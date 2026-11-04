@@ -1,6 +1,6 @@
 {
   "name": "cut-spline-pocket",
-  "description": "A 60 x 40 x 10 mm block with a pocket 6 mm deep, shaped by a closed cubic spline (a blob of area 371.7361 mm^2, perimeter 69.2081 mm): the blob extruded from 4 mm up to 14 mm, and cut away. A boolean with a B-spline wall. Volume 24000 - 371.7361 x 6; surface 6800 + 69.2081 x 6 (the pocket's floor takes the place of the top's missing piece). Worked out independently of Khan. 8 faces: the block's 6, the pocket's wall and floor.",
+  "description": "A 60 x 40 x 10 mm block with a pocket 6 mm deep, shaped by a closed cubic spline (a blob of area 371.7361 mm^2, perimeter 69.2081 mm): the blob extruded from 4 mm up to 14 mm, and cut away. A boolean with a B-spline wall. Volume 24000 - 371.7361 x 6; surface 6800 + 69.2081 x 6 (the pocket's floor takes the place of the top's missing piece). Worked out independently of SketchBillet. 8 faces: the block's 6, the pocket's wall and floor.",
   "steps": [
     {
       "id": "block",

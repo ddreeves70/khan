@@ -1,11 +1,11 @@
-#include "kh/plugin/DocumentList.h"
+#include "sb/plugin/DocumentList.h"
 
 #include <algorithm>
 #include <utility>
 
-#include "kh/plugin/Events.h"
+#include "sb/plugin/Events.h"
 
-namespace kh::plugin {
+namespace sb::plugin {
 
 namespace {
 
@@ -135,4 +135,4 @@ void DocumentList::rebuild(Entry& e) {
     bus_.publish(RebuildFinished{e.doc->id(), e.rebuild->ok()});
 }
 
-}  // namespace kh::plugin
+}  // namespace sb::plugin

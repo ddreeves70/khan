@@ -2,8 +2,8 @@
 // with another plugin's id.
 #include <string_view>
 
-#include "kh/plugin/Api.h"
-#include "kh/plugin/PluginContext.h"
+#include "sb/plugin/Api.h"
+#include "sb/plugin/PluginContext.h"
 
 namespace {
 
@@ -11,10 +11,10 @@ struct Ping {
     static constexpr std::string_view kType = "test.other.ping";
 };
 
-void registerIt(kh::plugin::PluginContext& ctx) {
+void registerIt(sb::plugin::PluginContext& ctx) {
     ctx.onStart([&ctx] { ctx.publish(Ping{}); });
 }
 
 }  // namespace
 
-KH_PLUGIN_ENTRY(registerIt)
+SB_PLUGIN_ENTRY(registerIt)

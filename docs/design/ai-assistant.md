@@ -1,6 +1,6 @@
 # AI assistant
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
+> **Draft.** This design changes as SketchBillet is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 The assistant is an optional panel that reviews the model as you edit, plans multi-part changes for you to approve, and answers how-to questions about the app. It never edits silently: everything it does becomes ordinary commands that you preview, approve, and can undo in one step.
 
@@ -123,7 +123,7 @@ Schools: the hints-only level keeps the assistant from doing a student's graded 
 
 ## Class model additions
 
-A new library, `kh_assist`, sits beside `kh_commands` and depends only on the public API.
+A new library, `sb_assist`, sits beside `sb_commands` and depends only on the public API.
 
 | Class | Responsibility | Key members |
 | --- | --- | --- |
@@ -145,7 +145,7 @@ A new library, `kh_assist`, sits beside `kh_commands` and depends only on the pu
 | --- | --- | --- |
 | Phases 0-2 | Nothing user-facing. Command registry with names, typed arguments and descriptions; `Checker` interface | Already in the plan; just write descriptions as you go |
 | Phase 3 (v0.1) | Review mode with deterministic checkers only (print-readiness, sketch definition, hole-to-edge); plain-language messages | No AI model at all |
-| Phase 4-5 (v0.2) | Ask how-to with the help index; AI explanations of findings; provider settings; hints-only level for lessons | `kh_assist`, help index, one local and one cloud provider |
+| Phase 4-5 (v0.2) | Ask how-to with the help index; AI explanations of findings; provider settings; hints-only level for lessons | `sb_assist`, help index, one local and one cloud provider |
 | Phase 6-7 | Single-part change plans ("round all outside edges 1 mm") with dry run and preview | Change-plan review panel |
 | Stage 3-4 | Cross-part change plans ("M4 to M5 everywhere"), mating-size checks across assemblies | Workspace reference graph, where-used, configurations |
 | Stage 4-5 | Design review against company standards and manufacturing rules (DFM), drawing and GD&T checks | PMI data model, rule packs |

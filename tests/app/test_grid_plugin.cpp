@@ -1,4 +1,4 @@
-// Tests for the kh.grid plugin's grid: its settings, snapping, what it saves and
+// Tests for the sb.grid plugin's grid: its settings, snapping, what it saves and
 // what it draws. (The View menu and status bar are tested in test_shell.cpp.)
 
 #include <catch2/catch_test_macros.hpp>
@@ -7,13 +7,13 @@
 #include <string>
 #include <vector>
 
-#include "kh/grid/Grid.h"
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugin/Settings.h"
-#include "kh/plugins/Grid.h"
-#include "kh/plugins/ViewOptions.h"
+#include "sb/grid/Grid.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugin/Settings.h"
+#include "sb/plugins/Grid.h"
+#include "sb/plugins/ViewOptions.h"
 
-using namespace kh;
+using namespace sb;
 using grid::GridChanged;
 using grid::GridSettings;
 using grid::GridStyle;
@@ -21,15 +21,15 @@ using plugins::GridService;
 
 namespace {
 
-// The grid's view options, kept the way kh.viewoptions keeps them.
+// The grid's view options, kept the way sb.viewoptions keeps them.
 struct Store {
     plugin::MemorySettings memory;
     plugin::EventBus bus;
-    plugin::PluginSettings settings{memory, bus, "kh.viewoptions"};
+    plugin::PluginSettings settings{memory, bus, "sb.viewoptions"};
     plugins::ViewOptionsService options{settings, bus};
     plugin::Subscription relay =
         bus.subscribe<plugin::SettingChanged>([this](const plugin::SettingChanged& e) {
-            if (e.plugin == "kh.viewoptions") options.settingChanged(e.key);
+            if (e.plugin == "sb.viewoptions") options.settingChanged(e.key);
         });
 
     Store() {
@@ -69,10 +69,10 @@ TEST_CASE("each change tells listeners once, and is saved", "[grid]") {
     CHECK(heard.back().snap);
     CHECK_FALSE(heard.back().visible);
 
-    CHECK(s.memory.read("plugins/kh.viewoptions/kh.grid.style") == "dots");
-    CHECK(s.memory.read("plugins/kh.viewoptions/kh.grid.spacing") == "2.5");
-    CHECK(s.memory.read("plugins/kh.viewoptions/kh.grid.snap") == "true");
-    CHECK(s.memory.read("plugins/kh.viewoptions/kh.grid.show") == "false");
+    CHECK(s.memory.read("plugins/sb.viewoptions/sb.grid.style") == "dots");
+    CHECK(s.memory.read("plugins/sb.viewoptions/sb.grid.spacing") == "2.5");
+    CHECK(s.memory.read("plugins/sb.viewoptions/sb.grid.snap") == "true");
+    CHECK(s.memory.read("plugins/sb.viewoptions/sb.grid.show") == "false");
 
     // The next run reads it back.
     GridService again(s.options, s.bus);
@@ -90,13 +90,13 @@ TEST_CASE("a spacing outside 0.01 to 1000 mm is refused with a plain message", "
               "Grid spacing must be between 0.01 mm and 1000 mm. Pick one like 1, 5 or 10 mm.");
     }
     CHECK(g.settings().spacing == 10.0);  // unchanged
-    CHECK_FALSE(s.memory.read("plugins/kh.viewoptions/kh.grid.spacing"));
+    CHECK_FALSE(s.memory.read("plugins/sb.viewoptions/sb.grid.spacing"));
 }
 
 TEST_CASE("a damaged saved spacing falls back to the default", "[grid]") {
     Store s;
     for (const char* bad : {"-3", "0", "huge", "1e9"}) {
-        s.memory.write("plugins/kh.viewoptions/kh.grid.spacing", bad);
+        s.memory.write("plugins/sb.viewoptions/sb.grid.spacing", bad);
         GridService g(s.options, s.bus);
         CHECK(g.settings().spacing == 10.0);
     }
@@ -107,13 +107,13 @@ TEST_CASE("the grid follows its view options, however they change", "[grid]") {
     GridService g(s.options, s.bus);
     int heard = 0;
     auto sub = s.bus.subscribe<GridChanged>([&](const GridChanged&) { ++heard; });
-    REQUIRE(s.options.set("kh.grid.style", std::string("dots")).empty());  // the panel or menu
+    REQUIRE(s.options.set("sb.grid.style", std::string("dots")).empty());  // the panel or menu
     CHECK(g.settings().style == GridStyle::Dots);
-    REQUIRE(s.options.set("kh.grid.style", std::string("dots")).empty());  // nothing new
+    REQUIRE(s.options.set("sb.grid.style", std::string("dots")).empty());  // nothing new
     CHECK(heard == 1);
     // Written to the store by something else, which then says so.
-    s.memory.write("plugins/kh.viewoptions/kh.grid.spacing", "2.5");
-    s.bus.publish(plugin::SettingChanged{"kh.viewoptions", "kh.grid.spacing"});
+    s.memory.write("plugins/sb.viewoptions/sb.grid.spacing", "2.5");
+    s.bus.publish(plugin::SettingChanged{"sb.viewoptions", "sb.grid.spacing"});
     CHECK(g.settings().spacing == 2.5);
     CHECK(heard == 2);
 }
@@ -167,7 +167,7 @@ TEST_CASE("the grid is drawn as a lattice of about 50 lines each way, within lim
 
 namespace {
 
-// A plugin that looks at kh.grid and kh.viewoptions, as a sketcher would.
+// A plugin that looks at sb.grid and sb.viewoptions, as a sketcher would.
 const grid::IGrid* peekedGrid = nullptr;
 viewoptions::IViewOptions* peekedOptions = nullptr;
 void peek(plugin::PluginContext& ctx) {
@@ -186,7 +186,7 @@ TEST_CASE("a pane can have its own grid: drawn there, and snapped to there", "[g
     host.addBuiltin(plugins::viewOptionsPlugin());
     host.addBuiltin(plugins::gridPlugin());
     host.addBuiltin(
-        {R"({"id": "test.peek", "name": "Peek", "version": "1", "requires": ["kh.grid", "kh.viewoptions"]})",
+        {R"({"id": "test.peek", "name": "Peek", "version": "1", "requires": ["sb.grid", "sb.viewoptions"]})",
          &peek});
     host.loadAll();
     const grid::IGrid* grid = peekedGrid;
@@ -200,13 +200,13 @@ TEST_CASE("a pane can have its own grid: drawn there, and snapped to there", "[g
     auto lattice = [&](const char* pane) {
         const auto overlays = host.overlays().forPane(pane);
         const auto it = std::find_if(overlays.begin(), overlays.end(),
-                                     [](const plugin::Overlay& o) { return o.id == "kh.grid.grid"; });
+                                     [](const plugin::Overlay& o) { return o.id == "sb.grid.grid"; });
         REQUIRE(it != overlays.end());
         return it->lattice;
     };
 
-    REQUIRE(options->setInPane("kh.grid.spacing", 5.0, "v1.p1").empty());
-    REQUIRE(options->setInPane("kh.grid.snap", true, "v1.p1").empty());
+    REQUIRE(options->setInPane("sb.grid.spacing", 5.0, "v1.p1").empty());
+    REQUIRE(options->setInPane("sb.grid.snap", true, "v1.p1").empty());
     CHECK(lattice("v1.p1").spacing == 5.0);
     CHECK(lattice("v1.p2").spacing == 10.0);
     CHECK(grid->settings("v1.p1").spacing == 5.0);
@@ -216,6 +216,6 @@ TEST_CASE("a pane can have its own grid: drawn there, and snapped to there", "[g
     CHECK(grid->snap(kernel::Vec3{6.4, 0, 0}).x == 6.4);  // all panes: snapping is off
 
     options->resetPane("v1.p1");
-    CHECK(host.overlays().find("kh.grid.grid", "v1.p1") == nullptr);
+    CHECK(host.overlays().find("sb.grid.grid", "v1.p1") == nullptr);
     CHECK(lattice("v1.p1").spacing == 10.0);
 }

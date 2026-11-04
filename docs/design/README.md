@@ -1,22 +1,22 @@
-# Khan design
+# SketchBillet design
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
+> **Draft.** This design changes as SketchBillet is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
-Khan is a free, open-source parametric CAD application for Windows, macOS and Linux. It starts with high school engineering classes, then grows to makers, CNC users and small shops. The long-term goal is a tool as capable as SolidWorks that stays free forever.
+SketchBillet is a free, open-source parametric CAD application for Windows, macOS and Linux. It starts with high school engineering classes, then grows to makers, CNC users and small shops. The long-term goal is a tool as capable as SolidWorks that stays free forever.
 
-These pages describe how Khan is designed: what it will do, how the code is organized, and the order it gets built in. For how to build and test the code today, see the [main README](../../README.md).
+These pages describe how SketchBillet is designed: what it will do, how the code is organized, and the order it gets built in. For how to build and test the code today, see the [main README](../../README.md).
 
 ## Pages
 
 | Page | What it covers |
 | --- | --- |
 | [Architecture](architecture.md) | Goals, the Fusion capability map, system layers, the geometry kernel, every major area (sketcher, modeling, assemblies, drawings, CAM, simulation), the plugin architecture, file formats and risks |
-| [Shared concepts between plugins](plugin-contracts.md) | How a plugin adds something other plugins share (the grid, snapping) without changing Khan's base: contracts, two-phase startup, dependencies and warnings |
+| [Shared concepts between plugins](plugin-contracts.md) | How a plugin adds something other plugins share (the grid, snapping) without changing SketchBillet's base: contracts, two-phase startup, dependencies and warnings |
 | [The sketcher](sketcher.md) | Phase 1: sketch values, the solver interface and PlaneGCS (built), then the sketch step, drawing and constraints in the app |
 | [View options](view-options.md) | One shared service for what the viewer shows (grid, axes, and later more): options declared as data, one View menu and panel, and different values per pane when you ask for them |
 | [Copying and grouping steps](copy-and-group.md) | Duplicate, copy and paste, turning steps off together, folders in the feature tree and a Move step (built, pulled forward after Phase 0); linked copies come with Phase 2's patterns, and groups that move together with Phase 4's assemblies |
 | [UI screens](ui-screens.md) | Mockups of the main window, split views, two monitors and the Plugin manager, with a numbered breakdown of each |
-| [Design model](design-model.md) | The module map, the core domain classes, key C++ interfaces, the `.khan` file format, regeneration and naming |
+| [Design model](design-model.md) | The module map, the core domain classes, key C++ interfaces, the `.sb` file format, regeneration and naming |
 | [Class model](class-model.md) | UML class diagrams for the document, features and naming, sketches, the kernel layer, assemblies, and the shell and plugins |
 | [AI assistant](ai-assistant.md) | The optional assistant: what it can do, how changes stay under the user's control, teaching it, and privacy for schools |
 | [Phase 0 exit check](phase0-exit.md) | What finishing Phase 0 means: the automated tests that cover it on every OS, and the steps to check by hand |

@@ -1,23 +1,23 @@
-#include "kh/plugins/MoveHandles.h"
+#include "sb/plugins/MoveHandles.h"
 
 #include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
 
-#include "kh/model/Commands.h"
-#include "kh/plugin/Events.h"
+#include "sb/model/Commands.h"
+#include "sb/plugin/Events.h"
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
 constexpr const char* kManifest = R"({
-  "id": "kh.movehandles",
+  "id": "sb.movehandles",
   "name": "Move handles",
   "version": "0.1.0",
   "description": "Arrows on the picked body in the 3D view: drag one to slide the body along x, y or z, or the square to slide it on the ground.",
-  "requires": ["kh.modeling", "kh.viewer"],
+  "requires": ["sb.modeling", "sb.viewer"],
   "tier": "ui"
 })";
 
@@ -26,7 +26,7 @@ class Handles final : public viewer::IHandleUser {
 public:
     Handles(plugin::PluginContext& ctx, viewer::IViewer& viewer) : ctx_(ctx), viewer_(viewer) {}
 
-    // No clearHandles() when it goes: that's only when Khan closes, and the
+    // No clearHandles() when it goes: that's only when SketchBillet closes, and the
     // viewer may already be gone then.
 
     // Shows handles on the picked body (or the body being dragged), or none.
@@ -122,7 +122,7 @@ private:
 void registerMoveHandles(plugin::PluginContext& ctx) {
     auto* viewer = ctx.service<viewer::IViewer>();
     if (!viewer) {
-        ctx.fail("Move handles need the 3D viewer (kh.viewer). Reinstall Khan to get it back.");
+        ctx.fail("Move handles need the 3D viewer (sb.viewer). Reinstall SketchBillet to get it back.");
         return;
     }
     // Lives as long as the plugin: the listeners below hold it.
@@ -162,4 +162,4 @@ plugin::BuiltinPlugin moveHandlesPlugin() {
     return {kManifest, &registerMoveHandles};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins

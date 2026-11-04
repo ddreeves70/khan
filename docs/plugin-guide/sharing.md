@@ -3,27 +3,27 @@
 Sometimes several plugins need the same thing: a ruler that knows which units the
 student likes, a grid to snap to, a list of snap points. One plugin can **offer**
 such a thing, and any other plugin can **use** it, without either one changing
-Khan itself.
+SketchBillet itself.
 
 This page builds two small plugins that do exactly that:
 
 - **Ruler** (`example.ruler`) offers a ruler that shows lengths in inches.
 - **Tape** (`example.tape`) uses the ruler to measure, if Ruler is installed.
 
-Both are in [`sharing/`](sharing/), and Khan's tests build and load them, so
-this page always matches the current Khan. Do [Hello](hello-plugin.md) first.
+Both are in [`sharing/`](sharing/), and SketchBillet's tests build and load them, so
+this page always matches the current SketchBillet. Do [Hello](hello-plugin.md) first.
 
 ## The idea: a contract
 
 Ruler doesn't let other plugins into its code. It publishes a **contract**: a
 small header that says what the ruler can do, with no code inside. Tape includes
-the header, asks Khan for the ruler, and calls it. Tape never links to Ruler.
+the header, asks SketchBillet for the ruler, and calls it. Tape never links to Ruler.
 
 ```text
   Ruler plugin                          Tape plugin
   (has the real ruler)                  (wants to measure)
         |  ctx.provide(ruler)                 |  ctx.service<IRuler>()
-        +-----------> Khan's services <-------+
+        +-----------> SketchBillet's services <-------+
                 both include Ruler.h, the contract
 ```
 
@@ -48,7 +48,7 @@ public:
     virtual double fromMm(double mm) const = 0;  // a length in mm, in the ruler's unit
 };
 
-// Sent when the ruler's unit changes, and once when Khan starts.
+// Sent when the ruler's unit changes, and once when SketchBillet starts.
 struct UnitChanged {
     static constexpr const char* kType = "example.ruler.unit_changed";
     const char* unit = "mm";
@@ -73,12 +73,12 @@ struct UnitChanged {
 
 ```cpp
 // The Ruler plugin: shares a ruler that shows lengths in inches or mm. The
-// student picks with View > Ruler shows inches, and Khan remembers it.
+// student picks with View > Ruler shows inches, and SketchBillet remembers it.
 #include <string>
 
 #include "example/ruler/Ruler.h"
-#include "kh/plugin/Api.h"
-#include "kh/plugin/PluginContext.h"
+#include "sb/plugin/Api.h"
+#include "sb/plugin/PluginContext.h"
 
 namespace {
 
@@ -92,9 +92,9 @@ public:
     double fromMm(double mm) const override { return inches ? mm / 25.4 : mm; }  // 25.4 mm in an inch
 };
 
-Ruler ruler;  // lives until Khan closes
+Ruler ruler;  // lives until SketchBillet closes
 
-void registerRuler(kh::plugin::PluginContext& ctx) {
+void registerRuler(sb::plugin::PluginContext& ctx) {
     // The unit the student picked last time ("in" the first time).
     auto& settings = ctx.settings();
     ruler.inches = settings.text("unit", "in") == "in";
@@ -111,7 +111,7 @@ void registerRuler(kh::plugin::PluginContext& ctx) {
                    .checked = [] { return ruler.inches; }});
 
     // When the setting changes, change the ruler and tell the other plugins.
-    ctx.listen<kh::plugin::SettingChanged>([&ctx, &settings](const kh::plugin::SettingChanged& e) {
+    ctx.listen<sb::plugin::SettingChanged>([&ctx, &settings](const sb::plugin::SettingChanged& e) {
         if (e.plugin != "example.ruler" || e.key != "unit") return;
         ruler.inches = settings.text("unit", "in") == "in";
         ctx.publish(UnitChanged{ruler.unit()});
@@ -123,16 +123,16 @@ void registerRuler(kh::plugin::PluginContext& ctx) {
 
 }  // namespace
 
-KH_PLUGIN_ENTRY(registerRuler)
+SB_PLUGIN_ENTRY(registerRuler)
 ```
 
 A plugin starts in **two steps**:
 
-1. **Registering:** Khan calls every plugin's register function, one after the
+1. **Registering:** SketchBillet calls every plugin's register function, one after the
    other. Here each plugin *offers* what it has: commands, menu items, services.
    `ctx.provide<IRuler>(ruler)` offers the ruler under its `kServiceName`. The
-   ruler must live until Khan closes, so it's a global here.
-2. **Starting:** once *every* plugin has registered, Khan runs the functions given
+   ruler must live until SketchBillet closes, so it's a global here.
+2. **Starting:** once *every* plugin has registered, SketchBillet runs the functions given
    to `ctx.onStart`, in the same order. Every service exists by now. Ruler uses
    this moment to tell everyone its unit with `ctx.publish`.
 
@@ -142,10 +142,10 @@ starts with your plugin's id.
 Ruler also lets the student pick its unit, and remembers the choice:
 
 - `ctx.settings()` is the plugin's own settings. `settings.text("unit", "in")` reads
-  the saved unit, or `"in"` if there isn't one yet. Khan keeps settings between runs.
+  the saved unit, or `"in"` if there isn't one yet. SketchBillet keeps settings between runs.
 - The menu item has a `run` function instead of a command, because picking a unit
   doesn't change a design. Its `checked` function puts a check mark next to it.
-- `settings.set(...)` sends a `kh.SettingChanged` event. Ruler listens for its own
+- `settings.set(...)` sends a `sb.SettingChanged` event. Ruler listens for its own
   `unit` setting, changes the ruler, and tells everyone the new unit.
 
 See [What a plugin can do](extension-points.md#remember-settings) for more about
@@ -164,8 +164,8 @@ Ruler's `plugin.json` is ordinary: an `id`, a `name`, a `library`, and its
 #include <string>
 
 #include "example/ruler/Ruler.h"
-#include "kh/plugin/Api.h"
-#include "kh/plugin/PluginContext.h"
+#include "sb/plugin/Api.h"
+#include "sb/plugin/PluginContext.h"
 
 namespace {
 
@@ -178,7 +178,7 @@ std::string twoDecimals(double v) {
     return text;
 }
 
-void registerTape(kh::plugin::PluginContext& ctx) {
+void registerTape(sb::plugin::PluginContext& ctx) {
     // Listening needs no ruler yet: the event arrives when the ruler starts.
     ctx.listen<UnitChanged>(
         [&ctx](const UnitChanged& e) { ctx.log(std::string("The ruler shows lengths in ") + e.unit + "."); });
@@ -196,13 +196,13 @@ void registerTape(kh::plugin::PluginContext& ctx) {
 
 }  // namespace
 
-KH_PLUGIN_ENTRY(registerTape)
+SB_PLUGIN_ENTRY(registerTape)
 ```
 
 - **Listen while registering, look up while starting.** `ctx.listen` can be called
   any time: the event arrives when Ruler sends it. But `ctx.service<IRuler>()`
   goes in `onStart`, because only then is every plugin's service there. (Ask
-  while registering and it works only if Ruler happened to load first; Khan warns
+  while registering and it works only if Ruler happened to load first; SketchBillet warns
   you.)
 - **Cope with "not there".** `ctx.service` gives `nullptr` if no plugin offers
   the ruler. Tape then keeps using mm.
@@ -221,10 +221,10 @@ KH_PLUGIN_ENTRY(registerTape)
 }
 ```
 
-**`uses`** says "Tape uses Ruler if it's there". Khan then loads Ruler first, and
+**`uses`** says "Tape uses Ruler if it's there". SketchBillet then loads Ruler first, and
 Tape still loads when Ruler isn't installed. If Tape couldn't work at all without
 the ruler, it would put Ruler in **`requires`** instead: then Tape doesn't load
-when Ruler is missing or broken, and Khan says why.
+when Ruler is missing or broken, and SketchBillet says why.
 
 ## Step 4: Build and try it
 
@@ -234,15 +234,15 @@ plugins use it ([`sharing/CMakeLists.txt`](sharing/CMakeLists.txt)):
 ```cmake
 add_library(example_ruler_api INTERFACE)
 target_include_directories(example_ruler_api INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/ruler/include")
-kh_add_plugin(kh_example_tape_plugin MANIFEST tape/plugin.json SOURCES tape/tape.cpp DEPS example_ruler_api)
+sb_add_plugin(sb_example_tape_plugin MANIFEST tape/plugin.json SOURCES tape/tape.cpp DEPS example_ruler_api)
 ```
 
-Build Khan, then list the plugins. Ruler offers its service and its View menu
+Build SketchBillet, then list the plugins. Ruler offers its service and its View menu
 item; Tape's log shows it heard the event and measured with the ruler:
 
 <!-- cli-example -->
 ```console
-$ kh_cli plugins --plugins build/dev/khan-plugins
+$ sketchbillet_cli plugins --plugins build/dev/sketchbillet-plugins
 ...
 loaded   example.ruler 1.0.0  Ruler
            tier    foundation
@@ -255,42 +255,42 @@ loaded   example.tape 1.0.0  Tape
 ...
 ```
 
-**Your turn:** delete Ruler's folder from `build/dev/khan-plugins` and list the
+**Your turn:** delete Ruler's folder from `build/dev/sketchbillet-plugins` and list the
 plugins again. Tape still loads, says "There's no ruler, so lengths stay in mm",
-and Khan adds a note that Ruler isn't installed.
+and SketchBillet adds a note that Ruler isn't installed.
 
 ## Warnings
 
-While plugins load, Khan watches for things that work but are probably a
+While plugins load, SketchBillet watches for things that work but are probably a
 mistake, and adds a **warning** to the plugin. Warnings never stop a plugin.
-`kh_cli plugins` shows them (`warning [code]: ...`), and so will the desktop
+`sketchbillet_cli plugins` shows them (`warning [code]: ...`), and so will the desktop
 app's Plugin manager; the desktop app also writes them to its log.
 
 | Code | When | How to fix it |
 | --- | --- | --- |
 | `plugin.undeclared_dependency` | You use a service or listen to an event from a plugin that isn't in your `requires` or `uses` | Add it to `uses` |
-| `plugin.early_lookup` | You asked for another plugin's service while registering, and that plugin isn't in your `requires` | Ask in `onStart`, or list it in `requires` (then Khan always loads it first) |
-| `plugin.service_taken` | Another plugin already offers that service name. Khan keeps theirs | Pick a name starting with your plugin id |
-| `plugin.event_name` | You sent an event whose name doesn't start with your plugin id (Khan's `ActionsChanged` is fine to send) | Rename the event's `kType` |
+| `plugin.early_lookup` | You asked for another plugin's service while registering, and that plugin isn't in your `requires` | Ask in `onStart`, or list it in `requires` (then SketchBillet always loads it first) |
+| `plugin.service_taken` | Another plugin already offers that service name. SketchBillet keeps theirs | Pick a name starting with your plugin id |
+| `plugin.event_name` | You sent an event whose name doesn't start with your plugin id (SketchBillet's `ActionsChanged` is fine to send) | Rename the event's `kType` |
 | `plugin.toolbar_mode_name` | You turned on a toolbar mode whose name doesn't start with your plugin id | Rename the mode, like `sam.paint.painting` |
 | `plugin.old_contract` | You use a service version that has a newer one, or that its plugin marked as going away (`ctx.provide(service, true)`) | Move to the newer version |
 | `plugin.tier_order` | You use a plugin in a higher tier (see [Tiers](manifest.md#tiers)) | Move what you share into a lower plugin, or listen to its events instead |
-| `plugin.tier_conflict` | A tier you add can't be added; Khan ignores it | Read the message: it says why |
-| `plugin.tier_unknown` | Your `tier` isn't one Khan or a plugin adds | Fix the spelling, or add the tier |
+| `plugin.tier_conflict` | A tier you add can't be added; SketchBillet ignores it | Read the message: it says why |
+| `plugin.tier_unknown` | Your `tier` isn't one SketchBillet or a plugin adds | Fix the spelling, or add the tier |
 | `plugin.slow_start` | Registering and starting took longer than the limit (500 ms unless changed) | Do slow work later, when it's first needed |
 
 There's also one **note**: `plugin.uses_missing`, when a plugin in `uses` isn't
 installed. That's fine, just worth knowing.
 
 To make warnings fail your plugin's own tests or CI, use
-`kh_cli plugins --strict` (the `kh_cli plugins` page of the kh_cli reference,
+`sketchbillet_cli plugins --strict` (the `sketchbillet_cli plugins` page of the sketchbillet_cli reference,
 `docs/cli/plugins.md`, has every option).
 
 ## Plugins that use each other
 
-Khan loads plugins in order: a plugin after the plugins it `requires` or `uses`.
+SketchBillet loads plugins in order: a plugin after the plugins it `requires` or `uses`.
 If two plugins name each other (A uses B, B uses A), there's no right order, and
-that's fine: Khan loads them in id order. Because of the two steps (everyone
+that's fine: SketchBillet loads them in id order. Because of the two steps (everyone
 registers, then everyone starts), each one's services are there by the time the
 other starts. There's no warning.
 
@@ -301,5 +301,5 @@ other starts. There's no warning.
 - **Never edit a released contract.** Make `/2` instead, and offer both until
   other plugins have moved.
 - **Don't keep pointers from `ctx.service` across a plugin failing.** If the
-  plugin that offers a service fails while starting, Khan takes the service back;
+  plugin that offers a service fails while starting, SketchBillet takes the service back;
   your `onStart` then gets `nullptr`.

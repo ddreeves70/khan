@@ -4,9 +4,9 @@
 #include <memory>
 #include <variant>
 
-#include "kh/kernel/IKernel.h"
+#include "sb/kernel/IKernel.h"
 
-namespace kh::test {
+namespace sb::test {
 
 // A stand-in kernel for model tests that do not need real geometry. It "builds"
 // a shape whose only content is a volume, so tests run without OCCT.
@@ -112,4 +112,4 @@ private:
     }
 };
 
-}  // namespace kh::test
+}  // namespace sb::test

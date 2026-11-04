@@ -1,4 +1,4 @@
-// Tests for the Parameters panel (kh.parameters): what it lists, and adding,
+// Tests for the Parameters panel (sb.parameters): what it lists, and adding,
 // changing, renaming and deleting parameters in it.
 
 #include <catch2/catch_test_macros.hpp>
@@ -15,16 +15,16 @@
 #include "AppSettings.h"
 #include "AppUi.h"
 #include "Shell.h"
-#include "kh/kernel_occt/OcctKernel.h"
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugins/Modeling.h"
-#include "kh/plugins/Parameters.h"
-#include "kh/plugins/Viewer.h"
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/kernel_occt/OcctKernel.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugins/Modeling.h"
+#include "sb/plugins/Parameters.h"
+#include "sb/plugins/Viewer.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
 
-using namespace kh;
+using namespace sb;
 
 namespace {
 
@@ -55,18 +55,18 @@ struct App {
         shell->show();
         settle();
         // Modify > Parameters opens it (it starts closed).
-        auto* open = shell->action("kh.parameters.show");
+        auto* open = shell->action("sb.parameters.show");
         REQUIRE(open);
         open->trigger();
         settle();
-        auto* panel = shell->panelWidget(QStringLiteral("kh.parameters.panel"));
+        auto* panel = shell->panelWidget(QStringLiteral("sb.parameters.panel"));
         REQUIRE(panel);
         CHECK(panel->isVisible());
         // It floats over the view, see-through, like the feature tree and Properties.
-        CHECK(shell->overView(QStringLiteral("kh.parameters.panel")));
-        REQUIRE(shell->overlay(QStringLiteral("kh.parameters.panel")));
-        CHECK(shell->overlay(QStringLiteral("kh.parameters.panel"))->isVisible());
-        table = panel->findChild<QTableWidget*>(QStringLiteral("kh.parameters.table"));
+        CHECK(shell->overView(QStringLiteral("sb.parameters.panel")));
+        REQUIRE(shell->overlay(QStringLiteral("sb.parameters.panel")));
+        CHECK(shell->overlay(QStringLiteral("sb.parameters.panel"))->isVisible());
+        table = panel->findChild<QTableWidget*>(QStringLiteral("sb.parameters.table"));
         REQUIRE(table);
     }
 
@@ -85,7 +85,7 @@ struct App {
         settle();
     }
     QPushButton* button(const char* name) {
-        return shell->panelWidget(QStringLiteral("kh.parameters.panel"))
+        return shell->panelWidget(QStringLiteral("sb.parameters.panel"))
             ->findChild<QPushButton*>(QString::fromLatin1(name));
     }
 };
@@ -145,12 +145,12 @@ TEST_CASE("typing in the Parameters panel changes, renames and notes a parameter
 
 TEST_CASE("Add adds a parameter ready to name; Delete deletes the picked ones", "[app][parameters]") {
     App app;
-    auto* add = app.button("kh.parameters.add");
-    auto* remove = app.button("kh.parameters.delete");
+    auto* add = app.button("sb.parameters.add");
+    auto* remove = app.button("sb.parameters.delete");
     REQUIRE(add);
     REQUIRE(remove);
     CHECK_FALSE(remove->isEnabled());  // nothing picked
-    auto* frame = app.shell->overlay(QStringLiteral("kh.parameters.panel"));
+    auto* frame = app.shell->overlay(QStringLiteral("sb.parameters.panel"));
     const int emptyHeight = frame->height();
     add->click();
     settle();

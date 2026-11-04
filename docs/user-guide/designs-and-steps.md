@@ -1,10 +1,10 @@
 # Designs and steps
 
-A Khan **design** is a list of **steps**, like a recipe. Khan keeps the recipe,
+A SketchBillet **design** is a list of **steps**, like a recipe. SketchBillet keeps the recipe,
 not just the finished shape, and rebuilds the shape from it whenever something
 changes.
 
-![A design is a list of steps; Khan rebuilds them in order](images/recipe.svg)
+![A design is a list of steps; SketchBillet rebuilds them in order](images/recipe.svg)
 
 ## Steps
 
@@ -13,25 +13,25 @@ A step has:
 
 | Part | Example | Meaning |
 | --- | --- | --- |
-| A name | `Plate` | What you call it. You pick it, or Khan picks one like `Box1`. You can rename it any time |
+| A name | `Plate` | What you call it. You pick it, or SketchBillet picks one like `Box1`. You can rename it any time |
 | A kind | box | What the step makes |
 | Its numbers | size 60 × 30 × 4 mm | The settings for that kind of step |
 | Its inputs | Plate and Hole | The steps it uses (only for steps that combine others) |
-| An id | `926bde46-9c5b-...` | A permanent label Khan uses inside the file. You never type it |
+| An id | `926bde46-9c5b-...` | A permanent label SketchBillet uses inside the file. You never type it |
 
 Steps that use other steps point at them by **id**, not by name. That's why
 renaming a step never breaks the steps that use it.
 
 ## Rebuilding
 
-When you open a design, or change it, Khan **rebuilds** it: it runs every step in
+When you open a design, or change it, SketchBillet **rebuilds** it: it runs every step in
 order and reports how each one went.
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli open tag.khan
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli open tag.sb
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
@@ -45,7 +45,7 @@ Demo tag: 3 steps
 | `blocked` | The step uses a step that failed or is turned off, so it can't build either |
 | `off` | The step is turned off (suppressed). Turning steps off arrives with the desktop app |
 
-A step that fails doesn't stop the others. Khan builds everything it can and
+A step that fails doesn't stop the others. SketchBillet builds everything it can and
 tells you what to fix.
 
 ## Bodies
@@ -67,7 +67,7 @@ delete a step. Commands
 are what the desktop app's buttons, scripts and the AI assistant run, and they
 are why undo works for everything.
 
-Today you run commands with [`kh_cli run`](../cli/run.md). The full list is on
+Today you run commands with [`sketchbillet_cli run`](../cli/run.md). The full list is on
 the [Modeling commands](../cli/commands.md) page.
 
 ## Why a recipe?

@@ -1,10 +1,10 @@
-#include "kh/model/Material.h"
+#include "sb/model/Material.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
 
-namespace kh::model {
+namespace sb::model {
 
 namespace {
 
@@ -131,4 +131,4 @@ Diagnostics checkMaterial(const Material& m) {
     return out;
 }
 
-}  // namespace kh::model
+}  // namespace sb::model

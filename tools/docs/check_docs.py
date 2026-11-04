@@ -1,4 +1,4 @@
-"""Checks Khan's guides against the real kh_cli, so they can't go stale.
+"""Checks SketchBillet's guides against the real sketchbillet_cli, so they can't go stale.
 
 Run by ctest as docs.guides. It:
 
@@ -7,8 +7,8 @@ Run by ctest as docs.guides. It:
    command should fail) and checks it prints exactly what the page shows.
    In the expected output, "..." matches any text (and the spaces around it): a
    whole line of "..." matches any number of lines.
-2. Checks every kh_cli command (from its usage text) has a page in docs/cli, and
-   every command `kh_cli help` lists has a section and a tested example in
+2. Checks every sketchbillet_cli command (from its usage text) has a page in docs/cli, and
+   every command `sketchbillet_cli help` lists has a section and a tested example in
    docs/cli/commands.md.
 3. Checks every relative link and picture in the guides points at a file that exists.
 4. Checks docs/dependencies.md lists every package in vcpkg.json and every
@@ -19,10 +19,10 @@ other (a tutorial saves a file, the next step opens it). Paths in commands that
 start with build/dev/ are mapped to the real build folder, and paths starting
 with tests/ or docs/ to the repo.
 
-    python3 check_docs.py --kh-cli <path> --build-dir <dir> --repo <dir> [--update]
+    python3 check_docs.py --sketchbillet-cli <path> --build-dir <dir> --repo <dir> [--update]
 
---update writes what kh_cli printed into examples that don't match, when the
-example has no "..." in it. Use it after an intended change to kh_cli's output,
+--update writes what sketchbillet_cli printed into examples that don't match, when the
+example has no "..." in it. Use it after an intended change to sketchbillet_cli's output,
 then read every change in `git diff` before committing: the guides are only as
 right as the outputs you approve.
 """
@@ -98,7 +98,7 @@ def updated_block(blocks, outputs):
 def run_examples(page, args):
     text = page.read_text(encoding="utf-8")
     replacements = []  # (start, end, new text) for --update
-    with tempfile.TemporaryDirectory(prefix="kh_docs_") as tmp:
+    with tempfile.TemporaryDirectory(prefix="sb_docs_") as tmp:
         workdir = Path(tmp).resolve()
         for m in EXAMPLE.finditer(text):
             want_exit = int(m.group(1) or 0)
@@ -115,10 +115,10 @@ def run_examples(page, args):
             stale = False
             for i, (command, expected) in enumerate(blocks):
                 argv = shlex.split(command)
-                if not argv or argv[0] != "kh_cli":
-                    fail(f"{page}:{line_no}", f"examples may only run kh_cli: {command}")
+                if not argv or argv[0] != "sketchbillet_cli":
+                    fail(f"{page}:{line_no}", f"examples may only run sketchbillet_cli: {command}")
                     continue
-                argv = [args.kh_cli] + [map_arg(a, args) for a in argv[1:]]
+                argv = [args.sketchbillet_cli] + [map_arg(a, args) for a in argv[1:]]
                 proc = subprocess.run(argv, cwd=workdir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 actual = normalize(proc.stdout.decode("utf-8", "replace"), args, workdir)
                 while actual and actual[-1] == "":
@@ -134,7 +134,7 @@ def run_examples(page, args):
                         stale = True
                         continue
                     fail(f"{page}:{line_no}", f"'{command}' printed something else.\n--- page ---\n" +
-                         "\n".join(expected) + "\n--- kh_cli ---\n" + "\n".join(actual))
+                         "\n".join(expected) + "\n--- sketchbillet_cli ---\n" + "\n".join(actual))
             if stale:
                 replacements.append((m.start(2), m.end(2), updated_block(blocks, outputs)))
     if replacements:
@@ -145,13 +145,13 @@ def run_examples(page, args):
 
 
 def check_coverage(args):
-    usage = subprocess.run([args.kh_cli], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout.decode()
-    for name in re.findall(r"kh_cli (\S+)", usage):
+    usage = subprocess.run([args.sketchbillet_cli], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout.decode()
+    for name in re.findall(r"sketchbillet_cli (\S+)", usage):
         page = args.repo / "docs/cli" / ("version.md" if name == "--version" else f"{name}.md")
         if not page.exists():
-            fail("docs/cli", f"kh_cli {name} has no page ({page.name})")
+            fail("docs/cli", f"sketchbillet_cli {name} has no page ({page.name})")
 
-    listing = subprocess.run([args.kh_cli, "help"], stdout=subprocess.PIPE).stdout.decode()
+    listing = subprocess.run([args.sketchbillet_cli, "help"], stdout=subprocess.PIPE).stdout.decode()
     commands = re.findall(r"^  (\S+\.\S+)\s", listing, re.M)
     page = args.repo / "docs/cli/commands.md"
     text = page.read_text(encoding="utf-8") if page.exists() else ""
@@ -159,19 +159,19 @@ def check_coverage(args):
     for name in commands:
         if not re.search(rf"^#+ `?{re.escape(name)}`?\s*$", text, re.M):
             fail("docs/cli/commands.md", f"no section for {name}")
-        if not re.search(rf"\$ kh_cli run .*\b{re.escape(name)}\b", examples):
+        if not re.search(rf"\$ sketchbillet_cli run .*\b{re.escape(name)}\b", examples):
             fail("docs/cli/commands.md", f"no tested example that runs {name}")
 
 
 def check_api_version(args):
     """The plugin guide states the plugin API version; it must match Api.h."""
-    api = (args.repo / "src/plugin/include/kh/plugin/Api.h").read_text(encoding="utf-8")
+    api = (args.repo / "src/plugin/include/sb/plugin/Api.h").read_text(encoding="utf-8")
     m = re.search(r"kPluginApiVersion = (\d+);", api)
     if not m:
         fail("Api.h", "can't find kPluginApiVersion")
         return
     for page in sorted((args.repo / "docs/plugin-guide").rglob("*.md")):
-        for said in re.findall(r"This Khan uses \*\*(\d+)\*\*", page.read_text(encoding="utf-8")):
+        for said in re.findall(r"This SketchBillet uses \*\*(\d+)\*\*", page.read_text(encoding="utf-8")):
             if said != m.group(1):
                 fail(str(page), f"says the plugin API version is {said}, but Api.h says {m.group(1)}")
 
@@ -211,10 +211,10 @@ def check_links(page):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--kh-cli", required=True, type=lambda p: str(Path(p).resolve()))
+    ap.add_argument("--sketchbillet-cli", required=True, type=lambda p: str(Path(p).resolve()))
     ap.add_argument("--build-dir", required=True, type=lambda p: Path(p).resolve())
     ap.add_argument("--repo", required=True, type=lambda p: Path(p).resolve())
-    ap.add_argument("--update", action="store_true", help="write kh_cli's output into stale examples")
+    ap.add_argument("--update", action="store_true", help="write sketchbillet_cli's output into stale examples")
     args = ap.parse_args()
 
     pages = sorted(p for g in GUIDES for p in (args.repo / g).rglob("*.md"))
@@ -232,7 +232,7 @@ def main():
         print("\n\n".join(failures))
         print(f"\n{len(failures)} problem(s) in the guides")
         return 1
-    print(f"{len(pages)} pages, {count} examples: all match kh_cli")
+    print(f"{len(pages)} pages, {count} examples: all match sketchbillet_cli")
     return 0
 
 

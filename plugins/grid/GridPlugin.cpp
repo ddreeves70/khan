@@ -1,4 +1,4 @@
-#include "kh/plugins/Grid.h"
+#include "sb/plugins/Grid.h"
 
 #include <QLabel>
 
@@ -10,10 +10,10 @@
 #include <sstream>
 #include <string>
 
-#include "kh/plugin/Events.h"
-#include "kh/ui/UiRegistry.h"
+#include "sb/plugin/Events.h"
+#include "sb/ui/UiRegistry.h"
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
@@ -22,12 +22,12 @@ using grid::GridSettings;
 using grid::GridStyle;
 
 constexpr const char* kManifest = R"({
-  "id": "kh.grid",
+  "id": "sb.grid",
   "name": "Grid",
   "version": "0.1.0",
   "description": "The grid: its View menu items, its drawing in the viewers, and snapping to it.",
   "tier": "foundation",
-  "requires": ["kh.viewoptions"]
+  "requires": ["sb.viewoptions"]
 })";
 
 // "12.5", "10": the spacing as a student would write it.
@@ -64,11 +64,13 @@ private:
 };
 
 void registerGrid(plugin::PluginContext& ctx) {
-    // The grid's settings are view options: kh.viewoptions remembers them and
+    // The grid's settings are view options: sb.viewoptions remembers them and
     // builds their View menu items. It's in "requires", so it's here already.
     auto* options = ctx.service<viewoptions::IViewOptions>();
     if (!options) {
-        ctx.fail("The grid needs the View options plugin (kh.viewoptions). Reinstall Khan to get it back.");
+        ctx.fail(
+            "The grid needs the View options plugin (sb.viewoptions). Reinstall SketchBillet to get it "
+            "back.");
         return;
     }
     for (auto& spec : gridOptions()) {
@@ -78,7 +80,7 @@ void registerGrid(plugin::PluginContext& ctx) {
         }
     }
 
-    // Shared by the listener below, which Khan keeps while the plugin is loaded,
+    // Shared by the listener below, which SketchBillet keeps while the plugin is loaded,
     // so the grid lives exactly as long as it does.
     auto grid = std::make_shared<GridService>(*options, ctx.events());
     ctx.provide<grid::IGrid>(*grid);
@@ -108,7 +110,7 @@ void registerGrid(plugin::PluginContext& ctx) {
     if (auto* ui = ctx.service<ui::UiRegistry>()) {
         auto& bus = ctx.events();
         ui->addStatusItem(
-            {"kh.grid.status", [grid, options, &bus] { return new GridLabel(bus, *grid, *options); }});
+            {"sb.grid.status", [grid, options, &bus] { return new GridLabel(bus, *grid, *options); }});
     }
 }
 
@@ -117,28 +119,28 @@ void registerGrid(plugin::PluginContext& ctx) {
 std::vector<viewoptions::OptionSpec> gridOptions() {
     using viewoptions::OptionKind;
     return {
-        {.id = "kh.grid.show",
+        {.id = "sb.grid.show",
          .text = "Show grid",
          .group = "Grid",
          .tip = "Show or hide the grid in the views.",
          .kind = OptionKind::Flag,
          .initial = true,
          .shortcut = "Ctrl+G"},
-        {.id = "kh.grid.snap",
+        {.id = "sb.grid.snap",
          .text = "Snap to grid",
          .group = "Grid",
          .tip = "Make points you pick with the mouse jump to the nearest grid crossing.",
          .kind = OptionKind::Flag,
          .initial = false,
          .shortcut = "Ctrl+Shift+G"},
-        {.id = "kh.grid.style",
+        {.id = "sb.grid.style",
          .text = "Grid style",
          .group = "Grid",
          .tip = "Lines look like graph paper; dots are lighter and keep the part easy to see.",
          .kind = OptionKind::Choice,
          .initial = std::string("lines"),
          .choices = {{"lines", "Lines"}, {"dots", "Dots"}}},
-        {.id = "kh.grid.spacing",
+        {.id = "sb.grid.spacing",
          .text = "Grid spacing",
          .group = "Grid",
          .tip = "The distance between grid lines, from 0.01 mm to 1000 mm.",
@@ -157,15 +159,15 @@ GridService::GridService(viewoptions::IViewOptions& options, plugin::EventBus& b
 }
 
 namespace {
-const char* const kGridOptions[] = {"kh.grid.show", "kh.grid.snap", "kh.grid.style", "kh.grid.spacing"};
+const char* const kGridOptions[] = {"sb.grid.show", "sb.grid.snap", "sb.grid.style", "sb.grid.spacing"};
 }  // namespace
 
 GridSettings GridService::read(std::string_view pane) const {
     GridSettings g;
-    g.visible = options_.flag("kh.grid.show", pane);
-    g.snap = options_.flag("kh.grid.snap", pane);
-    g.style = options_.choice("kh.grid.style", pane) == "dots" ? GridStyle::Dots : GridStyle::Lines;
-    if (const double spacing = options_.number("kh.grid.spacing", pane); spacing > 0) g.spacing = spacing;
+    g.visible = options_.flag("sb.grid.show", pane);
+    g.snap = options_.flag("sb.grid.snap", pane);
+    g.style = options_.choice("sb.grid.style", pane) == "dots" ? GridStyle::Dots : GridStyle::Lines;
+    if (const double spacing = options_.number("sb.grid.spacing", pane); spacing > 0) g.spacing = spacing;
     return g;
 }
 
@@ -183,14 +185,14 @@ bool GridService::hasOwn(std::string_view pane) const {
 Diagnostics GridService::set(const GridSettings& next) {
     writing_ = true;  // one GridChanged for all four options, not one each
     // The spacing first: if it's refused, nothing changes.
-    auto problems = options_.set("kh.grid.spacing", next.spacing);
+    auto problems = options_.set("sb.grid.spacing", next.spacing);
     if (problems.empty()) {
-        options_.set("kh.grid.show", next.visible);
-        options_.set("kh.grid.snap", next.snap);
-        options_.set("kh.grid.style", std::string(next.style == GridStyle::Dots ? "dots" : "lines"));
+        options_.set("sb.grid.show", next.visible);
+        options_.set("sb.grid.snap", next.snap);
+        options_.set("sb.grid.style", std::string(next.style == GridStyle::Dots ? "dots" : "lines"));
     }
     writing_ = false;
-    changed({"kh.grid.spacing", {}});
+    changed({"sb.grid.spacing", {}});
     return problems;
 }
 
@@ -201,7 +203,7 @@ Diagnostics GridService::setSpacing(double spacing) {
 }
 
 void GridService::changed(const viewoptions::ViewOptionChanged& e) {
-    if (writing_ || e.option.rfind("kh.grid.", 0) != 0) return;
+    if (writing_ || e.option.rfind("sb.grid.", 0) != 0) return;
     if (!e.pane.empty()) {
         bus_.publish(GridChanged{read(e.pane), e.pane});
         return;
@@ -257,4 +259,4 @@ plugin::BuiltinPlugin gridPlugin() {
     return {kManifest, &registerGrid};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins

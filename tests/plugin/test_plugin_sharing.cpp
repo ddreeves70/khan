@@ -1,5 +1,5 @@
 // Tests for plugins sharing things with each other: services offered by plugins,
-// two-phase startup, "uses", loops (allowed), and the warnings Khan gives while loading
+// two-phase startup, "uses", loops (allowed), and the warnings SketchBillet gives while loading
 // (see docs/design/plugin-contracts.md).
 
 #include <catch2/catch_test_macros.hpp>
@@ -9,10 +9,10 @@
 #include <thread>
 #include <vector>
 
-#include "kh/plugin/PluginHost.h"
+#include "sb/plugin/PluginHost.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 namespace {
 
@@ -176,14 +176,14 @@ TEST_CASE("looking up a required plugin's service while registering is fine", "[
     host.addBuiltin({manifest("test.ruler"), &provideRuler});
     host.addBuiltin({manifest("test.user", R"("requires": ["test.ruler"])"), &useRulerAtRegister});
     host.loadAll();
-    CHECK(seen->atRegister != nullptr);  // "requires" makes Khan load the ruler first, always
+    CHECK(seen->atRegister != nullptr);  // "requires" makes SketchBillet load the ruler first, always
     CHECK(get(host, "test.user").issues.empty());
 }
 
 TEST_CASE("the app's own services never give warnings", "[plugin][sharing]") {
     SeenGuard guard;
     PluginHost host;
-    host.provide<IRuler>(ruler);  // provided by the program, like kh.ui
+    host.provide<IRuler>(ruler);  // provided by the program, like sb.ui
     host.addBuiltin({manifest("test.user"), &useRulerAtRegister});
     host.loadAll();
     CHECK(seen->atRegister != nullptr);
@@ -200,7 +200,7 @@ TEST_CASE("two plugins can't provide the same service", "[plugin][sharing]") {
     CHECK(pro.state == PluginState::Loaded);
     CHECK(pro.services.empty());
     CHECK(codes(pro) == std::vector<std::string>{"plugin.service_taken"});
-    CHECK(pro.issues[0].message.find("Khan kept test.ruler's") != std::string::npos);
+    CHECK(pro.issues[0].message.find("SketchBillet kept test.ruler's") != std::string::npos);
 }
 
 TEST_CASE("using a service that's going away is warned about", "[plugin][sharing]") {

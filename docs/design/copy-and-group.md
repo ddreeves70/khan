@@ -28,23 +28,23 @@ copies are independent: changing one never changes the other.
 
 **How it's built.**
 
-- `kh_model`: `copySteps(doc, ids)` finds the steps and everything they use, in
+- `sb_model`: `copySteps(doc, ids)` finds the steps and everything they use, in
   design order, and gives them new ids with `freshIds()`, which also points each
   copy's inputs at the other copies (`Feature::remapInputs`). `AddFeaturesCommand`
   adds a list of steps at the end of the design as **one** undo step: it renames
   taken names, adds the custom materials the steps use, and checks every input.
   If any step can't be added, nothing is.
-- `feature.duplicate` is a registry command (so `kh_cli run`, Python and the AI
-  assistant get it too), and kh.modeling adds Edit > Duplicate step (Ctrl+D).
-- `kh_io`: `stepsToText()` writes the copied steps as JSON in the same form a
-  `.khan` file uses, plus the custom materials they use:
-  `{"format": "khan-steps", "version": 1, "steps": [...], "materials": [...]}`.
+- `feature.duplicate` is a registry command (so `sketchbillet_cli run`, Python and the AI
+  assistant get it too), and sb.modeling adds Edit > Duplicate step (Ctrl+D).
+- `sb_io`: `stepsToText()` writes the copied steps as JSON in the same form a
+  `.sb` file uses, plus the custom materials they use:
+  `{"format": "sketchbillet-steps", "version": 1, "steps": [...], "materials": [...]}`.
   `stepsFromText()` reads it back with new ids and plain-word errors
   (`paste.not_steps`, `paste.too_new`, `paste.damaged`, `paste.unknown_step`).
   Every input must be an earlier copied step: pasted text can never point into
   the design it's pasted into.
 - The desktop app puts that text on the system clipboard twice: as
-  `application/x-khan-steps`, and as plain text, so steps can be pasted into a
+  `application/x-sketchbillet-steps`, and as plain text, so steps can be pasted into a
   message and back. Edit > Copy and Edit > Paste are the shell's own items, next
   to Undo and Redo.
 
@@ -60,10 +60,10 @@ copies are independent: changing one never changes the other.
 
 ## 2. Turn steps off together
 
-Steps could already be off (`suppressed` is saved in `.khan` files and shown as
+Steps could already be off (`suppressed` is saved in `.sb` files and shown as
 `off` in the feature tree); now the student can change it.
 
-- `kh_model`: `SuppressFeaturesCommand(ids, off)` turns several steps off or on
+- `sb_model`: `SuppressFeaturesCommand(ids, off)` turns several steps off or on
   as **one** undo step. Steps already that way are left alone, and undo only
   changes the ones it changed. If none would change, it says so
   (`feature.already_off`, `feature.already_on`).
@@ -71,7 +71,7 @@ Steps could already be off (`suppressed` is saved in `.khan` files and shown as
   more steps, `steps=Box1,Hole` on the command line) and `off` (default true).
 - Plugin API 11: `ActionSpec::fromSelectionList` fills a `FeatureList` argument
   with every selected step and enables the item when one or more are selected.
-  kh.modeling uses it for **Edit > Turn off** and **Edit > Turn on**. The feature
+  sb.modeling uses it for **Edit > Turn off** and **Edit > Turn on**. The feature
   tree's right-click menu has the same item, for the picked steps (or just the
   row clicked, if it isn't picked).
 - A step that uses a step that's off is `blocked`, with a message naming the step
@@ -82,7 +82,7 @@ Steps could already be off (`suppressed` is saved in `.khan` files and shown as
 A folder is a named, persistent object (`FolderId`) holding steps that are next to
 each other in the tree. It's for tidiness only: it never changes what gets built.
 
-- `kh_model`: `Folder {id, name, steps}`. `AddFolderCommand`, `RenameFolderCommand`
+- `sb_model`: `Folder {id, name, steps}`. `AddFolderCommand`, `RenameFolderCommand`
   and `DeleteFolderCommand` (which keeps the steps) are the only ways to change
   folders. `Document::folders()` lists them in tree order, each with only the
   steps still in the design; a folder whose steps were all deleted isn't listed
@@ -94,11 +94,11 @@ each other in the tree. It's for tidiness only: it never changes what gets built
 - File: an optional `folders.json` (see [the file format](../file-format.md#foldersjson)),
   read after the steps through `folder.add`, so the same checks run. Designs
   without folders save byte for byte as before, and the schema stays 1: an older
-  Khan opens the steps and drops the folders.
+  SketchBillet opens the steps and drops the folders.
 - Feature tree: a folder row (kind "Folder") with its steps under it. Picking the
   row picks its steps, so Turn off works on a folder; a folder shows `off` when
   all its steps are. Right-click a folder for Rename folder, Turn off or on, and
-  Remove folder. Whether a folder is open is remembered while Khan runs, not
+  Remove folder. Whether a folder is open is remembered while SketchBillet runs, not
   saved.
 
 **Choices.**
@@ -116,20 +116,20 @@ each other in the tree. It's for tidiness only: it never changes what gets built
 The body keeps its size and shape, and the step it moves is used up, like a
 Boolean's inputs.
 
-- `kh_kernel`: `IKernel::transform(shape, Motion)`, with `Motion {offset, center,
+- `sb_kernel`: `IKernel::transform(shape, Motion)`, with `Motion {offset, center,
   axis, angle}` (mm and radians). It's added at the end of `IKernel`, so the
   plugin API doesn't change. The OCCT adapter copies the geometry
   (`BRepBuilderAPI_Transform` with copy on), so moved shapes have no hidden
   placement and mesh and export like any other. Corpus cases: `move-slide`,
   `move-turn`, `move-turn-then-slide` (the turn comes first) and
   `invalid-move-axis`.
-- `kh_model`: `MoveFeature` (`FeatureType::Move`), `feature.add_move` (`body`,
+- `sb_model`: `MoveFeature` (`FeatureType::Move`), `feature.add_move` (`body`,
   `by`, `turn` in degrees, `axis`, `about`). A moved body is made of what the
   body it moves is made of: `materialOf()` now follows any step's first input,
   not just a Boolean's A.
 - File: a new step type, `"Move"`, with `inputs.body` and `params.offset`,
   `center`, `axis` and `angle` (radians). New step types keep schema 1; an older
-  Khan says the step is a kind it doesn't know.
+  SketchBillet says the step is a kind it doesn't know.
 - App: **Modify > Move** (Ctrl+M) adds a Move of the picked step; Properties
   shows Move (mm), Turn (degrees), Axis and Center (mm).
 

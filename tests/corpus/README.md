@@ -1,15 +1,15 @@
 # Geometry regression corpus
 
 Each `.json` file here is one reference part. CTest runs every case through
-`kh_cli regress`, on every platform in CI. A case builds a shape from simple steps
+`sketchbillet_cli regress`, on every platform in CI. A case builds a shape from simple steps
 and checks the result against recorded values, so any change in kernel behavior
 (an OCCT upgrade, a new feature, an AI-written refactor) shows up as a failing case.
 
 ## Running
 
 ```bash
-kh_cli regress tests/corpus              # all cases
-kh_cli regress tests/corpus/keychain-tag.json
+sketchbillet_cli regress tests/corpus              # all cases
+sketchbillet_cli regress tests/corpus/keychain-tag.json
 ctest --preset <preset> -R corpus        # through CTest
 ```
 
@@ -58,7 +58,7 @@ deterministic).
 ## Adding a case
 
 1. Write the file with `name`, `description` and `steps` (no `expect`).
-2. Record the results: `kh_cli regress --update tests/corpus/<name>.json`.
+2. Record the results: `sketchbillet_cli regress --update tests/corpus/<name>.json`.
 3. **Check the recorded values by hand** (volume against a formula, face counts against
    a sketch). The corpus is only useful if what it records is right.
 4. Re-run CMake configure so CTest picks up the new file, then commit.
@@ -66,8 +66,8 @@ deterministic).
 When a kernel change alters results on purpose, run `--update` on the affected cases,
 review the diff in each file, and explain the change in the commit message.
 
-**Curved and free-form parts need values worked out without Khan.** Recording
-Khan's own output and calling it checked is how a wrong number gets into the
+**Curved and free-form parts need values worked out without SketchBillet.** Recording
+SketchBillet's own output and calling it checked is how a wrong number gets into the
 corpus: two spline cases kept OCCT's slightly wrong surface areas until Oct 31,
 2026, when the spline cases' values were worked out separately (the B-splines
 evaluated with SciPy, areas by Green's theorem, lengths by adaptive integration

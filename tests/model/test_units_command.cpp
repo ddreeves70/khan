@@ -2,12 +2,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "kh/model/CommandRegistry.h"
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
 
-using namespace kh;
-using namespace kh::model;
+using namespace sb;
+using namespace sb::model;
 
 TEST_CASE("document.set_units changes the unit lengths are shown in, and undoes", "[model][units]") {
     Document doc;
@@ -27,7 +27,7 @@ TEST_CASE("document.set_units changes the unit lengths are shown in, and undoes"
     CHECK(doc.lengthUnit() == LengthUnit::Inch);
 }
 
-TEST_CASE("document.set_units only takes units Khan knows", "[model][units]") {
+TEST_CASE("document.set_units only takes units SketchBillet knows", "[model][units]") {
     Document doc;
     auto made =
         CommandRegistry::builtin().create("document.set_units", {{"unit", std::string("cubits")}}, doc);

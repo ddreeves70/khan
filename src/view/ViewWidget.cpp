@@ -1,4 +1,4 @@
-#include "kh/view/ViewWidget.h"
+#include "sb/view/ViewWidget.h"
 
 #include <QCoreApplication>
 #include <QKeyEvent>
@@ -47,10 +47,10 @@
 #include <type_traits>
 
 #include "OcctGl.h"
-#include "kh/kernel_occt/OcctShape.h"
-#include "kh/view/Graphics.h"
+#include "sb/kernel_occt/OcctShape.h"
+#include "sb/view/Graphics.h"
 
-namespace kh::view {
+namespace sb::view {
 
 namespace {
 
@@ -162,15 +162,15 @@ Aspect_VKeyFlags toFlags(Qt::KeyboardModifiers m) {
     return out;
 }
 
-// The message for the student, plus what went wrong where, for Khan's
+// The message for the student, plus what went wrong where, for SketchBillet's
 // developers (shown in small print on the flat view's card).
 QString drawFailed(const QString& detail) {
-    return QCoreApplication::translate("kh::view",
+    return QCoreApplication::translate("sb::view",
                                        "The 3D view couldn't start OpenGL on this computer. Update the "
                                        "graphics driver (in a virtual machine, "
-                                       "turn on 3D acceleration), then restart Khan.") +
+                                       "turn on 3D acceleration), then restart SketchBillet.") +
            QStringLiteral("\n\n") +
-           QCoreApplication::translate("kh::view", "Details for Khan's developers: %1").arg(detail);
+           QCoreApplication::translate("sb::view", "Details for SketchBillet's developers: %1").arg(detail);
 }
 
 // A Qt window id as OCCT's window handle: a pointer (HWND) on Windows, a
@@ -800,7 +800,7 @@ void ViewWidget::initializeGL() {
             d.cube = new AIS_ViewCube();
             d.cube->SetSize(kCubeSize * ratio);
             d.cube->SetFontHeight(9 * ratio);
-            d.cube->SetDrawAxes(false);  // the kh.axes plugin draws them, as overlays on the cube
+            d.cube->SetDrawAxes(false);  // the sb.axes plugin draws them, as overlays on the cube
             d.cube->SetViewAnimation(d.controller.ViewAnimation());
             d.cube->SetFixedAnimationLoop(false);
             d.cube->SetAutoStartAnimation(true);
@@ -982,4 +982,4 @@ void ViewWidget::leaveEvent(QEvent* event) {
     }
 }
 
-}  // namespace kh::view
+}  // namespace sb::view

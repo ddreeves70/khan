@@ -2,11 +2,11 @@
 
 // Small helpers for building test sketches.
 
-#include "kh/sketch/Sketch.h"
+#include "sb/sketch/Sketch.h"
 
-namespace kh::test {
+namespace sb::test {
 
-using namespace kh::sketch;
+using namespace sb::sketch;
 
 struct SketchBuilder {
     Sketch sketch;
@@ -53,4 +53,4 @@ inline PointRef pole(EntityId e, int i) {
     return {e, PointRole::Pole, i};
 }
 
-}  // namespace kh::test
+}  // namespace sb::test

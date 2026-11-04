@@ -3,13 +3,13 @@
 
 #include <memory>
 
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/plugin/Api.h"
-#include "kh/plugin/Events.h"
-#include "kh/plugin/PluginContext.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/plugin/Api.h"
+#include "sb/plugin/Events.h"
+#include "sb/plugin/PluginContext.h"
 
-using namespace kh;
+using namespace sb;
 
 namespace {
 
@@ -44,4 +44,4 @@ void registerHello(plugin::PluginContext& ctx) {
 
 }  // namespace
 
-KH_PLUGIN_ENTRY(registerHello)
+SB_PLUGIN_ENTRY(registerHello)

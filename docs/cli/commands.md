@@ -1,11 +1,11 @@
 # Modeling commands
 
-These are the commands [`kh_cli run`](run.md) runs. Each one adds or changes one
+These are the commands [`sketchbillet_cli run`](run.md) runs. Each one adds or changes one
 step of a design. The desktop app's buttons, Python scripts and the AI assistant
 will run the same commands, by the same names.
 
 Commands always take lengths in millimeters (mm), whatever unit the design shows
-its lengths in (see [`document.set_units`](#documentset_units)); `kh_cli` prints
+its lengths in (see [`document.set_units`](#documentset_units)); `sketchbillet_cli` prints
 volumes and sketch lengths in the design's unit. Positions and sizes are written
 `x,y,z`: **x** goes right, **y** goes back, **z** goes up.
 
@@ -38,8 +38,8 @@ volumes and sketch lengths in the design's unit. Positions and sizes are written
 | [`parameter.rename`](#parameterrename) | Renames a parameter, and every value that uses it |
 | [`parameter.delete`](#parameterdelete) | Removes a parameter nothing uses |
 
-Plugins can add more commands. [`kh_cli help`](help.md) lists every command
-Khan has right now.
+Plugins can add more commands. [`sketchbillet_cli help`](help.md) lists every command
+SketchBillet has right now.
 
 ## feature.add_box
 
@@ -53,10 +53,10 @@ Adds a box with its edges along x, y and z.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save box.khan feature.add_box size=40,30,20
+$ sketchbillet_cli run --save box.sb feature.add_box size=40,30,20
 box: 1 step
   Box1         ok  volume 24000.00 mm^3  mass 29.76 g (PLA)
-wrote box.khan
+wrote box.sb
 ```
 
 ![A 40 x 30 x 20 mm box](images/cmd-box.png)
@@ -65,7 +65,7 @@ Moved away from the origin, and named:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run feature.add_box corner=10,0,5 size=20,20,2 name=Shelf
+$ sketchbillet_cli run feature.add_box corner=10,0,5 size=20,20,2 name=Shelf
 Untitled: 1 step
   Shelf        ok  volume 800.00 mm^3  mass 0.99 g (PLA)
 ```
@@ -84,7 +84,7 @@ Adds a round cylinder.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run feature.add_cylinder radius=10 height=25
+$ sketchbillet_cli run feature.add_cylinder radius=10 height=25
 Untitled: 1 step
   Cylinder1    ok  volume 7853.98 mm^3  mass 9.74 g (PLA)
 ```
@@ -95,7 +95,7 @@ Lying on its side, pointing along x:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run feature.add_cylinder radius=5 height=40 axis=1,0,0 name=Rod
+$ sketchbillet_cli run feature.add_cylinder radius=5 height=40 axis=1,0,0 name=Rod
 Untitled: 1 step
   Rod          ok  volume 3141.59 mm^3  mass 3.90 g (PLA)
 ```
@@ -115,15 +115,15 @@ A box and a cylinder that overlap:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save parts.khan feature.add_box size=30,30,10
+$ sketchbillet_cli run --save parts.sb feature.add_box size=30,30,10
 parts: 1 step
   Box1         ok  volume 9000.00 mm^3  mass 11.16 g (PLA)
-wrote parts.khan
-$ kh_cli run --open parts.khan --save parts.khan feature.add_cylinder base=30,15,0 radius=10 height=20
+wrote parts.sb
+$ sketchbillet_cli run --open parts.sb --save parts.sb feature.add_cylinder base=30,15,0 radius=10 height=20
 parts: 2 steps
   Box1         ok  volume 9000.00 mm^3  mass 11.16 g (PLA)
   Cylinder1    ok  volume 6283.19 mm^3  mass 7.79 g (PLA)
-wrote parts.khan
+wrote parts.sb
 ```
 
 | `union`: both together | `cut`: a minus b | `intersect`: only the overlap |
@@ -132,17 +132,17 @@ wrote parts.khan
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open parts.khan feature.add_boolean operation=union a=Box1 b=Cylinder1
+$ sketchbillet_cli run --open parts.sb feature.add_boolean operation=union a=Box1 b=Cylinder1
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
   Union1       ok  volume 13712.39 mm^3  mass 17.00 g (PLA)
-$ kh_cli run --open parts.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1
+$ sketchbillet_cli run --open parts.sb feature.add_boolean operation=cut a=Box1 b=Cylinder1
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
   Cut1         ok  volume 7429.20 mm^3  mass 9.21 g (PLA)
-$ kh_cli run --open parts.khan feature.add_boolean operation=intersect a=Box1 b=Cylinder1
+$ sketchbillet_cli run --open parts.sb feature.add_boolean operation=intersect a=Box1 b=Cylinder1
 parts: 3 steps
   Box1         ok  volume 9000.00 mm^3
   Cylinder1    ok  volume 6283.19 mm^3
@@ -169,22 +169,22 @@ the step it moves is used up, like the bodies a Boolean combines. See
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo demo.khan
-wrote demo.khan
-$ kh_cli run --open demo.khan --save demo.khan feature.add_move body=Tag by=10,0,0 turn=90 about=30,15,0
+$ sketchbillet_cli demo demo.sb
+wrote demo.sb
+$ sketchbillet_cli run --open demo.sb --save demo.sb feature.add_move body=Tag by=10,0,0 turn=90 about=30,15,0
 Demo tag: 4 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3
   Move1        ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote demo.khan
+wrote demo.sb
 ```
 
 Turning about an axis of `0,0,0` fails, with a message saying how to fix it:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open demo.khan feature.add_move body=Move1 turn=45 axis=0,0,0
+$ sketchbillet_cli run --open demo.sb feature.add_move body=Move1 turn=45 axis=0,0,0
 Demo tag: 5 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
@@ -206,23 +206,23 @@ the step itself, not its name.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save tag.khan feature.add_box size=60,30,4
+$ sketchbillet_cli run --save tag.sb feature.add_box size=60,30,4
 tag: 1 step
   Box1         ok  volume 7200.00 mm^3  mass 8.93 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan feature.rename feature=Box1 name=Plate
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.rename feature=Box1 name=Plate
 tag: 1 step
   Plate        ok  volume 7200.00 mm^3  mass 8.93 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 Two steps can't have the same name:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli demo demo.khan
-wrote demo.khan
-$ kh_cli run --open demo.khan feature.rename feature=Hole name=Plate
+$ sketchbillet_cli demo demo.sb
+wrote demo.sb
+$ sketchbillet_cli run --open demo.sb feature.rename feature=Hole name=Plate
 error [feature.name_taken]: Another step is already called Plate. Pick a different name.
 ```
 
@@ -236,13 +236,13 @@ Deletes a step. A step that other steps use can't be deleted; delete those first
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save scrap.khan feature.add_box size=10,10,10
+$ sketchbillet_cli run --save scrap.sb feature.add_box size=10,10,10
 scrap: 1 step
   Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
-wrote scrap.khan
-$ kh_cli run --open scrap.khan --save scrap.khan feature.delete feature=Box1
+wrote scrap.sb
+$ sketchbillet_cli run --open scrap.sb --save scrap.sb feature.delete feature=Box1
 scrap: 0 steps
-wrote scrap.khan
+wrote scrap.sb
 ```
 
 A step that another step uses can't be deleted. In the [demo tag](demo.md), `Tag`
@@ -250,9 +250,9 @@ cuts `Hole` out of `Plate`:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli demo demo.khan
-wrote demo.khan
-$ kh_cli run --open demo.khan feature.delete feature=Plate
+$ sketchbillet_cli demo demo.sb
+wrote demo.sb
+$ sketchbillet_cli run --open demo.sb feature.delete feature=Plate
 error [feature.in_use]: Plate is used by Tag. Delete or change Tag first.
 ```
 
@@ -272,9 +272,9 @@ the copies never changes the originals.
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo demo.khan
-wrote demo.khan
-$ kh_cli run --open demo.khan --save demo.khan feature.duplicate feature=Tag
+$ sketchbillet_cli demo demo.sb
+wrote demo.sb
+$ sketchbillet_cli run --open demo.sb --save demo.sb feature.duplicate feature=Tag
 Demo tag: 6 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
@@ -282,7 +282,7 @@ Demo tag: 6 steps
   Plate1       ok  volume 7200.00 mm^3
   Hole1        ok  volume 117.81 mm^3
   Tag1         ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote demo.khan
+wrote demo.sb
 ```
 
 ## feature.set_material
@@ -295,38 +295,38 @@ of its first body, `a` (see [Materials](../user-guide/materials.md)).
 | Setting | Kind | Needed | Meaning |
 | --- | --- | --- | --- |
 | `feature` | step name | yes | The step |
-| `material` | text | yes | A material's name, like `PLA` or `"Aluminum 6061"` (upper or lower case). [`kh_cli materials`](materials.md) lists them. Leave it empty (`material=`) to go back to the material the step gets by default |
+| `material` | text | yes | A material's name, like `PLA` or `"Aluminum 6061"` (upper or lower case). [`sketchbillet_cli materials`](materials.md) lists them. Leave it empty (`material=`) to go back to the material the step gets by default |
 
 The demo tag in aluminum instead of PLA: `Tag` cuts the hole out of `Plate`, so it
 takes `Plate`'s material.
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan feature.set_material feature=Plate material="Aluminum 6061"
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.set_material feature=Plate material="Aluminum 6061"
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 19.23 g (Aluminum 6061)
-wrote tag.khan
+wrote tag.sb
 ```
 
-A material Khan doesn't know is refused:
+A material SketchBillet doesn't know is refused:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli run --open tag.khan feature.set_material feature=Plate material=gold
-error [material.unknown]: There is no material called gold. See the list with kh_cli materials, or add your own with material.define.
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb feature.set_material feature=Plate material=gold
+error [material.unknown]: There is no material called gold. See the list with sketchbillet_cli materials, or add your own with material.define.
 ```
 
 ## feature.set_value
 
 Changes one of a step's numbers, like how far an extrude goes or a box's size.
 Give it a number, or a formula that uses [parameters](#parameterset): then the
-number follows the parameters when they change. `kh_cli` lists a number that
+number follows the parameters when they change. `sketchbillet_cli` lists a number that
 comes from a formula under its step, with what it works out to.
 
 | Setting | Kind | Needed | Meaning |
@@ -347,44 +347,44 @@ A plate that's 4 walls thick:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save plate.khan parameter.set name=wall value="3 mm"
+$ sketchbillet_cli run --save plate.sb parameter.set name=wall value="3 mm"
 plate: 0 steps
 Parameters:
   wall = 3 mm
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan feature.add_box size=40,20,5
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb feature.add_box size=40,20,5
 plate: 1 step
   Box1         ok  volume 4000.00 mm^3  mass 4.96 g (PLA)
 Parameters:
   wall = 3 mm
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan feature.set_value feature=Box1 setting=size_z formula="wall * 4"
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb feature.set_value feature=Box1 setting=size_z formula="wall * 4"
 plate: 1 step
   Box1         ok  volume 9600.00 mm^3  mass 11.90 g (PLA)
     size_z = wall * 4  (12 mm)
 Parameters:
   wall = 3 mm
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan parameter.set name=wall value="2 mm"
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb parameter.set name=wall value="2 mm"
 plate: 1 step
   Box1         ok  volume 6400.00 mm^3  mass 7.94 g (PLA)
     size_z = wall * 4  (8 mm)
 Parameters:
   wall = 2 mm
-wrote plate.khan
+wrote plate.sb
 ```
 
 Each step has only its own numbers, and a size must be more than 0 mm:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open plate.khan feature.set_value feature=Box1 setting=radius value=3
+$ sketchbillet_cli run --open plate.sb feature.set_value feature=Box1 setting=radius value=3
 error [feature.number]: Box1 has no number called radius. Its numbers are: corner_x, corner_y, corner_z, size_x, size_y and size_z.
 ```
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open plate.khan parameter.set name=wall value="0 mm"
+$ sketchbillet_cli run --open plate.sb parameter.set name=wall value="0 mm"
 error [parameter.breaks]: Changing wall to 0 mm would stop size_z in Box1 working: size_z in Box1 would be 0 mm (wall * 4), but it must be more than 0 mm.
 ```
 
@@ -404,36 +404,36 @@ A box slides by changing its corner:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save s.khan feature.add_box size=20,10,5
+$ sketchbillet_cli run --save s.sb feature.add_box size=20,10,5
 s: 1 step
   Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
-wrote s.khan
-$ kh_cli run --open s.khan --save s.khan feature.slide feature=Box1 by=15,0,0
+wrote s.sb
+$ sketchbillet_cli run --open s.sb --save s.sb feature.slide feature=Box1 by=15,0,0
 s: 1 step
   Box1         ok  volume 1000.00 mm^3  mass 1.24 g (PLA)
-wrote s.khan
+wrote s.sb
 ```
 
 The demo tag is a cut, so sliding it adds a Move step:
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan feature.slide feature=Tag by=0,0,10
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.slide feature=Tag by=0,0,10
 Demo tag: 4 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3
   Move1        ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 A body that a later step uses can't slide on its own:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open tag.khan feature.slide feature=Tag by=5,0,0
+$ sketchbillet_cli run --open tag.sb feature.slide feature=Tag by=5,0,0
 error [slide.used]: Tag is used by Move1, so moving it alone would leave Move1 behind. Move Move1 instead.
 ```
 
@@ -450,39 +450,39 @@ undo step.
 | `off` | true or false | no | `true` (the default) turns them off; `false` turns them back on |
 
 In the [demo tag](demo.md), turning off `Hole` blocks `Tag`, which cuts it out of
-`Plate`. Because a step is blocked, `kh_cli` ends with exit code 1, but the design
+`Plate`. Because a step is blocked, `sketchbillet_cli` ends with exit code 1, but the design
 is still saved:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli demo demo.khan
-wrote demo.khan
-$ kh_cli run --open demo.khan --save demo.khan feature.suppress steps=Hole
+$ sketchbillet_cli demo demo.sb
+wrote demo.sb
+$ sketchbillet_cli run --open demo.sb --save demo.sb feature.suppress steps=Hole
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         off
   Tag          blocked
     error [feature.blocked]: This step uses Hole, which is turned off. Turn Hole back on, or change this step.
-wrote demo.khan
+wrote demo.sb
 ```
 
 Turn it back on with `off=false`:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open demo.khan --save demo.khan feature.suppress steps=Hole off=false
+$ sketchbillet_cli run --open demo.sb --save demo.sb feature.suppress steps=Hole off=false
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote demo.khan
+wrote demo.sb
 ```
 
 Steps that are already that way can't be changed again:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open demo.khan feature.suppress steps=Plate,Hole off=false
+$ sketchbillet_cli run --open demo.sb feature.suppress steps=Plate,Hole off=false
 error [feature.already_on]: Those steps are already turned on.
 ```
 
@@ -490,7 +490,7 @@ error [feature.already_on]: Those steps are already turned on.
 
 Puts steps into a folder, to keep the feature tree tidy. A folder never changes
 what's built. The steps must be next to each other in the tree, and a step can
-only be in one folder. `kh_cli` shows a folder's name with a `/` after it, and its
+only be in one folder. `sketchbillet_cli` shows a folder's name with a `/` after it, and its
 steps indented under it.
 
 | Setting | Kind | Needed | Meaning |
@@ -500,24 +500,24 @@ steps indented under it.
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo demo.khan
-wrote demo.khan
-$ kh_cli run --open demo.khan --save demo.khan folder.add steps=Plate,Hole name=Parts
+$ sketchbillet_cli demo demo.sb
+wrote demo.sb
+$ sketchbillet_cli run --open demo.sb --save demo.sb folder.add steps=Plate,Hole name=Parts
 Demo tag: 3 steps
   Parts/
     Plate      ok  volume 7200.00 mm^3
     Hole       ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote demo.khan
+wrote demo.sb
 ```
 
 Steps with another step between them can't share a folder:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli demo demo.khan
-wrote demo.khan
-$ kh_cli run --open demo.khan folder.add steps=Plate,Tag
+$ sketchbillet_cli demo demo.sb
+wrote demo.sb
+$ sketchbillet_cli run --open demo.sb folder.add steps=Plate,Tag
 error [folder.not_together]: Only steps next to each other in the feature tree can go in one folder. Pick steps with no other steps between them.
 ```
 
@@ -532,22 +532,22 @@ Gives a folder a new name.
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo demo.khan
-wrote demo.khan
-$ kh_cli run --open demo.khan --save demo.khan folder.add steps=Plate,Hole
+$ sketchbillet_cli demo demo.sb
+wrote demo.sb
+$ sketchbillet_cli run --open demo.sb --save demo.sb folder.add steps=Plate,Hole
 Demo tag: 3 steps
   Folder1/
     Plate      ok  volume 7200.00 mm^3
     Hole       ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote demo.khan
-$ kh_cli run --open demo.khan --save demo.khan folder.rename folder=Folder1 name=Parts
+wrote demo.sb
+$ sketchbillet_cli run --open demo.sb --save demo.sb folder.rename folder=Folder1 name=Parts
 Demo tag: 3 steps
   Parts/
     Plate      ok  volume 7200.00 mm^3
     Hole       ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote demo.khan
+wrote demo.sb
 ```
 
 ## folder.delete
@@ -560,12 +560,12 @@ Removes a folder. Its steps stay, back at the top of the tree.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open demo.khan --save demo.khan folder.delete folder=Parts
+$ sketchbillet_cli run --open demo.sb --save demo.sb folder.delete folder=Parts
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote demo.khan
+wrote demo.sb
 ```
 
 ## feature.add_sketch
@@ -581,10 +581,10 @@ it has no volume, and it's solved again every time the design rebuilds.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save s.khan feature.add_sketch plane=xz
+$ sketchbillet_cli run --save s.sb feature.add_sketch plane=xz
 s: 1 step
   Sketch1      ok  empty
-wrote s.khan
+wrote s.sb
 ```
 
 ## sketch.add_point
@@ -600,10 +600,10 @@ Adds a point.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open s.khan --save s.khan sketch.add_point sketch=Sketch1 at=5,5
+$ sketchbillet_cli run --open s.sb --save s.sb sketch.add_point sketch=Sketch1 at=5,5
 s: 1 step
   Sketch1      ok  1 point, 0 constraints, free to move 2 ways
-wrote s.khan
+wrote s.sb
 ```
 
 ## sketch.add_line
@@ -620,10 +620,10 @@ Adds a straight line. Its points are `.start` and `.end`.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open s.khan --save s.khan sketch.add_line sketch=Sketch1 from=0,0 to=40,0
+$ sketchbillet_cli run --open s.sb --save s.sb sketch.add_line sketch=Sketch1 from=0,0 to=40,0
 s: 1 step
   Sketch1      ok  1 line, 1 point, 0 constraints, free to move 6 ways
-wrote s.khan
+wrote s.sb
 ```
 
 ## sketch.add_rectangle
@@ -644,15 +644,15 @@ A 40 × 20 mm plate, extruded 3 mm, is 2400 mm³:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save plate.khan feature.add_sketch
+$ sketchbillet_cli run --save plate.sb feature.add_sketch
 plate: 1 step
   Sketch1      ok  empty
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
 plate: 1 step
   Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan feature.add_extrude sketch=Sketch1 distance=3
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb feature.add_extrude sketch=Sketch1 distance=3
 plate: 2 steps
   Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
   Extrude1     ok  volume 2400.00 mm^3  mass 2.98 g (PLA)
@@ -660,7 +660,7 @@ plate: 2 steps
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open plate.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,0
+$ sketchbillet_cli run --open plate.sb sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,0
 error [sketch.rectangle]: A rectangle needs a width and a height: put the corners apart both left to right and up and down, like from=0,0 to=40,20.
 ```
 
@@ -684,23 +684,23 @@ The 40 × 20 plate with all four corners rounded to 5 mm loses 4 × (25 − 25π
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open plate.khan --save plate.khan sketch.round_corner sketch=Sketch1 at=Line1.end radius=5
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.round_corner sketch=Sketch1 at=Line1.end radius=5
 plate: 1 step
   Sketch1      ok  4 lines, 1 arc, 1 point, 14 constraints, free to move 4 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.round_corner sketch=Sketch1 at=Line2.end radius=5
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.round_corner sketch=Sketch1 at=Line2.end radius=5
 plate: 1 step
   Sketch1      ok  4 lines, 2 arcs, 2 points, 20 constraints, free to move 4 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.round_corner sketch=Sketch1 at=Line3.end radius=5
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.round_corner sketch=Sketch1 at=Line3.end radius=5
 plate: 1 step
   Sketch1      ok  4 lines, 3 arcs, 3 points, 26 constraints, free to move 4 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.round_corner sketch=Sketch1 at=Line4.end radius=5
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.round_corner sketch=Sketch1 at=Line4.end radius=5
 plate: 1 step
   Sketch1      ok  4 lines, 4 arcs, 4 points, 32 constraints, free to move 4 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan feature.add_extrude sketch=Sketch1 distance=3
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb feature.add_extrude sketch=Sketch1 distance=3
 plate: 2 steps
   Sketch1      ok  4 lines, 4 arcs, 4 points, 32 constraints, free to move 4 ways
   Extrude1     ok  volume 2335.62 mm^3  mass 2.90 g (PLA)
@@ -710,15 +710,15 @@ A radius has to fit on both lines:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --save rounded.khan feature.add_sketch
+$ sketchbillet_cli run --save rounded.sb feature.add_sketch
 rounded: 1 step
   Sketch1      ok  empty
-wrote rounded.khan
-$ kh_cli run --open rounded.khan --save rounded.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
+wrote rounded.sb
+$ sketchbillet_cli run --open rounded.sb --save rounded.sb sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
 rounded: 1 step
   Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
-wrote rounded.khan
-$ kh_cli run --open rounded.khan sketch.round_corner sketch=Sketch1 at=Line1.end radius=25
+wrote rounded.sb
+$ sketchbillet_cli run --open rounded.sb sketch.round_corner sketch=Sketch1 at=Line1.end radius=25
 error [sketch.round_corner]: A 25 mm radius doesn't fit that corner: it would cut back past the end of Line2. Use a radius under 20 mm.
 ```
 
@@ -746,27 +746,27 @@ outline, 800 + 50π = 957.08 mm², so 3 mm thick it's 2871.24 mm³:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save tab.khan feature.add_sketch
+$ sketchbillet_cli run --save tab.sb feature.add_sketch
 tab: 1 step
   Sketch1      ok  empty
-wrote tab.khan
-$ kh_cli run --open tab.khan --save tab.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
+wrote tab.sb
+$ sketchbillet_cli run --open tab.sb --save tab.sb sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
 tab: 1 step
   Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
-wrote tab.khan
-$ kh_cli run --open tab.khan --save tab.khan sketch.add_circle sketch=Sketch1 center=40,10 radius=10
+wrote tab.sb
+$ sketchbillet_cli run --open tab.sb --save tab.sb sketch.add_circle sketch=Sketch1 center=40,10 radius=10
 tab: 1 step
   Sketch1      ok  4 lines, 1 circle, 8 constraints, free to move 7 ways
-wrote tab.khan
-$ kh_cli run --open tab.khan --save tab.khan sketch.trim sketch=Sketch1 item=Circle1 near=30,10
+wrote tab.sb
+$ sketchbillet_cli run --open tab.sb --save tab.sb sketch.trim sketch=Sketch1 item=Circle1 near=30,10
 tab: 1 step
   Sketch1      ok  4 lines, 1 arc, 10 constraints, free to move 7 ways
-wrote tab.khan
-$ kh_cli run --open tab.khan --save tab.khan sketch.trim sketch=Sketch1 item=Line2 near=40,10
+wrote tab.sb
+$ sketchbillet_cli run --open tab.sb --save tab.sb sketch.trim sketch=Sketch1 item=Line2 near=40,10
 tab: 1 step
   Sketch1      ok  3 lines, 1 arc, 7 constraints, free to move 8 ways
-wrote tab.khan
-$ kh_cli run --open tab.khan feature.add_extrude sketch=Sketch1 distance=3
+wrote tab.sb
+$ sketchbillet_cli run --open tab.sb feature.add_extrude sketch=Sketch1 distance=3
 tab: 2 steps
   Sketch1      ok  3 lines, 1 arc, 7 constraints, free to move 8 ways
   Extrude1     ok  volume 2871.24 mm^3  mass 3.56 g (PLA)
@@ -774,7 +774,7 @@ tab: 2 steps
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open tab.khan sketch.trim sketch=Sketch1 item=Line9 near=0,0
+$ sketchbillet_cli run --open tab.sb sketch.trim sketch=Sketch1 item=Line9 near=0,0
 error [sketch.not_found]: There's nothing called Line9 in this sketch.
 ```
 
@@ -792,10 +792,10 @@ Adds a circle. Its point is `.center`.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open s.khan --save s.khan sketch.add_circle sketch=Sketch1 center=20,10 radius=4
+$ sketchbillet_cli run --open s.sb --save s.sb sketch.add_circle sketch=Sketch1 center=20,10 radius=4
 s: 1 step
   Sketch1      ok  1 line, 1 circle, 1 point, 0 constraints, free to move 9 ways
-wrote s.khan
+wrote s.sb
 ```
 
 ## sketch.add_arc
@@ -815,10 +815,10 @@ points are `.start`, `.end` and `.center`.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open s.khan --save s.khan sketch.add_arc sketch=Sketch1 center=40,10 radius=10 start=-90 end=90
+$ sketchbillet_cli run --open s.sb --save s.sb sketch.add_arc sketch=Sketch1 center=40,10 radius=10 start=-90 end=90
 s: 1 step
   Sketch1      ok  1 line, 1 circle, 1 arc, 1 point, 0 constraints, free to move 14 ways
-wrote s.khan
+wrote s.sb
 ```
 
 ## sketch.add_spline
@@ -826,7 +826,7 @@ wrote s.khan
 Adds a spline: a smooth curve pulled towards its **control points** (poles), like
 a bendy ruler held by pins. An open spline starts at its first control point and
 ends at its last; the ones between pull the curve towards them without it going
-through them. Or give it points to pass **through**, and Khan works out the
+through them. Or give it points to pass **through**, and SketchBillet works out the
 control points. Its points are `.pole1`, `.pole2`, ... (and `.start` and `.end`,
 the same as its first and last). See
 [Splines](../user-guide/sketches.md#splines).
@@ -835,7 +835,7 @@ the same as its first and last). See
 | --- | --- | --- | --- |
 | `sketch` | step name | yes | The sketch |
 | `poles` | x,y/x,y/... (mm) | this or `through` | Its control points, in order, split by `/` |
-| `through` | x,y/x,y/... (mm) | this or `poles` | Points it passes through, in order. Khan works out one control point for each |
+| `through` | x,y/x,y/... (mm) | this or `poles` | Points it passes through, in order. SketchBillet works out one control point for each |
 | `degree` | whole number | no | How smooth: `1` (straight pieces) to `5`. Default `3`, or less with only 2 or 3 points. A spline needs one more control point than its degree |
 | `closed` | true or false | no | `true` for a smooth loop with no ends. Default `false` |
 | `construction` | true or false | no | `true` for helper geometry. Default `false` |
@@ -846,27 +846,27 @@ bottom, then extruded 5 mm:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save arch.khan feature.add_sketch
+$ sketchbillet_cli run --save arch.sb feature.add_sketch
 arch: 1 step
   Sketch1      ok  empty
-wrote arch.khan
-$ kh_cli run --open arch.khan --save arch.khan sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0
+wrote arch.sb
+$ sketchbillet_cli run --open arch.sb --save arch.sb sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0
 arch: 1 step
   Sketch1      ok  1 spline, 0 constraints, free to move 8 ways
-wrote arch.khan
-$ kh_cli run --open arch.khan --save arch.khan sketch.add_line sketch=Sketch1 from=40,0 to=0,0
+wrote arch.sb
+$ sketchbillet_cli run --open arch.sb --save arch.sb sketch.add_line sketch=Sketch1 from=40,0 to=0,0
 arch: 1 step
   Sketch1      ok  1 line, 1 spline, 0 constraints, free to move 12 ways
-wrote arch.khan
-$ kh_cli run --open arch.khan --save arch.khan sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start
+wrote arch.sb
+$ sketchbillet_cli run --open arch.sb --save arch.sb sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start
 arch: 1 step
   Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
-wrote arch.khan
-$ kh_cli run --open arch.khan --save arch.khan feature.add_extrude sketch=Sketch1 distance=5
+wrote arch.sb
+$ sketchbillet_cli run --open arch.sb --save arch.sb feature.add_extrude sketch=Sketch1 distance=5
 arch: 2 steps
   Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
   Extrude1     ok  volume 3600.00 mm^3  mass 4.46 g (PLA)
-wrote arch.khan
+wrote arch.sb
 ```
 
 A spline with 4 control points and degree 3 is a Bézier curve: the area under
@@ -880,15 +880,15 @@ covering 61/90 of the box, 406.67 mm²:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save blob.khan feature.add_sketch
+$ sketchbillet_cli run --save blob.sb feature.add_sketch
 blob: 1 step
   Sketch1      ok  empty
-wrote blob.khan
-$ kh_cli run --open blob.khan --save blob.khan sketch.add_spline sketch=Sketch1 poles=0,0/30,0/30,20/0,20 closed=true
+wrote blob.sb
+$ sketchbillet_cli run --open blob.sb --save blob.sb sketch.add_spline sketch=Sketch1 poles=0,0/30,0/30,20/0,20 closed=true
 blob: 1 step
   Sketch1      ok  1 spline, 0 constraints, free to move 8 ways
-wrote blob.khan
-$ kh_cli run --open blob.khan feature.add_extrude sketch=Sketch1 distance=2
+wrote blob.sb
+$ sketchbillet_cli run --open blob.sb feature.add_extrude sketch=Sketch1 distance=2
 blob: 2 steps
   Sketch1      ok  1 spline, 0 constraints, free to move 8 ways
   Extrude1     ok  volume 813.33 mm^3  mass 1.01 g (PLA)
@@ -900,11 +900,11 @@ is 2:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save hump.khan feature.add_sketch
+$ sketchbillet_cli run --save hump.sb feature.add_sketch
 hump: 1 step
   Sketch1      ok  empty
-wrote hump.khan
-$ kh_cli run --open hump.khan sketch.add_spline sketch=Sketch1 through=0,0/20,15/40,0
+wrote hump.sb
+$ sketchbillet_cli run --open hump.sb sketch.add_spline sketch=Sketch1 through=0,0/20,15/40,0
 hump: 1 step
   Sketch1      ok  1 spline, 0 constraints, free to move 6 ways
 ```
@@ -913,7 +913,7 @@ Give `poles` or `through`, not both:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open arch.khan sketch.add_spline sketch=Sketch1 poles=0,0/1,1/2,0 through=0,0/1,1/2,0
+$ sketchbillet_cli run --open arch.sb sketch.add_spline sketch=Sketch1 poles=0,0/1,1/2,0 through=0,0/1,1/2,0
 error [sketch.spline_points]: Give a spline either its control points (poles=0,0/0,30/40,30/40,0) or points it passes through (through=0,0/20,15/40,0), not both.
 ```
 
@@ -921,13 +921,13 @@ A spline needs enough control points for its degree, and a control point it has:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open arch.khan sketch.add_spline sketch=Sketch1 poles=0,0/10,10/20,0 degree=3
+$ sketchbillet_cli run --open arch.sb sketch.add_spline sketch=Sketch1 poles=0,0/10,10/20,0 degree=3
 error [sketch.spline_poles]: A spline of degree 3 needs at least 4 control points. Add more, or lower its degree.
 ```
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open arch.khan sketch.constrain sketch=Sketch1 kind=fix on=Spline1.pole9
+$ sketchbillet_cli run --open arch.sb sketch.constrain sketch=Sketch1 kind=fix on=Spline1.pole9
 error [sketch.on]: Spline1 has 4 control points: use Spline1.pole1 to Spline1.pole4. Fix needs one point, like on=Line1.start.
 ```
 
@@ -948,7 +948,7 @@ sides of its 40 × 30 mm box, and the extrude grows to 40 × 30 × 5 = 6000 mm³
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open arch.khan sketch.set_spline sketch=Sketch1 spline=Spline1 degree=1
+$ sketchbillet_cli run --open arch.sb sketch.set_spline sketch=Sketch1 spline=Spline1 degree=1
 arch: 2 steps
   Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
   Extrude1     ok  volume 6000.00 mm^3  mass 7.44 g (PLA)
@@ -956,7 +956,7 @@ arch: 2 steps
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open arch.khan sketch.set_spline sketch=Sketch1 spline=Spline1 degree=4
+$ sketchbillet_cli run --open arch.sb sketch.set_spline sketch=Sketch1 spline=Spline1 degree=4
 error [sketch.spline_poles]: A spline of degree 4 needs at least 5 control points. Add more, or lower its degree.
 ```
 
@@ -976,12 +976,12 @@ covers more of its box:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open arch.khan --save arch-full.khan sketch.set_weight sketch=Sketch1 point=Spline1.pole2 weight=3
+$ sketchbillet_cli run --open arch.sb --save arch-full.sb sketch.set_weight sketch=Sketch1 point=Spline1.pole2 weight=3
 arch: 2 steps
   Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
   Extrude1     ok  volume 3958.44 mm^3  mass 4.91 g (PLA)
-wrote arch-full.khan
-$ kh_cli run --open arch-full.khan sketch.set_weight sketch=Sketch1 point=Spline1.pole3 weight=3
+wrote arch-full.sb
+$ sketchbillet_cli run --open arch-full.sb sketch.set_weight sketch=Sketch1 point=Spline1.pole3 weight=3
 arch: 2 steps
   Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
   Extrude1     ok  volume 4566.51 mm^3  mass 5.66 g (PLA)
@@ -1002,11 +1002,11 @@ the same points (their numbers go up by one).
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open arch.khan --save arch5.khan sketch.add_pole sketch=Sketch1 spline=Spline1 after=2 at=20,40
+$ sketchbillet_cli run --open arch.sb --save arch5.sb sketch.add_pole sketch=Sketch1 spline=Spline1 after=2 at=20,40
 arch: 2 steps
   Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 12 ways
   Extrude1     ok  volume 5900.00 mm^3  mass 7.32 g (PLA)
-wrote arch5.khan
+wrote arch5.sb
 ```
 
 ## sketch.remove_pole
@@ -1021,7 +1021,7 @@ Constraints on the later control points stay on the same points.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open arch5.khan sketch.remove_pole sketch=Sketch1 point=Spline1.pole3
+$ sketchbillet_cli run --open arch5.sb sketch.remove_pole sketch=Sketch1 point=Spline1.pole3
 arch: 2 steps
   Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
   Extrude1     ok  volume 3600.00 mm^3  mass 4.46 g (PLA)
@@ -1031,7 +1031,7 @@ A spline can't have fewer control points than its degree needs:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open arch.khan sketch.remove_pole sketch=Sketch1 point=Spline1.pole2
+$ sketchbillet_cli run --open arch.sb sketch.remove_pole sketch=Sketch1 point=Spline1.pole2
 error [sketch.spline_poles]: Spline1 has only 4 control points, the fewest a spline of degree 3 can have. Lower its degree first (sketch.set_spline degree=2), or delete the whole spline.
 ```
 
@@ -1040,7 +1040,7 @@ error [sketch.spline_poles]: Spline1 has only 4 control points, the fewest a spl
 Adds a spline made from a **file of points**: one point per line, x then y,
 split by commas, spaces, tabs or semicolons, so a spreadsheet saved as CSV works.
 A first line like `x,y` is skipped, `#` starts a comment, and a third number on a
-line (z) is left out. Khan remembers the file, so
+line (z) is left out. SketchBillet remembers the file, so
 [`sketch.reload_spline`](#sketchreload_spline) can read it again after it changes.
 
 | Setting | Kind | Needed | Meaning |
@@ -1059,14 +1059,14 @@ through all 7, so it has 7 control points:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save wave.khan feature.add_sketch
+$ sketchbillet_cli run --save wave.sb feature.add_sketch
 wave: 1 step
   Sketch1      ok  empty
-wrote wave.khan
-$ kh_cli run --open wave.khan --save wave.khan sketch.import_spline sketch=Sketch1 file=docs/cli/files/wave.csv
+wrote wave.sb
+$ sketchbillet_cli run --open wave.sb --save wave.sb sketch.import_spline sketch=Sketch1 file=docs/cli/files/wave.csv
 wave: 1 step
   Sketch1      ok  1 spline, 0 constraints, free to move 14 ways
-wrote wave.khan
+wrote wave.sb
 ```
 
 A line that isn't two numbers is named, so you can fix it. In
@@ -1074,7 +1074,7 @@ A line that isn't two numbers is named, so you can fix it. In
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open wave.khan sketch.import_spline sketch=Sketch1 file=docs/cli/files/wave-typo.csv
+$ sketchbillet_cli run --open wave.sb sketch.import_spline sketch=Sketch1 file=docs/cli/files/wave-typo.csv
 error [sketch.points_file]: Line 4 of wave-typo.csv isn't 2 numbers (x and y): "20,1O". Fix that line, or put # at its start to skip it.
 ```
 
@@ -1082,8 +1082,8 @@ A file that isn't there:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open wave.khan sketch.import_spline sketch=Sketch1 file=nowhere.csv
-error [sketch.points_file]: Khan can't open nowhere.csv (looked for it at nowhere.csv). Check the file is there, and try again.
+$ sketchbillet_cli run --open wave.sb sketch.import_spline sketch=Sketch1 file=nowhere.csv
+error [sketch.points_file]: SketchBillet can't open nowhere.csv (looked for it at nowhere.csv). Check the file is there, and try again.
 ```
 
 ## sketch.reload_spline
@@ -1099,7 +1099,7 @@ control points it doesn't have anymore are removed. Undo puts the old points bac
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open wave.khan sketch.reload_spline sketch=Sketch1 spline=Spline1
+$ sketchbillet_cli run --open wave.sb sketch.reload_spline sketch=Sketch1 spline=Spline1
 wave: 1 step
   Sketch1      ok  1 spline, 0 constraints, free to move 14 ways
 ```
@@ -1108,7 +1108,7 @@ Only an imported spline has a file to read:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open arch.khan sketch.reload_spline sketch=Sketch1 spline=Spline1
+$ sketchbillet_cli run --open arch.sb sketch.reload_spline sketch=Sketch1 spline=Spline1
 error [sketch.not_imported]: Spline1 wasn't imported from a file, so there's nothing to reload. Make one from a file with sketch.import_spline.
 ```
 
@@ -1129,21 +1129,21 @@ page lists every kind and what it needs.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open s.khan --save s.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Arc1.start
+$ sketchbillet_cli run --open s.sb --save s.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Arc1.start
 s: 1 step
   Sketch1      ok  1 line, 1 circle, 1 arc, 1 point, 1 constraint, free to move 12 ways
-wrote s.khan
-$ kh_cli run --open s.khan --save s.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40
+wrote s.sb
+$ sketchbillet_cli run --open s.sb --save s.sb sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40
 s: 1 step
   Sketch1      ok  1 line, 1 circle, 1 arc, 1 point, 2 constraints, free to move 11 ways
-wrote s.khan
+wrote s.sb
 ```
 
 Points need to say which point; lines and circles don't:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open s.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1,Arc1
+$ sketchbillet_cli run --open s.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line1,Arc1
 error [sketch.on]: Line1 isn't a single point: say which of its points, like Line1.start or Line1.end.
 ```
 
@@ -1153,19 +1153,19 @@ helper line and centers it there, taking away 2 ways to move:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save sym.khan feature.add_sketch
+$ sketchbillet_cli run --save sym.sb feature.add_sketch
 sym: 1 step
   Sketch1      ok  empty
-wrote sym.khan
-$ kh_cli run --open sym.khan --save sym.khan sketch.add_line sketch=Sketch1 from=0,-20 to=0,20 construction=true
+wrote sym.sb
+$ sketchbillet_cli run --open sym.sb --save sym.sb sketch.add_line sketch=Sketch1 from=0,-20 to=0,20 construction=true
 sym: 1 step
   Sketch1      ok  1 line, 0 constraints, free to move 4 ways
-wrote sym.khan
-$ kh_cli run --open sym.khan --save sym.khan sketch.add_line sketch=Sketch1 from=-15,5 to=12,8
+wrote sym.sb
+$ sketchbillet_cli run --open sym.sb --save sym.sb sketch.add_line sketch=Sketch1 from=-15,5 to=12,8
 sym: 1 step
   Sketch1      ok  2 lines, 0 constraints, free to move 8 ways
-wrote sym.khan
-$ kh_cli run --open sym.khan sketch.constrain sketch=Sketch1 kind=symmetric on=Line2.start,Line2.end,Line1
+wrote sym.sb
+$ sketchbillet_cli run --open sym.sb sketch.constrain sketch=Sketch1 kind=symmetric on=Line2.start,Line2.end,Line1
 sym: 1 step
   Sketch1      ok  2 lines, 1 constraint, free to move 6 ways
 ```
@@ -1175,19 +1175,19 @@ corner, and `smooth` also makes them bend equally there. First they need joining
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --save join.khan feature.add_sketch
+$ sketchbillet_cli run --save join.sb feature.add_sketch
 join: 1 step
   Sketch1      ok  empty
-wrote join.khan
-$ kh_cli run --open join.khan --save join.khan sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0
+wrote join.sb
+$ sketchbillet_cli run --open join.sb --save join.sb sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0
 join: 1 step
   Sketch1      ok  1 spline, 0 constraints, free to move 8 ways
-wrote join.khan
-$ kh_cli run --open join.khan --save join.khan sketch.add_line sketch=Sketch1 from=40,0 to=60,0
+wrote join.sb
+$ sketchbillet_cli run --open join.sb --save join.sb sketch.add_line sketch=Sketch1 from=40,0 to=60,0
 join: 1 step
   Sketch1      ok  1 line, 1 spline, 0 constraints, free to move 12 ways
-wrote join.khan
-$ kh_cli run --open join.khan sketch.constrain sketch=Sketch1 kind=tangent on=Spline1,Line1
+wrote join.sb
+$ sketchbillet_cli run --open join.sb sketch.constrain sketch=Sketch1 kind=tangent on=Spline1,Line1
 error [sketch.constraint]: Tangent needs the two joined end to end: join an end of each with Coincident first.
 ```
 
@@ -1197,11 +1197,11 @@ the bend.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start
+$ sketchbillet_cli run --open join.sb --save join.sb sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start
 join: 1 step
   Sketch1      ok  1 line, 1 spline, 1 constraint, free to move 10 ways
-wrote join.khan
-$ kh_cli run --open join.khan sketch.constrain sketch=Sketch1 kind=smooth on=Spline1,Line1
+wrote join.sb
+$ sketchbillet_cli run --open join.sb sketch.constrain sketch=Sketch1 kind=smooth on=Spline1,Line1
 join: 1 step
   Sketch1      ok  1 line, 1 spline, 2 constraints, free to move 8 ways
 ```
@@ -1219,10 +1219,10 @@ Changes a dimension's number.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open s.khan --save s.khan sketch.set_value sketch=Sketch1 constraint=Length1 value=30
+$ sketchbillet_cli run --open s.sb --save s.sb sketch.set_value sketch=Sketch1 constraint=Length1 value=30
 s: 1 step
   Sketch1      ok  1 line, 1 circle, 1 arc, 1 point, 2 constraints, free to move 11 ways
-wrote s.khan
+wrote s.sb
 ```
 
 With a formula, the dimension follows the parameters it uses. Here a plate's
@@ -1230,42 +1230,42 @@ width is 10 walls:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save plate.khan parameter.set name=wall value="4 mm"
+$ sketchbillet_cli run --save plate.sb parameter.set name=wall value="4 mm"
 plate: 0 steps
 Parameters:
   wall = 4 mm
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan feature.add_sketch
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb feature.add_sketch
 plate: 1 step
   Sketch1      ok  empty
 Parameters:
   wall = 4 mm
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=30,20
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_rectangle sketch=Sketch1 from=0,0 to=30,20
 plate: 1 step
   Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
 Parameters:
   wall = 4 mm
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=30
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=length on=Line1 value=30
 plate: 1 step
   Sketch1      ok  4 lines, 9 constraints, free to move 3 ways
 Parameters:
   wall = 4 mm
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.set_value sketch=Sketch1 constraint=Length1 formula="wall * 10"
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.set_value sketch=Sketch1 constraint=Length1 formula="wall * 10"
 plate: 1 step
   Sketch1      ok  4 lines, 9 constraints, free to move 3 ways
 Parameters:
   wall = 4 mm
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan parameter.set name=wall value="5 mm"
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb parameter.set name=wall value="5 mm"
 plate: 1 step
   Sketch1      ok  4 lines, 9 constraints, free to move 3 ways
 Parameters:
   wall = 5 mm
-wrote plate.khan
-$ kh_cli open plate.khan --sketch Sketch1
+wrote plate.sb
+$ sketchbillet_cli open plate.sb --sketch Sketch1
 ...
   Length1        length              Line1  50.00 mm = wall * 10
 ...
@@ -1276,7 +1276,7 @@ refused:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open plate.khan sketch.set_value sketch=Sketch1 constraint=Length1 formula=12
+$ sketchbillet_cli run --open plate.sb sketch.set_value sketch=Sketch1 constraint=Length1 formula=12
 error [dimension.units]: Length1 needs a length, like 20 mm or wall * 2, but 12 is a plain number. Give it a unit, like 12 mm.
 ```
 
@@ -1284,7 +1284,7 @@ So is a parameter change that would make a dimension impossible:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open plate.khan parameter.set name=wall value="-1 mm"
+$ sketchbillet_cli run --open plate.sb parameter.set name=wall value="-1 mm"
 error [parameter.breaks]: Changing wall to -1 mm would stop Length1 in Sketch1 working: Length1 in Sketch1 would be -10 mm (wall * 10), but it must be more than 0 mm.
 ```
 
@@ -1300,10 +1300,10 @@ constraint.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open s.khan --save s.khan sketch.delete sketch=Sketch1 item=Line1
+$ sketchbillet_cli run --open s.sb --save s.sb sketch.delete sketch=Sketch1 item=Line1
 s: 1 step
   Sketch1      ok  1 circle, 1 arc, 1 point, 0 constraints, free to move 10 ways
-wrote s.khan
+wrote s.sb
 ```
 
 ## feature.add_extrude
@@ -1324,35 +1324,35 @@ A 40 × 20 mm rectangle with a hole of radius 4 mm in it, extruded 5 mm into a p
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save plate.khan feature.add_sketch
+$ sketchbillet_cli run --save plate.sb feature.add_sketch
 plate: 1 step
   Sketch1      ok  empty
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,0 to=40,0
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=0,0 to=40,0
 plate: 1 step
   Sketch1      ok  1 line, 0 constraints, free to move 4 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=40,0 to=40,20
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=40,0 to=40,20
 plate: 1 step
   Sketch1      ok  2 lines, 0 constraints, free to move 8 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=40,20 to=0,20
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=40,20 to=0,20
 plate: 1 step
   Sketch1      ok  3 lines, 0 constraints, free to move 12 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,20 to=0,0
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=0,20 to=0,0
 plate: 1 step
   Sketch1      ok  4 lines, 0 constraints, free to move 16 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_circle sketch=Sketch1 center=10,10 radius=4
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_circle sketch=Sketch1 center=10,10 radius=4
 plate: 1 step
   Sketch1      ok  4 lines, 1 circle, 0 constraints, free to move 19 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan feature.add_extrude sketch=Sketch1 distance=5
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb feature.add_extrude sketch=Sketch1 distance=5
 plate: 2 steps
   Sketch1      ok  4 lines, 1 circle, 0 constraints, free to move 19 ways
   Extrude1     ok  volume 3748.67 mm^3  mass 4.65 g (PLA)
-wrote plate.khan
+wrote plate.sb
 ```
 
 That's (40 × 20 − π × 4²) × 5 = 3748.67 mm³. With `side=both` the plate sits
@@ -1360,7 +1360,7 @@ half above the sketch and half below:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open plate.khan feature.add_extrude sketch=Sketch1 distance=6 side=both name=Thick
+$ sketchbillet_cli run --open plate.sb feature.add_extrude sketch=Sketch1 distance=6 side=both name=Thick
 plate: 3 steps
   Sketch1      ok  4 lines, 1 circle, 0 constraints, free to move 19 ways
   Extrude1     ok  volume 3748.67 mm^3  mass 4.65 g (PLA)
@@ -1372,15 +1372,15 @@ aren't joined:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --save open.khan feature.add_sketch
+$ sketchbillet_cli run --save open.sb feature.add_sketch
 open: 1 step
   Sketch1      ok  empty
-wrote open.khan
-$ kh_cli run --open open.khan --save open.khan sketch.add_line sketch=Sketch1 from=0,0 to=10,0
+wrote open.sb
+$ sketchbillet_cli run --open open.sb --save open.sb sketch.add_line sketch=Sketch1 from=0,0 to=10,0
 open: 1 step
   Sketch1      ok  1 line, 0 constraints, free to move 4 ways
-wrote open.khan
-$ kh_cli run --open open.khan feature.add_extrude sketch=Sketch1
+wrote open.sb
+$ sketchbillet_cli run --open open.sb feature.add_extrude sketch=Sketch1
 open: 2 steps
   Sketch1      ok  1 line, 0 constraints, free to move 4 ways
   Extrude1     failed
@@ -1390,10 +1390,10 @@ open: 2 steps
 ## document.set_units
 
 Changes the unit the design shows its lengths in: millimeters, centimeters,
-meters, inches or feet. Nothing changes size: Khan keeps every length in mm
+meters, inches or feet. Nothing changes size: SketchBillet keeps every length in mm
 inside, and commands still take mm. The desktop app shows and takes every
 length in the new unit (it's under **Document settings** in the feature tree),
-and `kh_cli` prints volumes and sketch lengths in it. See
+and `sketchbillet_cli` prints volumes and sketch lengths in it. See
 [Units](../user-guide/desktop-app.md#document-settings-and-units).
 
 | Setting | Kind | Needed | Meaning |
@@ -1404,14 +1404,14 @@ A 2 × 1 inch plate, 10 mm thick, shown in inches:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save plate.khan feature.add_box size=50.8,25.4,10
+$ sketchbillet_cli run --save plate.sb feature.add_box size=50.8,25.4,10
 plate: 1 step
   Box1         ok  volume 12903.20 mm^3  mass 16.00 g (PLA)
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan document.set_units unit=in
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb document.set_units unit=in
 plate: 1 step
   Box1         ok  volume 0.79 in^3  mass 16.00 g (PLA)
-wrote plate.khan
+wrote plate.sb
 ```
 
 The volume is the same, written in cubic inches: 2 × 1 × 0.394 = 0.79 in^3. The
@@ -1420,7 +1420,7 @@ is `size=25.4,25.4,25.4`:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open plate.khan feature.add_box name=Cube size=25.4,25.4,25.4
+$ sketchbillet_cli run --open plate.sb feature.add_box name=Cube size=25.4,25.4,25.4
 plate: 2 steps
   Box1         ok  volume 0.79 in^3  mass 16.00 g (PLA)
   Cube         ok  volume 1.00 in^3  mass 20.32 g (PLA)
@@ -1430,15 +1430,15 @@ Only the five units are known:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open plate.khan document.set_units unit=yards
+$ sketchbillet_cli run --open plate.sb document.set_units unit=yards
 error [command.arg_choice]: unit must be one of: mm, cm, m, in, ft.
 ```
 
 ## material.define
 
-Adds a material of your own to the design, for a filament or stock Khan doesn't
+Adds a material of your own to the design, for a filament or stock SketchBillet doesn't
 list. It's saved in the design. Defining a material with the same name again
-changes it, and every step that uses it follows. Khan's own materials can't be
+changes it, and every step that uses it follows. SketchBillet's own materials can't be
 changed: give yours another name, like `My PLA`.
 
 | Setting | Kind | Needed | Meaning |
@@ -1453,21 +1453,21 @@ changed: give yours another name, like `My PLA`.
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan material.define name="Blue PETG" density=1.27 color=#3366cc cost_per_kg=25
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb material.define name="Blue PETG" density=1.27 color=#3366cc cost_per_kg=25
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan feature.set_material feature=Plate material="Blue PETG"
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.set_material feature=Plate material="Blue PETG"
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 9.04 g (Blue PETG)
-wrote tag.khan
-$ kh_cli materials tag.khan
+wrote tag.sb
+$ sketchbillet_cli materials tag.sb
 material                density stiffness  poisson    yield   price
                          g/cm^3       GPa               MPa  per kg
 ...
@@ -1479,16 +1479,16 @@ Numbers that can't be right are refused:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli run --open tag.khan material.define name=Fluff density=0
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb material.define name=Fluff density=0
 error [material.density]: A material's density must be between 0.01 and 25 g/cm³. Water is 1 g/cm³, PLA 1.24, steel 7.87.
 ```
 
 ## material.delete
 
 Removes a material you added. A material a step uses can't be removed: pick
-another material for that step first. Khan's own materials can't be removed.
+another material for that step first. SketchBillet's own materials can't be removed.
 
 | Setting | Kind | Needed | Meaning |
 | --- | --- | --- | --- |
@@ -1496,20 +1496,20 @@ another material for that step first. Khan's own materials can't be removed.
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan material.define name=Cork density=0.24
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb material.define name=Cork density=0.24
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan material.delete name=Cork
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb material.delete name=Cork
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 ## parameter.set
@@ -1517,7 +1517,7 @@ wrote tag.khan
 Adds a [parameter](../user-guide/parameters.md): a value with a name, like
 `wall = 3 mm`, that other parameters can use, like `height = wall * 4`. Setting
 a name that's already there changes it, and every parameter,
-[sketch dimension](#sketchset_value) and [step number](#featureset_value) that uses it follows. `kh_cli` lists the parameters after the steps, with what each formula
+[sketch dimension](#sketchset_value) and [step number](#featureset_value) that uses it follows. `sketchbillet_cli` lists the parameters after the steps, with what each formula
 works out to.
 
 | Setting | Kind | Needed | Meaning |
@@ -1533,23 +1533,23 @@ plain number, like a count.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save box.khan parameter.set name=wall value="3 mm" note="How thick the walls are"
+$ sketchbillet_cli run --save box.sb parameter.set name=wall value="3 mm" note="How thick the walls are"
 box: 0 steps
 Parameters:
   wall = 3 mm
-wrote box.khan
-$ kh_cli run --open box.khan --save box.khan parameter.set name=height value="wall * 4 + 1 in"
+wrote box.sb
+$ sketchbillet_cli run --open box.sb --save box.sb parameter.set name=height value="wall * 4 + 1 in"
 box: 0 steps
 Parameters:
   wall   = 3 mm
   height = wall * 4 + 1 in  (37.4 mm)
-wrote box.khan
-$ kh_cli run --open box.khan --save box.khan parameter.set name=wall value="2 mm"
+wrote box.sb
+$ sketchbillet_cli run --open box.sb --save box.sb parameter.set name=wall value="2 mm"
 box: 0 steps
 Parameters:
   wall   = 2 mm
   height = wall * 4 + 1 in  (33.4 mm)
-wrote box.khan
+wrote box.sb
 ```
 
 Changing `wall` changed `height` too. Units are checked, so a length can't be
@@ -1557,8 +1557,8 @@ added to a plain number:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open box.khan parameter.set name=depth value="wall + 2"
-error [expression.units]: Khan can't add 2 to wall: wall is a length and 2 is a plain number. Give both the same kind of unit, like 2 mm.
+$ sketchbillet_cli run --open box.sb parameter.set name=depth value="wall + 2"
+error [expression.units]: SketchBillet can't add 2 to wall: wall is a length and 2 is a plain number. Give both the same kind of unit, like 2 mm.
 ```
 
 A change that would break another parameter is refused, and so is one that
@@ -1566,14 +1566,14 @@ makes parameters use each other in a loop:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open box.khan parameter.set name=wall value="height / 4"
-error [parameter.loop]: wall uses height and height uses wall, so Khan can't work either out. Change one so it doesn't use the other.
+$ sketchbillet_cli run --open box.sb parameter.set name=wall value="height / 4"
+error [parameter.loop]: wall uses height and height uses wall, so SketchBillet can't work either out. Change one so it doesn't use the other.
 ```
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open box.khan parameter.set name=wall value=2
-error [parameter.breaks]: Changing wall to 2 would stop height working: Khan can't add 1 in to wall * 4: wall * 4 is a plain number and 1 in is a length. Give both the same kind of unit.
+$ sketchbillet_cli run --open box.sb parameter.set name=wall value=2
+error [parameter.breaks]: Changing wall to 2 would stop height working: SketchBillet can't add 1 in to wall * 4: wall * 4 is a plain number and 1 in is a length. Give both the same kind of unit.
 ```
 
 ## parameter.rename
@@ -1588,23 +1588,23 @@ sketch dimensions and steps' numbers, changes to the new name, so nothing breaks
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save box.khan parameter.set name=wall value="3 mm"
+$ sketchbillet_cli run --save box.sb parameter.set name=wall value="3 mm"
 box: 0 steps
 Parameters:
   wall = 3 mm
-wrote box.khan
-$ kh_cli run --open box.khan --save box.khan parameter.set name=height value="wall * 4"
+wrote box.sb
+$ sketchbillet_cli run --open box.sb --save box.sb parameter.set name=height value="wall * 4"
 box: 0 steps
 Parameters:
   wall   = 3 mm
   height = wall * 4  (12 mm)
-wrote box.khan
-$ kh_cli run --open box.khan --save box.khan parameter.rename name=wall to=thickness
+wrote box.sb
+$ sketchbillet_cli run --open box.sb --save box.sb parameter.rename name=wall to=thickness
 box: 0 steps
 Parameters:
   thickness = 3 mm
   height    = thickness * 4  (12 mm)
-wrote box.khan
+wrote box.sb
 ```
 
 ## parameter.delete
@@ -1618,15 +1618,15 @@ number uses can't be removed: change or delete that one first.
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli run --open box.khan parameter.delete name=thickness
+$ sketchbillet_cli run --open box.sb parameter.delete name=thickness
 error [parameter.in_use]: height uses thickness, so thickness can't be deleted. Change height so it doesn't use thickness first, or delete height too.
 ```
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open box.khan --save box.khan parameter.delete name=height
+$ sketchbillet_cli run --open box.sb --save box.sb parameter.delete name=height
 box: 0 steps
 Parameters:
   thickness = 3 mm
-wrote box.khan
+wrote box.sb
 ```

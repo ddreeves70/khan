@@ -9,14 +9,14 @@
 #include <numbers>
 #include <string>
 
-#include "kh/model/CommandRegistry.h"
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/model/Expression.h"
-#include "kh/model/Parameters.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/model/Expression.h"
+#include "sb/model/Parameters.h"
 
-using namespace kh;
-using namespace kh::model;
+using namespace sb;
+using namespace sb::model;
 using Catch::Matchers::ContainsSubstring;
 using Catch::Matchers::StartsWith;
 using Catch::Matchers::WithinAbs;
@@ -163,7 +163,8 @@ TEST_CASE("units that don't fit are refused, with the fix", "[model][expression]
     CHECK(problemOf("wall + 2", names) == "expression.units");
     auto r = evalWith("wall + 2", names);
     CHECK(r.issues.front().message ==
-          "Khan can't add 2 to wall: wall is a length and 2 is a plain number. Give both the same kind of "
+          "SketchBillet can't add 2 to wall: wall is a length and 2 is a plain number. Give both the same "
+          "kind of "
           "unit, "
           "like 2 mm.");
     CHECK(problemOf("3 mm - 30 deg") == "expression.units");
@@ -234,11 +235,12 @@ TEST_CASE("a parameter that uses itself, or a loop of them, gets a plain problem
     REQUIRE_FALSE(values.find("a")->ok());
     CHECK(values.find("a")->issues.front().code == "parameter.loop");
     CHECK(values.find("a")->issues.front().message ==
-          "a uses b and b uses a, so Khan can't work either out. Change one so it doesn't use the other.");
+          "a uses b and b uses a, so SketchBillet can't work either out. Change one so it doesn't use the "
+          "other.");
     CHECK(values.find("b")->issues.front().code == "parameter.loop");
     CHECK(values.find("c")->issues.front().code == "parameter.uses_problem");
     CHECK(values.find("d")->issues.front().message ==
-          "d uses itself, so Khan can't work it out. Give it a value that doesn't use d, like 3 mm.");
+          "d uses itself, so SketchBillet can't work it out. Give it a value that doesn't use d, like 3 mm.");
     CHECK(values.find("e")->value->value == 5);
     CHECK(values.order().size() == 5);
 }

@@ -1,4 +1,4 @@
-#include "kh/plugins/FeatureTree.h"
+#include "sb/plugins/FeatureTree.h"
 
 #include <QAction>
 #include <QHeaderView>
@@ -15,20 +15,20 @@
 #include <vector>
 
 #include "FeatureTreeIcons.h"
-#include "kh/model/Document.h"
-#include "kh/plugin/Events.h"
-#include "kh/ui/UiRegistry.h"
+#include "sb/model/Document.h"
+#include "sb/plugin/Events.h"
+#include "sb/ui/UiRegistry.h"
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
 constexpr const char* kManifest = R"({
-  "id": "kh.featuretree",
+  "id": "sb.featuretree",
   "name": "Feature tree",
   "version": "0.1.0",
   "description": "The panel that lists a design's steps.",
-  "requires": ["kh.modeling"],
+  "requires": ["sb.modeling"],
   "tier": "ui"
 })";
 
@@ -67,28 +67,29 @@ const char* kindName(const model::Feature& f) {
 class FeatureTree final : public QWidget {
 public:
     FeatureTree(plugin::PluginContext& ctx, ui::UiRegistry& ui) : ctx_(ctx), ui_(ui) {
-        setObjectName(QStringLiteral("kh.featuretree.widget"));
+        setObjectName(QStringLiteral("sb.featuretree.widget"));
         setMinimumWidth(260);
         design_ = new QLabel(this);
-        design_->setObjectName(QStringLiteral("kh.featuretree.design"));
+        design_->setObjectName(QStringLiteral("sb.featuretree.design"));
         QFont bold = design_->font();
         bold.setBold(true);
         design_->setFont(bold);
         design_->setContentsMargins(4, 2, 4, 0);
         settings_ = new QToolButton(this);
-        settings_->setObjectName(QStringLiteral("kh.featuretree.settings"));
+        settings_->setObjectName(QStringLiteral("sb.featuretree.settings"));
         settings_->setText(tr("Document settings"));
         settings_->setIcon(ui_.icon(icons::featuretree::settings_svg));
         settings_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         settings_->setAutoRaise(true);
         settings_->setCheckable(true);
-        settings_->setToolTip(tr("The design's own settings, like its units. Click to see them in Properties."));
+        settings_->setToolTip(
+            tr("The design's own settings, like its units. Click to see them in Properties."));
         connect(settings_, &QToolButton::clicked, this, [this] {
             ctx_.selection().pickDesign(ctx_.documents().active());
             showSelection();
         });
         tree_ = new QTreeWidget(this);
-        tree_->setObjectName(QStringLiteral("kh.featuretree.tree"));
+        tree_->setObjectName(QStringLiteral("sb.featuretree.tree"));
         tree_->setColumnCount(3);
         tree_->setHeaderLabels({tr("Step"), tr("Kind"), tr("Status")});
         tree_->setRootIsDecorated(false);
@@ -140,8 +141,8 @@ public:
         }
         const int rowHeight = tree_->topLevelItemCount() > 0 ? tree_->sizeHintForRow(0) : 0;
         const int height = design_->sizeHint().height() + settings_->sizeHint().height() +
-                           tree_->header()->sizeHint().height() + std::max(rows, 1) * std::max(rowHeight, 18) +
-                           2 * tree_->frameWidth() + 10;
+                           tree_->header()->sizeHint().height() +
+                           std::max(rows, 1) * std::max(rowHeight, 18) + 2 * tree_->frameWidth() + 10;
         return {minimumWidth(), height};
     }
 
@@ -425,7 +426,7 @@ void registerFeatureTree(plugin::PluginContext& ctx) {
         ctx.log("No desktop app here, so the feature tree panel isn't shown.");
         return;
     }
-    ui::PanelSpec spec{"kh.featuretree.panel", QObject::tr("Feature tree"), ui::PanelArea::Left,
+    ui::PanelSpec spec{"sb.featuretree.panel", QObject::tr("Feature tree"), ui::PanelArea::Left,
                        [&ctx, ui] { return new FeatureTree(ctx, *ui); }};
     spec.floatsOverView = true;  // like Fusion's browser
     ui->addPanel(std::move(spec));
@@ -437,4 +438,4 @@ plugin::BuiltinPlugin featureTreePlugin() {
     return {kManifest, &registerFeatureTree};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins

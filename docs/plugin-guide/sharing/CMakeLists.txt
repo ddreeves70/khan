@@ -5,12 +5,12 @@
 add_library(example_ruler_api INTERFACE)
 target_include_directories(example_ruler_api INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/ruler/include")
 
-kh_add_plugin(kh_example_ruler_plugin
+sb_add_plugin(sb_example_ruler_plugin
   MANIFEST ruler/plugin.json
   SOURCES ruler/ruler.cpp
   DEPS example_ruler_api
 )
-kh_add_plugin(kh_example_tape_plugin
+sb_add_plugin(sb_example_tape_plugin
   MANIFEST tape/plugin.json
   SOURCES tape/tape.cpp
   DEPS example_ruler_api

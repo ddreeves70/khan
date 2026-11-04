@@ -3,12 +3,12 @@
 #include <memory>
 
 #include "FakeKernel.h"
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
 
-using namespace kh;
-using namespace kh::model;
-using kh::test::FakeKernel;
+using namespace sb;
+using namespace sb::model;
+using sb::test::FakeKernel;
 
 namespace {
 

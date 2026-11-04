@@ -1,11 +1,11 @@
-#include "kh/core/Units.h"
+#include "sb/core/Units.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
 
-namespace kh {
+namespace sb {
 
 const std::vector<LengthUnit>& allLengthUnits() {
     static const std::vector<LengthUnit> units{LengthUnit::Millimeter, LengthUnit::Centimeter,
@@ -122,4 +122,4 @@ std::string volumeText(double mm3, LengthUnit unit) {
     return std::string(buf) + " " + std::string(unitSymbol(unit)) + "^3";
 }
 
-}  // namespace kh
+}  // namespace sb

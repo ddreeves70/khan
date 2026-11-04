@@ -1,9 +1,9 @@
-#include "kh/plugin/Overlays.h"
+#include "sb/plugin/Overlays.h"
 
 #include <algorithm>
 #include <utility>
 
-namespace kh::plugin {
+namespace sb::plugin {
 
 namespace {
 
@@ -86,4 +86,4 @@ void PluginOverlays::remove(std::string_view name, std::string_view pane) {
     list_.remove(fullId(name), pane);
 }
 
-}  // namespace kh::plugin
+}  // namespace sb::plugin

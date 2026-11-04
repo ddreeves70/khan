@@ -1,13 +1,13 @@
-#include "kh/plugin/Settings.h"
+#include "sb/plugin/Settings.h"
 
 #include <iomanip>
 #include <locale>
 #include <sstream>
 #include <utility>
 
-#include "kh/plugin/Events.h"
+#include "sb/plugin/Events.h"
 
-namespace kh::plugin {
+namespace sb::plugin {
 
 std::optional<std::string> MemorySettings::read(std::string_view key) const {
     auto it = values_.find(key);
@@ -97,4 +97,4 @@ void PluginSettings::remove(std::string_view key) {
     bus_.publish(SettingChanged{plugin_, std::string(key)});
 }
 
-}  // namespace kh::plugin
+}  // namespace sb::plugin

@@ -1,6 +1,6 @@
 {
   "name": "extrude-spline-smooth-chain",
-  "description": "An outline of four edges: a line, then two cubic splines, back down a line. The first spline leaves the line straight on (its first leg carries on along the line) and meets the second one tangentially at (40,20) (their legs line up), as Tangent joins in a sketch do. Extruded 2.5 mm. Area 1331.2500 mm^2 and perimeter 134.4482 mm, worked out independently of Khan. 6 faces, with the side faces meeting smoothly at the tangent joins.",
+  "description": "An outline of four edges: a line, then two cubic splines, back down a line. The first spline leaves the line straight on (its first leg carries on along the line) and meets the second one tangentially at (40,20) (their legs line up), as Tangent joins in a sketch do. Extruded 2.5 mm. Area 1331.2500 mm^2 and perimeter 134.4482 mm, worked out independently of SketchBillet. 6 faces, with the side faces meeting smoothly at the tangent joins.",
   "steps": [
     {
       "id": "face",

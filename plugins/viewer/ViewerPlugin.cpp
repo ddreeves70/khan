@@ -1,4 +1,4 @@
-#include "kh/plugins/Viewer.h"
+#include "sb/plugins/Viewer.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -20,27 +20,27 @@
 #include <vector>
 
 #include "ViewerIcons.h"
-#include "kh/model/Document.h"
-#include "kh/plugin/Events.h"
-#include "kh/ui/UiRegistry.h"
-#include "kh/view/FlatView.h"
-#include "kh/view/Graphics.h"
-#include "kh/view/Layout.h"
-#include "kh/view/ViewWidget.h"
-#include "kh/viewer/Viewer.h"
-#include "kh/viewoptions/ViewOptions.h"
+#include "sb/model/Document.h"
+#include "sb/plugin/Events.h"
+#include "sb/ui/UiRegistry.h"
+#include "sb/view/FlatView.h"
+#include "sb/view/Graphics.h"
+#include "sb/view/Layout.h"
+#include "sb/view/ViewWidget.h"
+#include "sb/viewer/Viewer.h"
+#include "sb/viewoptions/ViewOptions.h"
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
 constexpr const char* kManifest = R"({
-  "id": "kh.viewer",
+  "id": "sb.viewer",
   "name": "3D viewer",
   "version": "0.1.0",
   "description": "The 3D view of a design: panes, standard views, the view cube, and what other plugins ask it to draw.",
-  "requires": ["kh.modeling"],
-  "uses": ["kh.viewoptions"],
+  "requires": ["sb.modeling"],
+  "uses": ["sb.viewoptions"],
   "tier": "ui"
 })";
 
@@ -67,7 +67,7 @@ view::DrawingPlane drawingPlane(const viewer::ToolPlane& p) {
     return {p.origin, cross(p.xAxis, p.yAxis)};
 }
 
-// The kh.viewer/3 service: one drawing tool, and one set of handles, for every
+// The sb.viewer/3 service: one drawing tool, and one set of handles, for every
 // pane of every viewer.
 class ViewerService final : public viewer::IViewer {
 public:
@@ -109,7 +109,7 @@ private:
 class ViewBar final : public QWidget {
 public:
     explicit ViewBar(QWidget* parent) : QWidget(parent) {
-        setObjectName(QStringLiteral("kh.viewer.bar"));
+        setObjectName(QStringLiteral("sb.viewer.bar"));
         setAttribute(Qt::WA_TranslucentBackground);  // paintEvent draws its rounded back
         layout_ = new QHBoxLayout(this);
         layout_->setContentsMargins(6, 3, 6, 3);
@@ -186,7 +186,7 @@ public:
     ViewerPanel(plugin::PluginContext& ctx, ViewerService& service, int number)
         : ctx_(ctx), service_(service), options_(ctx.service<viewoptions::IViewOptions>()), number_(number) {
         service_.attach(this);
-        setObjectName(QStringLiteral("kh.viewer.panel"));
+        setObjectName(QStringLiteral("sb.viewer.panel"));
         auto* layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
@@ -338,18 +338,18 @@ private:
             connect(a, &QAction::triggered, this, [this, drag] { setLeftDrag(drag); });
             bar_->add(a);
         };
-        addDrag(view::LeftDrag::Orbit, "kh.viewer.drag.orbit", tr("Orbit"),
+        addDrag(view::LeftDrag::Orbit, "sb.viewer.drag.orbit", tr("Orbit"),
                 tr("Orbit: dragging with the left mouse button turns the camera around the part."),
                 i::orbit_svg);
-        addDrag(view::LeftDrag::Pan, "kh.viewer.drag.pan", tr("Pan"),
+        addDrag(view::LeftDrag::Pan, "sb.viewer.drag.pan", tr("Pan"),
                 tr("Pan: dragging with the left mouse button slides the camera sideways. Click Orbit to go "
                    "back."),
                 i::pan_svg);
-        addDrag(view::LeftDrag::Zoom, "kh.viewer.drag.zoom", tr("Zoom"),
+        addDrag(view::LeftDrag::Zoom, "sb.viewer.drag.zoom", tr("Zoom"),
                 tr("Zoom: drag right with the left mouse button to move closer, left to move away. The wheel "
                    "zooms too."),
                 i::zoom_svg);
-        auto* fit = action(QStringLiteral("kh.viewer.fit"), tr("Fit all"),
+        auto* fit = action(QStringLiteral("sb.viewer.fit"), tr("Fit all"),
                            tr("Fit all: zoom so every body fits, in every pane."), this);
         fit->setIcon(icon(i::fit_svg));
         connect(fit, &QAction::triggered, this, [this] {
@@ -365,7 +365,7 @@ private:
                        view::StandardView::Bottom}) {
             if (v == view::StandardView::Back) views->addSeparator();
             auto* a =
-                action(QStringLiteral("kh.viewer.view.") + slug(view::viewName(v)), qs(view::viewName(v)),
+                action(QStringLiteral("sb.viewer.view.") + slug(view::viewName(v)), qs(view::viewName(v)),
                        tr("Look at the design from the %1, in the active pane.")
                            .arg(qs(view::viewName(v)).toLower()),
                        views);
@@ -374,14 +374,14 @@ private:
             });
             views->addAction(a);
         }
-        bar_->addMenu(icon(i::views_svg), QStringLiteral("kh.viewer.views"),
+        bar_->addMenu(icon(i::views_svg), QStringLiteral("sb.viewer.views"),
                       tr("Views: look from the front, top, right, at an angle (Iso), and more."), views);
 
         // Display: how bodies are drawn, and the view options that aren't the grid's (the axes).
         auto* display = new QMenu(this);
         auto* styles = new QActionGroup(display);
         for (auto style : view::allDisplayStyles()) {
-            auto* a = action(QStringLiteral("kh.viewer.style.") + slug(view::displayStyleName(style)),
+            auto* a = action(QStringLiteral("sb.viewer.style.") + slug(view::displayStyleName(style)),
                              qs(view::displayStyleName(style)), QString(), display);
             a->setCheckable(true);
             a->setChecked(style == style_);
@@ -393,7 +393,7 @@ private:
             clearOptions(display);
             fillOptions(display, [](const viewoptions::OptionSpec& o) { return o.group != "Grid"; });
         });
-        bar_->addMenu(icon(i::display_svg), QStringLiteral("kh.viewer.display"),
+        bar_->addMenu(icon(i::display_svg), QStringLiteral("sb.viewer.display"),
                       tr("Display: draw bodies shaded, with or without edges, or as see-through wireframes; "
                          "show or hide the axes."),
                       display);
@@ -406,12 +406,12 @@ private:
                 fillOptions(grid, [](const viewoptions::OptionSpec& o) { return o.group == "Grid"; });
                 grid->addSeparator();
                 auto* all = grid->addAction(tr("All view options..."));
-                all->setObjectName(QStringLiteral("kh.viewer.alloptions"));
+                all->setObjectName(QStringLiteral("sb.viewer.alloptions"));
                 connect(all, &QAction::triggered, this, [this] {
-                    if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showPanel("kh.viewoptions.panel");
+                    if (auto* ui = ctx_.service<ui::UiRegistry>()) ui->showPanel("sb.viewoptions.panel");
                 });
             });
-            bar_->addMenu(icon(i::grid_svg), QStringLiteral("kh.viewer.grid"),
+            bar_->addMenu(icon(i::grid_svg), QStringLiteral("sb.viewer.grid"),
                           tr("Grid and snap: show the grid, its spacing and style, and snapping to it."),
                           grid);
         }
@@ -422,13 +422,13 @@ private:
         auto* group = new QActionGroup(panes);
         for (auto layout : view::allLayouts()) {
             auto* a = panes->addAction(qs(view::layoutName(layout)));
-            a->setObjectName(QStringLiteral("kh.viewer.layout.") + slug(view::layoutName(layout)));
+            a->setObjectName(QStringLiteral("sb.viewer.layout.") + slug(view::layoutName(layout)));
             a->setCheckable(true);
             a->setChecked(layout == view::PaneLayout::Single);
             group->addAction(a);
             connect(a, &QAction::triggered, this, [this, layout] { setPaneLayout(layout); });
         }
-        bar_->addMenu(icon(i::panes_svg), QStringLiteral("kh.viewer.panes"),
+        bar_->addMenu(icon(i::panes_svg), QStringLiteral("sb.viewer.panes"),
                       tr("Panes: split the viewer into 1, 2 or 4 panes, each with its own camera."), panes);
         bar_->place();
     }
@@ -438,7 +438,7 @@ private:
     void clearOptions(QMenu* menu) {
         const auto items = menu->actions();
         for (auto* a : items) {
-            if (!a->objectName().startsWith(QStringLiteral("kh.viewer.style."))) {
+            if (!a->objectName().startsWith(QStringLiteral("sb.viewer.style."))) {
                 menu->removeAction(a);
                 if (a->parent() == menu) a->deleteLater();
             }
@@ -567,7 +567,7 @@ private:
         const auto views = view::defaultViews(layout);
         for (std::size_t i = 0; i < panes_.size(); ++i) panes_[i]->setStandardView(views[i]);
         if (auto* a =
-                findChild<QAction*>(QStringLiteral("kh.viewer.layout.") + slug(view::layoutName(layout))))
+                findChild<QAction*>(QStringLiteral("sb.viewer.layout.") + slug(view::layoutName(layout))))
             a->setChecked(true);
         // Tell the view options about the panes (their names depend on the layout).
         if (options_) {
@@ -580,7 +580,7 @@ private:
 
     void addPane() {
         auto* frame = new QFrame;
-        frame->setObjectName(QStringLiteral("kh.viewer.paneframe"));
+        frame->setObjectName(QStringLiteral("sb.viewer.paneframe"));
         auto* l = new QVBoxLayout(frame);
         l->setContentsMargins(2, 2, 2, 2);
         l->setSpacing(0);
@@ -588,15 +588,15 @@ private:
 
         // Shown when the pane has its own view options.
         auto* bar = new QWidget(frame);
-        bar->setObjectName(QStringLiteral("kh.viewer.ownbar"));
-        bar->setStyleSheet(QStringLiteral("QWidget#kh\\.viewer\\.ownbar { background: #fff4d6; }"));
+        bar->setObjectName(QStringLiteral("sb.viewer.ownbar"));
+        bar->setStyleSheet(QStringLiteral("QWidget#sb\\.viewer\\.ownbar { background: #fff4d6; }"));
         auto* barLayout = new QHBoxLayout(bar);
         barLayout->setContentsMargins(6, 2, 2, 2);
         auto* note = new QLabel(tr("Own view options"), bar);
-        note->setObjectName(QStringLiteral("kh.viewer.ownnote"));
+        note->setObjectName(QStringLiteral("sb.viewer.ownnote"));
         barLayout->addWidget(note, 1);
         auto* same = new QToolButton(bar);
-        same->setObjectName(QStringLiteral("kh.viewer.ownreset"));
+        same->setObjectName(QStringLiteral("sb.viewer.ownreset"));
         same->setText(tr("Same as all panes"));
         same->setToolTip(tr("Use the same view options as all the other panes."));
         connect(same, &QToolButton::clicked, this, [this, index] {
@@ -608,7 +608,7 @@ private:
         bars_.push_back(bar);
 
         auto* pane = new view::ViewWidget(frame);
-        pane->setObjectName(QStringLiteral("kh.viewer.pane"));
+        pane->setObjectName(QStringLiteral("sb.viewer.pane"));
         pane->setLeftDrag(drag_);
         pane->setDisplayStyle(style_);
         l->addWidget(pane);
@@ -645,8 +645,8 @@ private:
         for (std::size_t i = 0; i < frames_.size(); ++i) {
             const bool on = panes_.size() > 1 && static_cast<int>(i) == active_;
             frames_[i]->setStyleSheet(
-                on ? QStringLiteral("QFrame#kh\\.viewer\\.paneframe { border: 2px solid #3d8bfd; }")
-                   : QStringLiteral("QFrame#kh\\.viewer\\.paneframe { border: 2px solid transparent; }"));
+                on ? QStringLiteral("QFrame#sb\\.viewer\\.paneframe { border: 2px solid #3d8bfd; }")
+                   : QStringLiteral("QFrame#sb\\.viewer\\.paneframe { border: 2px solid transparent; }"));
         }
     }
 
@@ -732,7 +732,7 @@ private:
 
     plugin::PluginContext& ctx_;
     ViewerService& service_;
-    viewoptions::IViewOptions* options_ = nullptr;  // null if kh.viewoptions isn't loaded
+    viewoptions::IViewOptions* options_ = nullptr;  // null if sb.viewoptions isn't loaded
     int number_ = 1;
     std::vector<QWidget*> bars_;  // one per pane: "This pane has its own view options"
     ViewBar* bar_ = nullptr;
@@ -801,7 +801,7 @@ void ViewerService::showHandlesAll() {
 }
 
 void registerViewer(plugin::PluginContext& ctx) {
-    // The service lives as long as the plugin: a listener Khan keeps while the
+    // The service lives as long as the plugin: a listener SketchBillet keeps while the
     // plugin is loaded holds it (and so does the panel factory below).
     auto service = std::make_shared<ViewerService>();
     ctx.provide<viewer::IViewer>(*service);
@@ -812,7 +812,7 @@ void registerViewer(plugin::PluginContext& ctx) {
         return;
     }
     auto opened = std::make_shared<int>(0);  // viewers opened so far, to number them
-    ui::PanelSpec spec{"kh.viewer.main", QObject::tr("Viewer"), ui::PanelArea::Center,
+    ui::PanelSpec spec{"sb.viewer.main", QObject::tr("Viewer"), ui::PanelArea::Center,
                        [&ctx, opened, service] { return new ViewerPanel(ctx, *service, ++*opened); }};
     spec.allowMultiple = true;
     ui->addPanel(std::move(spec));
@@ -892,4 +892,4 @@ plugin::BuiltinPlugin viewerPlugin() {
     return {kManifest, &registerViewer};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins

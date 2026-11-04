@@ -1,9 +1,9 @@
-#include "kh/view/Handles.h"
+#include "sb/view/Handles.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace kh::view {
+namespace sb::view {
 
 namespace {
 
@@ -171,4 +171,4 @@ std::optional<Vec3> handleDrag(const ViewHandle& h, const Ray& start, const Ray&
     return by;
 }
 
-}  // namespace kh::view
+}  // namespace sb::view

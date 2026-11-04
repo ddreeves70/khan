@@ -1,8 +1,8 @@
 # What a plugin can do
 
-Everything a plugin does goes through the `PluginContext` that Khan hands to its
+Everything a plugin does goes through the `PluginContext` that SketchBillet hands to its
 register function. This page lists what that context offers today, with a short
-example of each. The API reference (`kh::plugin::PluginContext`) has every detail.
+example of each. The API reference (`sb::plugin::PluginContext`) has every detail.
 
 ## Add commands
 
@@ -22,7 +22,7 @@ ctx.addCommand(
 
 Argument types:
 
-| `ArgType` | Value in C++ | On the `kh_cli run` command line | Read it with |
+| `ArgType` | Value in C++ | On the `sketchbillet_cli run` command line | Read it with |
 | --- | --- | --- | --- |
 | `Number` | `double`, in mm or radians | `size=25` | `model::argNumber` |
 | `Integer` | `std::int64_t` | `count=3` | `std::get<std::int64_t>` |
@@ -35,7 +35,7 @@ Argument types:
 | `FolderRef` | `FolderId` of a folder in the feature tree | `folder=Holes` | `model::argFolder` |
 | `Vec2` | `sketch::Point2`, a point on a sketch's plane, in mm | `at=10,5` | `model::argVec2` |
 
-Khan checks the arguments before calling your factory: unknown names, missing
+SketchBillet checks the arguments before calling your factory: unknown names, missing
 required arguments, wrong types, choices and steps that don't exist all get a
 plain message. Your factory still checks what only it knows (a size of 0 mm, say)
 when its command runs.
@@ -46,7 +46,7 @@ Commands can only be added while the register function runs.
 
 An **action** is a menu item, and optionally a toolbar button, that runs a
 command by name. Actions are plain data with no Qt code, so a plugin that adds
-them still works in `kh_cli`.
+them still works in `sketchbillet_cli`.
 
 ```cpp
 ctx.addAction({.id = "sam.cube.cube",           // starts with your plugin id
@@ -60,12 +60,12 @@ ctx.addAction({.id = "sam.cube.cube",           // starts with your plugin id
 ```
 
 **Settings from the selection.** List argument names in `fromSelection`, and
-Khan fills them with the selected steps, in the order they were picked. The
+SketchBillet fills them with the selected steps, in the order they were picked. The
 item is only enabled when exactly that many steps are selected. This is how
-`kh.modeling`'s **Combine > Cut** works:
+`sb.modeling`'s **Combine > Cut** works:
 
 ```cpp
-ctx.addAction({.id = "kh.modeling.cut", .text = "Cut", .menu = "Combine",
+ctx.addAction({.id = "sb.modeling.cut", .text = "Cut", .menu = "Combine",
                .command = "feature.add_boolean",
                .args = {{"operation", std::string("cut")}},
                .fromSelection = {"a", "b"},
@@ -73,12 +73,12 @@ ctx.addAction({.id = "kh.modeling.cut", .text = "Cut", .menu = "Combine",
 ```
 
 **All the selected steps.** For a command that works on any number of steps,
-give a `FeatureList` argument's name in `fromSelectionList`. Khan fills it with
+give a `FeatureList` argument's name in `fromSelectionList`. SketchBillet fills it with
 every selected step, in the order they were picked, and enables the item when one
 or more steps are selected. This is how **Edit > Turn off** works:
 
 ```cpp
-ctx.addAction({.id = "kh.modeling.turn_off", .text = "Turn off", .menu = "Edit",
+ctx.addAction({.id = "sb.modeling.turn_off", .text = "Turn off", .menu = "Edit",
                .command = "feature.suppress",
                .args = {{"off", true}},
                .fromSelectionList = "steps",
@@ -98,13 +98,13 @@ toolbar.
   lines and **Parallel** appears. The menu item is always there, greyed out when
   it can't be used.
 - **A second row.** When the buttons don't fit across the window, the ones at the
-  end go on a second row, which goes away again when they fit. Khan's own New,
+  end go on a second row, which goes away again when they fit. SketchBillet's own New,
   Open, Save, Undo and Redo stay on the first row.
 
 **Icons.** Give a button a picture with `icon`: SVG text drawn in a 24 by 24
-box. Khan shows it on the button (with the words under it) and next to the menu
+box. SketchBillet shows it on the button (with the words under it) and next to the menu
 item, and greys it out with the item. Write `currentColor` for lines that should
-be dark on a light theme and light on a dark one. Text that isn't SVG Khan can draw
+be dark on a light theme and light on a dark one. Text that isn't SVG SketchBillet can draw
 just leaves the button with words.
 
 ```cpp
@@ -118,12 +118,12 @@ ctx.addAction({.id = "sam.cube.cube", .text = "Cube", .menu = "Create",
                .tip = "Add a 30 mm cube."});
 ```
 
-To match Khan's own icons: lines 1.5 wide in `currentColor`, with round ends;
+To match SketchBillet's own icons: lines 1.5 wide in `currentColor`, with round ends;
 solids in light blue `#b4d3f7`, blue `#78ade9` and dark blue `#3f7fcf`; sketch
-lines in `#1e6fe0`; green `#2e9e4f` for adding or finishing. Khan's own are in
+lines in `#1e6fe0`; green `#2e9e4f` for adding or finishing. SketchBillet's own are in
 `plugins/modeling/icons/` and `plugins/sketcher/icons/`. A built-in plugin keeps
-each icon in its own `.svg` file and builds it in with `kh_embed_files()` (see
-`cmake/KhEmbed.cmake`).
+each icon in its own `.svg` file and builds it in with `sb_embed_files()` (see
+`cmake/SbEmbed.cmake`).
 
 **Toolbar modes.** Some work needs its own buttons, and the usual ones only get in
 the way. While a sketch is being edited, the toolbar shows only Line, Circle,
@@ -141,11 +141,11 @@ ctx.setToolbarMode("sam.paint.painting");
 ctx.setToolbarMode("");  // back to the usual toolbar
 ```
 
-- Buttons without a `toolbarMode` show only when no mode is on. Khan's own New,
+- Buttons without a `toolbarMode` show only when no mode is on. SketchBillet's own New,
   Open, Save, Undo and Redo always show.
-- Only one mode is on at a time. Khan sends `ToolbarModeChanged` when it switches.
+- Only one mode is on at a time. SketchBillet sends `ToolbarModeChanged` when it switches.
 - Mode names start with your plugin id and a dot, like event names; otherwise
-  Khan warns.
+  SketchBillet warns.
 - The menus don't change: every item stays in its menu, in every mode.
 - An item with a `toolbarMode` wins any shortcut it shares with another item
   while its mode is on. The sketcher's **Delete picked** has the Delete key, so
@@ -156,7 +156,7 @@ ctx.setToolbarMode("");  // back to the usual toolbar
 **Submenus.** A `/` in `menu` makes a submenu: `.menu = "View/Grid style"` puts
 the item in the **Grid style** submenu of **View**.
 
-Khan refuses a plugin whose action has a badly formed id, an id another action
+SketchBillet refuses a plugin whose action has a badly formed id, an id another action
 already has, or a command no loaded plugin has. Like commands, actions can only
 be added while the register function runs.
 
@@ -177,16 +177,16 @@ ctx.addAction({.id = "sam.notes.show_dates",
                .checked = [&settings] { return settings.flag("dates"); }});
 ```
 
-- Khan asks `checked` when the menu opens, after every change to a design, and
+- SketchBillet asks `checked` when the menu opens, after every change to a design, and
   whenever a setting changes, so the check mark is always right.
 - `currentText` (optional) gives the item's words the same way, for items like
   **Other (12.5 mm)...** whose words change.
 - `enabled` (optional) greys the item out whenever it returns `false`, so a
   student can't pick something that can't work right now. Its toolbar button
-  greys out too. Khan asks it at the
+  greys out too. SketchBillet asks it at the
   same times as `checked`. If it depends on something only your plugin knows
   (like "a sketch is being edited"), send `plugin::ActionsChanged{}` with
-  `ctx.publish` when that changes, and Khan asks again:
+  `ctx.publish` when that changes, and SketchBillet asks again:
 
 ```cpp
 static bool recording = false;  // something only this plugin knows
@@ -202,18 +202,18 @@ ctx.addAction({.id = "sam.notes.stop",
 
 - An item with `enabled` that throws an exception is greyed out.
 - An item has a command *or* a `run` function, never both and never neither;
-  Khan refuses the plugin otherwise.
+  SketchBillet refuses the plugin otherwise.
 - Changes to designs still go through commands. A `run` function that wants to
   change a design runs a command with `ctx.documents()`, so undo works.
-- If `run` throws an exception, Khan shows "*item* stopped with an error" in the
+- If `run` throws an exception, SketchBillet shows "*item* stopped with an error" in the
   status bar and keeps going.
-- In `kh_cli plugins` these items show `(check mark)` or `(runs plugin code)`
+- In `sketchbillet_cli plugins` these items show `(check mark)` or `(runs plugin code)`
   instead of a command name.
 
 ## Remember settings
 
 `ctx.settings()` is your plugin's own settings. The desktop app keeps them between
-runs, with Khan's own settings; `kh_cli` keeps them only while it runs.
+runs, with SketchBillet's own settings; `sketchbillet_cli` keeps them only while it runs.
 
 ```cpp
 auto& settings = ctx.settings();
@@ -225,15 +225,15 @@ settings.set("spacing", 12.5);  // numbers, text or true/false
 settings.remove("name");        // back to the fallback
 ```
 
-- Names are yours alone: Khan stores `spacing` as `plugins/sam.notes/spacing`, so
+- Names are yours alone: SketchBillet stores `spacing` as `plugins/sam.notes/spacing`, so
   two plugins can both have a `spacing`.
 - Numbers are saved with a `.` as the decimal point on every computer, and
   read back exactly.
-- Changing a setting sends a `kh.SettingChanged` event with the plugin id and the
+- Changing a setting sends a `sb.SettingChanged` event with the plugin id and the
   name, only if the value really changed. Listen to it to update what you show:
 
   ```cpp
-  ctx.listen<kh::plugin::SettingChanged>([](const kh::plugin::SettingChanged& e) {
+  ctx.listen<sb::plugin::SettingChanged>([](const sb::plugin::SettingChanged& e) {
       if (e.plugin == "sam.notes" && e.key == "dates") { /* redraw the notes */ }
   });
   ```
@@ -274,32 +274,32 @@ with `set()` un-picks the design.
 ## Add view options (desktop app only)
 
 If your plugin draws something in the viewer that the student may want to turn on
-or off or adjust, make it a **view option**. The `kh.viewoptions` plugin then
+or off or adjust, make it a **view option**. The `sb.viewoptions` plugin then
 remembers it, checks it, adds its View menu items, and shows it in the **View
 options** panel next to the grid and the axes. You don't write any menu or settings
 code.
 
-List `kh.viewoptions` in `requires` in your `plugin.json` (`"requires":
-["kh.viewoptions"]`). Because it's required, Khan loads it first, so you can look
+List `sb.viewoptions` in `requires` in your `plugin.json` (`"requires":
+["sb.viewoptions"]`). Because it's required, SketchBillet loads it first, so you can look
 up its service while registering:
 
 ```cpp
-#include "kh/viewoptions/ViewOptions.h"
+#include "sb/viewoptions/ViewOptions.h"
 
-void registerNotes(kh::plugin::PluginContext& ctx) {
-    auto* options = ctx.service<kh::viewoptions::IViewOptions>();
+void registerNotes(sb::plugin::PluginContext& ctx) {
+    auto* options = ctx.service<sb::viewoptions::IViewOptions>();
     if (!options) return;  // not in the desktop app
-    using kh::viewoptions::OptionKind;
-    kh::viewoptions::addOption(ctx, *options,
+    using sb::viewoptions::OptionKind;
+    sb::viewoptions::addOption(ctx, *options,
         {.id = "sam.notes.show", .text = "Show notes", .group = "Notes",
          .kind = OptionKind::Flag, .initial = true});
-    kh::viewoptions::addOption(ctx, *options,
+    sb::viewoptions::addOption(ctx, *options,
         {.id = "sam.notes.size", .text = "Note size", .group = "Notes",
          .kind = OptionKind::Length, .initial = 5.0, .min = 1, .max = 50,
          .presets = {2, 5, 10}});
 
     // Redraw when one of your options changes.
-    ctx.listen<kh::viewoptions::ViewOptionChanged>([&ctx, options](const auto& e) {
+    ctx.listen<sb::viewoptions::ViewOptionChanged>([&ctx, options](const auto& e) {
         if (e.option.rfind("sam.notes.", 0) == 0) { /* options->flag("sam.notes.show") ... */ }
     });
 }
@@ -318,10 +318,10 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
 - Option ids start with your plugin's id and a dot. The menu items `addOption`
   makes are yours too, with ids built from the option's: `sam.notes.show`,
   `sam.notes.size.5`, `sam.notes.size.other`.
-- Every change sends `kh.viewoptions.changed` (`ViewOptionChanged`) with the
+- Every change sends `sb.viewoptions.changed` (`ViewOptionChanged`) with the
   option's id.
-- Khan keeps the values with the app's settings, under
-  `plugins/kh.viewoptions/<option id>`.
+- SketchBillet keeps the values with the app's settings, under
+  `plugins/sb.viewoptions/<option id>`.
 
 **Panes.** Every option has an all-panes value, and the student can give one pane
 its own value (right-click in the pane, or the panel's "Show options for"). If what
@@ -354,28 +354,28 @@ Length) plugins.
 
 ## Use the grid (desktop app only)
 
-The grid is a plugin too: `kh.grid`. It offers the grid to other plugins as the
-`kh.grid/2` service, described by its contract header `kh/grid/Grid.h`. A tool
+The grid is a plugin too: `sb.grid`. It offers the grid to other plugins as the
+`sb.grid/2` service, described by its contract header `sb/grid/Grid.h`. A tool
 that lets the student place points with the mouse snaps them through it, so it
 obeys **View > Snap to grid** like everything else.
 
-List `kh.grid` in `uses` in your `plugin.json` (`"uses": ["kh.grid"]`), then look
+List `sb.grid` in `uses` in your `plugin.json` (`"uses": ["sb.grid"]`), then look
 the grid up when your plugin starts:
 
 ```cpp
-#include "kh/grid/Grid.h"
+#include "sb/grid/Grid.h"
 
 ctx.onStart([&ctx] {
-    if (auto* grid = ctx.service<kh::grid::IGrid>()) {
+    if (auto* grid = ctx.service<sb::grid::IGrid>()) {
         // The pane the point was picked in: a pane can have its own grid.
         kernel::Vec3 p = grid->snap(pointUnderMouse, pane);  // unchanged when snapping is off there
         const auto g = grid->settings(pane);                 // visible, spacing (mm), snap, style
     }
 });
-ctx.listen<kh::grid::GridChanged>([](const kh::grid::GridChanged& e) { /* e.grid.spacing */ });
+ctx.listen<sb::grid::GridChanged>([](const sb::grid::GridChanged& e) { /* e.grid.spacing */ });
 ```
 
-`kh_cli` doesn't load `kh.grid`, so the service is `nullptr` there. The student
+`sketchbillet_cli` doesn't load `sb.grid`, so the service is `nullptr` there. The student
 changes the grid with the View menu and the View options panel; other plugins only
 read it. A pane's key comes from the view options (`options->activePane()` is the
 pane the student is working in). `GridChanged` has a `pane` too: empty when the
@@ -384,40 +384,40 @@ all-panes grid changed.
 ## Draw with the mouse (desktop app only)
 
 A **view tool** lets the student draw with the mouse on a plane, the way the
-sketcher's Line and Circle tools do. The viewer (`kh.viewer`) offers it as the
-`kh.viewer/3` service, described by its contract header `kh/viewer/Viewer.h`.
+sketcher's Line and Circle tools do. The viewer (`sb.viewer`) offers it as the
+`sb.viewer/3` service, described by its contract header `sb/viewer/Viewer.h`.
 While your tool runs, a left click in any pane tells you the point on the plane
 (in mm) instead of turning the view or picking; moving the mouse tells you too, so
 you can draw a preview with an overlay. Panning and zooming still work, and Escape
 calls `cancelled()`.
 
-List `kh.viewer` in `uses` (or `requires`), then start your tool when the student
+List `sb.viewer` in `uses` (or `requires`), then start your tool when the student
 asks for it, for example from a menu item:
 
 ```cpp
-#include "kh/viewer/Viewer.h"
+#include "sb/viewer/Viewer.h"
 
-struct DotTool final : kh::viewer::IViewTool {
-    kh::plugin::PluginContext& ctx;
-    explicit DotTool(kh::plugin::PluginContext& c) : ctx(c) {}
-    void moved(const kh::viewer::ToolPoint&) override {}
-    void clicked(const kh::viewer::ToolPoint& p) override {
+struct DotTool final : sb::viewer::IViewTool {
+    sb::plugin::PluginContext& ctx;
+    explicit DotTool(sb::plugin::PluginContext& c) : ctx(c) {}
+    void moved(const sb::viewer::ToolPoint&) override {}
+    void clicked(const sb::viewer::ToolPoint& p) override {
         // p.at is the point in mm; p.pixel is how many mm one screen pixel covers there,
         // for "close enough"; p.pane is the pane, for the grid: snap with grid->snap(p.at, p.pane).
-        kh::plugin::Overlay dot{.shape = kh::plugin::OverlayShape::Points, .points = {p.at}, .size = 8};
+        sb::plugin::Overlay dot{.shape = sb::plugin::OverlayShape::Points, .points = {p.at}, .size = 8};
         ctx.overlays().set("dot", dot);
     }
     void cancelled() override {  // Escape
-        if (auto* viewer = ctx.service<kh::viewer::IViewer>()) viewer->stopTool(*this);
+        if (auto* viewer = ctx.service<sb::viewer::IViewer>()) viewer->stopTool(*this);
     }
 };
 
 auto tool = std::make_shared<DotTool>(ctx);
 ctx.addAction({.id = "sam.dots.place", .text = "Place a dot", .menu = "Tools",
                .run = [&ctx, tool] {
-                   auto* viewer = ctx.service<kh::viewer::IViewer>();
+                   auto* viewer = ctx.service<sb::viewer::IViewer>();
                    if (!viewer) return;
-                   const kh::viewer::ToolPlane ground{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};  // XY
+                   const sb::viewer::ToolPlane ground{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};  // XY
                    viewer->face(ground);              // look straight down at it
                    viewer->startTool(*tool, ground);  // clicks now come to the tool
                }});
@@ -432,17 +432,17 @@ them. Escape during a drag calls `cancelled()`: put things back, and ignore the
 to what's picked".
 
 ```cpp
-void dragged(const kh::viewer::ToolPoint& from, const kh::viewer::ToolPoint& to) override {
+void dragged(const sb::viewer::ToolPoint& from, const sb::viewer::ToolPoint& to) override {
     // Move a preview by (to.at - from.at); change the design only when it's dropped.
 }
-void dropped(const kh::viewer::ToolPoint& from, const kh::viewer::ToolPoint& to) override {
+void dropped(const sb::viewer::ToolPoint& from, const sb::viewer::ToolPoint& to) override {
     // Run one command here, so the whole drag is one undo step.
 }
 ```
 
 One tool runs at a time: starting yours stops the one that was running. Stop it
 with `stopTool()` when you're done, so clicks pick and turn the view again.
-`kh_cli` has no viewers, so nothing calls your tool there.
+`sketchbillet_cli` has no viewers, so nothing calls your tool there.
 
 **Dragging sketches.** `ctx.documents().solver()` gives the sketch solver. Its
 `drag(sketch, pulls)` moves a sketch so every constraint stays true while the
@@ -453,28 +453,28 @@ sketcher's Select tool is built on it. A solved sketch's
 ## Handles to drag (desktop app only)
 
 A **handle** is an arrow or a small square drawn in every viewer for the student
-to drag, like the arrows Khan's own `kh.movehandles` plugin puts on a picked
+to drag, like the arrows SketchBillet's own `sb.movehandles` plugin puts on a picked
 body. The viewer draws handles over the design, so they can always be grabbed,
 lights up the one under the mouse, and tells you how far it's been dragged (in
 mm): along an arrow, or across a square's flat plane. It changes nothing itself:
-you decide what a drag does. Handles use the same `kh.viewer/3` service as
+you decide what a drag does. Handles use the same `sb.viewer/3` service as
 tools, and aren't shown while a tool runs.
 
 ```cpp
-#include "kh/viewer/Viewer.h"
+#include "sb/viewer/Viewer.h"
 
-struct Slider final : kh::viewer::IHandleUser {
-    void dragged(const std::string& id, const kh::kernel::Vec3& by) override {
+struct Slider final : sb::viewer::IHandleUser {
+    void dragged(const std::string& id, const sb::kernel::Vec3& by) override {
         // by: how far since the button went down, in mm. Show a preview, or run a
         // command with continuesPrevious, so the drag is one undo step.
     }
-    void dropped(const std::string& id, const kh::kernel::Vec3& by) override {}
+    void dropped(const std::string& id, const sb::kernel::Vec3& by) override {}
     void cancelled() override {}  // Escape: put back what the drag changed
 };
 
 auto slider = std::make_shared<Slider>();
-if (auto* viewer = ctx.service<kh::viewer::IViewer>()) {
-    kh::viewer::Handle up{.id = "up", .at = {0, 0, 10}, .direction = {0, 0, 1}, .length = 30, .b = 230};
+if (auto* viewer = ctx.service<sb::viewer::IViewer>()) {
+    sb::viewer::Handle up{.id = "up", .at = {0, 0, 10}, .direction = {0, 0, 1}, .length = 30, .b = 230};
     viewer->setHandles(*slider, {up});  // replaces the handles that were there
 }
 ```
@@ -496,7 +496,7 @@ a lattice like graph paper. It's plain data in mm, so your plugin needs no Qt or
 is drawn.
 
 ```cpp
-kh::plugin::Overlay guide;
+sb::plugin::Overlay guide;
 guide.points = {{0, 0, 0}, {50, 0, 0}, {0, 0, 0}, {0, 50, 0}};  // two 50 mm lines
 guide.color = {230, 120, 20};                                 // orange
 guide.size = 2;                                               // 2 pixels wide
@@ -518,25 +518,25 @@ ctx.overlays().set("guides", guide);  // its id is "sam.notes.guides"
 - Set `onViewCube = true` to draw it on the view cube instead of in the design.
   Then `points` are in screen pixels from the cube's middle, along x, y and z: it
   turns with the cube but doesn't pan or zoom, and the cube hides what's behind
-  it. The cube's sides are `kh::plugin::kViewCubeHalfSize` (26) pixels from its
+  it. The cube's sides are `sb::plugin::kViewCubeHalfSize` (26) pixels from its
   middle, and its edges are bevelled `kViewCubeBevel` (6) pixels in. A line along
   an edge shows when it's more than 23 pixels out on both sides, but draw it more
   than 26 out if it should also show when the cube is seen straight at a side (in
   the Top, Front and Right views). Lattices can't go on the cube.
-- Every change sends `kh.OverlaysChanged`, which the viewer listens to.
-- If your plugin fails to start, Khan removes its overlays.
+- Every change sends `sb.OverlaysChanged`, which the viewer listens to.
+- If your plugin fails to start, SketchBillet removes its overlays.
 
 **Worked example:** the built-in [grid plugin](../../plugins/grid/GridPlugin.cpp)
 draws the grid with one Lattice overlay, and also uses settings, check-mark menu
 items, submenus, a status-bar item and a service. It uses only the public plugin
-API, so an outside plugin could replace it. Khan's app tests click through it.
+API, so an outside plugin could replace it. SketchBillet's app tests click through it.
 The built-in [axes plugin](../../plugins/axes/AxesPlugin.cpp) is a smaller
 example: Lines and Labels overlays on the view cube (and at the origin, if the
 student asks), three check-mark View items and their settings, with no Qt at all.
 
 ## Listen to events
 
-Events tell every part of Khan what just happened, so a change made in one place
+Events tell every part of SketchBillet what just happened, so a change made in one place
 updates every panel and view.
 
 ```cpp
@@ -554,8 +554,8 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `DocumentChanged` | A command runs, or a step is undone or redone | `doc`, `kind` (`Executed`, `Undone`, `Redone`), `label` |
 | `RebuildFinished` | A design was rebuilt after a change | `doc`, `ok` (did every step build?) |
 | `SelectionChanged` | The selection changes | `doc`, `features` (in picking order), `design` (the design itself is picked: Document settings) |
-| `kh::viewoptions::ViewOptionChanged` | A view option changes (sent by `kh.viewoptions`, desktop app) | `option` (its id) |
-| `kh::grid::GridChanged` | The grid settings change (sent by `kh.grid`, desktop app) | `grid`: visible, spacing in mm, snap, style |
+| `sb::viewoptions::ViewOptionChanged` | A view option changes (sent by `sb.viewoptions`, desktop app) | `option` (its id) |
+| `sb::grid::GridChanged` | The grid settings change (sent by `sb.grid`, desktop app) | `grid`: visible, spacing in mm, snap, style |
 | `OverlaysChanged` | An overlay is added, changed or removed | `id` |
 | `SettingChanged` | A plugin's setting changes | `plugin` (its id), `key` (the setting's name) |
 | `ToolbarModeChanged` | A plugin switches the toolbar mode (see Toolbar modes, above) | `mode` (empty for the usual toolbar) |
@@ -568,9 +568,9 @@ Things to know:
 - **Events arrive in order, one at a time.** If a listener sends an event, it
   arrives after every listener has seen the current one.
 - **Listeners only report.** To change a design, run a command.
-- **A listener that throws doesn't break Khan.** The other listeners still get
+- **A listener that throws doesn't break SketchBillet.** The other listeners still get
   the event, and the problem is recorded.
-- `ctx.listen` keeps the listener until Khan closes. For a listener you want to
+- `ctx.listen` keeps the listener until SketchBillet closes. For a listener you want to
   stop, keep the `Subscription` from `ctx.events().subscribe<E>(...)`; it
   disconnects when destroyed.
 
@@ -594,7 +594,7 @@ To ask about a body's size and mass, use the kernel the designs are built with
 and the body's material:
 
 ```cpp
-#include "kh/model/Material.h"
+#include "sb/model/Material.h"
 
 const auto* report = docs.lastRebuild(id);
 const auto* shape = report ? report->shapeOf(stepId) : nullptr;
@@ -608,25 +608,25 @@ if (shape && docs.kernel()) {
 ## Add a panel (desktop app only)
 
 A panel is a dockable window, like the feature tree. Panels are Qt widgets, so
-they use `kh_ui`, the Qt side of the plugin API. Only the desktop app provides
+they use `sb_ui`, the Qt side of the plugin API. Only the desktop app provides
 it: ask for the `UiRegistry` service, and add panels only when it's there. In
-`kh_cli` the same plugin still adds its commands and actions.
+`sketchbillet_cli` the same plugin still adds its commands and actions.
 
 ```cpp
-#include "kh/ui/UiRegistry.h"
+#include "sb/ui/UiRegistry.h"
 
-void registerNotes(kh::plugin::PluginContext& ctx) {
-    auto* ui = ctx.service<kh::ui::UiRegistry>();
+void registerNotes(sb::plugin::PluginContext& ctx) {
+    auto* ui = ctx.service<sb::ui::UiRegistry>();
     if (!ui) return;  // not in the desktop app
     ui->addPanel({"sam.notes.panel",               // starts with your plugin id
                   QObject::tr("Notes"),            // the tab's title
-                  kh::ui::PanelArea::Right,        // where it docks at first
+                  sb::ui::PanelArea::Right,        // where it docks at first
                   [&ctx] { return new NotesPanel(ctx); }});
 }
 ```
 
-- Khan calls the function when the main window opens and owns the widget it
-  returns. The student can move the panel anywhere; Khan remembers where.
+- SketchBillet calls the function when the main window opens and owns the widget it
+  returns. The student can move the panel anywhere; SketchBillet remembers where.
 - Docked panels on the same side share it as tabs, so the viewer keeps its room.
   `ui->showPanel(id)` opens yours and brings its tab to the front;
   `ui->hidePanel(id)` closes it again (the Sketch panel does this when the
@@ -635,19 +635,19 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
   keeping the `Subscription` as a member, so it disconnects when the panel
   closes).
 - Change designs only through `ctx.documents()`, like everywhere else.
-- **Lengths in the design's unit.** Khan keeps lengths in mm, but each design
+- **Lengths in the design's unit.** SketchBillet keeps lengths in mm, but each design
   shows them in its own unit (`design->lengthUnit()`: mm, cm, m, in or ft, from
   its Document settings). Show and take lengths in that unit with the helpers in
-  `kh/core/Units.h`, and give commands mm:
+  `sb/core/Units.h`, and give commands mm:
 
   ```cpp
   const auto unit = design->lengthUnit();
-  label->setText(QString::fromStdString(kh::lengthText(radius, unit)));  // "0.709 in"
-  const double mm = kh::fromUnit(box->value(), unit);                   // what the student typed
+  label->setText(QString::fromStdString(sb::lengthText(radius, unit)));  // "0.709 in"
+  const double mm = sb::fromUnit(box->value(), unit);                   // what the student typed
   ```
 - `ui->showProblems(problems)` shows what went wrong in the status bar.
 - **Status-bar items.** `ui->addStatusItem` puts a small widget at the bottom
-  right of the window, like Khan's grid size. Khan calls your function once when
+  right of the window, like SketchBillet's grid size. SketchBillet calls your function once when
   the window opens and owns the widget:
 
   ```cpp
@@ -657,10 +657,10 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
 - **More than one?** Set `allowMultiple` and the **Window** menu gets
   **New** *your panel's title*. Each one is made by its own call to your function,
   so keep its state in the widget, not in the plugin. Copies aren't reopened when
-  Khan restarts.
+  SketchBillet restarts.
 
   ```cpp
-  kh::ui::PanelSpec spec{"sam.notes.panel", QObject::tr("Notes"), kh::ui::PanelArea::Right,
+  sb::ui::PanelSpec spec{"sam.notes.panel", QObject::tr("Notes"), sb::ui::PanelArea::Right,
                          [&ctx] { return new NotesPanel(ctx); }};
   spec.allowMultiple = true;  // Window > New notes
   ui->addPanel(std::move(spec));
@@ -671,20 +671,20 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
   browser in Fusion): `PanelArea::Left` panels at its top left, `Right` ones at
   its top right under the view cube, one under the other in the order they were
   added. The student can fold it up, resize it, or dock it as an
-  ordinary panel, and Khan remembers which. While it floats it's as tall as your
+  ordinary panel, and SketchBillet remembers which. While it floats it's as tall as your
   widget's `sizeHint()`, so give it one that fits its content, and call
   `updateGeometry()` when that changes:
 
   ```cpp
-  kh::ui::PanelSpec spec{"sam.notes.panel", QObject::tr("Notes"), kh::ui::PanelArea::Left,
+  sb::ui::PanelSpec spec{"sam.notes.panel", QObject::tr("Notes"), sb::ui::PanelArea::Left,
                          [&ctx] { return new NotesPanel(ctx); }};
   spec.floatsOverView = true;  // Window > Notes over the view docks it
   ui->addPanel(std::move(spec));
   ```
 
 - **Icons on your own buttons.** `ui->icon(svg)` turns an SVG picture into an
-  icon drawn like Khan's toolbar icons (`currentColor` becomes the theme's text
-  color). Build the SVG in with `kh_embed_files()`, as for toolbar icons:
+  icon drawn like SketchBillet's toolbar icons (`currentColor` becomes the theme's text
+  color). Build the SVG in with `sb_embed_files()`, as for toolbar icons:
 
   ```cpp
   button->setIcon(ui->icon(sam::icons::notes::pin_svg));
@@ -692,7 +692,7 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
 
 - **Asking for a file.** `ui->askOpenFile(title, filter)` opens the computer's
   own file window and gives back the file the student picked, or an empty
-  string if they cancelled. (Khan's tests answer it themselves, so a plugin that
+  string if they cancelled. (SketchBillet's tests answer it themselves, so a plugin that
   asks for files can still be tested.) The sketcher's **Import spline** uses it:
 
   ```cpp
@@ -701,13 +701,13 @@ void registerNotes(kh::plugin::PluginContext& ctx) {
   ```
 
 - `PanelArea::Center` puts the panel in the middle of the window. The first
-  Center panel (Khan's viewer) fills it; later ones become tabs next to it.
-- In CMake, link `kh::ui` as well: `DEPS kh::model kh::ui`.
+  Center panel (SketchBillet's viewer) fills it; later ones become tabs next to it.
+- In CMake, link `sb::ui` as well: `DEPS sb::model sb::ui`.
 
 **Worked examples:** the built-in [feature tree](../../plugins/featuretree/FeatureTreePlugin.cpp),
 [Properties](../../plugins/properties/PropertiesPlugin.cpp) and
 [viewer](../../plugins/viewer/ViewerPlugin.cpp) panels are plugins written exactly
-this way. Khan's app tests click through them.
+this way. SketchBillet's app tests click through them.
 
 ## Share something with other plugins
 
@@ -723,18 +723,18 @@ ctx.onStart([&ctx] {                                  // after every plugin regi
 });
 ```
 
-List the plugins you use in `uses` (or `requires`) in `plugin.json`, or Khan
+List the plugins you use in `uses` (or `requires`) in `plugin.json`, or SketchBillet
 warns you.
 
 ## Log, or refuse to start
 
 ```cpp
-ctx.log("Found 3 printers.");               // shown in the Plugin manager and kh_cli plugins
-ctx.fail("This plugin needs a 3D printer connected. Connect one and restart Khan.");
+ctx.log("Found 3 printers.");               // shown in the Plugin manager and sketchbillet_cli plugins
+ctx.fail("This plugin needs a 3D printer connected. Connect one and restart SketchBillet.");
 ```
 
 Call `fail` from the register function (or an `onStart` function) when your plugin can't work. When the
-register function returns, Khan removes the plugin's commands and listeners and
+register function returns, SketchBillet removes the plugin's commands and listeners and
 shows your message, so write it for a student and say how to fix it. Throwing an
 exception has the same effect, but your message is better.
 

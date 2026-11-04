@@ -1,4 +1,4 @@
-// Tests for handles' maths (kh/view/Handles.h): drawing, picking and dragging,
+// Tests for handles' maths (sb/view/Handles.h): drawing, picking and dragging,
 // without a screen.
 
 #include <catch2/catch_approx.hpp>
@@ -6,10 +6,10 @@
 
 #include <cmath>
 
-#include "kh/view/Handles.h"
+#include "sb/view/Handles.h"
 
-using namespace kh;
-using namespace kh::view;
+using namespace sb;
+using namespace sb::view;
 using Catch::Approx;
 
 namespace {

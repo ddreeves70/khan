@@ -1,8 +1,8 @@
-#include "kh/core/Id.h"
+#include "sb/core/Id.h"
 
 #include <random>
 
-namespace kh {
+namespace sb {
 
 namespace {
 
@@ -76,9 +76,9 @@ bool Uuid::isNil() const {
     return true;
 }
 
-}  // namespace kh
+}  // namespace sb
 
-std::size_t std::hash<kh::Uuid>::operator()(const kh::Uuid& u) const noexcept {
+std::size_t std::hash<sb::Uuid>::operator()(const sb::Uuid& u) const noexcept {
     // FNV-1a over the 16 bytes.
     std::uint64_t h = 1469598103934665603ULL;
     for (auto b : u.bytes()) {

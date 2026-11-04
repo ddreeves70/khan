@@ -1,6 +1,6 @@
 # Class model
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
+> **Draft.** This design changes as SketchBillet is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
 The class model has about 45 core classes in four groups, one UML diagram each. It expands the domain model in [Design model](design-model.md) with attributes, operations, and multiplicities, and matches the interfaces sketched there.
 
@@ -40,9 +40,9 @@ A `ComponentInstance` points at a document and one of its configurations, so the
 
 ![Class diagram 6 · shell and plugins](images/class-6-shell-plugins.png)
 
-The `PluginHost` reads each `PluginManifest`, loads plugins in dependency order and hands each one a `PluginContext`. That context is the only door into Khan: the command registry, feature types, file formats, the event bus and, in the desktop app only, the `UiRegistry`. A `Viewer` owns 1 to 4 `ViewPane`s that share one scene, and every viewer listens on the bus for `SelectionChanged` and `RebuildFinished`.
+The `PluginHost` reads each `PluginManifest`, loads plugins in dependency order and hands each one a `PluginContext`. That context is the only door into SketchBillet: the command registry, feature types, file formats, the event bus and, in the desktop app only, the `UiRegistry`. A `Viewer` owns 1 to 4 `ViewPane`s that share one scene, and every viewer listens on the bus for `SelectionChanged` and `RebuildFinished`.
 
-**New library: `kh_plugin`.** The host, manifest, context and event bus need no Qt, so `kh_cli` and Python can load model-layer plugins too. It sits above `kh_model` and below the apps. `UiRegistry` and `Selection` stay in `kh_app`, and the docking layout (`DockLayout`, wrapping the Qt ADS dock manager with `savePerspective(name)` and `restore(name)`) lives there too.
+**New library: `sb_plugin`.** The host, manifest, context and event bus need no Qt, so `sketchbillet_cli` and Python can load model-layer plugins too. It sits above `sb_model` and below the apps. `UiRegistry` and `Selection` stay in `sketchbillet`, and the docking layout (`DockLayout`, wrapping the Qt ADS dock manager with `savePerspective(name)` and `restore(name)`) lives there too.
 
 ## Stage 4 additions: PMI and new types
 
@@ -69,21 +69,21 @@ These sit above the model and depend on it, never the other way round.
 
 | Class | Library | Key attributes | Key operations |
 | --- | --- | --- | --- |
-| `ComponentTree` | kh\_model | `root: Component`, `bodies: Body[]` | `addComponent()`, `promote(body)`, `find(id)` |
-| `Body` | kh\_model | `id`, `name`, `appearance`, `material`, `sourceFeature: FeatureId` | `shape()`, `massProps()` |
-| `Lesson` | kh\_lesson | `id`, `title`, `level`, `steps: LessonStep[]`, `progress` | `load(path)`, `currentStep()`, `advance()` |
-| `LessonStep` | kh\_lesson | `title`, `instruction`, `clip`, `checks: LessonCheck[]` | `evaluate(doc): StepResult` |
-| `LessonCheck` (abstract) | kh\_lesson | `label`, `expected` | `run(doc): CheckResult` |
-| `ThicknessCheck`, `HoleSizeCheck`, `FeatureExistsCheck` | kh\_lesson | `min`, `max` or `featureType` | `run(doc)` |
-| `HandIn` | kh\_lesson | `destination`, `note`, `package: Path` | `build(doc, lesson)`, `send()` |
-| `Exporter` (abstract) | kh\_io | `options` | `write(bodies, path): ExportReport` |
-| `StepExporter`, `StlExporter`, `ThreeMfExporter` | kh\_io | format-specific options | `write()` |
-| `PrintCheck` (abstract) | kh\_io | `label` | `run(shape, printer): CheckResult` |
-| `WatertightCheck`, `MinWallCheck`, `BedFitCheck`, `HoleSizeCheck` | kh\_io | thresholds | `run()` |
-| `KhanArchive` | kh\_io | `manifest`, `entries` | `read(path): Document`, `write(doc, path)`, `migrate(schema)` |
-| `Viewer` | kh\_view | `scene`, `camera`, `selection: Selection` | `show(result)`, `pick(x, y): Pick`, `highlight(refs)` |
-| `Selection` | kh\_view | `items: GeometryRef[]` | `add()`, `clear()`, `changed` signal |
-| `Tool` (abstract) | kh\_app | `name`, `panel` | `activate()`, `preview()`, `commit(): Command` |
+| `ComponentTree` | sb\_model | `root: Component`, `bodies: Body[]` | `addComponent()`, `promote(body)`, `find(id)` |
+| `Body` | sb\_model | `id`, `name`, `appearance`, `material`, `sourceFeature: FeatureId` | `shape()`, `massProps()` |
+| `Lesson` | sb\_lesson | `id`, `title`, `level`, `steps: LessonStep[]`, `progress` | `load(path)`, `currentStep()`, `advance()` |
+| `LessonStep` | sb\_lesson | `title`, `instruction`, `clip`, `checks: LessonCheck[]` | `evaluate(doc): StepResult` |
+| `LessonCheck` (abstract) | sb\_lesson | `label`, `expected` | `run(doc): CheckResult` |
+| `ThicknessCheck`, `HoleSizeCheck`, `FeatureExistsCheck` | sb\_lesson | `min`, `max` or `featureType` | `run(doc)` |
+| `HandIn` | sb\_lesson | `destination`, `note`, `package: Path` | `build(doc, lesson)`, `send()` |
+| `Exporter` (abstract) | sb\_io | `options` | `write(bodies, path): ExportReport` |
+| `StepExporter`, `StlExporter`, `ThreeMfExporter` | sb\_io | format-specific options | `write()` |
+| `PrintCheck` (abstract) | sb\_io | `label` | `run(shape, printer): CheckResult` |
+| `WatertightCheck`, `MinWallCheck`, `BedFitCheck`, `HoleSizeCheck` | sb\_io | thresholds | `run()` |
+| `SketchBilletArchive` | sb\_io | `manifest`, `entries` | `read(path): Document`, `write(doc, path)`, `migrate(schema)` |
+| `Viewer` | sb\_view | `scene`, `camera`, `selection: Selection` | `show(result)`, `pick(x, y): Pick`, `highlight(refs)` |
+| `Selection` | sb\_view | `items: GeometryRef[]` | `add()`, `clear()`, `changed` signal |
+| `Tool` (abstract) | sb\_app | `name`, `panel` | `activate()`, `preview()`, `commit(): Command` |
 
 ## Enumerations and value types
 

@@ -12,12 +12,12 @@
 #include <cmath>
 #include <memory>
 
-#include "kh/kernel_occt/OcctKernel.h"
-#include "kh/view/Graphics.h"
-#include "kh/view/ViewWidget.h"
+#include "sb/kernel_occt/OcctKernel.h"
+#include "sb/view/Graphics.h"
+#include "sb/view/ViewWidget.h"
 
-using namespace kh;
-using namespace kh::view;
+using namespace sb;
+using namespace sb::view;
 using Catch::Approx;
 
 namespace {

@@ -1,18 +1,20 @@
-# The .khan file format (schema 1)
+# The .sb file format (schema 1)
 
-A `.khan` file is a design. It is an ordinary zip file holding JSON text files, so
+A `.sb` file is a design. SketchBillet was called Khan before Nov 2026, and its
+designs ended in `.khan`: those are the same format, and still open (see
+[Changing the format](#changing-the-format)). It is an ordinary zip file holding JSON text files, so
 you can rename it to `.zip`, open it and read every step. The code that reads and
-writes it is `kh_io` (`src/io/KhanFile.cpp`).
+writes it is `sb_io` (`src/io/SketchBilletFile.cpp`).
 
 The file holds the **recipe** (the steps and their numbers), not the finished
-geometry. Khan rebuilds the shape every time it opens a file, the same way it does
+geometry. SketchBillet rebuilds the shape every time it opens a file, the same way it does
 when you change a number.
 
 ## What's inside
 
 ```text
-tag.khan
-├── manifest.json                    what this file is and which Khan wrote it
+tag.sb
+├── manifest.json                    what this file is and which SketchBillet wrote it
 ├── timeline.json                    the steps, in order
 ├── materials.json                   the design's own materials (only if it has any)
 ├── folders.json                     the feature tree's folders (only if it has any)
@@ -37,7 +39,7 @@ tag.khan
     "timeline.json",
     "features/926bde46-9c5b-403a-bc25-c01e5cf11ce3.json"
   ],
-  "format": "khan",
+  "format": "sketchbillet",
   "schema": 1,
   "units": { "angle": "rad", "length": "mm" }
 }
@@ -45,14 +47,14 @@ tag.khan
 
 | Key | Meaning |
 | --- | --- |
-| `format` | Always `"khan"`. A file without it is not a Khan design. |
+| `format` | `"sketchbillet"`; `"khan"` in designs saved before the rename, which open the same. A file without it is not a SketchBillet design. |
 | `schema` | The format version, a whole number. This document describes schema 1. |
-| `app` | The Khan version that saved the file. For information only. |
+| `app` | The SketchBillet version that saved the file. For information only. |
 | `units` | Units of every number in the file: lengths in millimeters, angles in radians. |
 | `document.id` | The design's UUID. It never changes, even when the file is renamed. |
 | `document.kind` | `"part"` (or `"assembly"`, from Phase 3). |
 | `document.name` | The design's name. |
-| `document.lengthUnit` | Only when the student picked another unit: the unit the design *shows* lengths in, `"cm"`, `"m"`, `"in"` or `"ft"`. The numbers in the file are still in mm (see `units`). A unit Khan doesn't know opens as mm. |
+| `document.lengthUnit` | Only when the student picked another unit: the unit the design *shows* lengths in, `"cm"`, `"m"`, `"in"` or `"ft"`. The numbers in the file are still in mm (see `units`). A unit SketchBillet doesn't know opens as mm. |
 | `files` | Every other entry in the zip. For information only; readers go by `timeline.json`. |
 
 ### timeline.json
@@ -98,7 +100,7 @@ Every step has `id`, `type` and `name`. Steps that use other steps list them und
 
 A step's inputs must come before it in the timeline.
 
-A `Sketch` step keeps what was drawn, not the solved positions: Khan solves it
+A `Sketch` step keeps what was drawn, not the solved positions: SketchBillet solves it
 again every time it opens or rebuilds the design.
 
 - Each entity has `id`, `name` (like `"Line1"`), `type` and its numbers (mm,
@@ -112,7 +114,7 @@ again every time it opens or rebuilds the design.
   curve goes through the points (false: they're its poles), and `unit`, the
   unit of the file's numbers, `"mm"`, `"cm"`, `"m"`, `"in"` or `"ft"`). A spline's knots aren't saved: they're spread
   evenly, clamped at the ends of an open spline and periodic for a closed one (see
-  `kh::sketch::SplineShape`).
+  `sb::sketch::SplineShape`).
 - Each constraint has `id`, `name` (like `"Length1"`), `kind` (`"horizontal"`,
   `"point_on_line"`, ... as `sketch.constrain` spells them), `points` (each an
   `entity` id and a `role`: `"start"`, `"end"`, `"center"`, `"pole"` with an
@@ -121,7 +123,7 @@ again every time it opens or rebuilds the design.
   `expression` for a dimension whose number comes from a formula (like
   `"wall * 2"`, exactly as typed; left out for a typed number), and `at` [x, y]
   for `fix`. A dimension with a formula still has its `value`: what the formula
-  last worked out to, which is what the solver uses (and what an older Khan,
+  last worked out to, which is what the solver uses (and what an older SketchBillet,
   which skips `expression`, uses).
 
 ```json
@@ -146,13 +148,13 @@ again every time it opens or rebuilds the design.
 A step whose numbers come from [formulas](user-guide/parameters.md#using-parameters-in-steps)
 has `"formulas"`: each number's key (see `feature.set_value`) and its formula as
 typed, like `{"distance": "wall * 4"}`. `params` still has every number, as the
-formula last worked out, which is what's built (and what an older Khan, which
-skips `formulas`, uses). A key this Khan doesn't know is kept.
+formula last worked out, which is what's built (and what an older SketchBillet, which
+skips `formulas`, uses). A key this SketchBillet doesn't know is kept.
 
 A step can also have `"material"`: the key of the material picked for its body,
 either a built-in material's key (like `"pla"` or `"aluminum_6061"`, listed in
 `src/model/Material.cpp`) or the `id` of one of the design's own materials. A step
-with no material picked has no `"material"` key. A key Khan doesn't know is kept
+with no material picked has no `"material"` key. A key SketchBillet doesn't know is kept
 as it is, and the body counts as PLA.
 
 ### materials.json
@@ -263,19 +265,19 @@ work:
 
 ## Opening a file
 
-Khan reads `manifest.json`, then `parameters.json` and `materials.json` if they're there, then
+SketchBillet reads `manifest.json`, then `parameters.json` and `materials.json` if they're there, then
 `timeline.json`, then each step, then `folders.json` if it's there. Each step is
 added through the normal add-step command, so the same checks run as when a student
 builds the design. The opened design has no undo history and no unsaved changes.
 
-If something is wrong, Khan opens nothing and explains why:
+If something is wrong, SketchBillet opens nothing and explains why:
 
 | Code | When |
 | --- | --- |
-| `file.cant_read` | The file isn't there, or Khan isn't allowed to open it. |
-| `file.not_khan` | Not a zip, no `manifest.json`, or `format` isn't `"khan"`. |
-| `file.too_new` | `schema` is higher than this Khan reads. The message says to update Khan. |
-| `file.unknown_step` | A step's `type` is one this Khan doesn't know (maybe from a plugin). |
+| `file.cant_read` | The file isn't there, or SketchBillet isn't allowed to open it. |
+| `file.not_sketchbillet` | Not a zip, no `manifest.json`, or `format` isn't `"sketchbillet"` (or `"khan"`). |
+| `file.too_new` | `schema` is higher than this SketchBillet reads. The message says to update SketchBillet. |
+| `file.unknown_step` | A step's `type` is one this SketchBillet doesn't know (maybe from a plugin). |
 | `file.damaged` | Anything else: bad JSON, a missing step file, a missing number, an input that doesn't exist, a material without its id, name, density or color, a folder whose steps aren't next to each other, a parameter without its id, name or expression, or with a name it can't have. |
 | `file.cant_write` | (Saving) The folder is missing, read-only or full. |
 
@@ -284,24 +286,31 @@ failed save never damages the last good copy.
 
 ## Changing the format
 
-- Adding a step type, or an optional key that older Khan can ignore, keeps schema 1.
-  Materials were added this way (Oct 2026): an older Khan opens a design with
+- **The rename (Nov 2026).** Khan became SketchBillet: new designs end in `.sb`
+  and their `format` is `"sketchbillet"`. Designs that end in `.khan`, with
+  `format` `"khan"`, still open, and save as `"sketchbillet"`. Steps copied by
+  Khan (`"format": "khan-steps"`, `application/x-khan-steps`) still paste. The
+  schema stayed 1. A Khan from before the rename can't open a `.sb` file: it
+  says it isn't a design.
+
+- Adding a step type, or an optional key that older SketchBillet can ignore, keeps schema 1.
+  Materials were added this way (Oct 2026): an older SketchBillet opens a design with
   materials, shows every body as plain geometry, and drops the materials if it
-  saves the file again. Folders were added the same way: an older Khan shows the
+  saves the file again. Folders were added the same way: an older SketchBillet shows the
   steps without folders, and drops the folders if it saves the file again.
   Splines, and the constraints only splines use (`point_on_spline`, `smooth`,
-  Oct 2026), were added in schema 1 too, but an older Khan can't skip them: it
+  Oct 2026), were added in schema 1 too, but an older SketchBillet can't skip them: it
   won't open a design that has them, and says the file is damaged. The same goes
   for `symmetric`. A spline's
-  `source` is an optional key an older Khan skips (and drops if it saves).
-  Parameters were added like materials (Oct 2026): an older Khan opens the
+  `source` is an optional key an older SketchBillet skips (and drops if it saves).
+  Parameters were added like materials (Oct 2026): an older SketchBillet opens the
   design without them, and drops them if it saves the file again. The same
-  goes for a dimension's `expression` and a step's `formulas`: an older Khan
+  goes for a dimension's `expression` and a step's `formulas`: an older SketchBillet
   keeps the numbers, not the formulas.
-- Anything an older Khan would read wrongly bumps `schema` (in
-  `src/core/include/kh/core/Version.h`) and adds a migration from the old schema.
+- Anything an older SketchBillet would read wrongly bumps `schema` (in
+  `src/core/include/sb/core/Version.h`) and adds a migration from the old schema.
 - `tests/files/` holds files saved with each schema. They are checked in and never
-  regenerated; every version of Khan must still open them. Add one when the schema
+  regenerated; every version of SketchBillet must still open them. Add one when the schema
   changes.
 - Format changes need a line-by-line human review (see CLAUDE.md).
 
@@ -311,5 +320,5 @@ From the design document's file format plan, these come later:
 
 - `components.json` (assemblies, Phase 3).
 - A `cache/` folder with built geometry for faster opening.
-- Keeping keys this Khan doesn't understand when it saves a file from a newer
+- Keeping keys this SketchBillet doesn't understand when it saves a file from a newer
   minor version. Today they are dropped.

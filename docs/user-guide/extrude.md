@@ -18,7 +18,7 @@ the sketch (drag a line, change a dimension) and the solid rebuilds to match.
 3. Click **Extrude** on the toolbar, or **Create > Extrude** (Ctrl+Shift+E). It's
    grey unless exactly one sketch is picked.
 
-Khan adds `Extrude1`, 10 mm thick. Pick it to change it in **Properties** (the name tag from
+SketchBillet adds `Extrude1`, 10 mm thick. Pick it to change it in **Properties** (the name tag from
 [Tutorial 3](../tutorials/03-name-tag.md), 3 mm thick):
 
 ![The name tag's Extrude1 picked: Properties shows its sketch, distance and side](images/app-extrude.png)
@@ -30,42 +30,42 @@ Khan adds `Extrude1`, 10 mm thick. Pick it to change it in **Properties** (the n
 
 Each change is one undo step.
 
-## Example with kh_cli
+## Example with sketchbillet_cli
 
 The plate from [Sketches](sketches.md), drawn exactly this time, then extruded
 5 mm:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save plate.khan feature.add_sketch
+$ sketchbillet_cli run --save plate.sb feature.add_sketch
 plate: 1 step
   Sketch1      ok  empty
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,0 to=40,0
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=0,0 to=40,0
 plate: 1 step
   Sketch1      ok  1 line, 0 constraints, free to move 4 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=40,0 to=40,20
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=40,0 to=40,20
 plate: 1 step
   Sketch1      ok  2 lines, 0 constraints, free to move 8 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=40,20 to=0,20
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=40,20 to=0,20
 plate: 1 step
   Sketch1      ok  3 lines, 0 constraints, free to move 12 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,20 to=0,0
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=0,20 to=0,0
 plate: 1 step
   Sketch1      ok  4 lines, 0 constraints, free to move 16 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan sketch.add_circle sketch=Sketch1 center=10,10 radius=4
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb sketch.add_circle sketch=Sketch1 center=10,10 radius=4
 plate: 1 step
   Sketch1      ok  4 lines, 1 circle, 0 constraints, free to move 19 ways
-wrote plate.khan
-$ kh_cli run --open plate.khan --save plate.khan feature.add_extrude sketch=Sketch1 distance=5
+wrote plate.sb
+$ sketchbillet_cli run --open plate.sb --save plate.sb feature.add_extrude sketch=Sketch1 distance=5
 plate: 2 steps
   Sketch1      ok  4 lines, 1 circle, 0 constraints, free to move 19 ways
   Extrude1     ok  volume 3748.67 mm^3  mass 4.65 g (PLA)
-wrote plate.khan
+wrote plate.sb
 ```
 
 The volume is the shape's area times the distance: (40 × 20 − π × 4²) × 5 =
@@ -100,7 +100,7 @@ other way, and **Both** goes half each way.
   [union or cut](combining.md).
 - **Holes from the sketch.** A circle in the sketch makes a hole with no
   cylinder and no cut, and it moves with the rest of the sketch.
-- **When it fails.** Khan says what's wrong and how to fix it:
+- **When it fails.** SketchBillet says what's wrong and how to fix it:
 
 | Message | What to do |
 | --- | --- |

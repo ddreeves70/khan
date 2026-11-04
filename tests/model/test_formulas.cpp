@@ -11,14 +11,14 @@
 #include <numbers>
 
 #include "FakeKernel.h"
-#include "kh/model/CommandRegistry.h"
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/model/Formulas.h"
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/model/Formulas.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
 
-using namespace kh;
-using namespace kh::model;
+using namespace sb;
+using namespace sb::model;
 using Catch::Approx;
 using Catch::Matchers::ContainsSubstring;
 using Catch::Matchers::StartsWith;

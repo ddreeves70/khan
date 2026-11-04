@@ -1,6 +1,6 @@
 {
   "name": "extrude-spline-loop-weighted",
-  "description": "A closed (periodic) quadratic spline with weights 1 2 1 2 1 2 round six poles, a shape on its own, extruded 6 mm. Area 1063.7365 mm^2 and perimeter 117.3387 mm, worked out independently of Khan (SciPy NURBS, Green's theorem, adaptive integration per span). One edge, so 3 faces: top, bottom and the side.",
+  "description": "A closed (periodic) quadratic spline with weights 1 2 1 2 1 2 round six poles, a shape on its own, extruded 6 mm. Area 1063.7365 mm^2 and perimeter 117.3387 mm, worked out independently of SketchBillet (SciPy NURBS, Green's theorem, adaptive integration per span). One edge, so 3 faces: top, bottom and the side.",
   "steps": [
     {
       "id": "face",

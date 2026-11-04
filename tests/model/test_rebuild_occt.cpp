@@ -3,13 +3,13 @@
 
 #include <numbers>
 
-#include "kh/kernel_occt/OcctKernel.h"
-#include "kh/model/CommandRegistry.h"
-#include "kh/model/Document.h"
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/kernel_occt/OcctKernel.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/model/Document.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
 
-using namespace kh;
-using namespace kh::model;
+using namespace sb;
+using namespace sb::model;
 using Catch::Approx;
 
 // The same document path as the fake-kernel tests, with real geometry.

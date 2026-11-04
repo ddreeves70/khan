@@ -1,11 +1,11 @@
-# Khan plugin developer guide
+# SketchBillet plugin developer guide
 
-A plugin adds something to Khan: a new command, a panel, a file format, a tool in
-the 3D view. Khan's own features are plugins too. The box and cylinder commands
-come from a plugin called `kh.modeling`, and it uses the same API you will.
+A plugin adds something to SketchBillet: a new command, a panel, a file format, a tool in
+the 3D view. SketchBillet's own features are plugins too. The box and cylinder commands
+come from a plugin called `sb.modeling`, and it uses the same API you will.
 
 This guide is for anyone who knows a little C++. It is version 0 and grows as
-Khan grows. Every change to the plugin API updates it in the same pull request.
+SketchBillet grows. Every change to the plugin API updates it in the same pull request.
 
 ## Start here
 
@@ -15,13 +15,13 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
 3. **[What a plugin can do](extension-points.md).** Commands, events and open
    designs today, and what comes next.
 4. **[Share something with other plugins](sharing.md).** Offer a service other
-   plugins use, with two small plugins, Ruler and Tape. Also: the warnings Khan
+   plugins use, with two small plugins, Ruler and Tape. Also: the warnings SketchBillet
    gives while loading, and plugins that use each other.
 
 ## How plugins fit in
 
 ```text
- your plugin          kh.modeling          (more plugins)
+ your plugin          sb.modeling          (more plugins)
       \                    |                    /
        +------- PluginContext (the plugin API) -+
                            |
@@ -29,17 +29,17 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
         EventBus:   tells everyone what changed
         DocumentList: the open designs, changed only by commands
                            |
-        Khan's core: documents, commands, geometry kernel
+        SketchBillet's core: documents, commands, geometry kernel
 ```
 
 - A plugin is a **folder** with a `plugin.json` file and a **shared library** (a
   `.dll` on Windows, `.dylib` on macOS, `.so` on Linux).
-- When Khan starts, the **plugin host** reads every `plugin.json`, checks it, and
+- When SketchBillet starts, the **plugin host** reads every `plugin.json`, checks it, and
   loads the plugins in order. A plugin loads after the plugins it needs.
-- Each plugin has one **register function**. Khan calls it once and hands it a
-  `PluginContext`, the plugin's only door into Khan. When every plugin has
-  registered, Khan runs the functions they gave to `onStart`.
-- A plugin that can't load is listed with a plain message, and Khan still starts.
+- Each plugin has one **register function**. SketchBillet calls it once and hands it a
+  `PluginContext`, the plugin's only door into SketchBillet. When every plugin has
+  registered, SketchBillet runs the functions they gave to `onStart`.
+- A plugin that can't load is listed with a plain message, and SketchBillet still starts.
 
 ## Three rules
 
@@ -49,28 +49,28 @@ Khan grows. Every change to the plugin API updates it in the same pull request.
    `example.hello.add_cube`. Don't rename it later: saved toolbars, shortcuts and
    scripts use it.
 3. **Plugins that work on designs don't use Qt.** They then work in the desktop
-   app, in `kh_cli` and (later) in Python scripts.
+   app, in `sketchbillet_cli` and (later) in Python scripts.
 
 ## What works today
 
 | Part | Status |
 | --- | --- |
-| C++ plugins built with Khan | Works: [Hello](hello-plugin.md) |
+| C++ plugins built with SketchBillet | Works: [Hello](hello-plugin.md) |
 | Commands | Works |
 | Events: design opened, closed, changed, rebuilt, active design, setting changed | Works |
 | Menu items and toolbar buttons (actions) | Works |
 | Check-mark menu items, submenus, status-bar items | Works |
-| Plugin settings Khan remembers | Works |
+| Plugin settings SketchBillet remembers | Works |
 | The shared selection | Works |
-| The grid (settings and snapping), from the `kh.grid` plugin | Works in the desktop app |
+| The grid (settings and snapping), from the `sb.grid` plugin | Works in the desktop app |
 | Drawing in the viewer (overlays) | Works |
 | View options (menu items and a panel for what the viewer shows) | Works in the desktop app |
 | Tiers, and tiers a plugin adds | Works: [plugin.json](manifest.md#tiers) |
 | Panels in the desktop app | Works: the feature tree, Properties and the viewer are plugins |
 | Sharing services and events between plugins | Works: [Share something](sharing.md) |
-| Drawing with the mouse in the viewers (view tools), from the `kh.viewer` plugin | Works in the desktop app: [Draw with the mouse](extension-points.md#draw-with-the-mouse-desktop-app-only) |
+| Drawing with the mouse in the viewers (view tools), from the `sb.viewer` plugin | Works in the desktop app: [Draw with the mouse](extension-points.md#draw-with-the-mouse-desktop-app-only) |
 | New kinds of steps (feature types), file formats | Coming later |
-| Building a plugin without the Khan source (an SDK) | Coming later |
+| Building a plugin without the SketchBillet source (an SDK) | Coming later |
 | Python plugins | Coming later |
 
 ## Getting help

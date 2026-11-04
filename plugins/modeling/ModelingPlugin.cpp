@@ -1,24 +1,24 @@
-#include "kh/plugins/Modeling.h"
+#include "sb/plugins/Modeling.h"
 
 #include <string>
 #include <string_view>
 
 #include "ModelingIcons.h"
-#include "kh/kernel/Types.h"
-#include "kh/model/CommandRegistry.h"
-#include "kh/plugin/Actions.h"
+#include "sb/kernel/Types.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/plugin/Actions.h"
 
-// kh.modeling adds Khan's modeling commands through the same PluginContext an
-// outside plugin uses. The commands themselves are still defined in kh_model
+// sb.modeling adds SketchBillet's modeling commands through the same PluginContext an
+// outside plugin uses. The commands themselves are still defined in sb_model
 // (CommandRegistry::builtin()); they move here when feature types become an
-// extension point, because saving and opening them lives in kh_io for now.
+// extension point, because saving and opening them lives in sb_io for now.
 
-namespace kh::plugins {
+namespace sb::plugins {
 
 namespace {
 
 constexpr const char* kManifest = R"({
-  "id": "kh.modeling",
+  "id": "sb.modeling",
   "name": "Modeling",
   "version": "0.1.0",
   "description": "Boxes, cylinders and Booleans, plus deleting and renaming steps.",
@@ -34,7 +34,7 @@ void registerModeling(plugin::PluginContext& ctx) {
     // Menu items and toolbar buttons. New shapes start at a sensible size; the
     // student changes the numbers in the Properties panel.
     using plugin::ActionSpec;
-    ctx.addAction(ActionSpec{.id = "kh.modeling.box",
+    ctx.addAction(ActionSpec{.id = "sb.modeling.box",
                              .text = "Box",
                              .menu = "Create",
                              .command = "feature.add_box",
@@ -43,7 +43,7 @@ void registerModeling(plugin::PluginContext& ctx) {
                              .toolbar = true,
                              .icon = std::string(icons::modeling::box_svg),
                              .tip = "Add a 20 mm box. Change its size in Properties."});
-    ctx.addAction(ActionSpec{.id = "kh.modeling.cylinder",
+    ctx.addAction(ActionSpec{.id = "sb.modeling.cylinder",
                              .text = "Cylinder",
                              .menu = "Create",
                              .command = "feature.add_cylinder",
@@ -60,11 +60,11 @@ void registerModeling(plugin::PluginContext& ctx) {
         std::string_view icon;
     };
     for (const auto& c :
-         {Combine{"kh.modeling.union", "Union", "union", "Join the two selected bodies into one.",
+         {Combine{"sb.modeling.union", "Union", "union", "Join the two selected bodies into one.",
                   icons::modeling::union_svg},
-          Combine{"kh.modeling.cut", "Cut", "cut", "Cut the second selected body out of the first.",
+          Combine{"sb.modeling.cut", "Cut", "cut", "Cut the second selected body out of the first.",
                   icons::modeling::cut_svg},
-          Combine{"kh.modeling.intersect", "Intersect", "intersect",
+          Combine{"sb.modeling.intersect", "Intersect", "intersect",
                   "Keep only where the two selected bodies overlap.", icons::modeling::intersect_svg}}) {
         ctx.addAction(ActionSpec{.id = c.id,
                                  .text = c.text,
@@ -76,7 +76,7 @@ void registerModeling(plugin::PluginContext& ctx) {
                                  .icon = std::string(c.icon),
                                  .tip = c.tip});
     }
-    ctx.addAction(ActionSpec{.id = "kh.modeling.move",
+    ctx.addAction(ActionSpec{.id = "sb.modeling.move",
                              .text = "Move",
                              .menu = "Modify",
                              .command = "feature.add_move",
@@ -87,7 +87,7 @@ void registerModeling(plugin::PluginContext& ctx) {
                              .tip = "Move or turn the picked body. Then type how far in Properties."});
     // Extrude: the one sketch picked, swept 10 mm out of its plane.
     ctx.addAction(ActionSpec{
-        .id = "kh.modeling.extrude",
+        .id = "sb.modeling.extrude",
         .text = "Extrude",
         .menu = "Create",
         .command = "feature.add_extrude",
@@ -104,34 +104,34 @@ void registerModeling(plugin::PluginContext& ctx) {
             const auto* f = doc && sel.features().size() == 1 ? doc->find(sel.features()[0]) : nullptr;
             return f && f->type() == model::FeatureType::Sketch;
         }});
-    ctx.addAction(ActionSpec{.id = "kh.modeling.duplicate",
+    ctx.addAction(ActionSpec{.id = "sb.modeling.duplicate",
                              .text = "Duplicate step",
                              .menu = "Edit",
                              .command = "feature.duplicate",
                              .fromSelection = {"feature"},
                              .shortcut = "Ctrl+D",
                              .tip = "Copy the selected step, and the steps it uses, as new steps."});
-    ctx.addAction(ActionSpec{.id = "kh.modeling.turn_off",
+    ctx.addAction(ActionSpec{.id = "sb.modeling.turn_off",
                              .text = "Turn off",
                              .menu = "Edit",
                              .command = "feature.suppress",
                              .args = {{"off", true}},
                              .fromSelectionList = "steps",
                              .tip = "Turn the picked steps off, so they aren't built. Nothing is deleted."});
-    ctx.addAction(ActionSpec{.id = "kh.modeling.turn_on",
+    ctx.addAction(ActionSpec{.id = "sb.modeling.turn_on",
                              .text = "Turn on",
                              .menu = "Edit",
                              .command = "feature.suppress",
                              .args = {{"off", false}},
                              .fromSelectionList = "steps",
                              .tip = "Turn the picked steps back on."});
-    ctx.addAction(ActionSpec{.id = "kh.modeling.new_folder",
+    ctx.addAction(ActionSpec{.id = "sb.modeling.new_folder",
                              .text = "New folder",
                              .menu = "Edit",
                              .command = "folder.add",
                              .fromSelectionList = "steps",
                              .tip = "Put the picked steps in a folder, to keep the feature tree tidy."});
-    ctx.addAction(ActionSpec{.id = "kh.modeling.delete",
+    ctx.addAction(ActionSpec{.id = "sb.modeling.delete",
                              .text = "Delete step",
                              .menu = "Edit",
                              .command = "feature.delete",
@@ -146,4 +146,4 @@ plugin::BuiltinPlugin modelingPlugin() {
     return {kManifest, &registerModeling};
 }
 
-}  // namespace kh::plugins
+}  // namespace sb::plugins

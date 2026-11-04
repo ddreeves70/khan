@@ -1,13 +1,13 @@
-// Tests for reading plugin.json (kh_plugin).
+// Tests for reading plugin.json (sb_plugin).
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <string>
 
-#include "kh/plugin/Api.h"
-#include "kh/plugin/Manifest.h"
+#include "sb/plugin/Api.h"
+#include "sb/plugin/Manifest.h"
 
-using namespace kh::plugin;
+using namespace sb::plugin;
 
 namespace {
 
@@ -24,7 +24,7 @@ TEST_CASE("a complete manifest is read", "[plugin][manifest]") {
     const auto r = parseManifest(R"({
         "id": "example.hello", "name": "Hello", "version": "1.0.0", "apiVersion": 1,
         "description": "Adds a cube.", "library": "hello",
-        "requires": ["kh.modeling"], "permissions": ["files.read"],
+        "requires": ["sb.modeling"], "permissions": ["files.read"],
         "somethingNew": {"ignored": true}
     })",
                                  "plugins/hello");
@@ -37,7 +37,7 @@ TEST_CASE("a complete manifest is read", "[plugin][manifest]") {
     CHECK(m.apiVersion == 1);
     CHECK(m.description == "Adds a cube.");
     CHECK(m.library == "hello");
-    CHECK(m.dependencies == std::vector<std::string>{"kh.modeling"});
+    CHECK(m.dependencies == std::vector<std::string>{"sb.modeling"});
     CHECK(m.permissions == std::vector<std::string>{"files.read"});
     CHECK(m.folder == "plugins/hello");
 }
@@ -66,7 +66,7 @@ TEST_CASE("broken manifests list every problem", "[plugin][manifest]") {
     }
     SECTION("wrong types") {
         const auto r = parseManifest(
-            R"({"id": "a.b", "name": 5, "version": "1", "apiVersion": "one", "requires": "kh.modeling"})");
+            R"({"id": "a.b", "name": 5, "version": "1", "apiVersion": "one", "requires": "sb.modeling"})");
         CHECK_FALSE(r.ok());
         CHECK(mentions(r, "\"name\" must be text"));
         CHECK(mentions(r, "whole number"));
@@ -81,7 +81,7 @@ TEST_CASE("broken manifests list every problem", "[plugin][manifest]") {
 }
 
 TEST_CASE("ids are lower-case words joined by dots", "[plugin][manifest]") {
-    CHECK(isValidId("kh.modeling"));
+    CHECK(isValidId("sb.modeling"));
     CHECK(isValidId("example.hello.add_cube"));
     CHECK(isValidId("a1.b_2"));
     CHECK_FALSE(isValidId("hello"));  // needs two parts
@@ -99,14 +99,14 @@ TEST_CASE("a folder without plugin.json says so", "[plugin][manifest]") {
     CHECK(r.issues.at(0).code == "plugin.manifest_missing");
 }
 
-TEST_CASE("built-in manifests get this Khan's API version", "[plugin][manifest]") {
-    const auto r = parseBuiltinManifest(R"({"id": "kh.thing", "name": "Thing", "version": "1"})");
+TEST_CASE("built-in manifests get this SketchBillet's API version", "[plugin][manifest]") {
+    const auto r = parseBuiltinManifest(R"({"id": "sb.thing", "name": "Thing", "version": "1"})");
     REQUIRE(r.ok());
     CHECK(r.manifest->apiVersion == kPluginApiVersion);
 
     // A version that is given is kept, so the host can still refuse a wrong one.
     const auto old =
-        parseBuiltinManifest(R"({"id": "kh.thing", "name": "Thing", "version": "1", "apiVersion": 0})");
+        parseBuiltinManifest(R"({"id": "sb.thing", "name": "Thing", "version": "1", "apiVersion": 0})");
     REQUIRE(old.ok());
     CHECK(old.manifest->apiVersion == 0);
 

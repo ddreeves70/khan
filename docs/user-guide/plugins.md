@@ -1,15 +1,15 @@
 # Plugins
 
-A **plugin** adds features to Khan: new commands today, and later panels, tools
-and file formats. Khan's own modeling commands come from a built-in plugin,
-`kh.modeling`.
+A **plugin** adds features to SketchBillet: new commands today, and later panels, tools
+and file formats. SketchBillet's own modeling commands come from a built-in plugin,
+`sb.modeling`.
 
 ## See what's loaded
 
 <!-- cli-example -->
 ```console
-$ kh_cli plugins
-loaded   kh.modeling 0.1.0  Modeling (built in)
+$ sketchbillet_cli plugins
+loaded   sb.modeling 0.1.0  Modeling (built in)
            tier    foundation
            command document.set_units
            command feature.add_boolean
@@ -67,33 +67,33 @@ loaded   kh.modeling 0.1.0  Modeling (built in)
 ## Use plugins from a folder
 
 A plugin is a folder with a `plugin.json` file and a program file. Put plugin
-folders inside one folder, and give that folder to `kh_cli` with `--plugins`.
-The plugins built with Khan (like the example Hello plugin) are in
-`build/dev/khan-plugins`:
+folders inside one folder, and give that folder to `sketchbillet_cli` with `--plugins`.
+The plugins built with SketchBillet (like the example Hello plugin) are in
+`build/dev/sketchbillet-plugins`:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --plugins build/dev/khan-plugins --save cube.khan example.hello.add_cube size=25
+$ sketchbillet_cli run --plugins build/dev/sketchbillet-plugins --save cube.sb example.hello.add_cube size=25
 cube: 1 step
   Cube1        ok  volume 15625.00 mm^3  mass 19.37 g (PLA)
 [example.tape] The ruler shows lengths in in.
 [example.tape] A 25.4 mm box is 1.00 in long.
 [example.hello] Hello saw a change: Add Cube1
-wrote cube.khan
+wrote cube.sb
 ```
 
 Lines in `[brackets]` are messages from plugins.
 
 ## Safety
 
-A plugin runs inside Khan with the same access to your computer as Khan itself.
+A plugin runs inside SketchBillet with the same access to your computer as SketchBillet itself.
 Only use plugins from people you trust, the same as any program you install.
 
 ## A plugin that doesn't load
 
-Khan still starts, and [`kh_cli plugins`](../cli/plugins.md) shows the plugin as
+SketchBillet still starts, and [`sketchbillet_cli plugins`](../cli/plugins.md) shows the plugin as
 `failed` with a message saying why and how to fix it. The most common reason is a
-plugin made for a different version of Khan.
+plugin made for a different version of SketchBillet.
 
 Lines starting with `warning` are for the plugin's author: the plugin works, but
 something about how it's put together is probably a mistake. You can keep using

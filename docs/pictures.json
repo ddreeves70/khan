@@ -1,96 +1,96 @@
 {
   "scripts": {
     "tag": [
-      "run --save tag.khan feature.add_box name=Plate size=60,30,4",
-      "run --open tag.khan --save tag.khan feature.add_cylinder name=Hole base=9,15,-1 radius=2.5 height=6",
-      "run --open tag.khan --save tag.khan feature.add_boolean name=Tag operation=cut a=Plate b=Hole"
+      "run --save tag.sb feature.add_box name=Plate size=60,30,4",
+      "run --open tag.sb --save tag.sb feature.add_cylinder name=Hole base=9,15,-1 radius=2.5 height=6",
+      "run --open tag.sb --save tag.sb feature.add_boolean name=Tag operation=cut a=Plate b=Hole"
     ],
     "organizer": [
-      "run --save o.khan feature.add_box name=Base size=120,60,8",
-      "run --open o.khan --save o.khan feature.add_cylinder name=Cup base=30,30,0 radius=22 height=80",
-      "run --open o.khan --save o.khan feature.add_boolean name=Body operation=union a=Base b=Cup",
-      "run --open o.khan --save o.khan feature.add_cylinder name=PenHole base=30,30,6 radius=18 height=80",
-      "run --open o.khan --save o.khan feature.add_boolean name=Hollow operation=cut a=Body b=PenHole",
-      "run --open o.khan --save o.khan feature.add_box name=Slot corner=65,24,4 size=45,12,5",
-      "run --open o.khan --save o.khan feature.add_boolean name=Organizer operation=cut a=Hollow b=Slot"
+      "run --save o.sb feature.add_box name=Base size=120,60,8",
+      "run --open o.sb --save o.sb feature.add_cylinder name=Cup base=30,30,0 radius=22 height=80",
+      "run --open o.sb --save o.sb feature.add_boolean name=Body operation=union a=Base b=Cup",
+      "run --open o.sb --save o.sb feature.add_cylinder name=PenHole base=30,30,6 radius=18 height=80",
+      "run --open o.sb --save o.sb feature.add_boolean name=Hollow operation=cut a=Body b=PenHole",
+      "run --open o.sb --save o.sb feature.add_box name=Slot corner=65,24,4 size=45,12,5",
+      "run --open o.sb --save o.sb feature.add_boolean name=Organizer operation=cut a=Hollow b=Slot"
     ],
     "parts": [
-      "run --save p.khan feature.add_box size=30,30,10",
-      "run --open p.khan --save p.khan feature.add_cylinder base=30,15,0 radius=10 height=20"
+      "run --save p.sb feature.add_box size=30,30,10",
+      "run --open p.sb --save p.sb feature.add_cylinder base=30,15,0 radius=10 height=20"
     ],
     "plate-sketch": [
-      "run --save plate.khan feature.add_sketch",
-      "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,0 to=37,2",
-      "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=37,2 to=39,19",
-      "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=39,19 to=-2,22",
-      "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=-2,22 to=0,0",
-      "run --open plate.khan --save plate.khan sketch.add_circle sketch=Sketch1 center=12,8 radius=3",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line3",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line2",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line4",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=4",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Circle1.center value=10",
-      "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical_distance on=Line1.start,Circle1.center value=10"
+      "run --save plate.sb feature.add_sketch",
+      "run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=0,0 to=37,2",
+      "run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=37,2 to=39,19",
+      "run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=39,19 to=-2,22",
+      "run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=-2,22 to=0,0",
+      "run --open plate.sb --save plate.sb sketch.add_circle sketch=Sketch1 center=12,8 radius=3",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line3",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=vertical on=Line2",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=vertical on=Line4",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=4",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Circle1.center value=10",
+      "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=vertical_distance on=Line1.start,Circle1.center value=10"
     ],
     "plate-free": [
-      "run --save plate-free.khan feature.add_sketch",
-      "run --open plate-free.khan --save plate-free.khan sketch.add_line sketch=Sketch1 from=0,0 to=37,2",
-      "run --open plate-free.khan --save plate-free.khan sketch.add_line sketch=Sketch1 from=37,2 to=39,19",
-      "run --open plate-free.khan --save plate-free.khan sketch.add_line sketch=Sketch1 from=39,19 to=-2,22",
-      "run --open plate-free.khan --save plate-free.khan sketch.add_line sketch=Sketch1 from=-2,22 to=0,0",
-      "run --open plate-free.khan --save plate-free.khan sketch.add_circle sketch=Sketch1 center=12,8 radius=3",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line3",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line2",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line4",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
-      "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=4"
+      "run --save plate-free.sb feature.add_sketch",
+      "run --open plate-free.sb --save plate-free.sb sketch.add_line sketch=Sketch1 from=0,0 to=37,2",
+      "run --open plate-free.sb --save plate-free.sb sketch.add_line sketch=Sketch1 from=37,2 to=39,19",
+      "run --open plate-free.sb --save plate-free.sb sketch.add_line sketch=Sketch1 from=39,19 to=-2,22",
+      "run --open plate-free.sb --save plate-free.sb sketch.add_line sketch=Sketch1 from=-2,22 to=0,0",
+      "run --open plate-free.sb --save plate-free.sb sketch.add_circle sketch=Sketch1 center=12,8 radius=3",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line3",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=vertical on=Line2",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=vertical on=Line4",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
+      "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=4"
     ],
     "nametag": [
-      "run --save tag.khan feature.add_sketch",
-      "run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=0,0 to=60,0",
-      "run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=60,0 to=60,20",
-      "run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=60,20 to=0,20",
-      "run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=0,20 to=0,0",
-      "run --open tag.khan --save tag.khan sketch.add_circle sketch=Sketch1 center=6,10 radius=2.5",
-      "run --open tag.khan --save tag.khan feature.add_extrude sketch=Sketch1 distance=3"
+      "run --save tag.sb feature.add_sketch",
+      "run --open tag.sb --save tag.sb sketch.add_line sketch=Sketch1 from=0,0 to=60,0",
+      "run --open tag.sb --save tag.sb sketch.add_line sketch=Sketch1 from=60,0 to=60,20",
+      "run --open tag.sb --save tag.sb sketch.add_line sketch=Sketch1 from=60,20 to=0,20",
+      "run --open tag.sb --save tag.sb sketch.add_line sketch=Sketch1 from=0,20 to=0,0",
+      "run --open tag.sb --save tag.sb sketch.add_circle sketch=Sketch1 center=6,10 radius=2.5",
+      "run --open tag.sb --save tag.sb feature.add_extrude sketch=Sketch1 distance=3"
     ],
     "arch": [
-      "run --save arch.khan feature.add_sketch",
-      "run --open arch.khan --save arch.khan sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0",
-      "run --open arch.khan --save arch.khan sketch.add_line sketch=Sketch1 from=40,0 to=0,0",
-      "run --open arch.khan --save arch.khan sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start"
+      "run --save arch.sb feature.add_sketch",
+      "run --open arch.sb --save arch.sb sketch.add_spline sketch=Sketch1 poles=0,0/0,30/40,30/40,0",
+      "run --open arch.sb --save arch.sb sketch.add_line sketch=Sketch1 from=40,0 to=0,0",
+      "run --open arch.sb --save arch.sb sketch.constrain sketch=Sketch1 kind=coincident on=Spline1.end,Line1.start"
     ],
     "smooth": [
-      "run --save join.khan feature.add_sketch",
-      "run --open join.khan --save join.khan sketch.add_line sketch=Sketch1 from=-30,0 to=0,0",
-      "run --open join.khan --save join.khan sketch.add_spline sketch=Sketch1 poles=0,0/15,0/25,20/40,20",
-      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Spline1.start",
-      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
-      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
-      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=fix on=Spline1.pole4",
-      "run --open join.khan --save join.khan sketch.constrain sketch=Sketch1 kind=smooth on=Spline1,Line1"
+      "run --save join.sb feature.add_sketch",
+      "run --open join.sb --save join.sb sketch.add_line sketch=Sketch1 from=-30,0 to=0,0",
+      "run --open join.sb --save join.sb sketch.add_spline sketch=Sketch1 poles=0,0/15,0/25,20/40,20",
+      "run --open join.sb --save join.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Spline1.start",
+      "run --open join.sb --save join.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
+      "run --open join.sb --save join.sb sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
+      "run --open join.sb --save join.sb sketch.constrain sketch=Sketch1 kind=fix on=Spline1.pole4",
+      "run --open join.sb --save join.sb sketch.constrain sketch=Sketch1 kind=smooth on=Spline1,Line1"
     ],
     "rounded": [
-      "run --save rounded.khan feature.add_sketch",
-      "run --open rounded.khan --save rounded.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20",
-      "run --open rounded.khan --save rounded.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
-      "run --open rounded.khan --save rounded.khan sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
-      "run --open rounded.khan --save rounded.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
-      "run --open rounded.khan --save rounded.khan sketch.round_corner sketch=Sketch1 at=Line2.end radius=6"
+      "run --save rounded.sb feature.add_sketch",
+      "run --open rounded.sb --save rounded.sb sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20",
+      "run --open rounded.sb --save rounded.sb sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
+      "run --open rounded.sb --save rounded.sb sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
+      "run --open rounded.sb --save rounded.sb sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
+      "run --open rounded.sb --save rounded.sb sketch.round_corner sketch=Sketch1 at=Line2.end radius=6"
     ]
   },
   "pictures": [
@@ -98,11 +98,11 @@
       "out": "docs/cli/images/demo-tag.png",
       "size": "520x320",
       "commands": [
-        "demo tag.khan"
+        "demo tag.sb"
       ],
       "show": [
         {
-          "file": "tag.khan",
+          "file": "tag.sb",
           "color": "blue"
         }
       ]
@@ -111,13 +111,13 @@
       "out": "docs/cli/images/run-block.png",
       "size": "480x320",
       "commands": [
-        "run --save b.khan feature.add_box size=40,30,10",
-        "run --open b.khan --save b.khan feature.add_cylinder base=20,15,-1 radius=6 height=12",
-        "run --open b.khan --save b.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1"
+        "run --save b.sb feature.add_box size=40,30,10",
+        "run --open b.sb --save b.sb feature.add_cylinder base=20,15,-1 radius=6 height=12",
+        "run --open b.sb --save b.sb feature.add_boolean operation=cut a=Box1 b=Cylinder1"
       ],
       "show": [
         {
-          "file": "b.khan",
+          "file": "b.sb",
           "color": "blue"
         }
       ]
@@ -126,11 +126,11 @@
       "out": "docs/cli/images/cmd-box.png",
       "size": "420x300",
       "commands": [
-        "run --save b.khan feature.add_box size=40,30,20"
+        "run --save b.sb feature.add_box size=40,30,20"
       ],
       "show": [
         {
-          "file": "b.khan",
+          "file": "b.sb",
           "color": "blue"
         }
       ]
@@ -139,17 +139,17 @@
       "out": "docs/cli/images/cmd-cylinders.png",
       "size": "520x320",
       "commands": [
-        "run --save c.khan feature.add_cylinder radius=10 height=25",
-        "run --open c.khan --save c.khan feature.add_cylinder base=20,0,5 radius=5 height=40 axis=1,0,0 name=Rod"
+        "run --save c.sb feature.add_cylinder radius=10 height=25",
+        "run --open c.sb --save c.sb feature.add_cylinder base=20,0,5 radius=5 height=40 axis=1,0,0 name=Rod"
       ],
       "show": [
         {
-          "file": "c.khan",
+          "file": "c.sb",
           "color": "green",
           "step": "Cylinder1"
         },
         {
-          "file": "c.khan",
+          "file": "c.sb",
           "color": "orange",
           "step": "Rod"
         }
@@ -160,11 +160,11 @@
       "size": "300x240",
       "script": "parts",
       "commands": [
-        "run --open p.khan --save p.khan feature.add_boolean operation=union a=Box1 b=Cylinder1"
+        "run --open p.sb --save p.sb feature.add_boolean operation=union a=Box1 b=Cylinder1"
       ],
       "show": [
         {
-          "file": "p.khan",
+          "file": "p.sb",
           "color": "blue",
           "step": "Union1"
         }
@@ -175,16 +175,16 @@
       "size": "300x240",
       "script": "parts",
       "commands": [
-        "run --open p.khan --save p.khan feature.add_boolean operation=cut a=Box1 b=Cylinder1"
+        "run --open p.sb --save p.sb feature.add_boolean operation=cut a=Box1 b=Cylinder1"
       ],
       "show": [
         {
-          "file": "p.khan",
+          "file": "p.sb",
           "color": "blue",
           "step": "Cut1"
         },
         {
-          "file": "p.khan",
+          "file": "p.sb",
           "color": "orange",
           "step": "Cylinder1",
           "ghost": true
@@ -196,22 +196,22 @@
       "size": "300x240",
       "script": "parts",
       "commands": [
-        "run --open p.khan --save p.khan feature.add_boolean operation=intersect a=Box1 b=Cylinder1"
+        "run --open p.sb --save p.sb feature.add_boolean operation=intersect a=Box1 b=Cylinder1"
       ],
       "show": [
         {
-          "file": "p.khan",
+          "file": "p.sb",
           "color": "blue",
           "step": "Intersect1"
         },
         {
-          "file": "p.khan",
+          "file": "p.sb",
           "color": "gray",
           "step": "Box1",
           "ghost": "outline"
         },
         {
-          "file": "p.khan",
+          "file": "p.sb",
           "color": "orange",
           "step": "Cylinder1",
           "ghost": "outline"
@@ -224,7 +224,7 @@
       "script": "tag",
       "show": [
         {
-          "file": "tag.khan",
+          "file": "tag.sb",
           "color": "blue",
           "step": "Plate"
         }
@@ -246,12 +246,12 @@
       "script": "tag",
       "show": [
         {
-          "file": "tag.khan",
+          "file": "tag.sb",
           "color": "blue",
           "step": "Plate"
         },
         {
-          "file": "tag.khan",
+          "file": "tag.sb",
           "color": "orange",
           "step": "Hole",
           "ghost": true
@@ -264,7 +264,7 @@
       "script": "tag",
       "show": [
         {
-          "file": "tag.khan",
+          "file": "tag.sb",
           "color": "blue",
           "step": "Tag"
         }
@@ -276,12 +276,12 @@
       "script": "organizer",
       "show": [
         {
-          "file": "o.khan",
+          "file": "o.sb",
           "color": "blue",
           "step": "Base"
         },
         {
-          "file": "o.khan",
+          "file": "o.sb",
           "color": "green",
           "step": "Cup"
         }
@@ -293,12 +293,12 @@
       "script": "organizer",
       "show": [
         {
-          "file": "o.khan",
+          "file": "o.sb",
           "color": "blue",
           "step": "Body"
         },
         {
-          "file": "o.khan",
+          "file": "o.sb",
           "color": "orange",
           "step": "PenHole",
           "ghost": true
@@ -311,12 +311,12 @@
       "script": "organizer",
       "show": [
         {
-          "file": "o.khan",
+          "file": "o.sb",
           "color": "blue",
           "step": "Hollow"
         },
         {
-          "file": "o.khan",
+          "file": "o.sb",
           "color": "orange",
           "step": "Slot",
           "ghost": true
@@ -329,7 +329,7 @@
       "script": "organizer",
       "show": [
         {
-          "file": "o.khan",
+          "file": "o.sb",
           "color": "blue",
           "step": "Organizer"
         }
@@ -342,7 +342,7 @@
       "script": "organizer",
       "show": [
         {
-          "file": "o.khan",
+          "file": "o.sb",
           "color": "blue",
           "step": "Organizer"
         }
@@ -352,30 +352,30 @@
       "out": "docs/user-guide/images/axes.png",
       "size": "520x380",
       "commands": [
-        "run --save a.khan feature.add_box size=40,30,20 name=Part",
-        "run --open a.khan --save a.khan feature.add_box size=55,0.6,0.6 name=X",
-        "run --open a.khan --save a.khan feature.add_box size=0.6,45,0.6 name=Y",
-        "run --open a.khan --save a.khan feature.add_box size=0.6,0.6,32 name=Z"
+        "run --save a.sb feature.add_box size=40,30,20 name=Part",
+        "run --open a.sb --save a.sb feature.add_box size=55,0.6,0.6 name=X",
+        "run --open a.sb --save a.sb feature.add_box size=0.6,45,0.6 name=Y",
+        "run --open a.sb --save a.sb feature.add_box size=0.6,0.6,32 name=Z"
       ],
       "show": [
         {
-          "file": "a.khan",
+          "file": "a.sb",
           "color": "gray",
           "step": "Part",
           "ghost": true
         },
         {
-          "file": "a.khan",
+          "file": "a.sb",
           "color": "red",
           "step": "X"
         },
         {
-          "file": "a.khan",
+          "file": "a.sb",
           "color": "green",
           "step": "Y"
         },
         {
-          "file": "a.khan",
+          "file": "a.sb",
           "color": "blue",
           "step": "Z"
         }
@@ -422,11 +422,11 @@
       "out": "docs/user-guide/images/shape-box.png",
       "size": "420x300",
       "commands": [
-        "run --save b.khan feature.add_box size=40,30,20"
+        "run --save b.sb feature.add_box size=40,30,20"
       ],
       "show": [
         {
-          "file": "b.khan",
+          "file": "b.sb",
           "color": "blue"
         }
       ],
@@ -461,11 +461,11 @@
       "out": "docs/user-guide/images/shape-cylinder.png",
       "size": "360x320",
       "commands": [
-        "run --save c.khan feature.add_cylinder radius=10 height=25"
+        "run --save c.sb feature.add_cylinder radius=10 height=25"
       ],
       "show": [
         {
-          "file": "c.khan",
+          "file": "c.sb",
           "color": "green"
         }
       ],
@@ -492,23 +492,23 @@
       "out": "docs/user-guide/images/shape-axis.png",
       "size": "560x300",
       "commands": [
-        "run --save c.khan feature.add_cylinder radius=5 height=40 axis=1,0,0 name=AlongX",
-        "run --open c.khan --save c.khan feature.add_cylinder base=0,30,0 radius=5 height=40 axis=0,1,0 name=AlongY",
-        "run --open c.khan --save c.khan feature.add_cylinder base=0,90,0 radius=5 height=40 name=Up"
+        "run --save c.sb feature.add_cylinder radius=5 height=40 axis=1,0,0 name=AlongX",
+        "run --open c.sb --save c.sb feature.add_cylinder base=0,30,0 radius=5 height=40 axis=0,1,0 name=AlongY",
+        "run --open c.sb --save c.sb feature.add_cylinder base=0,90,0 radius=5 height=40 name=Up"
       ],
       "show": [
         {
-          "file": "c.khan",
+          "file": "c.sb",
           "color": "red",
           "step": "AlongX"
         },
         {
-          "file": "c.khan",
+          "file": "c.sb",
           "color": "green",
           "step": "AlongY"
         },
         {
-          "file": "c.khan",
+          "file": "c.sb",
           "color": "blue",
           "step": "Up"
         }
@@ -549,12 +549,12 @@
       "script": "parts",
       "show": [
         {
-          "file": "p.khan",
+          "file": "p.sb",
           "color": "blue",
           "step": "Box1"
         },
         {
-          "file": "p.khan",
+          "file": "p.sb",
           "color": "orange",
           "step": "Cylinder1"
         }
@@ -565,7 +565,7 @@
       "size": "1280x800",
       "script": "organizer",
       "app": {
-        "open": "o.khan",
+        "open": "o.sb",
         "select": [
           "PenHole"
         ]
@@ -627,7 +627,7 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan",
+        "open": "tag.sb",
         "select": [
           "Hole"
         ]
@@ -643,11 +643,11 @@
       "out": "docs/user-guide/images/app-combine.png",
       "size": "1280x800",
       "commands": [
-        "run --save t.khan feature.add_box name=Plate size=60,30,4",
-        "run --open t.khan --save t.khan feature.add_cylinder name=Hole base=9,15,-1 radius=2.5 height=6"
+        "run --save t.sb feature.add_box name=Plate size=60,30,4",
+        "run --open t.sb --save t.sb feature.add_cylinder name=Hole base=9,15,-1 radius=2.5 height=6"
       ],
       "app": {
-        "open": "t.khan",
+        "open": "t.sb",
         "select": [
           "Plate",
           "Hole"
@@ -664,10 +664,10 @@
       "out": "docs/user-guide/images/app-failed.png",
       "size": "1280x800",
       "commands": [
-        "run --save f.khan feature.add_cylinder name=Peg radius=5 height=20 axis=0,0,0"
+        "run --save f.sb feature.add_cylinder name=Peg radius=5 height=20 axis=0,0,0"
       ],
       "app": {
-        "open": "f.khan",
+        "open": "f.sb",
         "select": [
           "Peg"
         ]
@@ -685,14 +685,14 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan",
+        "open": "tag.sb",
         "settings": {
-          "plugins/kh.viewoptions/kh.grid.style": "dots",
-          "plugins/kh.viewoptions/kh.grid.spacing": "5"
+          "plugins/sb.viewoptions/sb.grid.style": "dots",
+          "plugins/sb.viewoptions/sb.grid.spacing": "5"
         },
         "trigger": [
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel"
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel"
         ]
       },
       "crop": [
@@ -707,9 +707,9 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan",
+        "open": "tag.sb",
         "trigger": [
-          "kh.viewoptions.show"
+          "sb.viewoptions.show"
         ]
       },
       "crop": [
@@ -724,14 +724,14 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan",
+        "open": "tag.sb",
         "settings": {
-          "plugins/kh.viewoptions/panes/viewer1.pane2/kh.grid.spacing": "2",
-          "plugins/kh.viewoptions/panes/viewer1.pane2/kh.axes.labels": "false",
-          "plugins/kh.viewoptions/pane_keys": "viewer1.pane2"
+          "plugins/sb.viewoptions/panes/viewer1.pane2/sb.grid.spacing": "2",
+          "plugins/sb.viewoptions/panes/viewer1.pane2/sb.axes.labels": "false",
+          "plugins/sb.viewoptions/pane_keys": "viewer1.pane2"
         },
         "trigger": [
-          "kh.viewer.layout.fourpanes"
+          "sb.viewer.layout.fourpanes"
         ]
       },
       "crop": [
@@ -746,10 +746,10 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan",
+        "open": "tag.sb",
         "trigger": [
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel"
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel"
         ]
       },
       "crop": [
@@ -764,11 +764,11 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan",
+        "open": "tag.sb",
         "trigger": [
-          "kh.viewer.layout.fourpanes",
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel"
+          "sb.viewer.layout.fourpanes",
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel"
         ]
       },
       "crop": [
@@ -783,11 +783,11 @@
       "size": "1280x800",
       "script": "tag",
       "app": {
-        "open": "tag.khan",
+        "open": "tag.sb",
         "flat": true,
         "trigger": [
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel"
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel"
         ]
       },
       "crop": [
@@ -801,21 +801,21 @@
       "out": "docs/user-guide/images/materials-cubes.png",
       "size": "1280x800",
       "commands": [
-        "run --save cubes.khan feature.add_box name=PLA size=20,20,20",
-        "run --open cubes.khan --save cubes.khan feature.add_box name=Aluminum corner=30,0,0 size=20,20,20",
-        "run --open cubes.khan --save cubes.khan feature.add_box name=Brass corner=60,0,0 size=20,20,20",
-        "run --open cubes.khan --save cubes.khan feature.add_box name=Oak corner=90,0,0 size=20,20,20",
-        "run --open cubes.khan --save cubes.khan feature.set_material feature=Aluminum material=aluminum_6061",
-        "run --open cubes.khan --save cubes.khan feature.set_material feature=Brass material=brass_360",
-        "run --open cubes.khan --save cubes.khan feature.set_material feature=Oak material=oak"
+        "run --save cubes.sb feature.add_box name=PLA size=20,20,20",
+        "run --open cubes.sb --save cubes.sb feature.add_box name=Aluminum corner=30,0,0 size=20,20,20",
+        "run --open cubes.sb --save cubes.sb feature.add_box name=Brass corner=60,0,0 size=20,20,20",
+        "run --open cubes.sb --save cubes.sb feature.add_box name=Oak corner=90,0,0 size=20,20,20",
+        "run --open cubes.sb --save cubes.sb feature.set_material feature=Aluminum material=aluminum_6061",
+        "run --open cubes.sb --save cubes.sb feature.set_material feature=Brass material=brass_360",
+        "run --open cubes.sb --save cubes.sb feature.set_material feature=Oak material=oak"
       ],
       "app": {
-        "open": "cubes.khan",
+        "open": "cubes.sb",
         "trigger": [
-          "kh.viewer.view.front",
-          "kh.viewer.view.iso",
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel"
+          "sb.viewer.view.front",
+          "sb.viewer.view.iso",
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel"
         ]
       },
       "crop": [
@@ -830,10 +830,10 @@
       "size": "1280x800",
       "script": "tag",
       "commands": [
-        "run --open tag.khan --save tag.khan feature.set_material feature=Plate material=aluminum_6061"
+        "run --open tag.sb --save tag.sb feature.set_material feature=Plate material=aluminum_6061"
       ],
       "app": {
-        "open": "tag.khan",
+        "open": "tag.sb",
         "select": [
           "Tag"
         ]
@@ -849,14 +849,14 @@
       "out": "docs/user-guide/images/app-folders.png",
       "size": "1280x800",
       "commands": [
-        "demo f.khan",
-        "run --open f.khan --save f.khan folder.add steps=Plate,Hole name='Tag parts'",
-        "run --open f.khan --save f.khan feature.duplicate feature=Tag",
-        "run --open f.khan --save f.khan feature.suppress steps=Plate1,Hole1,Tag1",
-        "run --open f.khan --save f.khan folder.add steps=Plate1,Hole1,Tag1 name=Spare"
+        "demo f.sb",
+        "run --open f.sb --save f.sb folder.add steps=Plate,Hole name='Tag parts'",
+        "run --open f.sb --save f.sb feature.duplicate feature=Tag",
+        "run --open f.sb --save f.sb feature.suppress steps=Plate1,Hole1,Tag1",
+        "run --open f.sb --save f.sb folder.add steps=Plate1,Hole1,Tag1 name=Spare"
       ],
       "app": {
-        "open": "f.khan",
+        "open": "f.sb",
         "select": [
           "Plate",
           "Hole"
@@ -873,19 +873,19 @@
       "out": "docs/user-guide/images/app-move.png",
       "size": "1280x800",
       "commands": [
-        "demo m.khan",
-        "run --open m.khan --save m.khan feature.add_move body=Tag by=0,40,0 turn=30 about=30,15,0"
+        "demo m.sb",
+        "run --open m.sb --save m.sb feature.add_move body=Tag by=0,40,0 turn=30 about=30,15,0"
       ],
       "app": {
-        "open": "m.khan",
+        "open": "m.sb",
         "select": [
           "Move1"
         ],
         "trigger": [
-          "kh.viewer.view.top",
-          "kh.viewer.fit",
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel"
+          "sb.viewer.view.top",
+          "sb.viewer.fit",
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel"
         ]
       },
       "crop": [
@@ -899,16 +899,16 @@
       "out": "docs/user-guide/images/app-drag-handles.png",
       "size": "1280x800",
       "commands": [
-        "demo m.khan"
+        "demo m.sb"
       ],
       "app": {
-        "open": "m.khan",
+        "open": "m.sb",
         "select": [
           "Tag"
         ],
         "trigger": [
-          "kh.viewer.view.iso",
-          "kh.viewer.fit"
+          "sb.viewer.view.iso",
+          "sb.viewer.fit"
         ]
       }
     },
@@ -916,22 +916,22 @@
       "out": "docs/user-guide/images/app-parameters.png",
       "size": "1280x800",
       "commands": [
-        "run --save p.khan parameter.set name=wall value=\"3 mm\" note=\"How thick the walls are\"",
-        "run --open p.khan --save p.khan parameter.set name=width value=\"wall * 10\"",
-        "run --open p.khan --save p.khan parameter.set name=height value=\"wall * 4 + 1 in\" note=\"Room for the phone\"",
-        "run --open p.khan --save p.khan feature.add_box size=30,20,10",
-        "run --open p.khan --save p.khan feature.set_value feature=Box1 setting=size_x formula=width",
-        "run --open p.khan --save p.khan feature.set_value feature=Box1 setting=size_z formula=height"
+        "run --save p.sb parameter.set name=wall value=\"3 mm\" note=\"How thick the walls are\"",
+        "run --open p.sb --save p.sb parameter.set name=width value=\"wall * 10\"",
+        "run --open p.sb --save p.sb parameter.set name=height value=\"wall * 4 + 1 in\" note=\"Room for the phone\"",
+        "run --open p.sb --save p.sb feature.add_box size=30,20,10",
+        "run --open p.sb --save p.sb feature.set_value feature=Box1 setting=size_x formula=width",
+        "run --open p.sb --save p.sb feature.set_value feature=Box1 setting=size_z formula=height"
       ],
       "app": {
-        "open": "p.khan",
+        "open": "p.sb",
         "select": [
           "Box1"
         ],
         "trigger": [
-          "kh.viewer.view.iso",
-          "kh.viewer.fit",
-          "kh.parameters.show"
+          "sb.viewer.view.iso",
+          "sb.viewer.fit",
+          "sb.parameters.show"
         ]
       }
     },
@@ -940,7 +940,7 @@
       "size": "760x300",
       "script": "plate-sketch",
       "sketch": {
-        "file": "plate.khan",
+        "file": "plate.sb",
         "name": "Sketch1"
       }
     },
@@ -949,12 +949,12 @@
       "size": "1280x800",
       "script": "plate-sketch",
       "app": {
-        "open": "plate.khan",
+        "open": "plate.sb",
         "select": [
           "Sketch1"
         ],
         "trigger": [
-          "kh.sketcher.edit"
+          "sb.sketcher.edit"
         ]
       },
       "crop": [
@@ -969,12 +969,12 @@
       "size": "1280x800",
       "script": "plate-free",
       "app": {
-        "open": "plate-free.khan",
+        "open": "plate-free.sb",
         "select": [
           "Sketch1"
         ],
         "trigger": [
-          "kh.sketcher.edit"
+          "sb.sketcher.edit"
         ]
       },
       "crop": [
@@ -989,16 +989,16 @@
       "size": "1280x800",
       "script": "plate-free",
       "commands": [
-        "run --open plate-free.khan --save plate-free.khan sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Line1.end value=30"
+        "run --open plate-free.sb --save plate-free.sb sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Line1.end value=30"
       ],
       "check": false,
       "app": {
-        "open": "plate-free.khan",
+        "open": "plate-free.sb",
         "select": [
           "Sketch1"
         ],
         "trigger": [
-          "kh.sketcher.edit"
+          "sb.sketcher.edit"
         ]
       },
       "crop": [
@@ -1013,15 +1013,15 @@
       "size": "1280x800",
       "script": "plate-sketch",
       "commands": [
-        "run --open plate.khan --save plate.khan sketch.delete sketch=Sketch1 item=Line4"
+        "run --open plate.sb --save plate.sb sketch.delete sketch=Sketch1 item=Line4"
       ],
       "app": {
-        "open": "plate.khan",
+        "open": "plate.sb",
         "select": [
           "Sketch1"
         ],
         "trigger": [
-          "kh.sketcher.edit"
+          "sb.sketcher.edit"
         ]
       },
       "crop": [
@@ -1035,31 +1035,31 @@
       "out": "docs/user-guide/images/extrude-plate.png",
       "size": "560x340",
       "commands": [
-        "run --save plate.khan feature.add_sketch",
-        "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=0,0 to=37,2",
-        "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=37,2 to=39,19",
-        "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=39,19 to=-2,22",
-        "run --open plate.khan --save plate.khan sketch.add_line sketch=Sketch1 from=-2,22 to=0,0",
-        "run --open plate.khan --save plate.khan sketch.add_circle sketch=Sketch1 center=12,8 radius=3",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line3",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line2",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line4",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=4",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Circle1.center value=10",
-        "run --open plate.khan --save plate.khan sketch.constrain sketch=Sketch1 kind=vertical_distance on=Line1.start,Circle1.center value=10",
-        "run --open plate.khan --save plate.khan feature.add_extrude sketch=Sketch1 distance=3"
+        "run --save plate.sb feature.add_sketch",
+        "run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=0,0 to=37,2",
+        "run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=37,2 to=39,19",
+        "run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=39,19 to=-2,22",
+        "run --open plate.sb --save plate.sb sketch.add_line sketch=Sketch1 from=-2,22 to=0,0",
+        "run --open plate.sb --save plate.sb sketch.add_circle sketch=Sketch1 center=12,8 radius=3",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line1",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line3",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=vertical on=Line2",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=vertical on=Line4",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=length on=Line1 value=40",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=4",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Circle1.center value=10",
+        "run --open plate.sb --save plate.sb sketch.constrain sketch=Sketch1 kind=vertical_distance on=Line1.start,Circle1.center value=10",
+        "run --open plate.sb --save plate.sb feature.add_extrude sketch=Sketch1 distance=3"
       ],
       "show": [
         {
-          "file": "plate.khan",
+          "file": "plate.sb",
           "color": "blue",
           "step": "Extrude1"
         }
@@ -1071,7 +1071,7 @@
       "script": "nametag",
       "show": [
         {
-          "file": "tag.khan",
+          "file": "tag.sb",
           "color": "blue",
           "step": "Extrude1"
         }
@@ -1082,12 +1082,12 @@
       "size": "1280x800",
       "script": "nametag",
       "app": {
-        "open": "tag.khan",
+        "open": "tag.sb",
         "select": [
           "Extrude1"
         ],
         "trigger": [
-          "kh.viewer.fit"
+          "sb.viewer.fit"
         ]
       },
       "crop": [
@@ -1102,7 +1102,7 @@
       "size": "1280x800",
       "script": "organizer",
       "app": {
-        "open": "o.khan"
+        "open": "o.sb"
       },
       "crop": [
         505,
@@ -1116,7 +1116,7 @@
       "size": "1280x800",
       "script": "organizer",
       "app": {
-        "open": "o.khan"
+        "open": "o.sb"
       },
       "crop": [
         1130,
@@ -1130,11 +1130,11 @@
       "size": "1280x800",
       "script": "organizer",
       "app": {
-        "open": "o.khan",
+        "open": "o.sb",
         "trigger": [
-          "kh.viewer.style.wireframe",
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel"
+          "sb.viewer.style.wireframe",
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel"
         ]
       },
       "crop": [
@@ -1148,17 +1148,17 @@
       "out": "docs/user-guide/images/app-units.png",
       "size": "1280x800",
       "commands": [
-        "run --save o.khan feature.add_box name=Base size=120,60,8",
-        "run --open o.khan --save o.khan feature.add_cylinder name=Cup base=30,30,0 radius=22 height=80",
-        "run --open o.khan --save o.khan feature.add_boolean name=Body operation=union a=Base b=Cup",
-        "run --open o.khan --save o.khan feature.add_cylinder name=PenHole base=30,30,6 radius=18 height=80",
-        "run --open o.khan --save o.khan feature.add_boolean name=Hollow operation=cut a=Body b=PenHole",
-        "run --open o.khan --save o.khan feature.add_box name=Slot corner=65,24,4 size=45,12,5",
-        "run --open o.khan --save o.khan feature.add_boolean name=Organizer operation=cut a=Hollow b=Slot",
-        "run --open o.khan --save o.khan document.set_units unit=in"
+        "run --save o.sb feature.add_box name=Base size=120,60,8",
+        "run --open o.sb --save o.sb feature.add_cylinder name=Cup base=30,30,0 radius=22 height=80",
+        "run --open o.sb --save o.sb feature.add_boolean name=Body operation=union a=Base b=Cup",
+        "run --open o.sb --save o.sb feature.add_cylinder name=PenHole base=30,30,6 radius=18 height=80",
+        "run --open o.sb --save o.sb feature.add_boolean name=Hollow operation=cut a=Body b=PenHole",
+        "run --open o.sb --save o.sb feature.add_box name=Slot corner=65,24,4 size=45,12,5",
+        "run --open o.sb --save o.sb feature.add_boolean name=Organizer operation=cut a=Hollow b=Slot",
+        "run --open o.sb --save o.sb document.set_units unit=in"
       ],
       "app": {
-        "open": "o.khan",
+        "open": "o.sb",
         "select": [
           "PenHole"
         ]
@@ -1175,15 +1175,15 @@
       "size": "1280x800",
       "script": "smooth",
       "app": {
-        "open": "join.khan",
+        "open": "join.sb",
         "select": [
           "Sketch1"
         ],
         "trigger": [
-          "kh.sketcher.edit",
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel",
-          "kh.shell.show.kh.sketcher.panel"
+          "sb.sketcher.edit",
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel",
+          "sb.shell.show.sb.sketcher.panel"
         ]
       },
       "crop": [
@@ -1198,15 +1198,15 @@
       "size": "1280x800",
       "script": "rounded",
       "app": {
-        "open": "rounded.khan",
+        "open": "rounded.sb",
         "select": [
           "Sketch1"
         ],
         "trigger": [
-          "kh.sketcher.edit",
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel",
-          "kh.shell.show.kh.sketcher.panel"
+          "sb.sketcher.edit",
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel",
+          "sb.shell.show.sb.sketcher.panel"
         ]
       },
       "crop": [
@@ -1221,15 +1221,15 @@
       "size": "1280x800",
       "script": "arch",
       "app": {
-        "open": "arch.khan",
+        "open": "arch.sb",
         "select": [
           "Sketch1"
         ],
         "trigger": [
-          "kh.sketcher.edit",
-          "kh.shell.show.kh.featuretree.panel",
-          "kh.shell.show.kh.properties.panel",
-          "kh.shell.show.kh.sketcher.panel"
+          "sb.sketcher.edit",
+          "sb.shell.show.sb.featuretree.panel",
+          "sb.shell.show.sb.properties.panel",
+          "sb.shell.show.sb.sketcher.panel"
         ]
       },
       "crop": [

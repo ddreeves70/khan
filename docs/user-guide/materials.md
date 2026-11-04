@@ -15,25 +15,25 @@ numbers, and the body's volume, mass, weight and material cost.
 
 ![Properties for a tag made of aluminum](images/app-material.png)
 
-**With `kh_cli`:** run [`feature.set_material`](../cli/commands.md#featureset_material)
+**With `sketchbillet_cli`:** run [`feature.set_material`](../cli/commands.md#featureset_material)
 with the material's name. Here the demo keychain tag changes from PLA to
 aluminum. It weighs more than twice as much:
 
 <!-- cli-example -->
 ```console
-$ kh_cli demo tag.khan
-wrote tag.khan
-$ kh_cli open tag.khan
+$ sketchbillet_cli demo tag.sb
+wrote tag.sb
+$ sketchbillet_cli open tag.sb
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
-$ kh_cli run --open tag.khan --save tag.khan feature.set_material feature=Plate material="Aluminum 6061"
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.set_material feature=Plate material="Aluminum 6061"
 Demo tag: 3 steps
   Plate        ok  volume 7200.00 mm^3
   Hole         ok  volume 117.81 mm^3
   Tag          ok  volume 7121.46 mm^3  mass 19.23 g (Aluminum 6061)
-wrote tag.khan
+wrote tag.sb
 ```
 
 ## Which step's material counts
@@ -51,9 +51,9 @@ material on the Boolean step itself to override it.
 Each finished body has its own material, so a design with two bodies (a box and
 its lid, say) can have two materials.
 
-## Khan's materials
+## SketchBillet's materials
 
-[`kh_cli materials`](../cli/materials.md) lists them, with their numbers:
+[`sketchbillet_cli materials`](../cli/materials.md) lists them, with their numbers:
 
 | Group | Materials |
 | --- | --- |
@@ -72,7 +72,7 @@ its lid, say) can have two materials.
 Stiffness and strength aren't used yet: they're there to compare materials, and
 for the strength simulations coming in a later version.
 
-## How Khan works it out
+## How SketchBillet works it out
 
 | Number | How |
 | --- | --- |
@@ -87,7 +87,7 @@ For a filament or stock that isn't in the list, add your own:
 - **In the app:** choose **New material...** at the bottom of the Material list.
   Give it a name and a density (on the maker's data sheet, often in g/cm³), pick a
   color, and fill in the other numbers if you know them.
-- **With `kh_cli`:** run [`material.define`](../cli/commands.md#materialdefine).
+- **With `sketchbillet_cli`:** run [`material.define`](../cli/commands.md#materialdefine).
 
 Your materials are saved in the design, so they travel with the file. Defining a
 material with the same name again changes it everywhere it's used.
@@ -95,9 +95,9 @@ material with the same name again changes it everywhere it's used.
 
 ## Tips
 
-- **3D prints aren't solid.** Khan's mass is for a solid part. A print with 20 %
+- **3D prints aren't solid.** SketchBillet's mass is for a solid part. A print with 20 %
   infill weighs much less; your slicer gives the real filament weight.
-- **Wood is stronger along the grain.** Khan's numbers for wood are along the grain.
+- **Wood is stronger along the grain.** SketchBillet's numbers for wood are along the grain.
 - **Check before you trust a strength number.** These are typical values. For
   anything that must not break, use the supplier's data sheet and ask someone
   who knows.

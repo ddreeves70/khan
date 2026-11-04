@@ -1,10 +1,10 @@
-# kh_cli help
+# sketchbillet_cli help
 
-Lists the modeling commands that [`kh_cli run`](run.md) can run, or explains one
+Lists the modeling commands that [`sketchbillet_cli run`](run.md) can run, or explains one
 command and its settings.
 
 ```text
-kh_cli help [--plugins <folder>]... [<command>]
+sketchbillet_cli help [--plugins <folder>]... [<command>]
 ```
 
 | Option | Meaning |
@@ -16,8 +16,8 @@ kh_cli help [--plugins <folder>]... [<command>]
 
 <!-- cli-example -->
 ```console
-$ kh_cli help
-Commands for kh_cli run:
+$ sketchbillet_cli help
+Commands for sketchbillet_cli run:
   document.set_units       Set units
   feature.add_boolean      Combine bodies
   feature.add_box          Add box
@@ -57,15 +57,15 @@ Commands for kh_cli run:
   sketch.set_value         Change dimension
   sketch.set_weight        Change control point weight
   sketch.trim              Trim
-Run "kh_cli help <command>" to see a command's settings.
+Run "sketchbillet_cli help <command>" to see a command's settings.
 ```
 
 ## Explain one command
 
 <!-- cli-example -->
 ```console
-$ kh_cli help feature.add_cylinder
-feature.add_cylinder: Add cylinder (from kh.modeling)
+$ sketchbillet_cli help feature.add_cylinder
+feature.add_cylinder: Add cylinder (from sb.modeling)
   Adds a cylinder from its base center, axis, radius and height.
 Settings:
   radius     number               required  Radius in mm.
@@ -93,7 +93,7 @@ Plugins can add commands. Load them with `--plugins`:
 
 <!-- cli-example -->
 ```console
-$ kh_cli help --plugins build/dev/khan-plugins example.hello.add_cube
+$ sketchbillet_cli help --plugins build/dev/sketchbillet-plugins example.hello.add_cube
 example.hello.add_cube: Add cube (from example.hello)
   Adds a cube at the origin.
 Settings:
@@ -104,6 +104,6 @@ Settings:
 
 <!-- cli-example exit=1 -->
 ```console
-$ kh_cli help feature.add_sphere
-error: there is no command called feature.add_sphere. Run "kh_cli help" to see them.
+$ sketchbillet_cli help feature.add_sphere
+error: there is no command called feature.add_sphere. Run "sketchbillet_cli help" to see them.
 ```

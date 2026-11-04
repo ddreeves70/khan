@@ -1,9 +1,9 @@
-# kh.properties: the Properties panel (Qt). Built only with the desktop app.
-kh_add_library(kh_plugin_properties
+# sb.properties: the Properties panel (Qt). Built only with the desktop app.
+sb_add_library(sb_plugin_properties
   SOURCES
     PropertiesPlugin.cpp
   DEPS
-    kh::ui
-    kh::plugin
-    kh::model
+    sb::ui
+    sb::plugin
+    sb::model
 )

@@ -1,4 +1,4 @@
-"""Renders STL files to a PNG picture for Khan's guides.
+"""Renders STL files to a PNG picture for SketchBillet's guides.
 
 A small software renderer (NumPy z-buffer), so the pictures look the same on
 every computer and need no GPU or window:

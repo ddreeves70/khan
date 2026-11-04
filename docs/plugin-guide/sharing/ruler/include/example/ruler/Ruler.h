@@ -14,7 +14,7 @@ public:
     virtual double fromMm(double mm) const = 0;  // a length in mm, in the ruler's unit
 };
 
-// Sent when the ruler's unit changes, and once when Khan starts.
+// Sent when the ruler's unit changes, and once when SketchBillet starts.
 struct UnitChanged {
     static constexpr const char* kType = "example.ruler.unit_changed";
     const char* unit = "mm";

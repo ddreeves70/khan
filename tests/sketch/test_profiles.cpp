@@ -7,12 +7,12 @@
 #include <numbers>
 
 #include "SketchHelpers.h"
-#include "kh/sketch/Profiles.h"
+#include "sb/sketch/Profiles.h"
 
-using namespace kh;
-using namespace kh::sketch;
+using namespace sb;
+using namespace sb::sketch;
 using Catch::Approx;
-using kh::test::SketchBuilder;
+using sb::test::SketchBuilder;
 
 namespace {
 

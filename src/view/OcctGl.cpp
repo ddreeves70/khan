@@ -12,7 +12,7 @@
 
 #include <algorithm>
 
-namespace kh::view::detail {
+namespace sb::view::detail {
 
 namespace {
 
@@ -108,4 +108,4 @@ std::string useQtFramebuffer(const Handle(V3d_View) & view) {
     return {};
 }
 
-}  // namespace kh::view::detail
+}  // namespace sb::view::detail

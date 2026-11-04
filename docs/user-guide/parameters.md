@@ -9,7 +9,7 @@ Parameters are saved in the design, and [sketch dimensions](#using-parameters-in
 and [steps' numbers](#using-parameters-in-steps), like how far an extrude goes,
 can use them. Add and change them in the desktop app's
 [Parameters panel](#in-the-desktop-app), or with
-[`kh_cli`](../cli/commands.md#parameterset).
+[`sketchbillet_cli`](../cli/commands.md#parameterset).
 
 ## In the desktop app
 
@@ -31,7 +31,7 @@ Double-click a cell (or pick it and start typing), then press Enter. Every
 change is one step of Edit > Undo, and everything that uses the parameter
 changes with it. **Add** adds a parameter called `size1` (`size2`, ...), 10 mm,
 ready for you to type its name. **Delete** deletes the picked rows; one that
-something still uses can't be deleted. If Khan can't make a change, the status
+something still uses can't be deleted. If SketchBillet can't make a change, the status
 bar says why and the cell goes back to what it was.
 
 ## An example
@@ -41,30 +41,30 @@ for the phone to sit in:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save stand.khan parameter.set name=wall value="3 mm"
+$ sketchbillet_cli run --save stand.sb parameter.set name=wall value="3 mm"
 stand: 0 steps
 Parameters:
   wall = 3 mm
-wrote stand.khan
-$ kh_cli run --open stand.khan --save stand.khan parameter.set name=height value="wall * 4 + 1 in"
+wrote stand.sb
+$ sketchbillet_cli run --open stand.sb --save stand.sb parameter.set name=height value="wall * 4 + 1 in"
 stand: 0 steps
 Parameters:
   wall   = 3 mm
   height = wall * 4 + 1 in  (37.4 mm)
-wrote stand.khan
+wrote stand.sb
 ```
 
-Khan worked out `height`: 4 × 3 mm + 25.4 mm = 37.4 mm. Make the walls thinner,
+SketchBillet worked out `height`: 4 × 3 mm + 25.4 mm = 37.4 mm. Make the walls thinner,
 and `height` follows:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open stand.khan --save stand.khan parameter.set name=wall value="2 mm"
+$ sketchbillet_cli run --open stand.sb --save stand.sb parameter.set name=wall value="2 mm"
 stand: 0 steps
 Parameters:
   wall   = 2 mm
   height = wall * 4 + 1 in  (33.4 mm)
-wrote stand.khan
+wrote stand.sb
 ```
 
 ## What a formula can have
@@ -85,12 +85,12 @@ wrote stand.khan
 | `sin`, `cos`, `tan` | `sin(30 deg)` | Of an angle |
 | `asin`, `acos`, `atan` | `atan(0.5)` | The angle with that sine, cosine or tangent |
 
-Khan works out `*` and `/` before `+` and `-`, as in maths: `1 + 2 * 3` is 7.
+SketchBillet works out `*` and `/` before `+` and `-`, as in maths: `1 + 2 * 3` is 7.
 Use brackets to change that: `(1 + 2) * 3` is 9.
 
 ## Units are checked
 
-Khan keeps track of what each value measures, so mistakes show up straight away
+SketchBillet keeps track of what each value measures, so mistakes show up straight away
 instead of making a part the wrong size:
 
 - Lengths add to lengths, whatever their units: `1 in + 1 mm` is 26.4 mm. A
@@ -103,7 +103,7 @@ instead of making a part the wrong size:
 
 A name has letters, digits and `_`, and starts with a letter: `wall`,
 `hole_2`, `LidGap`. Upper and lower case count, so `Wall` and `wall` are
-different, and Khan won't let you have both. Words formulas already use (units
+different, and SketchBillet won't let you have both. Words formulas already use (units
 like `mm` and `in`, functions like `sin`, and `pi`) can't be names.
 
 [`parameter.rename`](../cli/commands.md#parameterrename) changes a parameter's
@@ -117,34 +117,34 @@ Here a plate is 10 walls wide:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open stand.khan --save stand.khan feature.add_sketch
+$ sketchbillet_cli run --open stand.sb --save stand.sb feature.add_sketch
 stand: 1 step
   Sketch1      ok  empty
 Parameters:
   wall   = 2 mm
   height = wall * 4 + 1 in  (33.4 mm)
-wrote stand.khan
-$ kh_cli run --open stand.khan --save stand.khan sketch.add_rectangle sketch=Sketch1 from=0,0 to=20,30
+wrote stand.sb
+$ sketchbillet_cli run --open stand.sb --save stand.sb sketch.add_rectangle sketch=Sketch1 from=0,0 to=20,30
 stand: 1 step
   Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
 Parameters:
   wall   = 2 mm
   height = wall * 4 + 1 in  (33.4 mm)
-wrote stand.khan
-$ kh_cli run --open stand.khan --save stand.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 formula="wall * 10"
+wrote stand.sb
+$ sketchbillet_cli run --open stand.sb --save stand.sb sketch.constrain sketch=Sketch1 kind=length on=Line1 formula="wall * 10"
 stand: 1 step
   Sketch1      ok  4 lines, 9 constraints, free to move 3 ways
 Parameters:
   wall   = 2 mm
   height = wall * 4 + 1 in  (33.4 mm)
-wrote stand.khan
-$ kh_cli run --open stand.khan --save stand.khan sketch.constrain sketch=Sketch1 kind=length on=Line2 formula=height
+wrote stand.sb
+$ sketchbillet_cli run --open stand.sb --save stand.sb sketch.constrain sketch=Sketch1 kind=length on=Line2 formula=height
 stand: 1 step
   Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
 Parameters:
   wall   = 2 mm
   height = wall * 4 + 1 in  (33.4 mm)
-wrote stand.khan
+wrote stand.sb
 ```
 
 The plate is 20 mm wide (10 × 2 mm) and 33.4 mm tall. Change `wall`, and both
@@ -152,14 +152,14 @@ dimensions follow, because `height` uses `wall` too:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open stand.khan --save stand.khan parameter.set name=wall value="3 mm"
+$ sketchbillet_cli run --open stand.sb --save stand.sb parameter.set name=wall value="3 mm"
 stand: 1 step
   Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
 Parameters:
   wall   = 3 mm
   height = wall * 4 + 1 in  (37.4 mm)
-wrote stand.khan
-$ kh_cli open stand.khan --sketch Sketch1
+wrote stand.sb
+$ sketchbillet_cli open stand.sb --sketch Sketch1
 ...
   Length1        length              Line1  30.00 mm = wall * 10
   Length2        length              Line2  37.40 mm = height
@@ -167,7 +167,7 @@ $ kh_cli open stand.khan --sketch Sketch1
 ```
 
 A length dimension needs a length and an angle dimension an angle, so a plain
-number like `12` is refused: write `12 mm`. Khan also refuses a parameter
+number like `12` is refused: write `12 mm`. SketchBillet also refuses a parameter
 change that would make a length 0 mm or less. In the desktop app, a dimension
 with a formula says so when you point at its number; typing a new number there
 replaces the formula.
@@ -181,15 +181,15 @@ Here the plate from the sketch above is extruded one wall thick:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open stand.khan --save stand.khan feature.add_extrude sketch=Sketch1 distance=5
+$ sketchbillet_cli run --open stand.sb --save stand.sb feature.add_extrude sketch=Sketch1 distance=5
 stand: 2 steps
   Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
   Extrude1     ok  volume 5610.00 mm^3  mass 6.96 g (PLA)
 Parameters:
   wall   = 3 mm
   height = wall * 4 + 1 in  (37.4 mm)
-wrote stand.khan
-$ kh_cli run --open stand.khan --save stand.khan feature.set_value feature=Extrude1 setting=distance formula=wall
+wrote stand.sb
+$ sketchbillet_cli run --open stand.sb --save stand.sb feature.set_value feature=Extrude1 setting=distance formula=wall
 stand: 2 steps
   Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
   Extrude1     ok  volume 3366.00 mm^3  mass 4.17 g (PLA)
@@ -197,14 +197,14 @@ stand: 2 steps
 Parameters:
   wall   = 3 mm
   height = wall * 4 + 1 in  (37.4 mm)
-wrote stand.khan
+wrote stand.sb
 ```
 
 Now one number, `wall`, sets the plate's width, height and thickness:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open stand.khan --save stand.khan parameter.set name=wall value="2 mm"
+$ sketchbillet_cli run --open stand.sb --save stand.sb parameter.set name=wall value="2 mm"
 stand: 2 steps
   Sketch1      ok  4 lines, 10 constraints, free to move 2 ways
   Extrude1     ok  volume 1336.00 mm^3  mass 1.66 g (PLA)
@@ -212,7 +212,7 @@ stand: 2 steps
 Parameters:
   wall   = 2 mm
   height = wall * 4 + 1 in  (33.4 mm)
-wrote stand.khan
+wrote stand.sb
 ```
 
 That's 20 mm × 33.4 mm × 2 mm = 1336 mm^3. In the desktop app's Properties
@@ -224,9 +224,9 @@ there replaces the formula, and the other numbers keep theirs.
 - Name the sizes you'd want to change later: wall thickness, the gap for a lid,
   a screw's size. Work the rest out from those.
 - Add a note to say what a parameter is for: `note="Gap so the lid slides on"`.
-- A parameter can't use itself, or use one that uses it back: Khan couldn't
+- A parameter can't use itself, or use one that uses it back: SketchBillet couldn't
   work either out. If you see that message, change one of them to a number.
-- Khan won't let you make a change that breaks another parameter. It says which
+- SketchBillet won't let you make a change that breaks another parameter. It says which
   one would break, and why, so you can fix that one first.
 - A parameter that another one uses can't be deleted until nothing uses it.
 - Every change to a parameter can be undone.

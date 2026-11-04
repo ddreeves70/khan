@@ -1,0 +1,170 @@
+#pragma once
+
+#include <QByteArray>
+#include <QMainWindow>
+#include <QString>
+#include <QStringList>
+
+#include <filesystem>
+#include <functional>
+#include <map>
+#include <string>
+#include <vector>
+
+#include "sb/core/Diagnostic.h"
+#include "sb/core/Id.h"
+#include "sb/plugin/PluginHost.h"
+
+class QAction;
+class QLabel;
+class QMenu;
+class QSettings;
+class QToolBar;
+
+namespace ads {
+class CDockAreaWidget;
+class CDockManager;
+class CDockWidget;
+}  // namespace ads
+
+namespace sb::app {
+
+class AppUi;
+class ViewOverlay;
+
+// The main window. It owns no features of its own: panels (the viewer too), menu
+// items and toolbar buttons come from plugins (through AppUi and PluginHost::actions()).
+// The shell adds what every program needs: File (new, open, save), Edit (undo,
+// redo), Window (panels and layouts), and one open design at a time.
+class Shell : public QMainWindow {
+    Q_OBJECT
+public:
+    // `host` must have loaded its plugins. `settings` keeps layouts and the
+    // window's place between runs. The panel in the middle comes from a plugin
+    // (sb.viewer), and so does the grid (sb.grid).
+    Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* parent = nullptr);
+    ~Shell() override;
+
+    // What to do with unsaved changes before they would be lost.
+    enum class Unsaved { Save, Discard, Cancel };
+    // Asks the student. Tests replace it so no dialog opens.
+    std::function<Unsaved(const QString& name)> askUnsaved;
+    // Asks where to save. Tests replace it. Empty means cancelled.
+    std::function<QString(const QString& suggested)> askSavePath;
+    // Asks where to export (.stl or .step). Tests replace it. Empty means cancelled.
+    std::function<QString(const QString& suggested)> askExportPath;
+
+    // Designs. Each returns what went wrong, if anything (also shown in the status bar).
+    bool newDesign();  // false if the student cancelled
+    Diagnostics openDesign(const std::filesystem::path& path);
+    Diagnostics saveDesign(const std::filesystem::path& path);
+    bool save();  // to its file, or asks where; false if cancelled or failed
+    // Writes one body of the active design as STL or STEP, chosen by the file's
+    // ending: the picked step if exactly one is picked, else the only finished body.
+    Diagnostics exportDesign(const std::filesystem::path& path);
+    DocId activeDesign() const;
+    std::filesystem::path activePath() const;
+
+    // Selects steps by name in the active design (for --select and tests).
+    void selectSteps(const QStringList& names);
+
+    // Plugin actions by id, e.g. "sb.modeling.box"; nullptr if there is none.
+    QAction* action(const std::string& id) const;
+    // A plugin action's toolbar button; nullptr if it has none.
+    QAction* button(const std::string& id) const;
+    QAction* undoAction() const { return undo_; }
+    QAction* redoAction() const { return redo_; }
+    QAction* copyAction() const { return copy_; }
+    QAction* pasteAction() const { return paste_; }
+    void copySteps();   // the picked steps (and the steps they use) to the clipboard
+    void pasteSteps();  // steps on the clipboard to the end of the active design
+
+    // Panels and layouts.
+    QStringList dockIds() const;
+    QWidget* panelWidget(const QString& id) const;
+    // A panel that can float over the view (ui::PanelSpec::floatsOverView):
+    // floating there, or docked as an ordinary panel. SketchBillet remembers which.
+    void setOverView(const QString& id, bool over);
+    bool overView(const QString& id) const;
+    QWidget* overlay(const QString& id) const;  // its floating frame (shown or not)
+    // Opens another copy of a panel that allows it (Window > New viewer).
+    // Returns the new panel's id, e.g. "sb.viewer.main.2", or empty if it can't.
+    QString openAnotherPanel(const QString& id);
+    QByteArray saveLayout() const;
+    bool restoreLayout(const QByteArray& layout);
+    void saveNamedLayout(const QString& name);
+    bool openNamedLayout(const QString& name);
+    QStringList layoutNames() const;
+    void resetLayout();
+    // Moves floating panels that are off every screen (a monitor was unplugged)
+    // back onto the main screen. Returns how many it moved.
+    int bringPanelsOnScreen();
+
+    // The last problems shown, for tests.
+    const Diagnostics& lastProblems() const { return lastProblems_; }
+
+protected:
+    void closeEvent(QCloseEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
+
+private:
+    void buildMenus();
+    void buildPanels();
+    void runAction(const plugin::ActionSpec& spec);
+    void refresh();
+    void refreshActions();  // plugins' check marks and changing texts
+    void showProblems(const Diagnostics& problems);
+    void showMessage(const QString& message);
+    bool confirmLoseChanges();
+    void replaceActive(std::unique_ptr<model::Document> doc, std::filesystem::path path);
+    void rebuildLayoutMenu();
+    void showPanel(const QString& id, bool show = true);
+    void showOverlay(const QString& id, bool show);  // a floating panel's frame
+    void placeOverlaysAfter(const QString& id);      // the floating panels under it on its side
+    void keepOverlaysOut();                          // docks of panels floating over the view stay closed
+
+    plugin::PluginHost& host_;
+    AppUi& ui_;
+    QSettings& settings_;
+    ads::CDockManager* docks_ = nullptr;
+    ads::CDockAreaWidget* centerArea_ = nullptr;
+    std::map<QString, int> copies_;
+    struct Overlay {
+        ads::CDockWidget* dock = nullptr;
+        ViewOverlay* frame = nullptr;
+        QAction* show = nullptr;  // Window > Feature tree, while it floats
+        QAction* over = nullptr;  // Window > Feature tree over the view
+        bool shown = true;        // open (floating or docked), as opposed to closed
+    };
+    std::map<QString, Overlay> overlays_;
+    std::vector<QString> overlayOrder_;  // as the plugins added them: the order they stack in  // panel id ->
+                                         // how many copies were opened
+    QLabel* problemLabel_ = nullptr;
+    QToolBar* toolbar_ = nullptr;
+    // The second row: plugin buttons that don't fit on the first (hidden when empty).
+    QToolBar* toolbar2_ = nullptr;
+    QAction* toolbar2Hint_ = nullptr;  // "Pick something ..." while the second row has no buttons showing
+    void wrapToolbar();
+    QMenu* windowMenu_ = nullptr;
+    QMenu* viewMenu_ = nullptr;
+    QMenu* layoutMenu_ = nullptr;
+    QAction* undo_ = nullptr;
+    QAction* redo_ = nullptr;
+    QAction* copy_ = nullptr;
+    QAction* paste_ = nullptr;
+    QAction* save_ = nullptr;
+    QAction* export_ = nullptr;
+    struct PluginItem {
+        plugin::ActionSpec spec;
+        QAction* item = nullptr;    // in its menu
+        QAction* button = nullptr;  // on the toolbar; separate so it can hide in other toolbar modes
+    };
+    std::vector<PluginItem> actions_;
+    std::map<DocId, std::filesystem::path> paths_;
+    QByteArray defaultLayout_;
+    Diagnostics lastProblems_;
+    std::vector<plugin::Subscription> subs_;
+    bool refreshPending_ = false;
+};
+
+}  // namespace sb::app

@@ -7,12 +7,12 @@
 #include <numbers>
 
 #include "FakeKernel.h"
-#include "kh/model/CommandRegistry.h"
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
 
-using namespace kh;
-using namespace kh::model;
+using namespace sb;
+using namespace sb::model;
 using Catch::Approx;
 
 namespace {

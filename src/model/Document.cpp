@@ -1,4 +1,4 @@
-#include "kh/model/Document.h"
+#include "sb/model/Document.h"
 
 #include <algorithm>
 #include <cctype>
@@ -6,9 +6,9 @@
 #include <set>
 #include <utility>
 
-#include "kh/model/Formulas.h"
+#include "sb/model/Formulas.h"
 
-namespace kh::model {
+namespace sb::model {
 
 // ---------------------------------------------------------------------------
 // DocumentEditor
@@ -326,8 +326,10 @@ RebuildReport Document::regenerate(kernel::IKernel& kernel, sketch::ISketchSolve
                 // Sketches are solved, not built: no shape, and not a body.
                 if (!solver) {
                     r.status = FeatureStatus::Failed;
-                    r.issues.push_back(
-                        {"sketch.no_solver", Severity::Error, "This copy of Khan can't solve sketches.", {}});
+                    r.issues.push_back({"sketch.no_solver",
+                                        Severity::Error,
+                                        "This copy of SketchBillet can't solve sketches.",
+                                        {}});
                 } else {
                     auto solved = std::make_shared<sketch::SolveResult>(
                         solver->solve(static_cast<const SketchFeature&>(*f).sketch()));
@@ -408,4 +410,4 @@ const Material& Document::materialOf(const FeatureId& id) const {
     return *findMaterial(find(source)->material());
 }
 
-}  // namespace kh::model
+}  // namespace sb::model

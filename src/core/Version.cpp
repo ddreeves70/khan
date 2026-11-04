@@ -1,7 +1,9 @@
-#include "kh/core/Version.h"
+#include "sb/core/Version.h"
 
-namespace kh {
+namespace sb {
 
-std::string_view version() { return KH_VERSION_STRING; }
+std::string_view version() {
+    return SB_VERSION_STRING;
+}
 
-}  // namespace kh
+}  // namespace sb

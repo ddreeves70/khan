@@ -1,4 +1,4 @@
-#include "kh/sketch_planegcs/PlaneGcsSolver.h"
+#include "sb/sketch_planegcs/PlaneGcsSolver.h"
 
 #include <planegcs/GCS.h>
 
@@ -13,11 +13,11 @@
 #include <utility>
 #include <variant>
 
-namespace kh::sketch {
+namespace sb::sketch {
 
 namespace {
 
-// How close Khan's own measure of every constraint must be to 0 after a solve
+// How close SketchBillet's own measure of every constraint must be to 0 after a solve
 // (mm, or radians for angles).
 constexpr double kTolerance = 1e-6;
 
@@ -47,8 +47,8 @@ std::size_t entityNumbers(const std::vector<Entity>& entities) {
 }
 
 // Where two curves joined end to end bend equally (G2): the difference of their
-// curvature vectors (see kh::sketch::curvatureVector()) across the first curve's
-// direction there. PlaneGCS has no such constraint, so it's Khan's own: it reads
+// curvature vectors (see sb::sketch::curvatureVector()) across the first curve's
+// direction there. PlaneGCS has no such constraint, so it's SketchBillet's own: it reads
 // the curves' numbers through pvec (which PlaneGCS may redirect while it solves)
 // and works out its gradient by central differences.
 // Curvature is in 1/mm, so a mismatch is tiny next to the millimeters the other
@@ -212,7 +212,7 @@ public:
         auto& b = builder;
 
         // Entities. An arc's ends are kept on its circle by PlaneGCS's arc rules,
-        // added with tag 0 (Khan's own constraints are tagged 1, 2, 3, ...).
+        // added with tag 0 (SketchBillet's own constraints are tagged 1, 2, 3, ...).
         for (std::size_t i = 0; i < whole.entities.size(); ++i) {
             const auto& shape = whole.entities[i].shape;
             auto& g = built[i];
@@ -391,7 +391,7 @@ public:
                 case ConstraintKind::PointOnSpline: {
                     // PlaneGCS adds a number for where along the spline the point is,
                     // starting from the nearest place now (its knots run 0 to the
-                    // number of spans, as Khan's do).
+                    // number of spans, as SketchBillet's do).
                     auto& g = built[index(e[0])];
                     const auto& sp = std::get<SplineShape>(shapeOf(e[0]));
                     auto& point = pointOfRef(c.points[0]);
@@ -733,7 +733,7 @@ private:
             return;
         }
 
-        // 3. Check the answer with Khan's own measures: the solver must really
+        // 3. Check the answer with SketchBillet's own measures: the solver must really
         // have made every constraint true.
         if (const auto problem = checkAnswer(sketch, solved)) {
             result.status = SolveStatus::Failed;
@@ -760,4 +760,4 @@ std::unique_ptr<ISketchSolver> makePlaneGcsSolver() {
     return std::make_unique<PlaneGcsSolver>();
 }
 
-}  // namespace kh::sketch
+}  // namespace sb::sketch

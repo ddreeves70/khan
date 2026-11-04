@@ -32,26 +32,26 @@ numbers being exact: that's what constraints are for.
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --save tag.khan feature.add_sketch
+$ sketchbillet_cli run --save tag.sb feature.add_sketch
 tag: 1 step
   Sketch1      ok  empty
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=0,0 to=43,2
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.add_line sketch=Sketch1 from=0,0 to=43,2
 tag: 1 step
   Sketch1      ok  1 line, 0 constraints, free to move 4 ways
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=43,2 to=41,19
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.add_line sketch=Sketch1 from=43,2 to=41,19
 tag: 1 step
   Sketch1      ok  2 lines, 0 constraints, free to move 8 ways
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=41,19 to=1,21
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.add_line sketch=Sketch1 from=41,19 to=1,21
 tag: 1 step
   Sketch1      ok  3 lines, 0 constraints, free to move 12 ways
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.add_line sketch=Sketch1 from=1,21 to=0,0
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.add_line sketch=Sketch1 from=1,21 to=0,0
 tag: 1 step
   Sketch1      ok  4 lines, 0 constraints, free to move 16 ways
-wrote tag.khan
+wrote tag.sb
 ```
 
 "Free to move 16 ways" means nothing holds the lines yet: each of their 8 ends
@@ -64,11 +64,11 @@ The four lines go all the way round, so they make a **closed shape**. Extrude it
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open tag.khan --save tag.khan feature.add_extrude sketch=Sketch1 distance=3
+$ sketchbillet_cli run --open tag.sb --save tag.sb feature.add_extrude sketch=Sketch1 distance=3
 tag: 2 steps
   Sketch1      ok  4 lines, 0 constraints, free to move 16 ways
   Extrude1     ok  volume 2365.50 mm^3  mass 2.93 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 You have a solid already, but a wonky one: its outline is still the rough one.
@@ -83,26 +83,26 @@ points stay together. Join the end of each line to the start of the next:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line1.end,Line2.start
 tag: 2 steps
   Sketch1      ok  4 lines, 1 constraint, free to move 14 ways
   Extrude1     ok  volume 2365.50 mm^3  mass 2.93 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line2.end,Line3.start
 tag: 2 steps
   Sketch1      ok  4 lines, 2 constraints, free to move 12 ways
   Extrude1     ok  volume 2365.50 mm^3  mass 2.93 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line3.end,Line4.start
 tag: 2 steps
   Sketch1      ok  4 lines, 3 constraints, free to move 10 ways
   Extrude1     ok  volume 2365.50 mm^3  mass 2.93 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=coincident on=Line4.end,Line1.start
 tag: 2 steps
   Sketch1      ok  4 lines, 4 constraints, free to move 8 ways
   Extrude1     ok  volume 2365.50 mm^3  mass 2.93 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 Each one takes away 2 of the ways it can move (the x and the y of one end).
@@ -114,26 +114,26 @@ Make the bottom and top lines level (`horizontal`) and the sides upright
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line1
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line1
 tag: 2 steps
   Sketch1      ok  4 lines, 5 constraints, free to move 7 ways
   Extrude1     ok  volume 2488.50 mm^3  mass 3.09 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=horizontal on=Line3
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=horizontal on=Line3
 tag: 2 steps
   Sketch1      ok  4 lines, 6 constraints, free to move 6 ways
   Extrude1     ok  volume 2365.50 mm^3  mass 2.93 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line2
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=vertical on=Line2
 tag: 2 steps
   Sketch1      ok  4 lines, 7 constraints, free to move 5 ways
   Extrude1     ok  volume 2422.50 mm^3  mass 3.00 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=vertical on=Line4
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=vertical on=Line4
 tag: 2 steps
   Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
   Extrude1     ok  volume 2394.00 mm^3  mass 2.97 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 It's a true rectangle now, of whatever size the rough lines happened to make.
@@ -146,21 +146,21 @@ give the rectangle **dimensions**: the bottom line is 45 mm long, the right side
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=fix on=Line1.start
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=fix on=Line1.start
 tag: 2 steps
   Sketch1      ok  4 lines, 9 constraints, free to move 2 ways
   Extrude1     ok  volume 2451.00 mm^3  mass 3.04 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=length on=Line1 value=45
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=length on=Line1 value=45
 tag: 2 steps
   Sketch1      ok  4 lines, 10 constraints, free to move 1 way
   Extrude1     ok  volume 2565.00 mm^3  mass 3.18 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20
 tag: 2 steps
   Sketch1      ok  4 lines, 11 constraints, fully constrained
   Extrude1     ok  volume 2700.00 mm^3  mass 3.35 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 **Fully constrained** means nothing can move any more: the solver knows exactly
@@ -174,38 +174,38 @@ the left and 10 mm up from the bottom, in the middle of the tag's height:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open tag.khan --save tag.khan sketch.add_circle sketch=Sketch1 center=6,10 radius=3
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.add_circle sketch=Sketch1 center=6,10 radius=3
 tag: 2 steps
   Sketch1      ok  4 lines, 1 circle, 11 constraints, free to move 3 ways
   Extrude1     ok  volume 2615.18 mm^3  mass 3.24 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=2.5
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=radius on=Circle1 value=2.5
 tag: 2 steps
   Sketch1      ok  4 lines, 1 circle, 12 constraints, free to move 2 ways
   Extrude1     ok  volume 2641.10 mm^3  mass 3.27 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Circle1.center value=6
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=horizontal_distance on=Line1.start,Circle1.center value=6
 tag: 2 steps
   Sketch1      ok  4 lines, 1 circle, 13 constraints, free to move 1 way
   Extrude1     ok  volume 2641.10 mm^3  mass 3.27 g (PLA)
-wrote tag.khan
-$ kh_cli run --open tag.khan --save tag.khan sketch.constrain sketch=Sketch1 kind=vertical_distance on=Line1.start,Circle1.center value=10
+wrote tag.sb
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.constrain sketch=Sketch1 kind=vertical_distance on=Line1.start,Circle1.center value=10
 tag: 2 steps
   Sketch1      ok  4 lines, 1 circle, 14 constraints, fully constrained
   Extrude1     ok  volume 2641.10 mm^3  mass 3.27 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 The hole goes right through the plate: 2700 − π × 2.5² × 3 = 2641.10 mm^3. You
 didn't need a cylinder or a cut, as in Tutorial 1: the extrude made the hole,
 because it's part of the outline.
 
-`kh_cli open --sketch` shows where the solver put everything, every constraint,
+`sketchbillet_cli open --sketch` shows where the solver put everything, every constraint,
 and the closed shapes it found:
 
 <!-- cli-example -->
 ```console
-$ kh_cli open tag.khan --sketch Sketch1
+$ sketchbillet_cli open tag.sb --sketch Sketch1
 tag: 2 steps
   Sketch1      ok  4 lines, 1 circle, 14 constraints, fully constrained
   Extrude1     ok  volume 2641.10 mm^3  mass 3.27 g (PLA)
@@ -240,11 +240,11 @@ the 45 mm dimension; change it:
 
 <!-- cli-example -->
 ```console
-$ kh_cli run --open tag.khan --save tag.khan sketch.set_value sketch=Sketch1 constraint=Length1 value=60
+$ sketchbillet_cli run --open tag.sb --save tag.sb sketch.set_value sketch=Sketch1 constraint=Length1 value=60
 tag: 2 steps
   Sketch1      ok  4 lines, 1 circle, 14 constraints, fully constrained
   Extrude1     ok  volume 3541.10 mm^3  mass 4.39 g (PLA)
-wrote tag.khan
+wrote tag.sb
 ```
 
 The solver moved the right side, the top line followed (it's joined and
@@ -255,7 +255,7 @@ level), the hole stayed 6 mm from the left, and the extrude rebuilt the solid:
 
 <!-- cli-example -->
 ```console
-$ kh_cli open tag.khan --export tag.stl --step Extrude1
+$ sketchbillet_cli open tag.sb --export tag.stl --step Extrude1
 tag: 2 steps
   Sketch1      ok  4 lines, 1 circle, 14 constraints, fully constrained
   Extrude1     ok  volume 3541.10 mm^3  mass 4.39 g (PLA)
@@ -273,7 +273,7 @@ takes about 15 minutes.
   above. Does the volume change?
 - Add a second hole at the other end. Where does its center go, in x, so it's
   6 mm from the right side? (Use `horizontal_distance` from `Line2.start`.)
-- In the desktop app, open `tag.khan`, pick Sketch1, and press **Ctrl+K** to
+- In the desktop app, open `tag.sb`, pick Sketch1, and press **Ctrl+K** to
   edit it. Drag a corner: nothing moves, because it's fully constrained. Change
   a number in the **Sketch** panel instead.
 

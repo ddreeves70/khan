@@ -1,4 +1,4 @@
-#include "kh/view/FlatView.h"
+#include "sb/view/FlatView.h"
 
 #include <QFontMetricsF>
 #include <QKeyEvent>
@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace kh::view {
+namespace sb::view {
 
 namespace {
 constexpr double kPixelsPerMm = 4.0;
@@ -20,7 +20,7 @@ QColor qcolor(const ViewOverlay& o) {
 }  // namespace
 
 FlatView::FlatView(QWidget* parent) : QWidget(parent) {
-    setObjectName(QStringLiteral("kh.view.flat"));
+    setObjectName(QStringLiteral("sb.view.flat"));
     setAutoFillBackground(true);
     QPalette p = palette();
     p.setColor(QPalette::Window, QColor(246, 247, 249));
@@ -217,4 +217,4 @@ void FlatView::paintEvent(QPaintEvent*) {
     }
 }
 
-}  // namespace kh::view
+}  // namespace sb::view

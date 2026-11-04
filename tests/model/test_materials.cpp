@@ -8,13 +8,13 @@
 #include <set>
 #include <string>
 
-#include "kh/model/CommandRegistry.h"
-#include "kh/model/Commands.h"
-#include "kh/model/Document.h"
-#include "kh/model/Material.h"
+#include "sb/model/CommandRegistry.h"
+#include "sb/model/Commands.h"
+#include "sb/model/Document.h"
+#include "sb/model/Material.h"
 
-using namespace kh;
-using namespace kh::model;
+using namespace sb;
+using namespace sb::model;
 using Catch::Approx;
 
 namespace {
@@ -143,7 +143,7 @@ TEST_CASE("an unknown material is refused with a plain message", "[model][materi
         t.run("feature.set_material", {{"feature", t.plate}, {"material", std::string("wood")}});
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].code == "material.unknown");
-    CHECK(issues[0].message.find("kh_cli materials") != std::string::npos);
+    CHECK(issues[0].message.find("sketchbillet_cli materials") != std::string::npos);
     CHECK(t.doc.find(t.plate)->material().empty());
 }
 

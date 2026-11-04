@@ -5,10 +5,10 @@
 
 #include <QApplication>
 
-#include "kh/view/Graphics.h"
+#include "sb/view/Graphics.h"
 
 int main(int argc, char** argv) {
-    kh::view::prepareGraphics();
+    sb::view::prepareGraphics();
     QApplication app(argc, argv);
     return Catch::Session().run(argc, argv);
 }

@@ -1,4 +1,4 @@
-// Tests for finding, checking and loading plugins (kh_plugin).
+// Tests for finding, checking and loading plugins (sb_plugin).
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -10,11 +10,11 @@
 #include <vector>
 
 #include "../model/FakeKernel.h"
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugins/Modeling.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugins/Modeling.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 namespace {
 
@@ -78,13 +78,13 @@ struct OrderGuard {
 
 }  // namespace
 
-TEST_CASE("kh.modeling loads and its commands work", "[plugin][host]") {
+TEST_CASE("sb.modeling loads and its commands work", "[plugin][host]") {
     test::FakeKernel kernel;
     PluginHost host(&kernel);
     host.addBuiltin(plugins::modelingPlugin());
     host.loadAll();
 
-    const auto& modeling = get(host, "kh.modeling");
+    const auto& modeling = get(host, "sb.modeling");
     CHECK(modeling.state == PluginState::Loaded);
     CHECK(modeling.builtin);
     CHECK(modeling.commands ==
@@ -142,7 +142,7 @@ TEST_CASE("one bad plugin doesn't stop the others", "[plugin][host]") {
 
     const auto& old = get(host, "test.old");
     CHECK(firstCode(old) == "plugin.api_version");
-    CHECK(old.issues[0].message.find("different version of Khan") != std::string::npos);
+    CHECK(old.issues[0].message.find("different version of SketchBillet") != std::string::npos);
 
     const auto& needsOld = get(host, "test.needs_old");
     CHECK(needsOld.state == PluginState::Skipped);
@@ -182,7 +182,8 @@ TEST_CASE("a plugin that throws or fails leaves nothing behind", "[plugin][host]
     PluginHost host;
     host.addBuiltin({manifest("test.throws"), &throws});
     host.addBuiltin({manifest("test.fails"), &fails});
-    const auto before = host.events().listenerCount(DocumentChanged::kType);  // Khan's own (the selection)
+    const auto before =
+        host.events().listenerCount(DocumentChanged::kType);  // SketchBillet's own (the selection)
     host.loadAll();
 
     const auto& t = get(host, "test.throws");
@@ -215,30 +216,30 @@ TEST_CASE("two plugins can't add the same command", "[plugin][host]") {
 TEST_CASE("broken outside plugins are refused with a plain message", "[plugin][host]") {
     PluginHost host;
     host.addBuiltin(plugins::modelingPlugin());
-    host.addFolder(KH_TEST_PLUGIN_FOLDER);
+    host.addFolder(SB_TEST_PLUGIN_FOLDER);
     host.addFolder("this/folder/does/not/exist");  // skipped quietly
     host.loadAll();
 
-    CHECK(get(host, "kh.modeling").state == PluginState::Loaded);
+    CHECK(get(host, "sb.modeling").state == PluginState::Loaded);
     CHECK(firstCode(get(host, "test.noentry")) == "plugin.library_bad");
-    CHECK(get(host, "test.noentry").issues[0].message.find("KH_PLUGIN_ENTRY") != std::string::npos);
+    CHECK(get(host, "test.noentry").issues[0].message.find("SB_PLUGIN_ENTRY") != std::string::npos);
     CHECK(firstCode(get(host, "test.oldapi")) == "plugin.api_version");
     const auto& bad = get(host, "test.badname");
     CHECK(firstCode(bad) == "plugin.register_failed");
     CHECK(bad.issues[0].message.find("must start with \"test.badname.\"") != std::string::npos);
-    // The built-in command it tried to take is still kh.modeling's.
+    // The built-in command it tried to take is still sb.modeling's.
     CHECK(host.commands().info("feature.add_box")->label == "Add box");
 }
 
-TEST_CASE("outside plugins can't use Khan's ids or skip their library", "[plugin][host]") {
-    const auto dir = std::filesystem::temp_directory_path() / "kh_plugin_host_test";
+TEST_CASE("outside plugins can't use SketchBillet's ids or skip their library", "[plugin][host]") {
+    const auto dir = std::filesystem::temp_directory_path() / "sb_plugin_host_test";
     std::filesystem::remove_all(dir);
     auto write = [&](const std::string& folder, const std::string& json) {
         std::filesystem::create_directories(dir / folder);
         std::ofstream(dir / folder / "plugin.json") << json;
     };
     const std::string api = std::to_string(kPluginApiVersion);
-    write("fake", R"({"id": "kh.fake", "name": "Fake", "version": "1", "apiVersion": )" + api +
+    write("fake", R"({"id": "sb.fake", "name": "Fake", "version": "1", "apiVersion": )" + api +
                       R"(, "library": "fake"})");
     write("nolib",
           R"({"id": "test.nolib", "name": "No library", "version": "1", "apiVersion": )" + api + "}");
@@ -250,8 +251,8 @@ TEST_CASE("outside plugins can't use Khan's ids or skip their library", "[plugin
     PluginHost host;
     host.addFolder(dir);
     host.loadAll();
-    CHECK(firstCode(get(host, "kh.fake")) == "plugin.reserved_id");
-    CHECK(get(host, "kh.fake").issues[0].message.find("yourname.fake") != std::string::npos);
+    CHECK(firstCode(get(host, "sb.fake")) == "plugin.reserved_id");
+    CHECK(get(host, "sb.fake").issues[0].message.find("yourname.fake") != std::string::npos);
     CHECK(firstCode(get(host, "test.nolib")) == "plugin.no_library");
     CHECK(firstCode(get(host, "test.gone")) == "plugin.library_missing");
     CHECK(get(host, "test.gone").issues[0].message.find(libraryFileName("gone")) != std::string::npos);
@@ -306,37 +307,37 @@ TEST_CASE("plugins find services the program provides", "[plugin][host]") {
         host.loadAll();
         CHECK(seenService == 42);
     }
-    PluginHost cli;  // like kh_cli: nothing provided
+    PluginHost cli;  // like sketchbillet_cli: nothing provided
     cli.addBuiltin({manifest("test.service"), &usesService});
     cli.loadAll();
     CHECK(seenService == -1);
 }
 
-TEST_CASE("kh.modeling adds menu items that run its commands", "[plugin][host]") {
+TEST_CASE("sb.modeling adds menu items that run its commands", "[plugin][host]") {
     PluginHost host;
     host.addBuiltin(plugins::modelingPlugin());
     host.loadAll();
     std::vector<std::string> ids;
     for (const auto& a : host.actions()) {
         ids.push_back(a.id);
-        CHECK(a.plugin == "kh.modeling");
+        CHECK(a.plugin == "sb.modeling");
         CHECK(host.commands().info(a.command) != nullptr);
         CHECK_FALSE(a.tip.empty());
     }
-    CHECK(ids == std::vector<std::string>{"kh.modeling.box", "kh.modeling.cylinder", "kh.modeling.union",
-                                          "kh.modeling.cut", "kh.modeling.intersect", "kh.modeling.move",
-                                          "kh.modeling.extrude", "kh.modeling.duplicate",
-                                          "kh.modeling.turn_off", "kh.modeling.turn_on",
-                                          "kh.modeling.new_folder", "kh.modeling.delete"});
-    CHECK(get(host, "kh.modeling").actions == ids);
+    CHECK(ids == std::vector<std::string>{"sb.modeling.box", "sb.modeling.cylinder", "sb.modeling.union",
+                                          "sb.modeling.cut", "sb.modeling.intersect", "sb.modeling.move",
+                                          "sb.modeling.extrude", "sb.modeling.duplicate",
+                                          "sb.modeling.turn_off", "sb.modeling.turn_on",
+                                          "sb.modeling.new_folder", "sb.modeling.delete"});
+    CHECK(get(host, "sb.modeling").actions == ids);
 }
 
 TEST_CASE("bad actions stop a plugin from loading", "[plugin][host]") {
     PluginHost host;
     host.addBuiltin(plugins::modelingPlugin());
-    host.addBuiltin({manifest("test.actions", R"("kh.modeling")"), &goodAction});
-    host.addBuiltin({manifest("test.again", R"("kh.modeling")"), &goodAction});  // same action id
-    host.addBuiltin({manifest("test.badid", R"("kh.modeling")"), &badActionId});
+    host.addBuiltin({manifest("test.actions", R"("sb.modeling")"), &goodAction});
+    host.addBuiltin({manifest("test.again", R"("sb.modeling")"), &goodAction});  // same action id
+    host.addBuiltin({manifest("test.badid", R"("sb.modeling")"), &badActionId});
     host.addBuiltin({manifest("test.unknown"), &unknownCommand});
     host.loadAll();
 

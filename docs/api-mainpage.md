@@ -1,23 +1,23 @@
-# Khan API reference {#mainpage}
+# SketchBillet API reference {#mainpage}
 
-Khan is a free, open-source parametric CAD application. This reference covers
+SketchBillet is a free, open-source parametric CAD application. This reference covers
 the public headers of the core libraries, from the bottom layer up:
 
 | Library | Namespace | What it holds |
 | --- | --- | --- |
-| `kh_core` | `kh` | Ids (`kh::Id`), diagnostics (`kh::Diagnostic`), version |
-| `kh_kernel` | `kh::kernel` | The geometry kernel interface (`kh::kernel::IKernel`) and value types |
-| `kh_kernel_occt` | `kh::kernel` | The Open CASCADE implementation of `IKernel` |
-| `kh_model` | `kh::model` | Documents, features, commands, undo and the command registry |
-| `kh_io` | `kh::io` | Saving and opening `.khan` files (`kh::io::saveFile`, `kh::io::openFile`) |
-| `kh_plugin` | `kh::plugin` | The plugin host, manifests, the event bus and the open designs (`kh::plugin::PluginHost`, `kh::plugin::PluginContext`) |
-| `kh_ui` | `kh::ui` | The Qt side of the plugin API: panels in the desktop app (`kh::ui::UiRegistry`) |
-| `kh_view` | `kh::view` | The 3D view (`kh::view::ViewWidget`), pane layouts and standard views, and the flat view used without OpenGL |
-| `kh_plugin_modeling` | `kh::plugins` | The built-in `kh.modeling` plugin |
-| `kh_plugin_viewer` | `kh::plugins` | The built-in `kh.viewer` plugin (`kh::plugins::viewerPlugin`) |
+| `sb_core` | `sb` | Ids (`sb::Id`), diagnostics (`sb::Diagnostic`), version |
+| `sb_kernel` | `sb::kernel` | The geometry kernel interface (`sb::kernel::IKernel`) and value types |
+| `sb_kernel_occt` | `sb::kernel` | The Open CASCADE implementation of `IKernel` |
+| `sb_model` | `sb::model` | Documents, features, commands, undo and the command registry |
+| `sb_io` | `sb::io` | Saving and opening `.sb` files (`sb::io::saveFile`, `sb::io::openFile`) |
+| `sb_plugin` | `sb::plugin` | The plugin host, manifests, the event bus and the open designs (`sb::plugin::PluginHost`, `sb::plugin::PluginContext`) |
+| `sb_ui` | `sb::ui` | The Qt side of the plugin API: panels in the desktop app (`sb::ui::UiRegistry`) |
+| `sb_view` | `sb::view` | The 3D view (`sb::view::ViewWidget`), pane layouts and standard views, and the flat view used without OpenGL |
+| `sb_plugin_modeling` | `sb::plugins` | The built-in `sb.modeling` plugin |
+| `sb_plugin_viewer` | `sb::plugins` | The built-in `sb.viewer` plugin (`sb::plugins::viewerPlugin`) |
 
-A good place to start is `kh::model::Document`, then `kh::model::Command`. Plugin
+A good place to start is `sb::model::Document`, then `sb::model::Command`. Plugin
 authors start with the plugin developer guide (`docs/plugin-guide/`), then
-`kh::plugin::PluginContext`.
+`sb::plugin::PluginContext`.
 
 Units inside the code: lengths are millimeters and angles are radians.

@@ -3,8 +3,8 @@
 #include <string>
 
 #include "example/ruler/Ruler.h"
-#include "kh/plugin/Api.h"
-#include "kh/plugin/PluginContext.h"
+#include "sb/plugin/Api.h"
+#include "sb/plugin/PluginContext.h"
 
 namespace {
 
@@ -17,7 +17,7 @@ std::string twoDecimals(double v) {
     return text;
 }
 
-void registerTape(kh::plugin::PluginContext& ctx) {
+void registerTape(sb::plugin::PluginContext& ctx) {
     // Listening needs no ruler yet: the event arrives when the ruler starts.
     ctx.listen<UnitChanged>(
         [&ctx](const UnitChanged& e) { ctx.log(std::string("The ruler shows lengths in ") + e.unit + "."); });
@@ -35,4 +35,4 @@ void registerTape(kh::plugin::PluginContext& ctx) {
 
 }  // namespace
 
-KH_PLUGIN_ENTRY(registerTape)
+SB_PLUGIN_ENTRY(registerTape)

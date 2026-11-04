@@ -1,4 +1,4 @@
-// Tests for the kh.viewoptions plugin's service: declaring options, values,
+// Tests for the sb.viewoptions plugin's service: declaring options, values,
 // checking them, remembering them, events, and the menu items addOption() adds.
 
 #include <catch2/catch_test_macros.hpp>
@@ -7,22 +7,22 @@
 #include <string>
 #include <vector>
 
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugins/ViewOptions.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugins/ViewOptions.h"
 
-using namespace kh;
-using namespace kh::viewoptions;
+using namespace sb;
+using namespace sb::viewoptions;
 
 namespace {
 
 struct Store {
     plugin::MemorySettings memory;
     plugin::EventBus bus;
-    plugin::PluginSettings settings{memory, bus, "kh.viewoptions"};
+    plugin::PluginSettings settings{memory, bus, "sb.viewoptions"};
     plugins::ViewOptionsService options{settings, bus};
     plugin::Subscription relay =
         bus.subscribe<plugin::SettingChanged>([this](const plugin::SettingChanged& e) {
-            if (e.plugin == "kh.viewoptions") options.settingChanged(e.key);
+            if (e.plugin == "sb.viewoptions") options.settingChanged(e.key);
         });
 };
 
@@ -66,7 +66,7 @@ TEST_CASE("options start at their first value, and change when set", "[viewoptio
     REQUIRE(s.options.set("test.style", std::string("b")).empty());
     CHECK(heard == std::vector<std::string>{"test.on", "test.size", "test.style"});
     CHECK_FALSE(s.options.flag("test.on"));
-    CHECK(s.memory.read("plugins/kh.viewoptions/test.size") == "2.5");
+    CHECK(s.memory.read("plugins/sb.viewoptions/test.size") == "2.5");
 
     // The next run reads them back.
     plugins::ViewOptionsService again(s.settings, s.bus);
@@ -97,8 +97,8 @@ TEST_CASE("values outside the limits, of the wrong kind, or not a choice are ref
 
 TEST_CASE("a damaged saved value falls back to the first value", "[viewoptions]") {
     Store s;
-    s.memory.write("plugins/kh.viewoptions/test.size", "huge");
-    s.memory.write("plugins/kh.viewoptions/test.style", "zebra");
+    s.memory.write("plugins/sb.viewoptions/test.size", "huge");
+    s.memory.write("plugins/sb.viewoptions/test.style", "zebra");
     REQUIRE(s.options.add(size()).empty());
     REQUIRE(s.options.add(style()).empty());
     CHECK(s.options.number("test.size") == 10.0);
@@ -108,7 +108,7 @@ TEST_CASE("a damaged saved value falls back to the first value", "[viewoptions]"
 TEST_CASE("Other... asks the student, and a refused answer is reported", "[viewoptions]") {
     Store s;
     REQUIRE(s.options.add(size()).empty());
-    s.options.ask("test.size", {});  // no way to ask (kh_cli): nothing happens
+    s.options.ask("test.size", {});  // no way to ask (sketchbillet_cli): nothing happens
     CHECK(s.options.number("test.size") == 10.0);
     double offered = 0;
     s.options.asker = [&](const OptionSpec&, double current) -> std::optional<double> {
@@ -139,7 +139,7 @@ void declares(plugin::PluginContext& ctx) {
     choice.id = "test.views.style";
     REQUIRE(addOption(ctx, *options, choice).empty());
     // Another plugin's id is refused.
-    CHECK(addOption(ctx, *options, {.id = "kh.grid.mine", .text = "Mine"})[0].code == "viewoptions.id");
+    CHECK(addOption(ctx, *options, {.id = "sb.grid.mine", .text = "Mine"})[0].code == "viewoptions.id");
 }
 
 }  // namespace
@@ -148,7 +148,7 @@ TEST_CASE("addOption gives each option its View menu items", "[viewoptions]") {
     plugin::PluginHost host;
     host.addBuiltin(plugins::viewOptionsPlugin());
     host.addBuiltin(
-        {R"({"id": "test.views", "name": "Views", "version": "1", "requires": ["kh.viewoptions"]})",
+        {R"({"id": "test.views", "name": "Views", "version": "1", "requires": ["sb.viewoptions"]})",
          &declares});
     host.loadAll();
     REQUIRE(host.find("test.views")->state == plugin::PluginState::Loaded);
@@ -231,7 +231,7 @@ TEST_CASE("a pane can have its own value; a change for all panes clears it", "[v
     // A value a pane can't take is refused, as for all panes.
     CHECK(s.options.setInPane("test.size", 500.0, "v1.p1")[0].code == "viewoptions.value");
     // A damaged saved pane value is ignored.
-    s.memory.write("plugins/kh.viewoptions/panes/v1.p1/test.size", "huge");
+    s.memory.write("plugins/sb.viewoptions/panes/v1.p1/test.size", "huge");
     CHECK_FALSE(s.options.hasOwn("test.size", "v1.p1"));
     CHECK(s.options.number("test.size", "v1.p1") == 20.0);
 }

@@ -14,7 +14,7 @@
 
 #include <cstring>
 
-namespace kh::plugin::detail {
+namespace sb::plugin::detail {
 
 #if defined(_WIN32)
 
@@ -42,7 +42,7 @@ Library::AnyFn Library::rawSymbol(const char* name) const {
 #else
 
 std::unique_ptr<Library> Library::open(const std::filesystem::path& path, std::string& error) {
-    // RTLD_LOCAL keeps each plugin's own copy of Khan's libraries to itself.
+    // RTLD_LOCAL keeps each plugin's own copy of SketchBillet's libraries to itself.
     void* h = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!h) {
         const char* why = dlerror();
@@ -66,4 +66,4 @@ Library::AnyFn Library::rawSymbol(const char* name) const {
 
 #endif
 
-}  // namespace kh::plugin::detail
+}  // namespace sb::plugin::detail

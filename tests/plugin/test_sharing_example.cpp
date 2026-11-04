@@ -6,16 +6,16 @@
 #include <string>
 #include <vector>
 
-#include "kh/plugin/PluginHost.h"
-#include "kh/plugins/Modeling.h"
+#include "sb/plugin/PluginHost.h"
+#include "sb/plugins/Modeling.h"
 
-using namespace kh;
-using namespace kh::plugin;
+using namespace sb;
+using namespace sb::plugin;
 
 TEST_CASE("the guide's Tape plugin uses the Ruler plugin's ruler", "[plugin][sharing][guide]") {
     PluginHost host;
     host.addBuiltin(plugins::modelingPlugin());
-    host.addFolder(KH_PLUGIN_FOLDER);
+    host.addFolder(SB_PLUGIN_FOLDER);
     host.loadAll();
 
     const auto* ruler = host.find("example.ruler");
@@ -38,7 +38,7 @@ TEST_CASE("the guide's Ruler remembers its unit, and its View item switches it",
     store.write("plugins/example.ruler/unit", "mm");  // picked last time
     PluginHost host;
     host.setSettings(store);
-    host.addFolder(KH_PLUGIN_FOLDER);
+    host.addFolder(SB_PLUGIN_FOLDER);
     host.loadAll();
     const auto* tape = host.find("example.tape");
     REQUIRE(tape);

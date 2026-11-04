@@ -1,8 +1,8 @@
 # Roadmap
 
-> **Draft.** This design changes as Khan is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
+> **Draft.** This design changes as SketchBillet is built. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ddreeves70/khan/discussions).
 
-Khan is built in phases, each ending with a build you can try and a written exit check. Capability comes first: the plan takes the fastest path to a fully functional modeler, and the classroom material comes after it. The first release, v0.1, is a working modeler: sketching, parametric part modeling, import and export. Phases are listed in order without dates, because the pace depends on volunteer time. Full Fusion-class capability is a multi-year, multi-contributor effort, so the plan is built to welcome help after v0.1.
+SketchBillet is built in phases, each ending with a build you can try and a written exit check. Capability comes first: the plan takes the fastest path to a fully functional modeler, and the classroom material comes after it. The first release, v0.1, is a working modeler: sketching, parametric part modeling, import and export. Phases are listed in order without dates, because the pace depends on volunteer time. Full Fusion-class capability is a multi-year, multi-contributor effort, so the plan is built to welcome help after v0.1.
 
 ## Decisions
 
@@ -13,11 +13,11 @@ Khan is built in phases, each ending with a build you can try and a written exit
 | Platform | Desktop first | Windows, macOS, Linux. Web viewer deferred; Chromebooks reached later via Linux apps or a web build |
 | Codebase | Clean architecture, borrow components | Own the document model, feature graph, and UI; reuse kernel, solver, and math libraries behind interfaces |
 | First users | Anyone who designs parts: makers, students, CNC users, small shops | v0.1 scope is sketch + parametric part + import and export; assemblies and drawings next; CAM and the Education pack after |
-| Plugins | Everything is a plugin, Khan's own features included | The app is a small shell; built-in plugins prove the API. Outside C++ plugins are built per release; most authors use Python |
+| Plugins | Everything is a plugin, SketchBillet's own features included | The app is a small shell; built-in plugins prove the API. Outside C++ plugins are built per release; most authors use Python |
 | Docking | Qt Advanced Docking System | Every panel and viewer docks, tabs, floats and moves to another monitor; named layouts are saved per user |
 | Priority | Capability first (Oct 23, 2026) | Every phase takes the shortest path to a fully functional modeler. Teacher interviews, lessons and classroom features move to an Education pack after v0.2 |
 | Guides | User's guide, CLI reference and tutorials grow with the code (Oct 23, 2026) | Every pull request that changes something a user sees updates them; their examples run as tests |
-| Strength simulation | CalculiX runs as a separate program, never built in (Oct 24, 2026) | Khan stays Apache-2.0; Khan writes CalculiX's input file and reads its results. See [dependencies](../dependencies.md) |
+| Strength simulation | CalculiX runs as a separate program, never built in (Oct 24, 2026) | SketchBillet stays Apache-2.0; SketchBillet writes CalculiX's input file and reads its results. See [dependencies](../dependencies.md) |
 
 **One deliberate shortcut:** use OCCT's built-in 3D viewer (AIS/V3d) for the first releases instead of writing the WebGPU renderer from the design. It saves months for a solo developer. Keep rendering behind an interface so it can be replaced later.
 
@@ -52,8 +52,8 @@ Each phase ends with a build you can try and a written exit check.
 - Repo, CMake + vcpkg, CI building on Windows, macOS, Linux; Apache-2.0 license; contributor guide.
 - Kernel Abstraction Layer skeleton: create a box, Boolean two shapes, tessellate, export STEP and STL.
 - Document model + command framework with undo/redo; save and load the JSON container.
-- Plugin shell: plugin host and manifests in a Qt-free `kh_plugin` library, event bus, shared selection, and Qt ADS docking with saved layouts. Box, cylinder and Booleans move into the `kh.modeling` plugin.
-- Viewer as the first UI plugin (`kh.viewer`): 1, 2 or 4 panes with their own cameras, more than one viewer, orbit/pan/zoom, view cube, selection shared across views. A short spike first checks that Qt ADS builds in CI on all three systems.
+- Plugin shell: plugin host and manifests in a Qt-free `sb_plugin` library, event bus, shared selection, and Qt ADS docking with saved layouts. Box, cylinder and Booleans move into the `sb.modeling` plugin.
+- Viewer as the first UI plugin (`sb.viewer`): 1, 2 or 4 panes with their own cameras, more than one viewer, orbit/pan/zoom, view cube, selection shared across views. A short spike first checks that Qt ADS builds in CI on all three systems.
 - Plugin developer guide v0, in `docs/plugin-guide/` and published with the API reference: a Hello plugin tutorial, the manifest format and the extension points built so far. From here on, every pull request that changes the plugin API updates the guide (a CLAUDE.md rule).
 - **Exit:** create a box, undo, save, reopen, export STL on all three OSes, with the box tool and the viewer loaded as plugins, and the guide's Hello plugin adding a working command. The checklist, with the tests that cover it and the steps to check by hand: [Phase 0 exit check](phase0-exit.md). **Done Oct 27, 2026:** checked on Windows, macOS and Linux.
 
@@ -72,9 +72,9 @@ Phase 1 started Oct 28, 2026.
 
 ### Phase 1: Sketcher
 
-- PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry. (Solver built Oct 28, 2026: `kh_sketch`, `ISketchSolver`, PlaneGCS as a shared library. Sketch steps with commands, saved in files and solved on rebuild: built Oct 28, 2026. Drawing sketches with the mouse in the app: built Oct 28, 2026. Picking and dragging sketch geometry, colored by what can still move: built Oct 28, 2026. Constraints and dimensions from the toolbar, typed in the Sketch panel, labeled on the drawing, with conflicts in red: built Oct 29, 2026. See [The sketcher](sketcher.md).)
+- PlaneGCS wrapped behind a solver interface; lines, arcs, circles, points, construction geometry. (Solver built Oct 28, 2026: `sb_sketch`, `ISketchSolver`, PlaneGCS as a shared library. Sketch steps with commands, saved in files and solved on rebuild: built Oct 28, 2026. Drawing sketches with the mouse in the app: built Oct 28, 2026. Picking and dragging sketch geometry, colored by what can still move: built Oct 28, 2026. Constraints and dimensions from the toolbar, typed in the Sketch panel, labeled on the drawing, with conflicts in red: built Oct 29, 2026. See [The sketcher](sketcher.md).)
 - Core constraints and driving dimensions; degrees-of-freedom coloring; conflict highlighting.
-- Auto-constraints while drawing, snapping, and closed-profile detection. (Built Oct 29, 2026: On, Horizontal, Vertical and Tangent added while drawing, with a hint and an off switch; closed shapes with holes, areas and open ends, in `kh_sketch`. See [The sketcher](sketcher.md).)
+- Auto-constraints while drawing, snapping, and closed-profile detection. (Built Oct 29, 2026: On, Horizontal, Vertical and Tangent added while drawing, with a hint and an off switch; closed shapes with holes, areas and open ends, in `sb_sketch`. See [The sketcher](sketcher.md).)
 - **Full B-spline support,** after lines, arcs and circles work (early Phase 2 if Phase 1 runs long). (Started Oct 30, 2026: splines in sketches, solved, saved, made by `sketch.add_spline` and extruded; their control points dragged in the app. Oct 31: drawn by control points or through points, with degree, weights and control points changed in the Sketch panel; points on splines, and tangent and smooth (G2) joins; imported from a file of points, with Reload from file. See [The sketcher](sketcher.md), step 7.) Spline constraints are where a solver most easily fails, so they come once the basic sketcher is solid:
   - Drawing by control points and by fit points (the curve passes through the points clicked).
   - Editing: drag points, add and remove points, change degree and weights, with the rest of the sketch staying solved.
@@ -83,7 +83,7 @@ Phase 1 started Oct 28, 2026.
   - Closed profiles with spline edges extrude and revolve like any other profile (OCCT already handles B-splines in 3D).
   - Import a spline from a file of points, with Reload from file.
   - PlaneGCS already represents B-splines and has a few constraints; we add the rest in our extracted copy, behind `ISolver`, and offer the changes back to FreeCAD (LGPL requires publishing them anyway, and upstream keeps them maintained).
-  - **Spline exit:** every item above works in the app, each spline constraint has a property test (really tangent, really through its fit points), and tricky splines are in the regression corpus. (Met Oct 31, 2026: 9 spline cases, weighted, degree 1 and 5, closed, joined tangentially, cut as a pocket, standing up and turned, each checked against values worked out without Khan. That found and fixed wrong surface areas on spline walls. Revolve comes with Phase 2.)
+  - **Spline exit:** every item above works in the app, each spline constraint has a property test (really tangent, really through its fit points), and tricky splines are in the regression corpus. (Met Oct 31, 2026: 9 spline cases, weighted, degree 1 and 5, closed, joined tangentially, cut as a pocket, standing up and turned, each checked against values worked out without SketchBillet. That found and fixed wrong surface areas on spline walls. Revolve comes with Phase 2.)
 - **Exit:** a new user can draw and fully constrain a bracket profile in under 5 minutes in a hallway test. (Bracket tools built Oct 31, 2026: Rectangle, rounding corners, Trim and Symmetric. Next: the hallway test itself, with a new user and a stopwatch. See [The sketcher](sketcher.md), step 8.)
 
 ### Phase 2: Parametric core
@@ -142,8 +142,8 @@ Four guides live in the repo beside the code. Every pull request that changes so
 
 | Guide | Folder | For | Kept current by |
 | --- | --- | --- | --- |
-| User's guide | `docs/user-guide/` | Anyone using Khan; illustrated with pictures rendered from real designs (app screenshots once the app exists) | A script that regenerates every picture from its design |
-| CLI reference | `docs/cli/` | Scripts, CI, power users; every `kh_cli` command and modeling command with examples | Each example runs as a test (`docs.guides`) |
+| User's guide | `docs/user-guide/` | Anyone using SketchBillet; illustrated with pictures rendered from real designs (app screenshots once the app exists) | A script that regenerates every picture from its design |
+| CLI reference | `docs/cli/` | Scripts, CI, power users; every `sketchbillet_cli` command and modeling command with examples | Each example runs as a test (`docs.guides`) |
 | Tutorials | `docs/tutorials/` | New users; step-by-step projects that build a printable part | Each tutorial's commands run as a test |
 | Plugin developer guide | `docs/plugin-guide/` | Plugin authors | The Hello plugin is built and loaded by a test |
 

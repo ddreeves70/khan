@@ -9,8 +9,8 @@
 
 ## The problem
 
-Each thing the viewer can show is set up by hand in its own plugin. `kh.grid`
-and `kh.axes` each keep their own settings, build their own View menu check
+Each thing the viewer can show is set up by hand in its own plugin. `sb.grid`
+and `sb.axes` each keep their own settings, build their own View menu check
 items, and listen for their own changes. Every new view option (background,
 edges, see-through, shadows, ...) would repeat that, and a student has no single
 place to see what the view can do.
@@ -19,25 +19,25 @@ place to see what the view can do.
 
 Two jobs, split:
 
-1. **Configuration** is shared. A `kh.viewoptions` plugin offers a service,
-   `kh.viewoptions/1`. Plugins **declare** their options as plain data, and the
+1. **Configuration** is shared. A `sb.viewoptions` plugin offers a service,
+   `sb.viewoptions/1`. Plugins **declare** their options as plain data, and the
    service stores them, checks them, remembers them, tells everyone when they
    change, and builds the menus and the panel for them.
-2. **Drawing and behaviour** stay in each plugin. `kh.grid` still snaps and
-   draws its lattice; `kh.axes` still draws its lines and letters. They read
+2. **Drawing and behaviour** stay in each plugin. `sb.grid` still snaps and
+   draws its lattice; `sb.axes` still draws its lines and letters. They read
    their options from the service.
 
 ```cpp
-// In kh.axes, while registering (it lists kh.viewoptions in "requires").
-auto* options = ctx.service<kh::viewoptions::IViewOptions>();
-options->add({.id = "kh.axes.labels", .text = "Show axis labels", .group = "Axes",
+// In sb.axes, while registering (it lists sb.viewoptions in "requires").
+auto* options = ctx.service<sb::viewoptions::IViewOptions>();
+options->add({.id = "sb.axes.labels", .text = "Show axis labels", .group = "Axes",
               .kind = OptionKind::Flag, .initial = true});
 
-// In kh.grid.
-options->add({.id = "kh.grid.spacing", .text = "Grid spacing", .group = "Grid",
+// In sb.grid.
+options->add({.id = "sb.grid.spacing", .text = "Grid spacing", .group = "Grid",
               .kind = OptionKind::Length, .initial = 10.0, .min = 0.01, .max = 1000,
               .presets = {1, 2, 5, 10, 20, 50}});
-options->add({.id = "kh.grid.style", .text = "Grid style", .group = "Grid",
+options->add({.id = "sb.grid.style", .text = "Grid style", .group = "Grid",
               .kind = OptionKind::Choice, .initial = "lines",
               .choices = {{"lines", "Lines"}, {"dots", "Dots"}}});
 ```
@@ -48,7 +48,7 @@ option needs it.
 
 This is how VS Code does it: extensions declare their settings as data, and one
 Settings screen shows them all. It's also the "plugin-defined extension point"
-pattern from the shared-concepts page: `kh.viewoptions` doesn't know what a grid
+pattern from the shared-concepts page: `sb.viewoptions` doesn't know what a grid
 is, and new options never change it.
 
 ## Panes: one value for all, or one pane only
@@ -89,13 +89,13 @@ Overlays are drawn by every pane today. To let a pane differ, an overlay can be
 it *instead of* the all-panes overlay with the same name. Other panes keep the
 all-panes one.
 
-So `kh.grid`, when the grid spacing differs in the Top pane, sets an all-panes
+So `sb.grid`, when the grid spacing differs in the Top pane, sets an all-panes
 lattice and a Top-pane lattice. When the per-pane value is cleared, it removes the
 Top-pane overlay. The viewer still knows nothing about grids.
 
 Things that act on a pane, like snapping, ask with the pane:
 `grid->snap(point, pane)` snaps to *that pane's* spacing. That's a new contract
-version, `kh.grid/2`, offered next to `kh.grid/1` for a release.
+version, `sb.grid/2`, offered next to `sb.grid/1` for a release.
 
 ## What the service offers
 
@@ -106,52 +106,52 @@ version, `kh.grid/2`, offered next to `kh.grid/1` for a release.
 | `set(id, value)` | Sets the all-panes value and clears per-pane values (what the menu and panel do) |
 | `set(id, value, pane)` | Sets one pane's value ("this pane only") |
 | `reset(id, pane)` / `resetPane(pane)` | Puts one option, or all of a pane's options, back to the all-panes value |
-| `kh.viewoptions.changed` event | Says which option changed, and for which pane (none: all panes) |
+| `sb.viewoptions.changed` event | Says which option changed, and for which pane (none: all panes) |
 | Values are checked | A Length outside its limits, or an unknown Choice, is refused with a plain message, like the grid does today |
 
 The service builds:
 
 - **View menu items** for every option, grouped: check marks for Flags,
   submenus for Choices, and presets plus **Other...** for Lengths. This replaces
-  the menu items `kh.grid` and `kh.axes` make by hand.
+  the menu items `sb.grid` and `sb.axes` make by hand.
 - **The pane's right-click "This pane only" menu**, with the same items.
 - **A dockable "View options" panel**, like Properties: every option grouped,
   the "Show options for" list, and the per-pane markers and reset buttons.
 
-`kh.viewoptions` is in the `foundation` tier, so `kh.grid` (foundation) and
-`kh.axes` can require it. For now it's built with the desktop app only (its panel
-uses Qt), like the grid and the axes; options in `kh_cli` can come later if
+`sb.viewoptions` is in the `foundation` tier, so `sb.grid` (foundation) and
+`sb.axes` can require it. For now it's built with the desktop app only (its panel
+uses Qt), like the grid and the axes; options in `sketchbillet_cli` can come later if
 scripts need them.
 
 ## What moves
 
 | Today | After |
 | --- | --- |
-| `kh.grid` keeps visible, spacing, snap and style in its own settings | Four `kh.grid.*` options |
-| `kh.grid` builds Show grid, Snap to grid, Grid style, Grid spacing by hand | Built by the service from the options |
-| `kh.axes` keeps two settings and builds two menu items | Two `kh.axes.*` options |
+| `sb.grid` keeps visible, spacing, snap and style in its own settings | Four `sb.grid.*` options |
+| `sb.grid` builds Show grid, Snap to grid, Grid style, Grid spacing by hand | Built by the service from the options |
+| `sb.axes` keeps two settings and builds two menu items | Two `sb.axes.*` options |
 | Every pane draws the same overlays | An overlay can be for one pane |
-| `kh.grid/1`: `snap(point)` | `kh.grid/2` adds `snap(point, pane)`; `/1` stays for a release |
+| `sb.grid/1`: `snap(point)` | `sb.grid/2` adds `snap(point, pane)`; `/1` stays for a release |
 
-The grid's status-bar text stays in `kh.grid` and shows the active pane's values.
+The grid's status-bar text stays in `sb.grid` and shows the active pane's values.
 
 ## Building it
 
-1. `kh.viewoptions` with all-panes values: the service, options, events, the View
-   menu built from options and the panel. `kh.grid` and `kh.axes` move onto it.
+1. `sb.viewoptions` with all-panes values: the service, options, events, the View
+   menu built from options and the panel. `sb.grid` and `sb.axes` move onto it.
    For the student, nothing changes except the new panel. *Built Oct 27, 2026
    (plugin API 9):* the panel starts closed and opens from View > View
    options...; plugins call `addOption()`, which adds the option's menu items as
    their own. Looking up a plugin's service while registering no longer warns
    when that plugin is in `requires`.
 2. Per-pane values: pane keys from the viewer, overlays for one pane, the
-   right-click menu, panel scope, markers, saved with layouts, and `kh.grid/2`.
+   right-click menu, panel scope, markers, saved with layouts, and `sb.grid/2`.
    *Built Oct 27, 2026 (plugin API 10).* Differences from the plan: a pane's own
    values are remembered with the app's settings (by pane key, like
    "viewer1.pane2"), not in named layouts; the marker is a yellow "Own view
    options" strip at the top of the pane with **Same as all panes**; and
-   `kh.grid/2` replaces `kh.grid/1` instead of sitting next to it, since nothing
-   outside Khan used it yet.
+   `sb.grid/2` replaces `sb.grid/1` instead of sitting next to it, since nothing
+   outside SketchBillet used it yet.
 
 Each step updates the plugin guide (a new "Add view options" section replacing
 the hand-made check-mark example for view settings) and the user guide.
