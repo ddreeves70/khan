@@ -913,6 +913,29 @@
       }
     },
     {
+      "out": "docs/user-guide/images/app-parameters.png",
+      "size": "1280x800",
+      "commands": [
+        "run --save p.khan parameter.set name=wall value=\"3 mm\" note=\"How thick the walls are\"",
+        "run --open p.khan --save p.khan parameter.set name=width value=\"wall * 10\"",
+        "run --open p.khan --save p.khan parameter.set name=height value=\"wall * 4 + 1 in\" note=\"Room for the phone\"",
+        "run --open p.khan --save p.khan feature.add_box size=30,20,10",
+        "run --open p.khan --save p.khan feature.set_value feature=Box1 setting=size_x formula=width",
+        "run --open p.khan --save p.khan feature.set_value feature=Box1 setting=size_z formula=height"
+      ],
+      "app": {
+        "open": "p.khan",
+        "select": [
+          "Box1"
+        ],
+        "trigger": [
+          "kh.viewer.view.iso",
+          "kh.viewer.fit",
+          "kh.parameters.show"
+        ]
+      }
+    },
+    {
       "out": "docs/user-guide/images/sketch-plate.png",
       "size": "760x300",
       "script": "plate-sketch",
