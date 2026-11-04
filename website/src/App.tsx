@@ -1,6 +1,7 @@
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import { Doc } from "./pages/Doc";
+import { Download } from "./pages/Download";
 import { Follow } from "./pages/Follow";
 import { Home } from "./pages/Home";
 import { People } from "./pages/People";
@@ -17,6 +18,8 @@ function Body({ page }: { page: PageData }) {
       return <People />;
     case "follow":
       return <Follow />;
+    case "download":
+      return <Download releases={page.releases} />;
     case "doc":
       return <Doc doc={page.doc} section={page.section} prev={page.prev} next={page.next} />;
     case "notfound":

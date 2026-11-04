@@ -18,7 +18,10 @@ step's numbers in Properties. Everything you do can be undone.
 
 ## Starting it
 
-After you build SketchBillet, the app is in your build folder:
+If you [installed SketchBillet](install.md), start it like any other program: from the
+Start menu on Windows, Applications on macOS, or the AppImage on Linux.
+
+If you built SketchBillet yourself, the app is in your build folder:
 
 | System | Path |
 | --- | --- |

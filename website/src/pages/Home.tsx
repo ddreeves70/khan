@@ -58,8 +58,8 @@ export function Home() {
               <a className="button primary" href="/tutorials/01-keychain-tag/">
                 Make your first part
               </a>
-              <a className="button" href="/guide/">
-                Read the user's guide
+              <a className="button" href="/download/">
+                Download SketchBillet
               </a>
             </div>
           </div>
@@ -137,18 +137,19 @@ export function Home() {
           <div>
             <h2 id="get">Get SketchBillet</h2>
             <p className="band-lede">
-              There's no installer yet. Installers for Windows, macOS and Linux come with the first release, v0.1.
-              Until then, you can build it yourself from the source code.
+              Download it for Windows, macOS or Linux. It's free, needs no account, and works offline.
             </p>
           </div>
           <div className="get-steps">
             <p>
-              The <a href={`${site.repo}#readme`}>README on GitHub</a> lists what to install and the three commands
-              that build it. On Windows, follow the <a href="/design/windows-setup/">Windows setup guide</a>.
+              <a className="button primary" href="/download/">
+                Go to downloads
+              </a>
             </p>
             <p>
-              Want to know when v0.1 is out, or help get it there? See <a href="/follow/">Follow and support</a>, or
-              say hello in <a href={site.discussions}>GitHub Discussions</a>.
+              The <a href="/guide/install/">install guide</a> says what to click on each system, and how schools can
+              install it on many computers at once. To build it yourself from the source code, follow the{" "}
+              <a href={`${site.repo}#readme`}>README on GitHub</a>.
             </p>
           </div>
         </div>

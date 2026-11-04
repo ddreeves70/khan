@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]  # a version tag, like v0.1.0, publishes a release (see "publish")
   pull_request:
 
 jobs:
@@ -145,14 +146,140 @@ jobs:
           "$exe" demo smoke.step
           test -s smoke.step
 
+      # ---- Installers (packaging/README.md). Made on every run, so a pull request
+      # that breaks one is caught; published by the "publish" job below.
+      - name: Install WiX (Windows installer tools)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add --global WixToolset.UI.wixext/5.0.2
+
+      - name: Make the installer
+        shell: bash
+        run: |
+          set -o pipefail
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            QMAKE="$QT_ROOT_DIR/bin/qmake" packaging/linux/make-appimage.sh build/ci 2>&1 | tee package.log
+          else
+            cpack --config build/ci/CPackConfig.cmake 2>&1 | tee package.log
+          fi
+          ls -l build/ci/packages
+
+      # Install what people download, and run it from where it was installed: a
+      # missing library shows up here, not on a student's computer.
+      - name: Test the installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset QT_PLUGIN_PATH QML2_IMPORT_PATH
+          out="$RUNNER_TEMP/installed-test"
+          mkdir -p "$out"
+          case "$RUNNER_OS" in
+            Linux)
+              pkg=$(ls build/ci/packages/*.AppImage)
+              export APPIMAGE_EXTRACT_AND_RUN=1
+              "$pkg" cli --version
+              "$pkg" cli demo "$out/demo.step" && test -s "$out/demo.step"
+              xvfb-run -a "$pkg" --smoke-test --settings "$out/settings.ini"
+              ;;
+            Windows)
+              pkg=$(cygpath -w "$(ls build/ci/packages/*.msi)")
+              # Quietly, for every user, as a school's IT department would.
+              powershell -Command "\$p = Start-Process msiexec -ArgumentList '/i','\"$pkg\"','/qn','/l*v','msi-install.log' -Wait -PassThru; exit \$p.ExitCode"
+              dir="/c/Program Files/SketchBillet/bin"
+              "$dir/sketchbillet_cli.exe" --version
+              "$dir/sketchbillet_cli.exe" demo "$out/demo.step" && test -s "$out/demo.step"
+              "$dir/sketchbillet.exe" --smoke-test --settings "$out/settings.ini"
+              test -f "/c/ProgramData/Microsoft/Windows/Start Menu/Programs/SketchBillet.lnk"
+              powershell -Command "\$p = Start-Process msiexec -ArgumentList '/x','\"$pkg\"','/qn' -Wait -PassThru; exit \$p.ExitCode"
+              test ! -e "$dir/sketchbillet.exe"
+              ;;
+            macOS)
+              pkg=$(ls build/ci/packages/*.dmg)
+              hdiutil attach "$pkg" -nobrowse -mountpoint "$out/dmg"
+              app="$out/dmg/SketchBillet.app"
+              codesign --verify --deep --strict "$app"
+              "$app/Contents/MacOS/sketchbillet_cli" --version
+              "$app/Contents/MacOS/sketchbillet_cli" demo "$out/demo.step" && test -s "$out/demo.step"
+              "$app/Contents/MacOS/sketchbillet" --smoke-test --settings "$out/settings.ini"
+              hdiutil detach "$out/dmg"
+              ;;
+          esac
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ runner.os }}
+          path: |
+            build/ci/packages/*.msi
+            build/ci/packages/*.dmg
+            build/ci/packages/*.AppImage
+          if-no-files-found: error
+
       # Turn configure, compiler, linker and test errors into annotations, which can be read
       # without downloading the full log.
       - name: Report build errors
         if: failure()
         shell: bash
         run: |
-          cat configure.log build.log test.log 2>/dev/null \
+          cat configure.log build.log test.log package.log msi-install.log 2>/dev/null \
             | grep -E "error|Error|undefined|unresolved external|FAILED:|ld:|cannot find|ld returned|^FAIL |Failed  " \
             | grep -v "^\[" | awk '!seen[$0]++' | head -45 | while IFS= read -r line; do
               echo "::error::${line:0:900}"
             done
+
+  # Puts the installers where the Download page (sketchbillet.org/download/) finds them:
+  #   a version tag, like v0.1.0  ->  the release "SketchBillet 0.1.0"
+  #   every push to main          ->  the "preview" pre-release, replaced each time
+  # then rebuilds the website, so the page shows the new files.
+  publish:
+    name: publish installers
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # releases and the preview tag
+      actions: write   # start the website build
+    concurrency:
+      group: publish-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          path: installers
+          merge-multiple: true
+      - name: Publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd installers
+          ls -l
+          version=$(sed -n 's/^  VERSION \([0-9.]*\)$/\1/p' ../CMakeLists.txt | head -1)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+            if [ "$tag" != "v$version" ]; then
+              echo "::error::The tag $tag doesn't match SketchBillet's version, $version (project VERSION in CMakeLists.txt). Change one so they match, then tag again."
+              exit 1
+            fi
+            gh release create "$tag" ./* --verify-tag --title "SketchBillet $version" --generate-notes
+          else
+            # Same names every time (SketchBillet-preview-windows-x64.msi, ...), so links stay put.
+            for f in SketchBillet-*; do mv "$f" "${f/SketchBillet-$version-/SketchBillet-preview-}"; done
+            notes="Built from $(git rev-parse --short HEAD) on $(date -u '+%b %-d, %Y'), version $version plus everything merged since. Preview builds have the newest features and may have new bugs. For lessons and real work, use the latest release."
+            git tag -f preview "$GITHUB_SHA"
+            git push -f origin refs/tags/preview
+            if gh release view preview >/dev/null 2>&1; then
+              gh release edit preview --prerelease --title "Preview build" --notes "$notes"
+            else
+              gh release create preview --prerelease --verify-tag --title "Preview build" --notes "$notes"
+            fi
+            gh release upload preview ./* --clobber
+          fi
+      - name: Update the website
+        run: gh workflow run website.yml --ref main

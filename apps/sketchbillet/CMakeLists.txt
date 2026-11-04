@@ -21,15 +21,33 @@ sb_embed_files(sb_app_core HEADER AppIcons.h NAMESPACE sb::icons::app
   FILES icons/new.svg icons/open.svg icons/save.svg icons/undo.svg icons/redo.svg
         icons/dock.svg)
 
-qt_add_executable(sketchbillet main.cpp)
+# The app's icon: on the .exe on Windows (sketchbillet.rc), on the app in Finder on
+# macOS. packaging/icons/ has how to remake them.
+if(WIN32)
+  set(sb_app_icon "${CMAKE_CURRENT_BINARY_DIR}/sketchbillet.rc")
+  file(CONFIGURE OUTPUT "${sb_app_icon}"
+    CONTENT "IDI_ICON1 ICON \"${PROJECT_SOURCE_DIR}/packaging/icons/sketchbillet.ico\"\n")
+elseif(APPLE)
+  set(sb_app_icon "${PROJECT_SOURCE_DIR}/packaging/icons/sketchbillet.icns")
+  set_source_files_properties("${sb_app_icon}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+endif()
+qt_add_executable(sketchbillet main.cpp ${sb_app_icon})
 target_link_libraries(sketchbillet PRIVATE
   sb_app_core sb::kernel_occt sb::view sb::sketch_planegcs
   sb::plugin_modeling sb::plugin_featuretree sb::plugin_properties sb::plugin_viewoptions sb::plugin_axes sb::plugin_grid sb::plugin_viewer sb::plugin_sketcher sb::plugin_movehandles sb::plugin_parameters)
 sb_set_warnings(sketchbillet)
+sb_embed_files(sketchbillet HEADER AppLogo.h NAMESPACE sb::icons::app
+  FILES ../../packaging/icons/sketchbillet.svg)
 
 set_target_properties(sketchbillet PROPERTIES
   WIN32_EXECUTABLE ON
   MACOSX_BUNDLE ON
+  MACOSX_BUNDLE_BUNDLE_NAME "SketchBillet"
+  MACOSX_BUNDLE_GUI_IDENTIFIER "org.sketchbillet.SketchBillet"
+  MACOSX_BUNDLE_ICON_FILE "sketchbillet.icns"
+  MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+  MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+  MACOSX_BUNDLE_COPYRIGHT "SketchBillet contributors, Apache License 2.0"
 )
 
 # On Windows, copy Qt's DLLs and plugins next to sketchbillet.exe after each build,

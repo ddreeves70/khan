@@ -6,7 +6,7 @@ adds, removes, upgrades or changes how SketchBillet uses a dependency updates th
 (a CLAUDE.md rule), and the `docs.guides` test fails if a package in `vcpkg.json`
 or a `FetchContent` download in CMake isn't listed here.
 
-Last reviewed: Oct 28, 2026.
+Last reviewed: Nov 4, 2026.
 
 ## License rules
 
@@ -50,8 +50,12 @@ SketchBillet's own code is Apache-2.0, free forever. A dependency must keep it t
 | **Python 3** | The docs checker (`tools/docs/check_docs.py`) and picture maker | PSF | python.org, system | Stays. Later also embedded in SketchBillet (see pybind11) |
 | **NumPy, Matplotlib** | Rendering the guide's pictures from real designs (`tools/docs/render.py`) | BSD-3-Clause; Matplotlib license (PSF-style) | `pip` | Stays; only needed to remake pictures |
 | **Xvfb, Mesa** | A virtual screen and software OpenGL, so CI on Linux can draw the 3D view (`view.gl` test, app screenshots) | MIT | apt (`xvfb`, `libgl1-mesa-dri`) | Stays |
-| **GitHub Actions** | CI on Windows, macOS and Linux; actions `checkout`, `cache`, `upload-artifact`, `ilammy/msvc-dev-cmd`, `seanmiddleditch/gha-setup-ninja`, `jurplel/install-qt-action` | Free for public repos; actions are MIT | GitHub | Stays. Pin actions to versions; move off Node 20 actions when GitHub requires it |
+| **GitHub Actions** | CI on Windows, macOS and Linux; actions `checkout`, `cache`, `upload-artifact`, `download-artifact`, `ilammy/msvc-dev-cmd`, `seanmiddleditch/gha-setup-ninja`, `jurplel/install-qt-action` | Free for public repos; actions are MIT | GitHub | Stays. Pin actions to versions; move off Node 20 actions when GitHub requires it |
 | **autoconf, automake, libtool, pkg-config** | Needed by vcpkg to build some ports on Linux and macOS | GPL tools (build only) | Homebrew, apt | Stays while vcpkg needs them |
+| **WiX Toolset 5** | Makes the Windows `.msi` installer, through CPack (`cmake/SbPackaging.cmake`) | MS-RL (tool only; the `.msi` it makes isn't covered) | `dotnet tool install --global wix --version 5.0.2`, plus its UI extension | Stays. Chosen Nov 4, 2026: MSI is what school IT departments deploy |
+| **CPack**, **macdeployqt**, **windeployqt** | Make the `.msi` and `.dmg`, and copy Qt into them | BSD-3-Clause (CMake); part of Qt's tools | With CMake and Qt | Stays |
+| **linuxdeploy**, **linuxdeploy-plugin-qt** | Make the Linux AppImage: copy in Qt and the other libraries (`packaging/linux/make-appimage.sh`) | MIT | Downloaded from their GitHub releases by the script, pinned and checked by SHA-256 (1-alpha-20251107-1, 1-alpha-20250213-1) | Stays. Its AppImage runtime is MIT too |
+| **Code signing** | Not yet: the installers aren't signed, so Windows and macOS warn the first time (docs/user-guide/install.md) | | | Windows: SignPath Foundation (free for open-source projects that build and sign in CI with a manual approval per release), or Azure Artifact Signing (about $9.99/month, US and Canada individuals), or a classic OV certificate (about $150–300/year; EV no longer worth the extra). macOS: Apple Developer Program, $99/year, needed to notarize. Linux: free. Cheapest: about $99/year |
 
 ### The website (sketchbillet.org, not part of the app)
 
@@ -66,8 +70,12 @@ Built from `website/` by `.github/workflows/website.yml`; see `website/README.md
 | **github-slugger** | Gives headings the same `#links` GitHub does, so links between guides work on both | ISC | npm | Stays |
 | **Barlow**, **Barlow Condensed**, **IBM Plex Mono** (`@fontsource/*`) | The site's fonts, served from the site itself, so no font service sees visitors | SIL Open Font License 1.1 | npm | Stays |
 | **Node.js** | Runs the build | MIT | nodejs.org, `actions/setup-node` | Stays; needs 22+ |
-| **GitHub Pages** | Hosts sketchbillet.org; actions `setup-node`, `upload-pages-artifact`, `deploy-pages` | Free for public repos; actions are MIT | GitHub | Stays. sketchbillet.com forwards to it from the registrar |
+| **GitHub Pages**, **GitHub Releases** | Pages hosts sketchbillet.org, Releases the installers it links to; actions `setup-node`, `upload-pages-artifact`, `deploy-pages` | Free for public repos; actions are MIT | GitHub | Stays. sketchbillet.com forwards to it from the registrar |
 | **`@types/*`** | Type information for React and Node | MIT | npm | Stays |
+
+Every installer carries `packaging/THIRD-PARTY-NOTICES.txt` and the license texts in
+`packaging/licenses/`, as the LGPL and the other licenses ask. Change that file
+when a library is added to or removed from what ships.
 
 ## Planned
 
@@ -76,7 +84,6 @@ Built from `website/` by `.github/workflows/website.yml`; see `website/README.md
 | **pybind11** + embedded **CPython** | Python scripting, console, Python plugins; bindings generated from the command registry | Phase 5 | BSD-3-Clause; PSF | vcpkg (`pybind11`, `python3`). Ship Python with the installer |
 | **lib3mf** | 3MF import and export for 3D printing | Phase 3 | BSD-2-Clause | vcpkg (`lib3mf`). Alternative: write 3MF ourselves with libzip and nlohmann (it's zip + XML), if lib3mf is heavy |
 | **Our own DXF reader** | Importing splines, lines and arcs from DXF (Inkscape, other CAD) | Phase 1 or 2 | Apache-2.0 (ours) | The common DXF libraries (libdxfrw, dxflib) are GPL, and OCCT's DXF importer is commercial, so we write a small reader for the entities we need |
-| **Installer tools** | Windows installer (MSI for schools), macOS `.dmg`, Linux AppImage or Flatpak | Phase 3 | To decide: WiX (MS-RL), NSIS (zlib), CPack (BSD-3) | Decide in Phase 3. The tools are free; **code signing** isn't. Windows: SignPath Foundation (free for open-source projects that build and sign in CI with a manual approval per release), or Azure Artifact Signing (about $9.99/month, US and Canada individuals), or a classic OV certificate (about $150–300/year; EV no longer worth the extra). macOS: Apple Developer Program, $99/year, needed to notarize. Linux: free. Cheapest: about $99/year |
 | **Crash reporter** (opt-in) | Crash reports users choose to send | Phase 3 | To decide: Crashpad (BSD-3) or sentry-native (MIT) | Off by default; works offline; never sends designs |
 | **Manifold** | Fast, robust mesh Booleans for the mesh workspace | Phase 6 | Apache-2.0 | vcpkg (`manifold`) |
 | **Clipper2** | 2D polygon offsets for CAM toolpaths | Phase 6 | BSL-1.0 | vcpkg (`clipper2`) |

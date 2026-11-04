@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=SketchBillet
+GenericName=3D CAD
+Comment=Design parts you can 3D print or machine
+Exec=sketchbillet %f
+Icon=sketchbillet
+Terminal=false
+Categories=Graphics;Engineering;Education;
+Keywords=CAD;3D;design;parametric;sketch;STEP;STL;

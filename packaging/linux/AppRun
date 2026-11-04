@@ -1,0 +1,11 @@
+#!/bin/sh
+# Starts SketchBillet from its AppImage (linuxdeploy runs this after its own
+# settings for Qt). "./SketchBillet.AppImage cli ..." runs the command-line tool
+# instead, for example:
+#   ./SketchBillet-0.1.0-linux-x64.AppImage cli demo part.step
+here="$(dirname "$(readlink -f "$0")")"
+if [ "$1" = "cli" ]; then
+  shift
+  exec "$here/usr/bin/sketchbillet_cli" "$@"
+fi
+exec "$here/usr/bin/sketchbillet" "$@"

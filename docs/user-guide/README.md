@@ -8,7 +8,8 @@ pictures. It grows with SketchBillet: every new feature is added here when it's 
 
 ## Where SketchBillet is today
 
-SketchBillet is early. You can design parts in the [desktop app](desktop-app.md), with
+SketchBillet is early. [Install it](install.md) on Windows, macOS or Linux, then
+design parts in the [desktop app](desktop-app.md), with
 menus, a 3D viewer, a feature tree and a Properties panel, or with `sketchbillet_cli`,
 SketchBillet's command-line tool. Both run the same commands, so everything in this guide
 works in either.
@@ -29,19 +30,20 @@ works in either.
 
 ## Contents
 
-1. [Getting started](getting-started.md): get SketchBillet and make your first part.
-2. [The desktop app](desktop-app.md): the window, the feature tree, Properties, layouts.
-3. [Designs and steps](designs-and-steps.md): how a SketchBillet design works.
-4. [Shapes](shapes.md): boxes and cylinders, and where they go.
-5. [Combining bodies](combining.md): union, cut and intersect.
-6. [Moving bodies](moving.md): slide and turn a body.
-7. [Sketches](sketches.md): flat drawings with constraints and dimensions.
-8. [Extrude](extrude.md): turn a sketch into a solid.
-9. [Materials](materials.md): what a body is made of, its mass, weight and cost.
-10. [Parameters](parameters.md): named values like `wall = 3 mm`, and formulas that use them.
-11. [Files](files.md): saving, opening, and exporting for 3D printing.
-12. [Plugins](plugins.md): adding features to SketchBillet.
-13. [When something goes wrong](troubleshooting.md): what SketchBillet's messages mean.
+1. [Installing SketchBillet](install.md): download it for Windows, macOS or Linux.
+2. [Getting started](getting-started.md): get SketchBillet and make your first part.
+3. [The desktop app](desktop-app.md): the window, the feature tree, Properties, layouts.
+4. [Designs and steps](designs-and-steps.md): how a SketchBillet design works.
+5. [Shapes](shapes.md): boxes and cylinders, and where they go.
+6. [Combining bodies](combining.md): union, cut and intersect.
+7. [Moving bodies](moving.md): slide and turn a body.
+8. [Sketches](sketches.md): flat drawings with constraints and dimensions.
+9. [Extrude](extrude.md): turn a sketch into a solid.
+10. [Materials](materials.md): what a body is made of, its mass, weight and cost.
+11. [Parameters](parameters.md): named values like `wall = 3 mm`, and formulas that use them.
+12. [Files](files.md): saving, opening, and exporting for 3D printing.
+13. [Plugins](plugins.md): adding features to SketchBillet.
+14. [When something goes wrong](troubleshooting.md): what SketchBillet's messages mean.
 
 ## Other guides
 
