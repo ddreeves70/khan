@@ -14,10 +14,15 @@ export function People() {
             <h2>{p.name}</h2>
             <p className="role">{p.role}</p>
             {p.about && <p>{p.about}</p>}
-            {p.github && (
-              <a href={p.github} rel="noopener">
-                {p.name} on GitHub
-              </a>
+            {(p.github || p.email) && (
+              <p className="person-links">
+                {p.github && (
+                  <a href={p.github} rel="noopener">
+                    {p.name} on GitHub
+                  </a>
+                )}
+                {p.email && <a href={`mailto:${p.email}`}>{p.email}</a>}
+              </p>
             )}
           </li>
         ))}
@@ -32,7 +37,13 @@ export function People() {
         </p>
         <ul className="plain-list">
           <li>
-            Say hello, or ask anything, in <a href={site.discussions}>GitHub Discussions</a>.
+            Say hello, or ask anything, in <a href={site.discussions}>GitHub Discussions</a>
+            {site.email.dev && (
+              <>
+                , or write to <a href={`mailto:${site.email.dev}`}>{site.email.dev}</a>
+              </>
+            )}
+            .
           </li>
           <li>
             Report a problem in <a href={`${site.repo}/issues`}>GitHub Issues</a>, with what you did and what

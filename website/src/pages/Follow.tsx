@@ -12,9 +12,12 @@ const WHAT: Record<string, string> = {
 export function Follow() {
   const channels = socialLinks().filter((l) => l.label !== "Patreon");
   const emails = [
-    { label: "Questions and ideas", address: site.email.hello },
-    { label: "Teachers and schools", address: site.email.schools },
-    { label: "Security problems", address: site.email.security },
+    { label: "Questions and ideas, from anyone. Teachers: tell us about your class.", address: site.email.hello },
+    { label: "Helping build SketchBillet, or writing a plugin.", address: site.email.dev },
+    {
+      label: "A security problem: something that could harm people's computers or designs. Write here, not in public, so it can be fixed first.",
+      address: site.email.security,
+    },
   ].filter((e) => e.address);
   return (
     <article className="page-prose">

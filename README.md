@@ -117,6 +117,13 @@ docs/              guides (user-guide, tutorials, cli, plugin-guide), the file
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the architecture rules in [CLAUDE.md](CLAUDE.md).
 
+## Contact
+
+- Questions and ideas: [GitHub Discussions](https://github.com/ddreeves70/sketchbillet/discussions),
+  or hello@sketchbillet.org
+- Helping build SketchBillet: dev@sketchbillet.org
+- Security problems: security@sketchbillet.org, in private. See [SECURITY.md](SECURITY.md).
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).

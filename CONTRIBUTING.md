@@ -3,6 +3,11 @@
 Thanks for helping. SketchBillet is early, so the most useful contributions right now
 are bug reports, build fixes on your platform, and tests.
 
+Questions about where to start? Ask in
+[GitHub Discussions](https://github.com/ddreeves70/sketchbillet/discussions) or write
+to dev@sketchbillet.org. Report security problems in private, as
+[SECURITY.md](SECURITY.md) says.
+
 ## Ground rules
 
 - Read the architecture rules in [CLAUDE.md](CLAUDE.md). Pull requests that break the

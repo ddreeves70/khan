@@ -20,18 +20,20 @@ export const site = {
   patreon: "", // like "https://www.patreon.com/sketchbillet"
 
   // Email addresses, shown on the Follow and support page. Leave empty until the mailbox works.
+  // (admin@sketchbillet.org is for SketchBillet's own accounts, so it isn't shown.)
   email: {
-    hello: "", // general questions, like "hello@sketchbillet.org"
-    schools: "", // teachers and schools, like "schools@sketchbillet.org"
-    security: "", // reporting a security problem, like "security@sketchbillet.org"
+    hello: "hello@sketchbillet.org", // questions and ideas, from anyone, teachers and schools too
+    dev: "dev@sketchbillet.org", // helping build SketchBillet, and writing plugins
+    security: "security@sketchbillet.org", // reporting a security problem in private
   },
 
   // The people who make SketchBillet, for the People page. Add a line for each.
   people: [
     {
-      name: "ddreeves70",
+      name: "David Reeves",
       role: "Started SketchBillet, and writes and designs it",
       github: "https://github.com/ddreeves70",
+      email: "david.reeves@sketchbillet.org", // "" to leave it off the page
       about: "", // a few sentences about you, in your own words
     },
   ],
