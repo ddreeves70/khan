@@ -622,6 +622,12 @@ pre {
   font-size: 1.8rem;
   margin: 0;
 }
+.person-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
 .people .role {
   margin: 4px 0 8px;
   color: var(--graphite-soft);
