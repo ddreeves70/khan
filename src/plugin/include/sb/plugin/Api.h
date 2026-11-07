@@ -82,7 +82,21 @@ class PluginContext;
 /// Version 33 renamed everything to SketchBillet's: namespace sb, headers
 /// sb/..., libraries sb_... and plugin ids sb.... Rebuild outside plugins
 /// against it.
-inline constexpr int kPluginApiVersion = 33;
+/// Version 34 added faces and edges: kernel::IKernel::elements(), shape history
+/// in kernel::OpResult::history, IKernel::fillet() and chamfer(); names for every
+/// face, edge and vertex (model::ShapeNames in model::FeatureResult::names,
+/// model::GeometryRef, model::resolve(), sb/model/Naming.h); Fillet and Chamfer
+/// steps (model::FilletFeature, ChamferFeature, model::EdgeFeature); edges as
+/// command arguments (model::ArgType::GeometryList); and the feature.add_fillet,
+/// feature.add_chamfer and feature.set_edges commands. A step now builds with
+/// model::Feature::build(), which also names its result (execute() still gives
+/// the shape alone).
+/// Version 35 added picking edges: plugin::PickMode, plugin::PickedElement,
+/// Selection::elements(), setElements(), pickMode() and setPickMode(),
+/// SelectionChanged::elements and the PickModeChanged event; actions filled from
+/// picked edges (ActionSpec::fromEdges, fromEdgesBody); and edges picked in a
+/// view (view::SceneContent::pickEdges and picked, view::ViewWidget::edgesPicked).
+inline constexpr int kPluginApiVersion = 35;
 
 /// The function every plugin provides. SketchBillet calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

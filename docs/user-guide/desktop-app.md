@@ -8,7 +8,7 @@ step's numbers in Properties. Everything you do can be undone.
 
 | # | Part | What it's for |
 | --- | --- | --- |
-| 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, folders, delete), Create (shapes), Combine (union, cut, intersect), Modify (move), Sketch (new, edit, draw), View (the grid), Window (panels, layouts) |
+| 1 | **Menus** | File (new, open, save), Edit (undo, redo, copy, paste, duplicate, turn off and on, folders, delete, pick edges), Create (shapes), Combine (union, cut, intersect), Modify (move, fillet, chamfer, parameters), Sketch (new, edit, draw), View (the grid), Window (panels, layouts) |
 | 2 | **Toolbar** | The most-used menu items, one click away, each with a picture and its name. While you edit a sketch it shows the sketch tools instead, plus the constraint buttons that fit what you picked. If they don't all fit across the window, the rest go on a second row |
 | 3 | **Feature tree** | Every step of the design, in the order SketchBillet builds them, with how each one built. It floats over the viewer, see-through, and starts with the design's **Document settings** |
 | 4 | **Viewer** | Your part in 3D, on the grid. Turn it with the mouse, the view cube or the **view bar** at its bottom, and click a body to pick it |

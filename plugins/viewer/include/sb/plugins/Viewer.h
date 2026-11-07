@@ -25,11 +25,21 @@ namespace sb::plugins {
 plugin::BuiltinPlugin viewerPlugin();
 
 /// Works out what the viewer shows of the active design: its finished bodies,
-/// plus selected steps that built but are used by a later step, drawn see-through.
+/// plus selected steps that built but are used by a later step, drawn see-through;
+/// whether clicking picks edges, and the picked edges, found by name in the
+/// latest rebuild (one that can't be found isn't drawn).
 /// @param docs The open designs.
 /// @param selection The shared selection.
 /// @return The bodies and selection, empty if no design is open or it hasn't built.
 view::SceneContent viewerScene(const plugin::DocumentList& docs, const plugin::Selection& selection);
+
+/// Turns edges clicked in a view (numbers in the latest rebuild of the active
+/// design) into lasting references, for Selection::setElements().
+/// @param docs The open designs.
+/// @param picks The clicked edges.
+/// @return One reference per edge whose body has names; others are left out.
+std::vector<plugin::PickedElement> pickedEdges(const plugin::DocumentList& docs,
+                                               const std::vector<view::ScenePick>& picks);
 
 /// Turns plugins' overlays into what a view draws, leaving out hidden ones.
 /// @param overlays Every plugin's overlays, in order.

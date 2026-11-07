@@ -16,6 +16,7 @@
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRep_Builder.hxx>
 #include <Bnd_Box.hxx>
 #include <Font_NameOfFont.hxx>
 #include <Graphic3d_ArrayOfPoints.hxx>
@@ -33,6 +34,10 @@
 #include <Quantity_Color.hxx>
 #include <Standard_Failure.hxx>
 #include <Standard_Version.hxx>
+#include <StdSelect_BRepOwner.hxx>
+#include <TopExp.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+#include <TopoDS_Compound.hxx>
 #include <TopoDS_Shape.hxx>
 #include <V3d_AmbientLight.hxx>
 #include <V3d_DirectionalLight.hxx>
@@ -263,6 +268,9 @@ struct ViewWidget::Impl {
         bool ghost = false;
         Rgb color;
         Handle(AIS_Shape) object;
+        // The drawn copy's edges, numbered as the design's shape numbers them
+        // (kernel::IKernel::elements()), so a picked edge's number is the design's.
+        TopTools_IndexedMapOfShape edges;
     };
 
     ViewController controller;
@@ -272,6 +280,7 @@ struct ViewWidget::Impl {
     Handle(AIS_ViewCube) cube;
     std::map<FeatureId, Shown> shown;
     SceneContent content;
+    Handle(AIS_Shape) pickedEdges;  // the picked edges, drawn thick on top of their bodies
     std::vector<Handle(OverlayObject)> overlays;
     std::vector<ViewHandle> handles;       // as given (lengths may be in pixels)
     std::vector<ViewHandle> shownHandles;  // the same, lengths in mm, as last drawn
@@ -424,6 +433,37 @@ struct ViewWidget::Impl {
 void ViewController::OnSelectionChanged(const Handle(AIS_InteractiveContext) & ctx,
                                         const Handle(V3d_View) &) {
     auto& d = *widget_.impl_;
+    if (d.content.pickEdges) {
+        // The edge clicked: which body's, and its number there.
+        std::vector<ScenePick> clicked;
+        for (ctx->InitSelected(); ctx->MoreSelected(); ctx->NextSelected()) {
+            const auto owner = Handle(StdSelect_BRepOwner)::DownCast(ctx->SelectedOwner());
+            if (owner.IsNull() || !owner->HasShape()) continue;
+            for (const auto& [id, s] : d.shown) {
+                if (s.object != ctx->SelectedInteractive()) continue;
+                const int at = s.edges.FindIndex(owner->Shape());
+                if (at > 0) clicked.push_back({id, at - 1});
+            }
+        }
+        // Ctrl or Shift adds the edge, or takes it away if it was picked.
+        std::vector<ScenePick> now = d.clickAdds ? d.content.picked : std::vector<ScenePick>{};
+        for (const auto& c : clicked) {
+            if (auto it = std::find(now.begin(), now.end(), c); it != now.end()) {
+                now.erase(it);
+            } else {
+                now.push_back(c);
+            }
+        }
+        if (now == d.content.picked && !clicked.empty()) return;
+        QPointer<ViewWidget> w(&widget_);
+        QMetaObject::invokeMethod(
+            &widget_,
+            [w, now] {
+                if (w) emit w->edgesPicked(now);
+            },
+            Qt::QueuedConnection);
+        return;
+    }
     std::vector<FeatureId> now;
     for (ctx->InitSelected(); ctx->MoreSelected(); ctx->NextSelected()) {
         const Handle(AIS_InteractiveObject) obj = ctx->SelectedInteractive();
@@ -519,7 +559,14 @@ void ViewWidget::setContent(const SceneContent& content) {
             }
             // Draw a copy: the view meshes what it draws, and the design's own shape
             // must not change (exports mesh it too, and must not depend on the view).
-            Handle(AIS_Shape) obj = new AIS_Shape(BRepBuilderAPI_Copy(*shape, false, false).Shape());
+            BRepBuilderAPI_Copy copier(*shape, false, false);
+            Handle(AIS_Shape) obj = new AIS_Shape(copier.Shape());
+            TopTools_IndexedMapOfShape edges;
+            {
+                TopTools_IndexedMapOfShape original;
+                TopExp::MapShapes(*shape, TopAbs_EDGE, original);
+                for (int i = 1; i <= original.Extent(); ++i) edges.Add(copier.ModifiedShape(original(i)));
+            }
             obj->SetColor(rgb(body.color.r, body.color.g, body.color.b));
             obj->Attributes()->SetDeviationAngle(0.1);  // radians: smooth round edges
             if (body.ghost) {
@@ -539,15 +586,53 @@ void ViewWidget::setContent(const SceneContent& content) {
             }
             const bool wire = !body.ghost && d.style == DisplayStyle::Wireframe;
             d.context->Display(obj, wire ? AIS_WireFrame : AIS_Shaded, 0, false);
-            next[body.feature] = {body.shape.id(), body.ghost, body.color, obj};
+            next[body.feature] = {body.shape.id(), body.ghost, body.color, obj, std::move(edges)};
         }
         for (auto& [id, s] : d.shown) d.context->Remove(s.object, false);
         d.shown = std::move(next);
 
+        // Clicking picks whole bodies, or edges of the bodies (not of ghosts).
+        const int edgeMode = AIS_Shape::SelectionMode(TopAbs_EDGE);
+        for (const auto& [id, s] : d.shown) {
+            d.context->Deactivate(s.object);
+            if (!content.pickEdges) {
+                d.context->Activate(s.object, 0);
+            } else if (!s.ghost) {
+                d.context->Activate(s.object, edgeMode);
+            }
+        }
+
         d.context->ClearSelected(false);
-        for (const auto& id : content.selected) {
-            if (auto it = d.shown.find(id); it != d.shown.end())
-                d.context->AddOrRemoveSelected(it->second.object, false);
+        if (!content.pickEdges) {
+            for (const auto& id : content.selected) {
+                if (auto it = d.shown.find(id); it != d.shown.end())
+                    d.context->AddOrRemoveSelected(it->second.object, false);
+            }
+        }
+
+        // Picked edges, drawn thick in the picked color.
+        if (!d.pickedEdges.IsNull()) {
+            d.context->Remove(d.pickedEdges, false);
+            d.pickedEdges.Nullify();
+        }
+        TopoDS_Compound picked;
+        BRep_Builder builder;
+        builder.MakeCompound(picked);
+        bool anyPicked = false;
+        for (const auto& p : content.picked) {
+            auto it = d.shown.find(p.body);
+            if (it == d.shown.end() || p.index < 0 || p.index >= it->second.edges.Extent()) continue;
+            builder.Add(picked, it->second.edges(p.index + 1));
+            anyPicked = true;
+        }
+        if (anyPicked) {
+            d.pickedEdges = new AIS_Shape(picked);
+            d.pickedEdges->SetColor(kSelected);
+            d.pickedEdges->SetWidth(5.0);
+            // Drawn after the bodies (with their depth), so the bodies' own edge
+            // lines don't cover them; hidden edges stay hidden.
+            d.pickedEdges->SetZLayer(Graphic3d_ZLayerId_Top);
+            d.context->Display(d.pickedEdges, AIS_WireFrame, -1, false);  // -1: never picked itself
         }
         if (!d.everShown && !d.shown.empty()) {
             d.everShown = true;

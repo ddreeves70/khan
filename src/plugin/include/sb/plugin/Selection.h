@@ -1,21 +1,23 @@
 #pragma once
 
 /// @file
-/// The shared selection: which steps (or which design's settings) the student has picked.
+/// The shared selection: which steps, edges (or which design's settings) the student has picked.
 
 #include <vector>
 
 #include "sb/core/Id.h"
 #include "sb/plugin/DocumentList.h"
 #include "sb/plugin/EventBus.h"
+#include "sb/plugin/Picks.h"
 
 namespace sb::plugin {
 
 /// What the student has picked, shared by every panel and view.
 ///
 /// Picking a step in the feature tree selects it here, and every other panel
-/// and view hears SelectionChanged and highlights it too. Until faces and edges
-/// can be picked (Phase 2), a selection is a list of steps in one design.
+/// and view hears SelectionChanged and highlights it too. A selection is a list of
+/// steps in one design, or, while viewers pick edges (PickMode::Edges), a list of
+/// edges of its bodies.
 ///
 /// The selection keeps itself valid: steps that are deleted or undone away drop
 /// out of it, and closing the design clears it.
@@ -56,6 +58,25 @@ public:
     /// Selects nothing. Sends SelectionChanged if something was selected.
     void clear();
 
+    /// Gives the picked edges, while the selection is edges instead of steps.
+    /// @return The edges, in the order they were picked; empty when steps are selected.
+    const std::vector<PickedElement>& elements() const { return elements_; }
+
+    /// Selects edges instead of steps. Sends SelectionChanged if it differs.
+    /// Edges on steps that aren't in @p doc, and repeats, are left out.
+    /// @param doc The design.
+    /// @param elements The edges, in order.
+    void setElements(const DocId& doc, std::vector<PickedElement> elements);
+
+    /// Gives what clicking a body in a viewer picks.
+    /// @return Bodies (steps), or edges.
+    PickMode pickMode() const { return mode_; }
+
+    /// Changes what clicking a body picks. Sends PickModeChanged if it differs,
+    /// and clears picked edges when going back to bodies.
+    /// @param mode Bodies or edges.
+    void setPickMode(PickMode mode);
+
     /// Picks the design itself instead of any of its steps, as the feature
     /// tree's **Document settings** row does: Properties then shows the design's
     /// settings. Sends SelectionChanged if it differs. Picking steps with set()
@@ -77,6 +98,8 @@ private:
     const DocumentList& docs_;
     DocId doc_;
     std::vector<FeatureId> features_;
+    std::vector<PickedElement> elements_;
+    PickMode mode_ = PickMode::Bodies;
     bool design_ = false;
     std::vector<Subscription> subscriptions_;
 };

@@ -34,6 +34,8 @@ Argument types:
 | `FeatureList` | `std::vector<FeatureId>`, one or more steps | `steps=Box1,Hole` | `model::argFeatures` |
 | `FolderRef` | `FolderId` of a folder in the feature tree | `folder=Holes` | `model::argFolder` |
 | `Vec2` | `sketch::Point2`, a point on a sketch's plane, in mm | `at=10,5` | `model::argVec2` |
+| `Vec2List` | `std::vector<sketch::Point2>`, points on a sketch's plane, in mm | `poles=0,0/0,30/40,30` | `model::argVec2List` |
+| `GeometryList` | `std::vector<model::GeometryRef>`, edges of the body in the command's `body` argument (picked in the app) | `edges=9,12`, numbered as `sketchbillet_cli open <design.sb> --edges <body>` lists them | `model::argGeometry` |
 
 SketchBillet checks the arguments before calling your factory: unknown names, missing
 required arguments, wrong types, choices and steps that don't exist all get a
@@ -86,6 +88,22 @@ ctx.addAction({.id = "sb.modeling.turn_off", .text = "Turn off", .menu = "Edit",
 ```
 
 Use `fromSelection` or `fromSelectionList`, not both.
+
+**Picked edges.** For a command that changes edges of a body, give its
+`GeometryList` argument's name in `fromEdges`, and the argument its body goes in
+in `fromEdgesBody`. SketchBillet fills them with the edges picked in the 3D view,
+which must all be on one body. Clicked with no edges picked, the item turns on
+picking edges and tells the student to click the edges, then click it again. This
+is how **Modify > Fillet** works:
+
+```cpp
+ctx.addAction({.id = "sb.modeling.fillet", .text = "Fillet", .menu = "Modify",
+               .command = "feature.add_fillet",
+               .args = {{"radius", 1.0}},
+               .fromEdges = "edges",
+               .fromEdgesBody = "body",
+               .tip = "Round the picked edges by 1 mm."});
+```
 
 **Toolbar buttons.** `.toolbar = true` also puts the item on the toolbar. If its
 words are too long for a button, give shorter ones in `buttonText`: the
@@ -270,6 +288,22 @@ if (sel.designPicked()) { /* show the design's settings, not a step's */ }
 
 `SelectionChanged::design` says which kind of selection it is. Picking steps
 with `set()` un-picks the design.
+
+Edges can be picked instead of steps. While `pickMode()` is `PickMode::Edges`
+(**Edit > Pick edges**), clicking a body in the viewer picks the edge under the
+mouse. Each picked edge is a `PickedElement`: its body's step, and a lasting
+`model::GeometryRef` to the edge (see `sb/model/Naming.h`, and "Naming faces and edges" in the design notes).
+
+```cpp
+sel.setPickMode(plugin::PickMode::Edges);  // clicks pick edges
+for (const auto& e : sel.elements()) {     // each: e.body, e.ref
+    const auto* names = ctx.documents().lastRebuild(sel.doc())->result(e.body)->names.get();
+    const auto where = model::resolve(e.ref, *names);  // its number in this rebuild
+}
+```
+
+Picking edges with `setElements()` un-picks steps, and the other way round.
+Going back to `PickMode::Bodies` forgets the picked edges.
 
 ## Add view options (desktop app only)
 
@@ -553,7 +587,8 @@ ctx.listen<plugin::RebuildFinished>([&ctx](const plugin::RebuildFinished& e) {
 | `ActiveDocumentChanged` | The student switches to another design | `doc` (nil if none is open) |
 | `DocumentChanged` | A command runs, or a step is undone or redone | `doc`, `kind` (`Executed`, `Undone`, `Redone`), `label` |
 | `RebuildFinished` | A design was rebuilt after a change | `doc`, `ok` (did every step build?) |
-| `SelectionChanged` | The selection changes | `doc`, `features` (in picking order), `design` (the design itself is picked: Document settings) |
+| `SelectionChanged` | The selection changes | `doc`, `features` (in picking order), `design` (the design itself is picked: Document settings), `elements` (picked edges) |
+| `PickModeChanged` | Clicking a body switches between picking bodies and picking edges | `mode` |
 | `sb::viewoptions::ViewOptionChanged` | A view option changes (sent by `sb.viewoptions`, desktop app) | `option` (its id) |
 | `sb::grid::GridChanged` | The grid settings change (sent by `sb.grid`, desktop app) | `grid`: visible, spacing in mm, snap, style |
 | `OverlaysChanged` | An overlay is added, changed or removed | `id` |

@@ -82,6 +82,8 @@ Every step has `id`, `type` and `name`. Steps that use other steps list them und
 | `Sketch` | none | `plane`: `"xy"`, `"xz"` or `"yz"`; `entities` and `constraints` (below) |
 | `Move` | `body`: step id | `offset` [x, y, z] mm, `center` [x, y, z] mm, `axis` [x, y, z] direction, `angle` radians. Turns by `angle` about the line through `center` along `axis`, then slides by `offset` |
 | `Extrude` | `sketch`: a Sketch step's id | `distance` mm (the whole thickness), `side`: `"one"` (out of the sketch's front, the side its plane is seen from), `"flip"` (the other way) or `"both"` (half each way). Every closed shape of the sketch is swept; holes go through |
+| `Fillet` | `body`: step id | `radius` mm, `edges`: the edges it rounds, as [edge references](#edge-references) |
+| `Chamfer` | `body`: step id | `distance` mm (how far back from the edge, on both faces), `edges`: the edges it bevels, as [edge references](#edge-references) |
 
 ```json
 {
@@ -97,6 +99,47 @@ Every step has `id`, `type` and `name`. Steps that use other steps list them und
 ```
 
 A step's inputs must come before it in the timeline.
+
+#### Edge references
+
+A Fillet or Chamfer keeps each of its edges as a **name** that says where the
+edge came from, never as a number (numbers change when earlier steps change).
+See [Naming faces and edges](design/naming.md) for how names are built. Each
+reference also keeps what the edge looked like when it was picked, so SketchBillet
+can still find it if an edit renames it:
+
+| Key | Meaning |
+| --- | --- |
+| `kind` | `"edge"` (`"face"` and `"vertex"` are kept for later steps) |
+| `name` | Its name, like `"E[0b1c2d3e/end:4f5a6b7c|0b1c2d3e/side:9d8e7f6a]"`: the edge between the two faces named inside the brackets |
+| `geom` | What it is: `"line"`, `"circle"`, `"ellipse"`, `"spline"` or `"other"` (for faces: `"plane"`, `"cylinder"`, `"cone"`, `"sphere"`, `"torus"`) |
+| `center` | Its middle [x, y, z], mm |
+| `direction` | A line's direction, or a circle's axis [x, y, z]; [0, 0, 0] for none |
+| `size` | Its length, mm |
+| `radius` | A circle's radius, mm; 0 otherwise |
+
+```json
+{
+  "id": "6e0f0a52-2c3b-4f7e-9f44-3b8e2c7d1a90",
+  "inputs": { "body": "0b1c2d3e-5f60-4a71-8b92-a3b4c5d6e7f8" },
+  "name": "Fillet1",
+  "params": {
+    "edges": [
+      {
+        "center": [20.0, 0.0, 10.0],
+        "direction": [1.0, 0.0, 0.0],
+        "geom": "line",
+        "kind": "edge",
+        "name": "E[0b1c2d3e/end:4f5a6b7c|0b1c2d3e/side:9d8e7f6a]",
+        "radius": 0.0,
+        "size": 40.0
+      }
+    ],
+    "radius": 3.0
+  },
+  "type": "Fillet"
+}
+```
 
 A `Sketch` step keeps what was drawn, not the solved positions: SketchBillet solves it
 again every time it opens or rebuilds the design.
@@ -297,7 +340,9 @@ failed save never damages the last good copy.
   Parameters were added like materials (Oct 2026): an older SketchBillet opens the
   design without them, and drops them if it saves the file again. The same
   goes for a dimension's `expression` and a step's `formulas`: an older SketchBillet
-  keeps the numbers, not the formulas.
+  keeps the numbers, not the formulas. `Fillet` and `Chamfer` steps (Nov 2026)
+  are new step types in schema 1: an older SketchBillet won't open a design that
+  has them, and says the design has a step of a kind it doesn't know.
 - Anything an older SketchBillet would read wrongly bumps `schema` (in
   `src/core/include/sb/core/Version.h`) and adds a migration from the old schema.
 - `tests/files/` holds files saved with each schema. They are checked in and never

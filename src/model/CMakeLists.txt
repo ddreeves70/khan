@@ -3,6 +3,7 @@
 sb_add_library(sb_model
   SOURCES
     Feature.cpp
+    Naming.cpp
     Document.cpp
     Commands.cpp
     CommandRegistry.cpp

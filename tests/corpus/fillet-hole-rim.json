@@ -1,0 +1,118 @@
+{
+  "name": "fillet-hole-rim",
+  "description": "The extrude-plate-hole plate (40 x 20 x 5 mm, a 4 mm radius hole through it) with the hole's top rim rounded by 1 mm. Checked by hand (Pappus): the cut section is a 1 x 1 mm square less a quarter circle, area 1 - pi/4, its center 4.223368 mm from the hole's axis, so the volume drops by 2 pi x (4.5 - pi/4 x (5 - 4/(3 pi))) to 3742.977870; area: the top loses the ring from radius 4 to 5 (9 pi), the hole's wall its top 1 mm (8 pi), and the round adds 2 pi x (5 pi/2 - 1), giving 2214.790503; 8 faces.",
+  "steps": [
+    {
+      "id": "face",
+      "op": "face",
+      "outer": [
+        {
+          "line": [
+            [
+              0,
+              0
+            ],
+            [
+              40,
+              0
+            ]
+          ]
+        },
+        {
+          "line": [
+            [
+              40,
+              0
+            ],
+            [
+              40,
+              20
+            ]
+          ]
+        },
+        {
+          "line": [
+            [
+              40,
+              20
+            ],
+            [
+              0,
+              20
+            ]
+          ]
+        },
+        {
+          "line": [
+            [
+              0,
+              20
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        }
+      ],
+      "holes": [
+        [
+          {
+            "circle": {
+              "center": [
+                10,
+                10
+              ],
+              "radius": 4
+            },
+            "reversed": true
+          }
+        ]
+      ]
+    },
+    {
+      "id": "plate",
+      "op": "extrude",
+      "face": "face",
+      "by": [
+        0,
+        0,
+        5
+      ]
+    },
+    {
+      "id": "round",
+      "op": "fillet",
+      "body": "plate",
+      "edges": [
+        [
+          10,
+          10,
+          5
+        ]
+      ],
+      "radius": 1
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 3742.97787,
+    "area": 2214.790503,
+    "bounds": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        40.0,
+        20.0,
+        5.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 8,
+    "edges": 17,
+    "vertices": 11
+  }
+}

@@ -104,6 +104,45 @@ void registerModeling(plugin::PluginContext& ctx) {
             const auto* f = doc && sel.features().size() == 1 ? doc->find(sel.features()[0]) : nullptr;
             return f && f->type() == model::FeatureType::Sketch;
         }});
+    // Fillet and Chamfer: the picked edges of one body. With none picked, the
+    // first click starts picking edges.
+    ctx.addAction(ActionSpec{
+        .id = "sb.modeling.fillet",
+        .text = "Fillet",
+        .menu = "Modify",
+        .command = "feature.add_fillet",
+        .args = {{"radius", 1.0}},
+        .fromEdges = "edges",
+        .fromEdgesBody = "body",
+        .toolbar = true,
+        .icon = std::string(icons::modeling::fillet_svg),
+        .tip = "Round the picked edges by 1 mm. Change the radius in Properties. With no edges picked, "
+               "click the edges first."});
+    ctx.addAction(ActionSpec{
+        .id = "sb.modeling.chamfer",
+        .text = "Chamfer",
+        .menu = "Modify",
+        .command = "feature.add_chamfer",
+        .args = {{"distance", 1.0}},
+        .fromEdges = "edges",
+        .fromEdgesBody = "body",
+        .toolbar = true,
+        .icon = std::string(icons::modeling::chamfer_svg),
+        .tip = "Bevel the picked edges by 1 mm. Change the distance in Properties. With no edges picked, "
+               "click the edges first."});
+    // What clicking a body picks: the body (the usual) or one of its edges.
+    ctx.addAction(ActionSpec{
+        .id = "sb.modeling.pick_edges",
+        .text = "Pick edges",
+        .menu = "Edit",
+        .tip = "Click edges of bodies instead of whole bodies, for a fillet or chamfer.",
+        .run =
+            [&ctx] {
+                auto& sel = ctx.selection();
+                sel.setPickMode(sel.pickMode() == plugin::PickMode::Edges ? plugin::PickMode::Bodies
+                                                                          : plugin::PickMode::Edges);
+            },
+        .checked = [&ctx] { return ctx.selection().pickMode() == plugin::PickMode::Edges; }});
     ctx.addAction(ActionSpec{.id = "sb.modeling.duplicate",
                              .text = "Duplicate step",
                              .menu = "Edit",

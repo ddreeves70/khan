@@ -47,8 +47,11 @@ deterministic).
   degrees, "to": degrees}}`, `{"circle": {"center": [x, y], "radius": r}}` or
   `{"spline": {"poles": [[x, y], ...], "degree": 3, "weights": [...], "closed": false}}`
   (degree, weights and closed are optional; knots are spread evenly), with
-  `"reversed": true` for an edge the loop runs backwards), and `extrude` (`face`, an
-  earlier step id; `by`, the direction and distance). Lengths are in mm.
+  `"reversed": true` for an edge the loop runs backwards), `extrude` (`face`, an
+  earlier step id; `by`, the direction and distance), and `fillet` (`radius`) and
+  `chamfer` (`distance`) with `body`, an earlier step id, and `edges`, a list of
+  points: each the middle of one edge (within 1e-6 mm), so a case doesn't depend on
+  the kernel's edge order. Lengths are in mm.
 - **`result`:** which step to measure; defaults to the last step.
 - **`expect`:** only the keys present are checked. Use `"error": "<code>"` for cases that
   must fail with a specific diagnostic.

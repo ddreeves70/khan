@@ -49,6 +49,13 @@ struct ActionSpec {
     /// ArgType::FeatureList argument). The action is enabled when one or more
     /// steps are selected. Use this or `fromSelection`, not both.
     std::string fromSelectionList{};
+    /// An argument filled with the picked edges (an ArgType::GeometryList
+    /// argument), which must all be on one body; that body goes in `fromEdgesBody`.
+    /// Clicking the action with no edges picked turns on picking edges
+    /// (Selection::setPickMode()) and says to pick them, then click it again.
+    std::string fromEdges{};
+    /// With `fromEdges`: the argument the edges' body goes in, like "body".
+    std::string fromEdgesBody{};
     std::string shortcut{};  ///< Keyboard shortcut, e.g. "Ctrl+B" or "Delete". May be empty.
     bool toolbar = false;    ///< True to also show it as a toolbar button.
     /// Shorter words for the toolbar button, e.g. "Sketch" for "New sketch on XY

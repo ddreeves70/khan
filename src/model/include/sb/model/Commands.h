@@ -267,6 +267,33 @@ Diagnostics trim(sketch::Sketch& sketch, const EntityId& entity, sketch::Point2 
 /// @return The first free name of "Line1", "Line2", ...
 std::string uniqueSketchName(const sketch::Sketch& sketch, const std::string& base);
 
+/// Changes which edges a Fillet or Chamfer changes (feature.set_edges): for when
+/// an earlier change took its edges away and it asks for them to be picked again.
+///
+/// @code
+/// doc.execute(std::make_unique<SetEdgesCommand>(fillet, std::vector{referTo(names, kernel::TopoKind::Edge,
+/// 3)}));
+/// @endcode
+class SetEdgesCommand final : public Command {
+public:
+    /// Prepares the change.
+    /// @param step The Fillet or Chamfer.
+    /// @param edges Its new edges; at least one.
+    SetEdgesCommand(FeatureId step, std::vector<GeometryRef> edges);
+    /// Destroys the command.
+    ~SetEdgesCommand() override;
+
+    std::string label() const override;
+    Diagnostics apply(DocumentEditor& editor) override;
+    void revert(DocumentEditor& editor) override;
+
+private:
+    FeatureId step_;
+    std::vector<GeometryRef> edges_;
+    std::string name_;
+    std::unique_ptr<Command> edit_;  // the edit it made, to undo
+};
+
 /// Replaces a feature with an edited copy that has the same id and type.
 /// A number that the copy changes but whose formula it leaves as it was (see
 /// Feature::formulas()) was typed over, so it stops coming from the formula.

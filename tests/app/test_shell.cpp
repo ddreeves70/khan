@@ -254,7 +254,7 @@ TEST_CASE("every toolbar button has a picture", "[app][icons]") {
         CHECK_FALSE(a->icon().pixmap(24, 24).isNull());
     }
     CHECK(buttons ==
-          5 + 7 + 2 + 11 + 15);  // SketchBillet's own, sb.modeling, sb.sketcher, sketch tools, constraints
+          5 + 9 + 2 + 11 + 15);  // SketchBillet's own, sb.modeling, sb.sketcher, sketch tools, constraints
     // The menu item shows the same picture as its button.
     CHECK_FALSE(app.shell->action("sb.modeling.box")->icon().isNull());
 }
@@ -2823,4 +2823,87 @@ TEST_CASE("a plugin action that fails says so, without closing SketchBillet", "[
     auto* problems = app.shell->findChild<QLabel*>(QStringLiteral("sb.shell.problems"));
     REQUIRE(problems);
     CHECK(problems->text().contains(QStringLiteral("Oops stopped with an error")));
+}
+
+TEST_CASE("Fillet: click it, pick edges, click it again; Chamfer the same", "[app][fillet]") {
+    App app;
+    const auto doc = app.shell->activeDesign();
+    auto& docs = app.host.documents();
+    REQUIRE(docs.run(doc, "feature.add_box", {{"size", kernel::Vec3{40, 20, 10}}}).empty());
+    REQUIRE(docs.run(doc, "feature.add_box",
+                     {{"corner", kernel::Vec3{60, 0, 0}}, {"size", kernel::Vec3{10, 10, 10}}})
+                .empty());
+    settle();
+    const auto box = app.doc().featureAt(0).id(), other = app.doc().featureAt(1).id();
+    auto& sel = app.host.selection();
+
+    // Nothing picked: the first click starts picking edges, and says what to do.
+    app.click("sb.modeling.fillet");
+    CHECK(sel.pickMode() == plugin::PickMode::Edges);
+    CHECK(app.menu("sb.modeling.pick_edges")->isChecked());
+    CHECK(app.shell->statusBar()->currentMessage().contains(QStringLiteral("Click the edges for Fillet")));
+    CHECK(app.doc().featureCount() == 2);
+
+    // Pick two of the box's edges (as clicking them in the viewer does), then Fillet.
+    // (Each rebuild replaces the last one's results, so they're looked up each time.)
+    const auto edgeAt = [&](kernel::Vec3 p) {
+        const auto* r = docs.lastRebuild(doc)->result(box);
+        REQUIRE(r->names);
+        for (std::size_t i = 0; i < r->names->elements.edges.size(); ++i) {
+            const auto& c = r->names->elements.edges[i].center;
+            if (std::abs(c.x - p.x) < 1e-9 && std::abs(c.y - p.y) < 1e-9 && std::abs(c.z - p.z) < 1e-9)
+                return plugin::PickedElement{
+                    box, model::referTo(*r->names, kernel::TopoKind::Edge, static_cast<int>(i))};
+        }
+        FAIL("no edge there");
+        return plugin::PickedElement{};
+    };
+    sel.setElements(doc, {edgeAt({20, 0, 10}), edgeAt({20, 20, 10})});
+    settle();
+    CHECK(sel.elements().size() == 2);
+    CHECK(app.properties()->findChild<QLabel*>(QStringLiteral("sb.properties.title"))->text() ==
+          QStringLiteral("2 edges of Box1 picked"));
+    app.click("sb.modeling.fillet");
+    REQUIRE(app.doc().featureCount() == 3);
+    const auto& fillet = static_cast<const model::FilletFeature&>(app.doc().featureAt(2));
+    CHECK(fillet.name() == "Fillet1");
+    CHECK(fillet.body() == box);
+    CHECK(fillet.edges().size() == 2);
+    CHECK(fillet.size() == 1.0);
+    // The new step is picked, so Properties shows its radius; picking is back to bodies.
+    CHECK(sel.features() == std::vector{fillet.id()});
+    CHECK(sel.pickMode() == plugin::PickMode::Bodies);
+    REQUIRE(app.field<QDoubleSpinBox>("radius"));
+    CHECK(app.field<QDoubleSpinBox>("radius")->value() == 1.0);
+    CHECK(app.field<QLabel>("edges")->text() == QStringLiteral("2"));
+    CHECK(docs.lastRebuild(doc)->result(fillet.id())->status == model::FeatureStatus::Ok);
+
+    // Edges on two different bodies can't be rounded in one step.
+    app.menu("sb.modeling.pick_edges")->trigger();
+    settle();
+    REQUIRE(sel.pickMode() == plugin::PickMode::Edges);
+    const auto otherEdge = [&] {
+        return plugin::PickedElement{
+            other, model::referTo(*docs.lastRebuild(doc)->result(other)->names, kernel::TopoKind::Edge, 0)};
+    };
+    sel.setElements(doc, {edgeAt({20, 0, 10}), otherEdge()});
+    settle();
+    CHECK_FALSE(app.shell->action("sb.modeling.fillet")->isEnabled());
+    CHECK_FALSE(app.shell->action("sb.modeling.chamfer")->isEnabled());
+
+    // Picking bodies again forgets the edges.
+    app.menu("sb.modeling.pick_edges")->trigger();
+    settle();
+    CHECK(sel.pickMode() == plugin::PickMode::Bodies);
+    CHECK(sel.elements().empty());
+
+    // Chamfer the other box's edge.
+    app.menu("sb.modeling.pick_edges")->trigger();
+    sel.setElements(doc, {otherEdge()});
+    settle();
+    app.click("sb.modeling.chamfer");
+    REQUIRE(app.doc().featureCount() == 4);
+    CHECK(app.doc().featureAt(3).type() == model::FeatureType::Chamfer);
+    REQUIRE(app.field<QDoubleSpinBox>("distance"));
+    CHECK(docs.lastRebuild(doc)->result(app.doc().featureAt(3).id())->status == model::FeatureStatus::Ok);
 }
