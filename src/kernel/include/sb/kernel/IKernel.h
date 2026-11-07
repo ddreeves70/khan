@@ -20,8 +20,8 @@ namespace sb::kernel {
 ///  - Be deterministic: same inputs, same output.
 ///
 /// Phase 0 covers primitives, Booleans, meshing and export; moving came next, then
-/// faces from sketch shapes and extrude. Fillet, sub-shape queries and shape history
-/// follow in Phase 2.
+/// faces from sketch shapes and extrude. Phase 2 added faces, edges and vertices
+/// (elements()), shape history in every OpResult, fillet and chamfer.
 class IKernel {
 public:
     /// Destroys the kernel. Shapes it made stay valid.
@@ -48,7 +48,8 @@ public:
     /// @param op Union, cut (@p a minus @p b) or intersect.
     /// @param a The first shape; for a cut, the one that keeps its material.
     /// @param b The second shape; for a cut, the tool that is removed.
-    /// @return The combined shape, or diagnostics if the operation failed.
+    /// @return The combined shape, or diagnostics if the operation failed. Its
+    ///         history gives each face's Face in @p a (input 0) or @p b (input 1).
     virtual OpResult boolean(BoolOp op, const ShapeHandle& a, const ShapeHandle& b) = 0;
 
     /// Measures the smallest axis-aligned box around a shape.
@@ -92,6 +93,7 @@ public:
     /// @param shape The shape to move.
     /// @param motion The turn (radians, about a line in mm), then the slide (mm).
     /// @return The moved shape, or diagnostics if the axis is 0, 0, 0 while turning.
+    ///         Its history gives each face's Face in @p shape.
     virtual OpResult transform(const ShapeHandle& shape, const Motion& motion) = 0;
 
     /// Makes a flat face from an outline and its holes, on a plane (a sketch's
@@ -104,6 +106,7 @@ public:
     /// @param plane Where the face lies.
     /// @return The face, or diagnostics if the outline doesn't close, a piece has no
     ///         length or size, or the plane's directions aren't square to each other.
+    ///         Its history gives, for each edge, the Curve it was made from.
     virtual OpResult makeFace(const Profile2& profile, const Plane& plane) = 0;
 
     /// Sweeps a flat face along a straight line, making a solid: a rectangle
@@ -115,8 +118,43 @@ public:
     /// @param face A flat face, like one from makeFace().
     /// @param vector Which way and how far to sweep it (mm). Not 0, 0, 0, and not
     ///        lying flat in the face.
-    /// @return The solid, or diagnostics if the face or the vector won't do.
+    /// @return The solid, or diagnostics if the face or the vector won't do. Its
+    ///         history: each side face from an Edge of the face (input 0), and the
+    ///         two ends from Start and End.
     virtual OpResult extrude(const ShapeHandle& face, const Vec3& vector) = 0;
+
+    // Added in Phase 2: faces, edges and vertices, for naming and picking.
+
+    /// Lists a shape's faces, edges and vertices, what each looks like, and which
+    /// faces each edge borders.
+    /// @code
+    /// auto box = kernel.makeBox({0, 0, 0}, 10, 20, 30);
+    /// auto parts = kernel.elements(box.shape);  // 6 faces, 12 edges, 8 vertices
+    /// @endcode
+    /// @param shape The shape to list.
+    /// @return The lists; empty if the shape isn't valid. The same shape always gives
+    ///         the same lists in the same order.
+    virtual Elements elements(const ShapeHandle& shape) const = 0;
+
+    /// Rounds a solid's edges with a fillet: each edge becomes a round face of the
+    /// given radius, blending the two faces it joined.
+    /// @param shape The solid.
+    /// @param edges Which edges, by number in elements() of @p shape. At least one.
+    /// @param radius The round's radius (mm). More than 0, and small enough to fit
+    ///        between the faces.
+    /// @return The rounded solid, with history: kept faces from Face, round faces
+    ///         from Edge (and corner blends from Vertex) of input 0. Diagnostics if an
+    ///         edge number isn't in the shape or the round doesn't fit.
+    virtual OpResult fillet(const ShapeHandle& shape, const std::vector<int>& edges, double radius) = 0;
+
+    /// Bevels a solid's edges with a chamfer: each edge becomes a flat face cutting
+    /// the corner off, the same distance back along both faces.
+    /// @param shape The solid.
+    /// @param edges Which edges, by number in elements() of @p shape. At least one.
+    /// @param distance How far back from the edge the bevel starts on each face (mm). More than 0.
+    /// @return The beveled solid, with history like fillet(). Diagnostics if an edge
+    ///         number isn't in the shape or the bevel doesn't fit.
+    virtual OpResult chamfer(const ShapeHandle& shape, const std::vector<int>& edges, double distance) = 0;
 };
 
 }  // namespace sb::kernel
