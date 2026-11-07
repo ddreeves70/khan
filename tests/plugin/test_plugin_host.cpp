@@ -322,12 +322,14 @@ TEST_CASE("sb.modeling adds menu items that run its commands", "[plugin][host]")
     for (const auto& a : host.actions()) {
         ids.push_back(a.id);
         CHECK(a.plugin == "sb.modeling");
-        CHECK(host.commands().info(a.command) != nullptr);
+        CHECK((a.run ? a.command.empty()
+                     : host.commands().info(a.command) != nullptr));  // a command, or its own code
         CHECK_FALSE(a.tip.empty());
     }
     CHECK(ids == std::vector<std::string>{"sb.modeling.box", "sb.modeling.cylinder", "sb.modeling.union",
                                           "sb.modeling.cut", "sb.modeling.intersect", "sb.modeling.move",
-                                          "sb.modeling.extrude", "sb.modeling.duplicate",
+                                          "sb.modeling.extrude", "sb.modeling.fillet", "sb.modeling.chamfer",
+                                          "sb.modeling.pick_edges", "sb.modeling.duplicate",
                                           "sb.modeling.turn_off", "sb.modeling.turn_on",
                                           "sb.modeling.new_folder", "sb.modeling.delete"});
     CHECK(get(host, "sb.modeling").actions == ids);

@@ -1273,6 +1273,47 @@
           "color": "blue"
         }
       ]
+    },
+    {
+      "out": "docs/user-guide/images/app-fillet-pick.png",
+      "size": "1280x800",
+      "script": "block",
+      "app": {
+        "open": "block.sb",
+        "trigger": [
+          "sb.modeling.fillet"
+        ],
+        "edges": "Extrude1:9,12"
+      },
+      "crop": [
+        0,
+        0,
+        1280,
+        800
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/app-fillet.png",
+      "size": "1280x800",
+      "script": "block",
+      "commands": [
+        "run --open block.sb --save block.sb feature.add_fillet body=Extrude1 edges=9,12 radius=3"
+      ],
+      "app": {
+        "open": "block.sb",
+        "select": [
+          "Fillet1"
+        ],
+        "trigger": [
+          "sb.viewer.fit"
+        ]
+      },
+      "crop": [
+        0,
+        0,
+        1280,
+        800
+      ]
     }
   ]
 }

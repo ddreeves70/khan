@@ -89,6 +89,9 @@ loaded   sb.modeling 0.1.0  Modeling (built in)
            action  Combine > Intersect  (feature.add_boolean)
            action  Modify > Move  (feature.add_move)
            action  Create > Extrude  (feature.add_extrude)
+           action  Modify > Fillet  (feature.add_fillet)
+           action  Modify > Chamfer  (feature.add_chamfer)
+           action  Edit > Pick edges  (check mark)
            action  Edit > Duplicate step  (feature.duplicate)
            action  Edit > Turn off  (feature.suppress)
            action  Edit > Turn on  (feature.suppress)
@@ -160,6 +163,9 @@ loaded   sb.modeling 0.1.0  Modeling (built in)
            action  Combine > Intersect  (feature.add_boolean)
            action  Modify > Move  (feature.add_move)
            action  Create > Extrude  (feature.add_extrude)
+           action  Modify > Fillet  (feature.add_fillet)
+           action  Modify > Chamfer  (feature.add_chamfer)
+           action  Edit > Pick edges  (check mark)
            action  Edit > Duplicate step  (feature.duplicate)
            action  Edit > Turn off  (feature.suppress)
            action  Edit > Turn on  (feature.suppress)
@@ -187,7 +193,7 @@ failed   test.badname 1.0.0  Test badname
 failed   test.noentry 1.0.0  Test noentry
            error [plugin.library_bad]: The Test noentry plugin's program file isn't a SketchBillet plugin (it has no SB_PLUGIN_ENTRY). Ask its author for a fixed version. (...)
 failed   test.oldapi 1.0.0  Test oldapi
-           error [plugin.api_version]: The Test oldapi plugin was built for a different version of SketchBillet (plugin API 0; this SketchBillet uses 34). Get a version of the plugin made for this SketchBillet. (...)
+           error [plugin.api_version]: The Test oldapi plugin was built for a different version of SketchBillet (plugin API 0; this SketchBillet uses 35). Get a version of the plugin made for this SketchBillet. (...)
 ```
 
 Every reason and its fix is listed in the plugin guide's

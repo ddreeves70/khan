@@ -15,6 +15,7 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -176,6 +177,27 @@ private:
         if (!f) {
             shown_ = FeatureId{};
             clearForm();
+            const auto& edges = ctx_.selection().elements();
+            const auto* design = ctx_.documents().find(ctx_.selection().doc());
+            const auto* body = design && !edges.empty() ? design->find(edges.front().body) : nullptr;
+            if (body) {
+                // Edges picked: say how many, and what to do with them.
+                const bool oneBody =
+                    std::all_of(edges.begin(), edges.end(),
+                                [&](const plugin::PickedElement& e) { return e.body == edges.front().body; });
+                const auto n = static_cast<int>(edges.size());
+                const QString name = QString::fromStdString(body->name());
+                if (oneBody) {
+                    title_->setText(n == 1 ? tr("1 edge of %1 picked").arg(name)
+                                           : tr("%1 edges of %2 picked").arg(n).arg(name));
+                    status_->clear();  // the status bar says what to click next
+                } else {
+                    title_->setText(tr("%1 edges picked").arg(n));
+                    status_->setText(
+                        tr("Fillet and Chamfer change one body at a time: pick edges of just one body."));
+                }
+                return;
+            }
             title_->setText(count > 1 ? tr("%1 steps selected").arg(count)
                                       : tr("Pick a step in the feature tree to see its numbers."));
             status_->clear();

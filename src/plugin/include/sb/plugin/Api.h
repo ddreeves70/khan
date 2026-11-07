@@ -91,7 +91,12 @@ class PluginContext;
 /// feature.add_chamfer and feature.set_edges commands. A step now builds with
 /// model::Feature::build(), which also names its result (execute() still gives
 /// the shape alone).
-inline constexpr int kPluginApiVersion = 34;
+/// Version 35 added picking edges: plugin::PickMode, plugin::PickedElement,
+/// Selection::elements(), setElements(), pickMode() and setPickMode(),
+/// SelectionChanged::elements and the PickModeChanged event; actions filled from
+/// picked edges (ActionSpec::fromEdges, fromEdgesBody); and edges picked in a
+/// view (view::SceneContent::pickEdges and picked, view::ViewWidget::edgesPicked).
+inline constexpr int kPluginApiVersion = 35;
 
 /// The function every plugin provides. SketchBillet calls it once, at start, to let the
 /// plugin add its commands and start listening to events.

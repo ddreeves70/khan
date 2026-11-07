@@ -34,8 +34,9 @@ A "sketch" recipe draws a sketch twice, side by side: as it was drawn (from the
      "sketch": {"file": "r.sb", "name": "Sketch1"}, "size": "720x300"}
 
 "trigger" clicks menu items and buttons by object name before the picture is
-taken. The 3D viewer needs OpenGL: on Linux the app runs on a virtual screen
-(xvfb-run, with Mesa's software OpenGL); elsewhere it opens on your screen for a
+taken. "edges": "Extrude1:9,12" then picks edges of a body, numbered as
+`sketchbillet_cli open --edges` lists them. The 3D viewer needs OpenGL: on
+Linux the app runs on a virtual screen (xvfb-run, with Mesa's software OpenGL); elsewhere it opens on your screen for a
 moment. "flat": true takes the picture without 3D graphics, as the viewer looks
 on a computer that can't start them.
 
@@ -234,6 +235,8 @@ def main():
                     argv += ["--select", ",".join(app["select"])]
                 if "trigger" in app:
                     argv += ["--trigger", ",".join(app["trigger"])]
+                if "edges" in app:
+                    argv += ["--edges", app["edges"]]
                 env = dict(os.environ)
                 if app.get("flat"):
                     env.update(QT_QPA_PLATFORM="offscreen", SB_NO_3D="1")

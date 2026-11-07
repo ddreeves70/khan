@@ -207,6 +207,7 @@ public:
         subs_.push_back(ctx_.events().subscribe<DocumentClosed>(later));
         subs_.push_back(ctx_.events().subscribe<RebuildFinished>(later));
         subs_.push_back(ctx_.events().subscribe<SelectionChanged>(later));
+        subs_.push_back(ctx_.events().subscribe<PickModeChanged>(later));
         subs_.push_back(
             ctx_.events().subscribe<OverlaysChanged>([this](const OverlaysChanged&) { showOverlays(); }));
         subs_.push_back(ctx_.events().subscribe<viewoptions::ViewOptionChanged>(
@@ -618,6 +619,12 @@ private:
             const DocId doc = ctx_.documents().active();
             if (ctx_.documents().find(doc)) ctx_.selection().set(doc, ids);
         });
+        connect(pane, &view::ViewWidget::edgesPicked, this,
+                [this](const std::vector<view::ScenePick>& picks) {
+                    const DocId doc = ctx_.documents().active();
+                    if (ctx_.documents().find(doc))
+                        ctx_.selection().setElements(doc, pickedEdges(ctx_.documents(), picks));
+                });
         connect(pane, &view::ViewWidget::activated, this, [this, pane] {
             const auto it = std::find(panes_.begin(), panes_.end(), pane);
             if (it == panes_.end()) return;
@@ -844,6 +851,29 @@ view::SceneContent viewerScene(const plugin::DocumentList& docs, const plugin::S
         const auto* r = report->result(picked);
         if (r && r->status == model::FeatureStatus::Ok && r->shape.valid())
             out.bodies.push_back({picked, r->shape, true, colorOf(picked)});
+    }
+    // Picking edges: the picked ones, found by name in this rebuild.
+    out.pickEdges = selection.pickMode() == plugin::PickMode::Edges;
+    if (selection.doc() == id) {
+        for (const auto& e : selection.elements()) {
+            const auto* r = report->result(e.body);
+            if (!r || !r->names) continue;
+            const auto found = model::resolve(e.ref, *r->names);
+            if (found.found()) out.picked.push_back({e.body, found.index});
+        }
+    }
+    return out;
+}
+
+std::vector<plugin::PickedElement> pickedEdges(const plugin::DocumentList& docs,
+                                               const std::vector<view::ScenePick>& picks) {
+    std::vector<plugin::PickedElement> out;
+    const auto* report = docs.lastRebuild(docs.active());
+    if (!report) return out;
+    for (const auto& p : picks) {
+        const auto* r = report->result(p.body);
+        if (!r || !r->names) continue;
+        out.push_back({p.body, model::referTo(*r->names, kernel::TopoKind::Edge, p.index)});
     }
     return out;
 }

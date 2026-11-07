@@ -5,6 +5,8 @@
 //   sketchbillet --select Step1,Step2        pick steps after opening (for screenshots)
 //   sketchbillet --trigger id1,id2           click menu items and buttons by object name, e.g.
 //                                      sb.viewer.layout.fourpanes (for screenshots)
+//   sketchbillet --edges Extrude1:9,12       then pick edges of a body, numbered as
+//                                      `sketchbillet_cli open --edges` lists them (for screenshots)
 //   sketchbillet --settings file.ini         keep layouts in this file instead of the user's settings
 //   sketchbillet --screenshot out.png        save a picture of the window and quit
 //   sketchbillet --smoke-test                build the window, check it, and quit (CI)
@@ -179,6 +181,24 @@ int main(int argc, char** argv) {
             action->trigger();
             QApplication::processEvents();
         }
+    }
+
+    if (const auto edges = option(args, QStringLiteral("--edges")); !edges.isEmpty()) {
+        const auto colon = edges.lastIndexOf(QLatin1Char(':'));
+        QList<int> numbers;
+        bool ok = colon > 0;
+        for (const auto& n : edges.mid(colon + 1).split(QLatin1Char(','))) {
+            bool isNumber = false;
+            numbers << n.toInt(&isNumber);
+            ok = ok && isNumber;
+        }
+        if (!ok || !shell.selectEdges(edges.left(colon), numbers)) {
+            std::fprintf(stderr,
+                         "--edges must be a body's name and its edge numbers, like Extrude1:9,12 (see "
+                         "sketchbillet_cli open <design.sb> --edges <body>).\n");
+            return 1;
+        }
+        QApplication::processEvents();
     }
 
     if (args.contains(QStringLiteral("--smoke-test"))) return smokeTest(shell);

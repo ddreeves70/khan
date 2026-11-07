@@ -152,6 +152,7 @@ Shell::Shell(plugin::PluginHost& host, AppUi& ui, QSettings& settings, QWidget* 
     subs_.push_back(host_.events().subscribe<RebuildFinished>(later));
     subs_.push_back(host_.events().subscribe<ActiveDocumentChanged>(later));
     subs_.push_back(host_.events().subscribe<SelectionChanged>(later));
+    subs_.push_back(host_.events().subscribe<PickModeChanged>(later));
     subs_.push_back(
         host_.events().subscribe<SettingChanged>([this](const SettingChanged&) { refreshActions(); }));
     subs_.push_back(
@@ -534,6 +535,13 @@ void Shell::refreshActions() {
         if (!spec.fromSelectionList.empty()) {
             ok = ok && sel.doc() == activeDesign() && !sel.features().empty();
         }
+        if (!spec.fromEdges.empty() && !sel.elements().empty()) {
+            // Picked edges must all be on one body; with none picked, it starts picking.
+            const auto& first = sel.elements().front().body;
+            ok = ok && sel.doc() == activeDesign() &&
+                 std::all_of(sel.elements().begin(), sel.elements().end(),
+                             [&](const plugin::PickedElement& e) { return e.body == first; });
+        }
         try {
             if (ok && spec.enabled) ok = spec.enabled();
         } catch (...) {
@@ -699,11 +707,32 @@ void Shell::runAction(const plugin::ActionSpec& spec) {
         }
         args[spec.fromSelectionList] = picked;
     }
+    auto& sel = host_.selection();
+    if (!spec.fromEdges.empty()) {
+        if (sel.elements().empty() || sel.doc() != doc) {
+            // Nothing picked yet: pick edges, then click this again.
+            sel.setPickMode(plugin::PickMode::Edges);
+            statusBar()->showMessage(
+                tr("Click the edges for %1 in the 3D view (Ctrl-click to pick more), then click %1 again.")
+                    .arg(qs(spec.text)),
+                15000);
+            refreshActions();
+            return;
+        }
+        std::vector<model::GeometryRef> edges;
+        for (const auto& e : sel.elements()) edges.push_back(e.ref);
+        args[spec.fromEdges] = std::move(edges);
+        if (!spec.fromEdgesBody.empty()) args[spec.fromEdgesBody] = sel.elements().front().body;
+    }
     const auto before = docs.find(doc)->featureCount();
     auto problems = docs.run(doc, spec.command, args);
     if (!problems.empty()) {
         showProblems(problems);
         return;
+    }
+    if (!spec.fromEdges.empty()) {
+        sel.setPickMode(plugin::PickMode::Bodies);  // done picking edges
+        statusBar()->clearMessage();
     }
     // Select the step the action made, so Properties shows its numbers.
     const auto* design = docs.find(doc);
@@ -962,6 +991,29 @@ void Shell::selectSteps(const QStringList& names) {
         }
     }
     host_.selection().set(activeDesign(), ids);
+}
+
+bool Shell::selectEdges(const QString& body, const QList<int>& numbers) {
+    const auto& docs = host_.documents();
+    const auto* doc = docs.find(activeDesign());
+    const auto* report = docs.lastRebuild(activeDesign());
+    if (!doc || !report) return false;
+    for (std::size_t i = 0; i < doc->featureCount(); ++i) {
+        const auto& f = doc->featureAt(i);
+        if (qs(f.name()) != body) continue;
+        const auto* r = report->result(f.id());
+        if (!r || !r->names) return false;
+        const auto order = model::listingOrder(r->names->elements, kernel::TopoKind::Edge);
+        std::vector<plugin::PickedElement> picked;
+        for (const int n : numbers) {
+            if (n < 1 || n > static_cast<int>(order.size())) return false;
+            picked.push_back({f.id(), model::referTo(*r->names, kernel::TopoKind::Edge,
+                                                     order[static_cast<std::size_t>(n - 1)])});
+        }
+        host_.selection().setElements(activeDesign(), std::move(picked));
+        return true;
+    }
+    return false;
 }
 
 // ---------------------------------------------------------------------------

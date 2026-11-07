@@ -29,11 +29,47 @@ void Selection::set(const DocId& doc, std::vector<FeatureId> features) {
         }
     }
     const DocId newDoc = kept.empty() ? DocId{} : doc;
-    if (newDoc == doc_ && kept == features_ && !design_) return;
+    if (newDoc == doc_ && kept == features_ && !design_ && elements_.empty()) return;
     doc_ = newDoc;
     features_ = std::move(kept);
+    elements_.clear();
     design_ = false;
-    bus_.publish(SelectionChanged{doc_, features_, false});
+    bus_.publish(SelectionChanged{doc_, features_, false, {}});
+}
+
+void Selection::setElements(const DocId& doc, std::vector<PickedElement> elements) {
+    const auto* design = docs_.find(doc);
+    std::vector<PickedElement> kept;
+    if (design) {
+        for (auto& e : elements) {
+            if (design->find(e.body) && !e.ref.name.empty() &&
+                std::find(kept.begin(), kept.end(), e) == kept.end()) {
+                kept.push_back(std::move(e));
+            }
+        }
+    }
+    if (kept.empty()) {
+        if (elements_.empty()) {
+            set(doc_, features_);
+            return;
+        }
+        elements_.clear();
+        set(DocId{}, {});
+        return;
+    }
+    if (doc == doc_ && kept == elements_ && features_.empty() && !design_) return;
+    doc_ = doc;
+    features_.clear();
+    elements_ = std::move(kept);
+    design_ = false;
+    bus_.publish(SelectionChanged{doc_, features_, false, elements_});
+}
+
+void Selection::setPickMode(PickMode mode) {
+    if (mode == mode_) return;
+    mode_ = mode;
+    if (mode == PickMode::Bodies && !elements_.empty()) clear();
+    bus_.publish(PickModeChanged{mode_});
 }
 
 void Selection::pickDesign(const DocId& doc) {
@@ -44,8 +80,9 @@ void Selection::pickDesign(const DocId& doc) {
     if (design_ && doc_ == doc) return;
     doc_ = doc;
     features_.clear();
+    elements_.clear();
     design_ = true;
-    bus_.publish(SelectionChanged{doc_, features_, true});
+    bus_.publish(SelectionChanged{doc_, features_, true, {}});
 }
 
 void Selection::clear() {
@@ -53,7 +90,11 @@ void Selection::clear() {
 }
 
 void Selection::prune() {
-    if (design_) return;   // the design is still there
+    if (design_) return;  // the design is still there
+    if (!elements_.empty()) {
+        setElements(doc_, elements_);  // drops edges on steps that are gone
+        return;
+    }
     set(doc_, features_);  // drops steps that are gone
 }
 

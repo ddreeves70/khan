@@ -19,7 +19,7 @@ works in either.
 | Boxes, cylinders, union, cut, intersect | Revolve; pulling a face of a solid |
 | Sketches with constraints and dimensions, drawn in the app or with `sketchbillet_cli` | |
 | Extrude a sketch into a solid | |
-| Fillet and chamfer edges, which stay on the same edges when earlier steps change | Picking edges in the 3D view |
+| Fillet and chamfer edges, picked in the 3D view; they stay on the same edges when earlier steps change | Sketching on a face of a body |
 | Name, rename and delete steps; undo and redo | |
 | Move and turn bodies; copy, paste and duplicate steps; turn steps off; folders | |
 | The desktop app: 3D viewer with 1, 2 or 4 panes, feature tree, Properties, layouts | |

@@ -502,3 +502,75 @@ TEST_CASE("handles are drawn on top, and dragging one reports how far along it, 
     CHECK(drops.size() == 1);
     CHECK(drags.size() == 5);  // just the one from before the Escape
 }
+
+TEST_CASE("picking edges: a click picks the edge under it; Ctrl-click adds or takes away",
+          "[view][gl][edges]") {
+    Fixture f;
+    // Edges along the top: the front one, and the right one.
+    const auto parts = f.kernel->elements(f.box);
+    auto edgeAt = [&](kernel::Vec3 p) {
+        for (std::size_t i = 0; i < parts.edges.size(); ++i) {
+            const auto& c = parts.edges[i].center;
+            if (std::abs(c.x - p.x) < 1e-9 && std::abs(c.y - p.y) < 1e-9 && std::abs(c.z - p.z) < 1e-9)
+                return static_cast<int>(i);
+        }
+        return -1;
+    };
+    const kernel::Vec3 frontTop{0, -10, 20}, rightTop{10, 0, 20};
+    const int front = edgeAt(frontTop), right = edgeAt(rightTop);
+    REQUIRE(front >= 0);
+    REQUIRE(right >= 0);
+
+    SceneContent c;
+    c.bodies = {{f.boxId, f.box, false}};
+    c.pickEdges = true;
+    f.view.setContent(c);
+    f.view.fitAll();
+    settle(f.view);
+
+    int picks = 0, bodyPicks = 0;
+    std::vector<ScenePick> last;
+    QObject::connect(&f.view, &ViewWidget::picked, [&](const std::vector<FeatureId>&) { ++bodyPicks; });
+    QObject::connect(&f.view, &ViewWidget::edgesPicked, [&](const std::vector<ScenePick>& p) {
+        ++picks;
+        last = p;
+        auto now = f.view.content();
+        now.picked = p;
+        f.view.setContent(now);
+    });
+    const auto frontAt = f.view.toScreen(frontTop);
+    const auto rightAt = f.view.toScreen(rightTop);
+    REQUIRE(frontAt);
+    REQUIRE(rightAt);
+
+    f.view.clickAt(*frontAt);
+    REQUIRE(waitFor([&] { return picks == 1; }));
+    CHECK(last == std::vector<ScenePick>{{f.boxId, front}});
+    // The picked edge is drawn in the picked color: orange, where the body is blue-grey.
+    settle(f.view);
+    const QImage img = f.view.grabFramebuffer();
+    const double ratio = f.view.devicePixelRatioF();
+    const QColor at =
+        img.pixelColor(static_cast<int>(frontAt->x() * ratio), static_cast<int>(frontAt->y() * ratio));
+    INFO("picked edge pixel " << at.name().toStdString());
+    CHECK(at.red() > at.blue() + 60);
+
+    f.view.clickAt(*rightAt, true);
+    REQUIRE(waitFor([&] { return picks == 2; }));
+    CHECK(last == std::vector<ScenePick>{{f.boxId, front}, {f.boxId, right}});
+    f.view.clickAt(*frontAt, true);
+    REQUIRE(waitFor([&] { return picks == 3; }));
+    CHECK(last == std::vector<ScenePick>{{f.boxId, right}});
+    // Empty space clears them; bodies are never picked while picking edges.
+    f.view.clickAt(QPoint(8, f.view.height() - 8));
+    REQUIRE(waitFor([&] { return picks == 4; }));
+    CHECK(last.empty());
+    CHECK(bodyPicks == 0);
+
+    // Back to picking bodies: a click on the box picks the box.
+    c.pickEdges = false;
+    f.view.setContent(c);
+    settle(f.view);
+    f.view.clickAt(QPoint(f.view.width() / 2, f.view.height() / 2));
+    REQUIRE(waitFor([&] { return bodyPicks == 1; }));
+}

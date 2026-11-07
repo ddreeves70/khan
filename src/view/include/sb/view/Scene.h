@@ -32,10 +32,25 @@ struct SceneBody {
     Rgb color{};                  ///< Its color: its material's. The default is a light steel blue.
 };
 
+/// One edge drawn picked in a view: which body it's on, and its number in that
+/// body's elements (kernel::IKernel::elements()), for this rebuild only.
+struct ScenePick {
+    FeatureId body{};  ///< The step whose body it's on.
+    int index = -1;    ///< The edge's number in the body's elements, from 0.
+
+    /// Checks whether two picks are the same edge.
+    /// @param other The other pick.
+    /// @return True for the same body and number.
+    bool operator==(const ScenePick& other) const = default;
+};
+
 /// Everything a view draws of a design.
 struct SceneContent {
     std::vector<SceneBody> bodies{};    ///< The shapes, in design order.
     std::vector<FeatureId> selected{};  ///< Selected steps, in picking order; drawn highlighted.
+    /// True while clicking picks edges (for a fillet or chamfer) instead of bodies.
+    bool pickEdges = false;
+    std::vector<ScenePick> picked{};  ///< Picked edges, drawn highlighted.
 };
 
 /// What an overlay draws.

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "sb/core/Id.h"
+#include "sb/plugin/Picks.h"
 
 /// The plugin system: manifests, the plugin host, the event bus and open documents.
 namespace sb::plugin {
@@ -57,16 +58,20 @@ struct ActiveDocumentChanged {
     DocId doc;  ///< The new active document; nil if none is open.
 };
 
-/// The shared selection changed.
-///
-/// Until faces and edges can be picked (Phase 2, GeometryRef), a selection is a
-/// list of steps.
+/// The shared selection changed: steps, the design itself, or edges (see Selection).
 struct SelectionChanged {
     static constexpr std::string_view kType = "sb.SelectionChanged";  ///< Stable event type name.
     DocId doc;                                                        ///< The document the selection is in.
     std::vector<FeatureId> features;  ///< The selected steps, in the order they were picked.
     bool design =
         false;  ///< The design itself is picked (Document settings), not steps; see Selection::pickDesign().
+    std::vector<PickedElement> elements;  ///< The picked edges, when edges are picked instead of steps.
+};
+
+/// What clicking a body in a viewer picks changed (see Selection::setPickMode()).
+struct PickModeChanged {
+    static constexpr std::string_view kType = "sb.PickModeChanged";  ///< Stable event type name.
+    PickMode mode = PickMode::Bodies;                                ///< What clicking picks now.
 };
 
 /// A plugin's remembered setting changed (see PluginSettings).

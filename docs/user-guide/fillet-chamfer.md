@@ -33,10 +33,28 @@ tells you to check; if two pieces look alike, it asks you to pick again.
 
 ## In the desktop app
 
-Picking edges in the 3D view comes next. Until then, add a fillet or chamfer
-with `sketchbillet_cli` (below), and open the design in the app: pick the
-**Fillet1** step in the feature tree to change its **Radius** in **Properties**
-(a chamfer's is its **Distance**).
+1. Click **Fillet** on the toolbar (or **Modify > Fillet**). The 3D view now
+   picks edges instead of whole bodies, and the bar at the bottom says so.
+2. Click an edge: it turns orange. Ctrl-click (or Shift-click) more edges to
+   add them, or a picked one to take it away. All the edges must be on one body.
+
+   ![The block's two long top edges picked, in orange; the bar at the bottom says to click Fillet again](images/app-fillet-pick.png)
+
+3. Click **Fillet** again. SketchBillet adds **Fillet1**, with a radius of 1 mm,
+   and picks it, so **Properties** shows it. Type the radius you want there.
+
+![Fillet1 picked: Properties shows its body, how many edges it rounds, and its radius](images/app-fillet.png)
+
+**Chamfer** works the same way, with a **Distance** instead of a radius.
+
+**Edit > Pick edges** turns picking edges on or off by itself, to pick the edges
+first and then click Fillet or Chamfer. Each new fillet or chamfer is one undo
+step, and so is each change of its radius or distance.
+
+If a fillet can't find its edges after a change, delete it and add it again
+with the edges you want. (Picking a fillet's edges again in the app comes next;
+[`feature.set_edges`](../cli/commands.md#featureset_edges) does it with
+`sketchbillet_cli`.)
 
 ## Example with sketchbillet_cli
 

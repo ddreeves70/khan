@@ -179,6 +179,12 @@ signals:
     /// @param selection The steps that should be selected, in picking order.
     void picked(const std::vector<sb::FeatureId>& selection);
 
+    /// Edges were picked by clicking, while SceneContent::pickEdges is on: the
+    /// edge clicked, or with Ctrl or Shift held, the edges picked before with the
+    /// one clicked added or taken away.
+    /// @param picks The picked edges, in order; empty when empty space was clicked.
+    void edgesPicked(const std::vector<sb::view::ScenePick>& picks);
+
     /// The student clicked or focused this view (so it becomes the active pane).
     void activated();
 

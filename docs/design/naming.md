@@ -80,7 +80,11 @@ Names are for matching. People see:
   turned into references when the command is made.
 - **Words**, from `describeElement()`: "between end of Extrude1 and side from
   Line1 of Sketch1 (Extrude1)".
-- **Picking** in the 3D view (next).
+- **Picking** in the 3D view: with **Edit > Pick edges** on (or after clicking
+  Fillet or Chamfer), a click picks the edge under it. The view gives the edge's
+  number in this rebuild; the viewer plugin turns it into a `GeometryRef`
+  (`plugin::Selection::elements()`), and draws picked edges by resolving their
+  references after every rebuild.
 
 ## Tested by
 
@@ -97,8 +101,10 @@ Names are for matching. People see:
 
 ## Not yet
 
-- **Picking faces and edges in the 3D view,** and sketching on a face (the next
-  pieces of Phase 2).
+- **Picking faces** in the 3D view, and sketching on a face (the next pieces of
+  Phase 2).
+- **Picking a fillet's edges again in the app** (the command line has
+  `feature.set_edges`).
 - **Fuzzing:** random edits on corpus models, checking every reference stays
   Exact or Matched, or is reported (the [design model](design-model.md#threading-errors-and-testing-hooks)
   asks for it).
