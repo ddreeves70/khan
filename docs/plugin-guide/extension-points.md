@@ -34,6 +34,8 @@ Argument types:
 | `FeatureList` | `std::vector<FeatureId>`, one or more steps | `steps=Box1,Hole` | `model::argFeatures` |
 | `FolderRef` | `FolderId` of a folder in the feature tree | `folder=Holes` | `model::argFolder` |
 | `Vec2` | `sketch::Point2`, a point on a sketch's plane, in mm | `at=10,5` | `model::argVec2` |
+| `Vec2List` | `std::vector<sketch::Point2>`, points on a sketch's plane, in mm | `poles=0,0/0,30/40,30` | `model::argVec2List` |
+| `GeometryList` | `std::vector<model::GeometryRef>`, edges of the body in the command's `body` argument (picked in the app) | `edges=9,12`, numbered as `sketchbillet_cli open <design.sb> --edges <body>` lists them | `model::argGeometry` |
 
 SketchBillet checks the arguments before calling your factory: unknown names, missing
 required arguments, wrong types, choices and steps that don't exist all get a

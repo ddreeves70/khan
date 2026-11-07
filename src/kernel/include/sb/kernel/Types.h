@@ -160,12 +160,102 @@ enum class ExportFormat {
     Step,  ///< Exact geometry (ISO 10303), for other CAD and CAM programs.
 };
 
-/// Result of every kernel operation. Failures carry diagnostics, never exceptions.
+/// The three kinds of piece a solid is made of.
+enum class TopoKind {
+    Face,    ///< A bounded surface, like the top of a box.
+    Edge,    ///< A curve where faces meet.
+    Vertex,  ///< A point where edges meet.
+};
+
+/// What kind of surface a face lies on, or what kind of curve an edge follows.
+enum class GeomKind {
+    Plane,     ///< A flat face.
+    Cylinder,  ///< Part of a cylinder's side.
+    Cone,      ///< Part of a cone's side.
+    Sphere,    ///< Part of a ball.
+    Torus,     ///< Part of a ring (a doughnut), like a rounded corner around a curve.
+    Line,      ///< A straight edge.
+    Circle,    ///< An edge along a circle (a whole circle or an arc).
+    Ellipse,   ///< An edge along an ellipse.
+    Spline,    ///< A free-form (B-spline) surface or curve.
+    Point,     ///< A vertex.
+    Other,     ///< Any other surface or curve, like a swept one.
+};
+
+/// What one face, edge or vertex looks like: enough to tell it apart from the
+/// others, and to find it again after the shape changes a little.
+struct ElementInfo {
+    GeomKind geom = GeomKind::Other;  ///< What it lies on or follows.
+    Point3 center{};                  ///< Its middle: the center of its area or length, or the point (mm).
+    /// A flat face's outward normal; a cylinder's, cone's or circle's axis; a line's
+    /// direction. A unit vector, or 0, 0, 0 when none of these fits.
+    Vec3 direction{};
+    double size = 0;    ///< A face's area (mm^2) or an edge's length (mm); 0 for a vertex.
+    double radius = 0;  ///< A cylinder's, sphere's or circle's radius (mm); otherwise 0.
+};
+
+/// The faces, edges and vertices of a shape, and how they connect.
 ///
-/// Shape history for topological naming is added in Phase 2.
+/// Each list is in the kernel's order for this shape, which is the same every
+/// time the same steps are built (see IKernel). An element's number is its place in its list,
+/// counting from 0. Numbers are only good for this one shape: after any change,
+/// use names (`sb::model` naming) to find an element again.
+struct Elements {
+    std::vector<ElementInfo> faces;     ///< The faces.
+    std::vector<ElementInfo> edges;     ///< The edges.
+    std::vector<ElementInfo> vertices;  ///< The vertices.
+    /// For each edge, the faces it borders, smallest number first: usually two, one
+    /// for a seam (an edge where a face meets itself, like down a cylinder's side).
+    std::vector<std::vector<int>> edgeFaces;
+    /// For each edge, its vertices: two, one for a closed edge like a circle, or none.
+    std::vector<std::vector<int>> edgeVertices;
+
+    /// Gives one list by kind.
+    /// @param kind Faces, edges or vertices.
+    /// @return That list.
+    const std::vector<ElementInfo>& of(TopoKind kind) const {
+        return kind == TopoKind::Face ? faces : kind == TopoKind::Edge ? edges : vertices;
+    }
+};
+
+/// Where an operation's input was, for one piece of its result (see History).
+enum class OriginKind {
+    Face,    ///< A face of an input: kept, or changed (trimmed, split, moved).
+    Edge,    ///< An edge of an input: the piece was made from it, like an extrude's side or a fillet's round
+             ///< face.
+    Vertex,  ///< A vertex of an input: the piece was made from it, like a fillet's corner.
+    Curve,   ///< A curve of the outline given to IKernel::makeFace(): outline first, then each hole.
+    Start,   ///< An extrude's face where it starts (the face it swept).
+    End,     ///< An extrude's face where it ends.
+};
+
+/// One place a piece of a result came from.
+struct Origin {
+    int input = 0;  ///< Which input: 0 for the first shape, 1 for the second (a Boolean's tool).
+    OriginKind kind = OriginKind::Face;  ///< What it came from.
+    int index = -1;  ///< That face's, edge's or vertex's number in the input's Elements, or the curve's
+                     ///< number; -1 for Start and End.
+};
+
+/// Where each face and edge of a result came from, so names given to the inputs
+/// can be passed on to the result (topological naming).
+///
+/// A list is empty when the operation doesn't say: primitives (box, cylinder)
+/// make new shapes with no inputs.
+struct History {
+    /// For each face of the result (in Elements order), where it came from; empty
+    /// for a face that is new. Several origins mean faces that were merged.
+    std::vector<std::vector<Origin>> faces;
+    /// The same for each edge of the result. Only IKernel::makeFace() fills it in
+    /// (each edge's outline curve); other edges are named from the faces they border.
+    std::vector<std::vector<Origin>> edges;
+};
+
+/// Result of every kernel operation. Failures carry diagnostics, never exceptions.
 struct OpResult {
     ShapeHandle shape;   ///< The new shape; empty if the operation failed.
     Diagnostics issues;  ///< Why it failed, or warnings about a shape that was made.
+    History history;     ///< Where the result's faces and edges came from, for operations that say.
 
     /// Checks whether a shape was made.
     /// @return True if @ref shape is valid.

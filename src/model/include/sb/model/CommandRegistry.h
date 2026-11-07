@@ -16,6 +16,7 @@
 #include "sb/core/Id.h"
 #include "sb/kernel/Types.h"
 #include "sb/model/Command.h"
+#include "sb/model/Naming.h"
 #include "sb/sketch/Sketch.h"
 
 namespace sb::model {
@@ -35,11 +36,16 @@ enum class ArgType {
     FolderRef,    ///< A FolderId of a folder in the document.
     Vec2,         ///< A sketch::Point2: a point on a sketch's plane, in millimeters.
     Vec2List,     ///< A std::vector<sketch::Point2>: points on a sketch's plane, in order, in millimeters.
+    /// A std::vector<GeometryRef>: edges (or faces) of the body named by the
+    /// command's "body" argument. Picked in the app; on the command line, numbers
+    /// as `sketchbillet_cli elements` lists them, like 3,7.
+    GeometryList,
 };
 
 /// One argument value. Which alternative is allowed depends on the ArgSpec's ArgType.
-using ArgValue = std::variant<double, std::int64_t, bool, std::string, kernel::Vec3, FeatureId,
-                              std::vector<FeatureId>, FolderId, sketch::Point2, std::vector<sketch::Point2>>;
+using ArgValue =
+    std::variant<double, std::int64_t, bool, std::string, kernel::Vec3, FeatureId, std::vector<FeatureId>,
+                 FolderId, sketch::Point2, std::vector<sketch::Point2>, std::vector<GeometryRef>>;
 
 /// Arguments for one command, by argument name.
 using Args = std::map<std::string, ArgValue>;
@@ -180,6 +186,12 @@ std::vector<FeatureId> argFeatures(const Args& args, const std::string& name);
 /// @param name The argument name.
 /// @return The folder id, or a nil id if the argument is absent.
 FolderId argFolder(const Args& args, const std::string& name);
+
+/// Reads an argument of ArgType::GeometryList.
+/// @param args The arguments.
+/// @param name The argument's name, like "edges".
+/// @return Its references, or an empty list if it's missing or isn't one.
+std::vector<GeometryRef> argGeometry(const Args& args, const std::string& name);
 
 /// Reads a true-or-false argument, for use in a CommandFactory.
 /// @param args The checked arguments.

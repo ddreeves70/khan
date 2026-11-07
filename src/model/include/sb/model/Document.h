@@ -276,4 +276,13 @@ private:
     std::uint64_t savedSerial_ = 0;
 };
 
+/// Says in plain words where a face, edge or vertex came from, for lists and
+/// messages: "top of Box1", "side from Line2 of Sketch1 (Extrude1)", "round of
+/// Fillet1", an edge "between right side of Box1 and top of Box1".
+/// @param doc The design the name comes from.
+/// @param kind Face, edge or vertex.
+/// @param name Its name (see ShapeNames).
+/// @return The words; a step that's gone is called "a deleted step".
+std::string describeElement(const Document& doc, kernel::TopoKind kind, std::string_view name);
+
 }  // namespace sb::model

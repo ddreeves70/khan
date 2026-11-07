@@ -4,7 +4,8 @@
 //   sketchbillet_cli demo <out.stl|out.step|out.sb> box with a hole, as a toolchain smoke test
 //   sketchbillet_cli open <file.sb> [--export out [--step name]]  open a design, rebuild it, report each step
 //   sketchbillet_cli open <file.sb> --sketch <name>               ... and list a sketch, solved
-//   sketchbillet_cli materials [<file.sb>]      list materials (SketchBillet's own, and a design's)
+//   sketchbillet_cli open <file.sb> --edges|--faces <name>        ... and list a body's edges or faces,
+//   numbered sketchbillet_cli materials [<file.sb>]      list materials (SketchBillet's own, and a design's)
 //   sketchbillet_cli regress [--update] <case|dir>... run regression cases (see tests/corpus/README.md)
 //   sketchbillet_cli plugins [--plugins <folder>]... [--slow-start-ms <n>] [--strict]  list plugins, their
 //                                       commands, services, problems and warnings
@@ -39,6 +40,8 @@ int usage() {
         "       sketchbillet_cli demo <out.stl|out.step|out.sb>\n"
         "       sketchbillet_cli open <file.sb> [--export <out.stl|out.step> [--step <name>]]\n"
         "       sketchbillet_cli open <file.sb> --sketch <name>\n"
+        "       sketchbillet_cli open <file.sb> --edges <name>\n"
+        "       sketchbillet_cli open <file.sb> --faces <name>\n"
         "       sketchbillet_cli materials [<file.sb>]\n"
         "       sketchbillet_cli regress [--update] <case.json|folder>...\n"
         "       sketchbillet_cli plugins [--plugins <folder>]... [--slow-start-ms <n>] [--strict]\n"
@@ -228,13 +231,69 @@ void printSketch(const sb::model::SketchFeature& step, const sb::model::FeatureR
     for (const auto& d : found.issues) std::printf("warning [%s]: %s\n", d.code.c_str(), d.message.c_str());
 }
 
+const char* geomWord(sb::kernel::GeomKind g) {
+    using G = sb::kernel::GeomKind;
+    switch (g) {
+        case G::Plane:
+            return "flat";
+        case G::Cylinder:
+            return "cylinder";
+        case G::Cone:
+            return "cone";
+        case G::Sphere:
+            return "ball";
+        case G::Torus:
+            return "ring";
+        case G::Line:
+            return "line";
+        case G::Circle:
+            return "circle";
+        case G::Ellipse:
+            return "ellipse";
+        case G::Spline:
+            return "spline";
+        case G::Point:
+            return "point";
+        case G::Other:
+            return "curved";
+    }
+    return "?";
+}
+
+// Lists a body's edges or faces, numbered from 1 in listing order (bottom to top,
+// front to back, left to right), as feature.add_fillet's edges= takes them.
+void printElements(const sb::model::Document& doc, const sb::model::Feature& step,
+                   const sb::model::ShapeNames& names, sb::kernel::TopoKind kind) {
+    const auto unit = doc.lengthUnit();
+    const std::string symbol(sb::unitSymbol(unit));
+    const bool faces = kind == sb::kernel::TopoKind::Face;
+    const auto& infos = names.elements.of(kind);
+    std::printf("%s of %s: %zu\n", faces ? "faces" : "edges", step.name().c_str(), infos.size());
+    const auto order = sb::model::listingOrder(names.elements, kind);
+    for (std::size_t i = 0; i < order.size(); ++i) {
+        const auto k = static_cast<std::size_t>(order[i]);
+        const auto& e = infos[k];
+        const double per = sb::mmPerUnit(unit);
+        const std::string size =
+            faces ? mm(e.size / (per * per)) + " " + symbol + "^2" : length(e.size, unit) + " " + symbol;
+        std::printf("  %2zu  %-8s %14s  at %s,%s,%s  %s\n", i + 1, geomWord(e.geom), size.c_str(),
+                    length(e.center.x, unit).c_str(), length(e.center.y, unit).c_str(),
+                    length(e.center.z, unit).c_str(),
+                    sb::model::describeElement(doc, kind, names.of(kind)[k]).c_str());
+    }
+}
+
 // Opens a design, rebuilds it and prints one line per step. Returns 1 if the
 // file can't be opened or any active step fails.
 int openDesign(int argc, char** argv) {
     const bool exporting = argc >= 5 && std::string_view(argv[3]) == "--export";
     const bool oneStep = argc == 7 && exporting && std::string_view(argv[5]) == "--step";
     const bool showSketch = argc == 5 && std::string_view(argv[3]) == "--sketch";
-    if (argc != 3 && !(argc == 5 && exporting) && !oneStep && !showSketch) return usage();
+    const bool showEdges = argc == 5 && std::string_view(argv[3]) == "--edges";
+    const bool showFaces = argc == 5 && std::string_view(argv[3]) == "--faces";
+    if (argc != 3 && !(argc == 5 && exporting) && !oneStep && !showSketch && !showEdges && !showFaces) {
+        return usage();
+    }
     auto opened = sb::io::openFile(argv[2]);
     if (!opened.ok()) {
         printIssues(opened.issues);
@@ -285,6 +344,22 @@ int openDesign(int argc, char** argv) {
         }
         printSketch(static_cast<const sb::model::SketchFeature&>(*found), *report.result(found->id()),
                     doc.lengthUnit());
+    }
+    if (showEdges || showFaces) {
+        const sb::model::Feature* found = nullptr;
+        for (std::size_t i = 0; i < doc.featureCount(); ++i) {
+            if (doc.featureAt(i).name() == argv[4]) found = &doc.featureAt(i);
+        }
+        const auto* r = found ? report.result(found->id()) : nullptr;
+        if (!r || !r->names) {
+            std::fprintf(stderr,
+                         found ? "error: %s has no body to list (it's a sketch, or has a problem).\n"
+                               : "error: this design has no step called %s.\n",
+                         argv[4]);
+            return 1;
+        }
+        printElements(doc, *found, *r->names,
+                      showEdges ? sb::kernel::TopoKind::Edge : sb::kernel::TopoKind::Face);
     }
     if (!report.ok()) return 1;
 

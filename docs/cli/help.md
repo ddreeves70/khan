@@ -21,13 +21,16 @@ Commands for sketchbillet_cli run:
   document.set_units       Set units
   feature.add_boolean      Combine bodies
   feature.add_box          Add box
+  feature.add_chamfer      Chamfer
   feature.add_cylinder     Add cylinder
   feature.add_extrude      Extrude
+  feature.add_fillet       Fillet
   feature.add_move         Move body
   feature.add_sketch       Add sketch
   feature.delete           Delete step
   feature.duplicate        Duplicate step
   feature.rename           Rename step
+  feature.set_edges        Pick edges again
   feature.set_material     Set material
   feature.set_value        Change a step's number
   feature.slide            Slide body

@@ -182,6 +182,39 @@ bool EditFeatureCommand::mergeWith(const Command& next) {
 }
 
 // ---------------------------------------------------------------------------
+// SetEdgesCommand
+// ---------------------------------------------------------------------------
+
+SetEdgesCommand::SetEdgesCommand(FeatureId step, std::vector<GeometryRef> edges)
+    : step_(step), edges_(std::move(edges)) {}
+
+SetEdgesCommand::~SetEdgesCommand() = default;
+
+std::string SetEdgesCommand::label() const {
+    return "Pick edges of " + name_;
+}
+
+Diagnostics SetEdgesCommand::apply(DocumentEditor& editor) {
+    const Feature* f = editor.document().find(step_);
+    if (!f) return {error("feature.not_found", "That step isn't in the design anymore.")};
+    name_ = f->name();
+    if (f->type() != FeatureType::Fillet && f->type() != FeatureType::Chamfer) {
+        return {error(
+            "edges.not_edge_step",
+            f->name() + " isn't a Fillet or Chamfer, so it has no edges to pick. Pick a Fillet or Chamfer.")};
+    }
+    if (edges_.empty()) return {error("edges.none", "Pick at least one edge for " + f->name() + ".")};
+    auto copy = f->clone();
+    static_cast<EdgeFeature&>(*copy).setEdges(edges_);
+    edit_ = std::make_unique<EditFeatureCommand>(std::move(copy));
+    return edit_->apply(editor);
+}
+
+void SetEdgesCommand::revert(DocumentEditor& editor) {
+    if (edit_) edit_->revert(editor);
+}
+
+// ---------------------------------------------------------------------------
 // RenameFeatureCommand
 // ---------------------------------------------------------------------------
 

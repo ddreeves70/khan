@@ -120,6 +120,34 @@ Outcome build(IKernel& k, const json& c) {
             r = k.makeFace(profile, plane);
         } else if (op == "extrude") {
             r = k.extrude(shapes.at(step.at("face").get<std::string>()), vec3(step.at("by")));
+        } else if (op == "fillet" || op == "chamfer") {
+            // Edges by where their middles are (not by number, which a kernel
+            // version may change): each must be within 1e-6 mm of exactly one edge.
+            const auto& body = shapes.at(step.at("body").get<std::string>());
+            const auto parts = k.elements(body);
+            std::vector<int> edges;
+            for (const auto& at : step.at("edges")) {
+                const Vec3 p = vec3(at);
+                int found = -1, count = 0;
+                for (std::size_t i = 0; i < parts.edges.size(); ++i) {
+                    const auto& mid = parts.edges[i].center;
+                    if (std::abs(mid.x - p.x) < 1e-6 && std::abs(mid.y - p.y) < 1e-6 &&
+                        std::abs(mid.z - p.z) < 1e-6) {
+                        found = static_cast<int>(i);
+                        ++count;
+                    }
+                }
+                if (count != 1) {
+                    out.errorStep = id;
+                    out.errorCode = "regress.edge";
+                    out.errorMessage = count == 0 ? "No edge has its middle at " + at.dump() + "."
+                                                  : "More than one edge has its middle at " + at.dump() + ".";
+                    return out;
+                }
+                edges.push_back(found);
+            }
+            const double size = step.at(op == "fillet" ? "radius" : "distance").get<double>();
+            r = op == "fillet" ? k.fillet(body, edges, size) : k.chamfer(body, edges, size);
         } else {
             out.errorStep = id;
             out.errorCode = "regress.unknown_op";
