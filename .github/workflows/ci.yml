@@ -203,7 +203,13 @@ jobs:
               "$app/Contents/MacOS/sketchbillet_cli" --version
               "$app/Contents/MacOS/sketchbillet_cli" demo "$out/demo.step" && test -s "$out/demo.step"
               "$app/Contents/MacOS/sketchbillet" --smoke-test --settings "$out/settings.ini"
-              hdiutil detach "$out/dmg"
+              # The disk can stay busy for a moment after the app quits (Spotlight
+              # looks inside it): try a few times, then force it.
+              for try in 1 2 3 4 5; do
+                hdiutil detach "$out/dmg" && break
+                sleep 2
+                if [ "$try" = 5 ]; then hdiutil detach -force "$out/dmg"; fi
+              done
               ;;
           esac
 
