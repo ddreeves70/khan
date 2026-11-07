@@ -435,6 +435,90 @@ std::optional<kernel::BoolOp> readOp(const json& j) {
     return std::nullopt;
 }
 
+// What an element of a body lies on, as saved: "plane", "line", ...
+const char* geomName(kernel::GeomKind g) {
+    switch (g) {
+        case kernel::GeomKind::Plane:
+            return "plane";
+        case kernel::GeomKind::Cylinder:
+            return "cylinder";
+        case kernel::GeomKind::Cone:
+            return "cone";
+        case kernel::GeomKind::Sphere:
+            return "sphere";
+        case kernel::GeomKind::Torus:
+            return "torus";
+        case kernel::GeomKind::Line:
+            return "line";
+        case kernel::GeomKind::Circle:
+            return "circle";
+        case kernel::GeomKind::Ellipse:
+            return "ellipse";
+        case kernel::GeomKind::Spline:
+            return "spline";
+        case kernel::GeomKind::Point:
+            return "point";
+        case kernel::GeomKind::Other:
+            return "other";
+    }
+    return "other";
+}
+
+kernel::GeomKind readGeom(const std::string& s) {
+    for (const auto g :
+         {kernel::GeomKind::Plane, kernel::GeomKind::Cylinder, kernel::GeomKind::Cone,
+          kernel::GeomKind::Sphere, kernel::GeomKind::Torus, kernel::GeomKind::Line, kernel::GeomKind::Circle,
+          kernel::GeomKind::Ellipse, kernel::GeomKind::Spline, kernel::GeomKind::Point}) {
+        if (s == geomName(g)) return g;
+    }
+    return kernel::GeomKind::Other;  // a kind from a newer SketchBillet only weakens matching
+}
+
+const char* topoName(kernel::TopoKind k) {
+    switch (k) {
+        case kernel::TopoKind::Face:
+            return "face";
+        case kernel::TopoKind::Edge:
+            return "edge";
+        case kernel::TopoKind::Vertex:
+            return "vertex";
+    }
+    return "edge";
+}
+
+// A reference to a face, edge or vertex: its name, and what it looked like.
+json refToJson(const model::GeometryRef& r) {
+    return {{"kind", topoName(r.kind)},
+            {"name", r.name},
+            {"geom", geomName(r.signature.geom)},
+            {"center", vec3(r.signature.center)},
+            {"direction", vec3(r.signature.direction)},
+            {"size", r.signature.size},
+            {"radius", r.signature.radius}};
+}
+
+std::optional<model::GeometryRef> refFromJson(const json& j) {
+    if (!j.is_object() || !j.contains("name") || !j["name"].is_string()) return std::nullopt;
+    model::GeometryRef r;
+    const std::string kind = j.value("kind", "");
+    if (kind == "face") {
+        r.kind = kernel::TopoKind::Face;
+    } else if (kind == "edge") {
+        r.kind = kernel::TopoKind::Edge;
+    } else if (kind == "vertex") {
+        r.kind = kernel::TopoKind::Vertex;
+    } else {
+        return std::nullopt;
+    }
+    r.name = j["name"].get<std::string>();
+    r.signature.geom = readGeom(j.value("geom", ""));
+    r.signature.center = readVec3(j.value("center", json())).value_or(kernel::Vec3{});
+    r.signature.direction = readVec3(j.value("direction", json())).value_or(kernel::Vec3{});
+    r.signature.size = readNumber(j.value("size", json(0))).value_or(0);
+    r.signature.radius = readNumber(j.value("radius", json(0))).value_or(0);
+    return r;
+}
+
 json featureToJson(const Feature& f) {
     json j{{"id", f.id().toString()}, {"name", f.name()}};
     if (!f.material().empty()) j["material"] = f.material();  // left out when not picked
@@ -483,6 +567,17 @@ json featureToJson(const Feature& f) {
             j["type"] = "Extrude";
             j["inputs"] = {{"sketch", e.sketch().toString()}};
             j["params"] = {{"distance", e.distance()}, {"side", sideName(e.side())}};
+            break;
+        }
+        case FeatureType::Fillet:
+        case FeatureType::Chamfer: {
+            const auto& e = static_cast<const model::EdgeFeature&>(f);
+            const bool fillet = f.type() == FeatureType::Fillet;
+            j["type"] = fillet ? "Fillet" : "Chamfer";
+            j["inputs"] = {{"body", e.body().toString()}};
+            json edges = json::array();
+            for (const auto& r : e.edges()) edges.push_back(refToJson(r));
+            j["params"] = {{fillet ? "radius" : "distance", e.size()}, {"edges", edges}};
             break;
         }
     }
@@ -606,6 +701,25 @@ std::unique_ptr<Feature> stepFromJson(const json& j, const FeatureId& id, std::s
         if (!distance) return bad("distance");
         if (!side) return bad("side");
         return std::make_unique<model::ExtrudeFeature>(id, name, *sketch, *distance, *side);
+    }
+    if (type == "Fillet" || type == "Chamfer") {
+        const bool fillet = type == "Fillet";
+        const auto body = inputs.contains("body") && inputs["body"].is_string()
+                              ? FeatureId::parse(inputs["body"].get<std::string>())
+                              : std::nullopt;
+        const auto size = readNumber(params.value(fillet ? "radius" : "distance", json()));
+        if (!body) return bad("input body");
+        if (!size) return bad(fillet ? "radius" : "distance");
+        const json edgeList = params.value("edges", json());
+        if (!edgeList.is_array()) return bad("edges");
+        std::vector<model::GeometryRef> edges;
+        for (const auto& e : edgeList) {
+            auto r = refFromJson(e);
+            if (!r) return bad("edges");
+            edges.push_back(std::move(*r));
+        }
+        if (fillet) return std::make_unique<model::FilletFeature>(id, name, *body, std::move(edges), *size);
+        return std::make_unique<model::ChamferFeature>(id, name, *body, std::move(edges), *size);
     }
     unknownType = type;
     why = "step " + name + " has unknown type " + type;

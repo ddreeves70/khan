@@ -160,7 +160,7 @@ TEST_CASE("An edit cannot change the kind of step", "[model][commands]") {
         explicit Impostor(const Feature& f) : Feature(f) {}
         FeatureType type() const override { return FeatureType::Cylinder; }
         std::unique_ptr<Feature> clone() const override { return std::make_unique<Impostor>(*this); }
-        kernel::OpResult execute(kernel::IKernel&, const ResultLookup&) const override { return {}; }
+        Built build(kernel::IKernel&, const ResultLookup&) const override { return {}; }
     };
     auto issues =
         doc.execute(std::make_unique<EditFeatureCommand>(std::make_unique<Impostor>(*doc.find(id))));

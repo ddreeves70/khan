@@ -31,6 +31,9 @@ volumes and sketch lengths in the design's unit. Positions and sizes are written
 | [`sketch.set_value`](#sketchset_value) | Changes a dimension |
 | [`sketch.delete`](#sketchdelete) | Deletes something from a sketch |
 | [`feature.add_extrude`](#featureadd_extrude) | Turns a sketch's closed shapes into a solid |
+| [`feature.add_fillet`](#featureadd_fillet) | Rounds edges of a body |
+| [`feature.add_chamfer`](#featureadd_chamfer) | Bevels edges of a body |
+| [`feature.set_edges`](#featureset_edges) | Picks a fillet's or chamfer's edges again |
 | [`document.set_units`](#documentset_units) | Changes the unit the design shows lengths in |
 | [`material.define`](#materialdefine) | Adds a material of your own, or changes one |
 | [`material.delete`](#materialdelete) | Removes a material you added |
@@ -342,6 +345,8 @@ comes from a formula under its step, with what it works out to.
 | Box | `size_x`, `size_y`, `size_z` (more than 0), `corner_x`, `corner_y`, `corner_z` |
 | Cylinder | `radius`, `height` (more than 0), `base_x`, `base_y`, `base_z` |
 | Move | `offset_x`, `offset_y`, `offset_z`, `center_x`, `center_y`, `center_z`, and `angle` (an angle) |
+| Fillet | `radius` (more than 0) |
+| Chamfer | `distance` (more than 0) |
 
 A plate that's 4 walls thick:
 
@@ -1385,6 +1390,145 @@ open: 2 steps
   Sketch1      ok  1 line, 0 constraints, free to move 4 ways
   Extrude1     failed
     error [extrude.no_shape]: The sketch has no closed shape to extrude. These ends aren't joined: Line1's start, Line1's end. Join them so the lines go all the way round.
+```
+
+## feature.add_fillet
+
+Rounds edges of a body: each edge becomes a round face of a radius, blending the
+two faces it joined. Picked edges are kept by name, so the fillet stays on the
+same edges when earlier steps change sizes. See [Fillet and chamfer](../user-guide/fillet-chamfer.md).
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `body` | step name | yes | The step whose body it rounds, like `Extrude1` |
+| `edges` | edge numbers | yes | Which edges, split by commas, like `9,12`. [`sketchbillet_cli open <design.sb> --edges <body>`](open.md) lists them with their numbers |
+| `radius` | number (mm) | no | The round's radius. Default `1` |
+| `name` | text | no | Step name. Default `Fillet1`, `Fillet2`, ... |
+
+A 40 × 20 × 10 mm block, and its edges, numbered from the bottom up:
+
+<!-- cli-example -->
+```console
+$ sketchbillet_cli run --save block.sb feature.add_sketch
+block: 1 step
+  Sketch1      ok  empty
+wrote block.sb
+$ sketchbillet_cli run --open block.sb --save block.sb sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20
+block: 1 step
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+wrote block.sb
+$ sketchbillet_cli run --open block.sb --save block.sb feature.add_extrude sketch=Sketch1 distance=10
+block: 2 steps
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+  Extrude1     ok  volume 8000.00 mm^3  mass 9.92 g (PLA)
+wrote block.sb
+$ sketchbillet_cli open block.sb --edges Extrude1
+block: 2 steps
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+  Extrude1     ok  volume 8000.00 mm^3  mass 9.92 g (PLA)
+edges of Extrude1: 12
+   1  line           40.00 mm  at 20.00,0.00,0.00  between side from Line1 of Sketch1 (Extrude1) and start of Extrude1
+   2  line           20.00 mm  at 0.00,10.00,0.00  between side from Line4 of Sketch1 (Extrude1) and start of Extrude1
+   3  line           20.00 mm  at 40.00,10.00,0.00  between side from Line2 of Sketch1 (Extrude1) and start of Extrude1
+   4  line           40.00 mm  at 20.00,20.00,0.00  between side from Line3 of Sketch1 (Extrude1) and start of Extrude1
+   5  line           10.00 mm  at 0.00,0.00,5.00  between side from Line1 of Sketch1 (Extrude1) and side from Line4 of Sketch1 (Extrude1)
+   6  line           10.00 mm  at 40.00,0.00,5.00  between side from Line1 of Sketch1 (Extrude1) and side from Line2 of Sketch1 (Extrude1)
+   7  line           10.00 mm  at 0.00,20.00,5.00  between side from Line3 of Sketch1 (Extrude1) and side from Line4 of Sketch1 (Extrude1)
+   8  line           10.00 mm  at 40.00,20.00,5.00  between side from Line2 of Sketch1 (Extrude1) and side from Line3 of Sketch1 (Extrude1)
+   9  line           40.00 mm  at 20.00,0.00,10.00  between end of Extrude1 and side from Line1 of Sketch1 (Extrude1)
+  10  line           20.00 mm  at 0.00,10.00,10.00  between end of Extrude1 and side from Line4 of Sketch1 (Extrude1)
+  11  line           20.00 mm  at 40.00,10.00,10.00  between end of Extrude1 and side from Line2 of Sketch1 (Extrude1)
+  12  line           40.00 mm  at 20.00,20.00,10.00  between end of Extrude1 and side from Line3 of Sketch1 (Extrude1)
+```
+
+Rounding the two long top edges, 9 and 12, by 3 mm:
+
+<!-- cli-example -->
+```console
+$ sketchbillet_cli run --open block.sb --save block.sb feature.add_fillet body=Extrude1 edges=9,12 radius=3
+block: 3 steps
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+  Extrude1     ok  volume 8000.00 mm^3
+  Fillet1      ok  volume 7845.49 mm^3  mass 9.73 g (PLA)
+wrote block.sb
+```
+
+Each takes away a 3 × 3 mm square less a quarter circle, all along its 40 mm:
+8000 − 2 × (3² − π × 3² ÷ 4) × 40 = 7845.49 mm³.
+
+A radius that doesn't fit between the faces, or an edge number the body doesn't
+have, gets a message that says what to change:
+
+<!-- cli-example exit=1 -->
+```console
+$ sketchbillet_cli run --open block.sb feature.add_fillet body=Extrude1 edges=9 radius=12
+block: 4 steps
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+  Extrude1     ok  volume 8000.00 mm^3
+  Fillet1      ok  volume 7845.49 mm^3  mass 9.73 g (PLA)
+  Fillet2      failed
+    error [kernel.fillet.failed]: The edges couldn't be rounded. The radius may be too big for the faces next to them: try a smaller one.
+```
+
+<!-- cli-example exit=1 -->
+```console
+$ sketchbillet_cli run --open block.sb feature.add_fillet body=Extrude1 edges=13
+error: edges must be edge numbers of Extrude1 from 1 to 12, split by commas, like 1,3 (13 isn't one). To see them: sketchbillet_cli open <design.sb> --edges Extrude1
+```
+
+To change the radius later, use [`feature.set_value`](#featureset_value) with
+`setting=radius`.
+
+## feature.add_chamfer
+
+Bevels edges of a body: each edge is cut off by a flat face, the same distance
+back along both faces it joined. It works like [`feature.add_fillet`](#featureadd_fillet).
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `body` | step name | yes | The step whose body it bevels |
+| `edges` | edge numbers | yes | Which edges, split by commas, as `sketchbillet_cli open <design.sb> --edges <body>` lists them |
+| `distance` | number (mm) | no | How far back from each edge the bevel starts, on both faces. Default `1` |
+| `name` | text | no | Step name. Default `Chamfer1`, `Chamfer2`, ... |
+
+The block's four upright corners, edges 5 to 8, beveled by 2 mm:
+
+<!-- cli-example -->
+```console
+$ sketchbillet_cli run --open block.sb feature.add_chamfer body=Extrude1 edges=5,6,7,8 distance=2
+block: 4 steps
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+  Extrude1     ok  volume 8000.00 mm^3
+  Fillet1      ok  volume 7845.49 mm^3  mass 9.73 g (PLA)
+  Chamfer1     ok  volume 7920.00 mm^3  mass 9.82 g (PLA)
+```
+
+Each takes away a triangle with two 2 mm sides, 10 mm tall: 8000 − 4 × 2 × 10 = 7920 mm³.
+
+## feature.set_edges
+
+Changes which edges a Fillet or Chamfer changes. Use it when the step says it
+can't find an edge, because an earlier change took the edge away: pick the edges
+again, by their numbers in the body the step changes.
+
+| Setting | Kind | Needed | Meaning |
+| --- | --- | --- | --- |
+| `feature` | step name | yes | The Fillet or Chamfer |
+| `edges` | edge numbers | yes | Its new edges, as `sketchbillet_cli open <design.sb> --edges <body>` lists them |
+
+<!-- cli-example -->
+```console
+$ sketchbillet_cli run --open block.sb feature.set_edges feature=Fillet1 edges=5,6,7,8
+block: 3 steps
+  Sketch1      ok  4 lines, 8 constraints, free to move 4 ways
+  Extrude1     ok  volume 8000.00 mm^3
+  Fillet1      ok  volume 7922.74 mm^3  mass 9.82 g (PLA)
+```
+
+<!-- cli-example exit=1 -->
+```console
+$ sketchbillet_cli run --open block.sb feature.set_edges feature=Extrude1 edges=1
+error: Extrude1 isn't a Fillet or Chamfer, so it has no edges to pick. Pick a Fillet or Chamfer.
 ```
 
 ## document.set_units

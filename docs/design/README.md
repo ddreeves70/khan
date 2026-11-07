@@ -15,6 +15,7 @@ These pages describe how SketchBillet is designed: what it will do, how the code
 | [The sketcher](sketcher.md) | Phase 1: sketch values, the solver interface and PlaneGCS (built), then the sketch step, drawing and constraints in the app |
 | [View options](view-options.md) | One shared service for what the viewer shows (grid, axes, and later more): options declared as data, one View menu and panel, and different values per pane when you ask for them |
 | [Copying and grouping steps](copy-and-group.md) | Duplicate, copy and paste, turning steps off together, folders in the feature tree and a Move step (built, pulled forward after Phase 0); linked copies come with Phase 2's patterns, and groups that move together with Phase 4's assemblies |
+| [Naming faces and edges](naming.md) | Phase 2's topological naming (built): faces named from history, edges and vertices from their faces, references with a signature, and finding them again without guessing |
 | [UI screens](ui-screens.md) | Mockups of the main window, split views, two monitors and the Plugin manager, with a numbered breakdown of each |
 | [Design model](design-model.md) | The module map, the core domain classes, key C++ interfaces, the `.sb` file format, regeneration and naming |
 | [Class model](class-model.md) | UML class diagrams for the document, features and naming, sketches, the kernel layer, assemblies, and the shell and plugins |

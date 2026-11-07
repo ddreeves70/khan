@@ -37,6 +37,8 @@ const char* typeName(ArgType t) {
             return "two numbers (x, y)";
         case ArgType::Vec2List:
             return "points (x, y), at least one";
+        case ArgType::GeometryList:
+            return "edges or faces of a body, at least one";
         case ArgType::FeatureRef:
             return "a step in the design";
         case ArgType::FeatureList:
@@ -66,6 +68,8 @@ bool matches(ArgType t, const ArgValue& v) {
             return std::holds_alternative<sketch::Point2>(v);
         case ArgType::Vec2List:
             return std::holds_alternative<std::vector<sketch::Point2>>(v);
+        case ArgType::GeometryList:
+            return std::holds_alternative<std::vector<GeometryRef>>(v);
         case ArgType::FeatureRef:
             return std::holds_alternative<FeatureId>(v);
         case ArgType::FeatureList:
@@ -457,6 +461,55 @@ CommandRegistry makeBuiltin() {
               const double distance = a.count("distance") ? argNumber(a, "distance") : 10.0;
               return std::make_unique<AddFeatureCommand>(std::make_unique<ExtrudeFeature>(
                   argText(a, "name", doc.uniqueName("Extrude")), argFeature(a, "sketch"), distance, s));
+          });
+
+    for (const bool fillet : {true, false}) {
+        const std::string word = fillet ? "Fillet" : "Chamfer";
+        const std::string size = fillet ? "radius" : "distance";
+        r.add({fillet ? "feature.add_fillet" : "feature.add_chamfer",
+               word,
+               fillet ? "Rounds edges of a body: each edge becomes a round face of a radius."
+                      : "Bevels edges of a body: each edge is cut off by a flat face, the same distance back "
+                        "along both faces it joins.",
+               {{"body", ArgType::FeatureRef, "The step whose body it changes, like Extrude1.", true, {}},
+                {"edges",
+                 ArgType::GeometryList,
+                 "The edges, picked in the app. On the command line, their numbers as `sketchbillet_cli "
+                 "elements` lists them, like 3,7.",
+                 true,
+                 {}},
+                {size,
+                 ArgType::Number,
+                 fillet ? "The round's radius, in mm. Default 1."
+                        : "How far back from each edge, in mm. Default 1.",
+                 false,
+                 {}},
+                {"name", ArgType::Text, "Step name. Default " + word + "1, " + word + "2, ...", false, {}}}},
+              [fillet, word, size](const Document& doc, const Args& a) -> std::unique_ptr<Command> {
+                  const std::string name = argText(a, "name", doc.uniqueName(word));
+                  const double amount = a.count(size) ? argNumber(a, size) : 1.0;
+                  if (fillet) {
+                      return std::make_unique<AddFeatureCommand>(std::make_unique<FilletFeature>(
+                          name, argFeature(a, "body"), argGeometry(a, "edges"), amount));
+                  }
+                  return std::make_unique<AddFeatureCommand>(std::make_unique<ChamferFeature>(
+                      name, argFeature(a, "body"), argGeometry(a, "edges"), amount));
+              });
+    }
+
+    r.add({"feature.set_edges",
+           "Pick edges again",
+           "Changes which edges a Fillet or Chamfer changes: for when an earlier change took its edges away.",
+           {{"feature", ArgType::FeatureRef, "The Fillet or Chamfer, like Fillet1.", true, {}},
+            {"edges",
+             ArgType::GeometryList,
+             "The edges of its body, picked in the app. On the command line, their numbers as "
+             "`sketchbillet_cli "
+             "elements` lists them for the body it changes, like 3,7.",
+             true,
+             {}}}},
+          [](const Document&, const Args& a) -> std::unique_ptr<Command> {
+              return std::make_unique<SetEdgesCommand>(argFeature(a, "feature"), argGeometry(a, "edges"));
           });
 
     r.add({"feature.delete",
@@ -1393,6 +1446,13 @@ CreateResult CommandRegistry::create(std::string_view name, const Args& args, co
         }
     }
     for (const auto& spec : info.args) {
+        const auto given = args.find(spec.name);
+        if (spec.type == ArgType::GeometryList && given != args.end() &&
+            argGeometry(args, spec.name).empty()) {
+            result.issues.push_back(error(
+                "command.arg_geometry",
+                info.label + " needs at least one edge in " + spec.name + ". Pick the edges to change."));
+        }
         if (spec.required && !args.count(spec.name)) {
             result.issues.push_back(
                 error("command.arg_missing", info.label + " needs " + spec.name + ": " + spec.description));
@@ -1457,6 +1517,13 @@ std::vector<FeatureId> argFeatures(const Args& args, const std::string& name) {
     if (it == args.end()) return {};
     if (const auto* ids = std::get_if<std::vector<FeatureId>>(&it->second)) return *ids;
     if (const auto* id = std::get_if<FeatureId>(&it->second)) return {*id};
+    return {};
+}
+
+std::vector<GeometryRef> argGeometry(const Args& args, const std::string& name) {
+    auto it = args.find(name);
+    if (it == args.end()) return {};
+    if (const auto* refs = std::get_if<std::vector<GeometryRef>>(&it->second)) return *refs;
     return {};
 }
 

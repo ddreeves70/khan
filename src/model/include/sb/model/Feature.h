@@ -13,6 +13,7 @@
 #include "sb/core/Id.h"
 #include "sb/kernel/IKernel.h"
 #include "sb/model/Expression.h"
+#include "sb/model/Naming.h"
 #include "sb/sketch/Sketch.h"
 #include "sb/sketch/Solver.h"
 
@@ -27,6 +28,8 @@ enum class FeatureType {
     Move,      ///< A MoveFeature.
     Sketch,    ///< A SketchFeature.
     Extrude,   ///< An ExtrudeFeature.
+    Fillet,    ///< A FilletFeature.
+    Chamfer,   ///< A ChamferFeature.
 };
 
 /// The flat plane a sketch is drawn on.
@@ -55,6 +58,15 @@ struct FeatureResult {
     /// For a Sketch step: the plane it's drawn on (so a later step, like
     /// Extrude, knows where its shapes are). Empty otherwise.
     std::optional<SketchPlane> plane;
+    /// For a step that made a shape: a lasting name for each of its faces, edges
+    /// and vertices (see ShapeNames). Null for sketches and for steps that failed.
+    std::shared_ptr<const ShapeNames> names;
+};
+
+/// What a step builds: its shape, and names for the shape's faces, edges and vertices.
+struct Built {
+    kernel::OpResult op;                      ///< The shape, or why it couldn't be built.
+    std::shared_ptr<const ShapeNames> names;  ///< Its names; null if it failed.
 };
 
 /// One of a step's numbers that can be changed by name, and worked out from a
@@ -210,11 +222,20 @@ public:
     /// @param map Old input id to new input id.
     virtual void remapInputs(const std::map<FeatureId, FeatureId>& map) { (void)map; }
 
-    /// Builds this feature's shape. Must be deterministic and must not throw.
+    /// Builds this feature's shape and names its faces, edges and vertices. Must
+    /// be deterministic and must not throw.
+    /// @param kernel The geometry kernel to build with.
+    /// @param earlier The results of the features before this one.
+    /// @return The shape and its names, or diagnostics saying why it could not be built.
+    virtual Built build(kernel::IKernel& kernel, const ResultLookup& earlier) const = 0;
+
+    /// Builds this feature's shape, without names (see build()).
     /// @param kernel The geometry kernel to build with.
     /// @param earlier The results of the features before this one.
     /// @return The shape, or diagnostics saying why it could not be built.
-    virtual kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const = 0;
+    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const {
+        return build(kernel, earlier).op;
+    }
 
 protected:
     /// Makes a feature with a new id.
@@ -282,7 +303,7 @@ public:
     std::vector<StepNumber> numbers() const override;
     std::optional<double> number(std::string_view key) const override;
     bool setNumber(std::string_view key, double value) override;
-    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+    Built build(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
 
 private:
     kernel::Vec3 corner_;
@@ -349,7 +370,7 @@ public:
     std::vector<StepNumber> numbers() const override;
     std::optional<double> number(std::string_view key) const override;
     bool setNumber(std::string_view key, double value) override;
-    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+    Built build(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
 
 private:
     kernel::Vec3 base_;
@@ -399,7 +420,7 @@ public:
         if (auto it = map.find(a_); it != map.end()) a_ = it->second;
         if (auto it = map.find(b_); it != map.end()) b_ = it->second;
     }
-    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+    Built build(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
 
 private:
     kernel::BoolOp op_;
@@ -450,7 +471,7 @@ public:
     void remapInputs(const std::map<FeatureId, FeatureId>& map) override {
         if (auto it = map.find(body_); it != map.end()) body_ = it->second;
     }
-    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+    Built build(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
 
 private:
     FeatureId body_;
@@ -523,7 +544,7 @@ public:
     /// @param kernel Not used.
     /// @param earlier Not used.
     /// @return An error.
-    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+    Built build(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
 
 private:
     SketchPlane plane_;
@@ -593,12 +614,145 @@ public:
     void remapInputs(const std::map<FeatureId, FeatureId>& map) override {
         if (auto it = map.find(sketch_); it != map.end()) sketch_ = it->second;
     }
-    kernel::OpResult execute(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+    Built build(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
 
 private:
     FeatureId sketch_;
     double distance_;
     ExtrudeSide side_;
+};
+
+/// A step that changes some edges of a body: the base of Fillet and Chamfer.
+///
+/// It keeps its edges as lasting references (GeometryRef), so it still finds
+/// them after earlier steps change. If an edge can't be found for sure, the step
+/// fails and asks for the edges to be picked again; it never guesses.
+class EdgeFeature : public Feature {
+public:
+    /// The body whose edges change.
+    /// @return The step that made it.
+    const FeatureId& body() const { return body_; }
+
+    /// The edges that change, as picked.
+    /// @return One reference per edge.
+    const std::vector<GeometryRef>& edges() const { return edges_; }
+
+    /// Changes which edges change.
+    /// @param edges One reference per edge; at least one.
+    void setEdges(std::vector<GeometryRef> edges) { edges_ = std::move(edges); }
+
+    /// The size: a fillet's radius or a chamfer's distance.
+    /// @return The size (mm).
+    double size() const { return size_; }
+
+    /// Changes the size.
+    /// @param size A fillet's radius or a chamfer's distance (mm).
+    void setSize(double size) { size_ = size; }
+
+    std::vector<StepNumber> numbers() const override;
+    std::optional<double> number(std::string_view key) const override;
+    bool setNumber(std::string_view key, double value) override;
+    std::vector<FeatureId> dependencies() const override { return {body_}; }
+    void remapInputs(const std::map<FeatureId, FeatureId>& map) override;
+    Built build(kernel::IKernel& kernel, const ResultLookup& earlier) const override;
+
+protected:
+    /// Makes the step.
+    /// @param id Its id.
+    /// @param name Its name, like "Fillet1".
+    /// @param body The step whose body it changes.
+    /// @param edges The edges it changes.
+    /// @param size Its radius or distance (mm).
+    EdgeFeature(FeatureId id, std::string name, FeatureId body, std::vector<GeometryRef> edges, double size)
+        : Feature(id, std::move(name)), body_(body), edges_(std::move(edges)), size_(size) {}
+
+    /// The name of its size in commands and files: "radius" or "distance".
+    /// @return The key.
+    virtual const char* sizeKey() const = 0;
+
+    /// What it does to an edge, for names: "round" or "bevel".
+    /// @return The word.
+    virtual const char* role() const = 0;
+
+    /// Runs the kernel's operation.
+    /// @param kernel The kernel.
+    /// @param shape The body.
+    /// @param edges The edges' numbers in the body.
+    /// @return The changed body, with history.
+    virtual kernel::OpResult apply(kernel::IKernel& kernel, const kernel::ShapeHandle& shape,
+                                   const std::vector<int>& edges) const = 0;
+
+private:
+    FeatureId body_;
+    std::vector<GeometryRef> edges_;
+    double size_;
+};
+
+/// Rounds edges of a body (a fillet): each edge becomes a round face of a radius.
+class FilletFeature final : public EdgeFeature {
+public:
+    /// Makes a Fillet step with a new id.
+    /// @param name Its name, like "Fillet1".
+    /// @param body The step whose body it rounds.
+    /// @param edges The edges to round; at least one.
+    /// @param radius The round's radius (mm), more than 0.
+    FilletFeature(std::string name, FeatureId body, std::vector<GeometryRef> edges, double radius)
+        : FilletFeature(FeatureId::generate(), std::move(name), body, std::move(edges), radius) {}
+
+    /// Makes a Fillet step with a known id, as when a design is opened.
+    /// @param id Its id.
+    /// @param name Its name.
+    /// @param body The step whose body it rounds.
+    /// @param edges The edges to round.
+    /// @param radius The round's radius (mm).
+    FilletFeature(FeatureId id, std::string name, FeatureId body, std::vector<GeometryRef> edges,
+                  double radius)
+        : EdgeFeature(id, std::move(name), body, std::move(edges), radius) {}
+
+    FeatureType type() const override { return FeatureType::Fillet; }
+    std::unique_ptr<Feature> clone() const override { return std::make_unique<FilletFeature>(*this); }
+
+protected:
+    const char* sizeKey() const override { return "radius"; }
+    const char* role() const override { return "round"; }
+    kernel::OpResult apply(kernel::IKernel& kernel, const kernel::ShapeHandle& shape,
+                           const std::vector<int>& edges) const override {
+        return kernel.fillet(shape, edges, size());
+    }
+};
+
+/// Bevels edges of a body (a chamfer): each edge is cut off by a flat face, the
+/// same distance back along both faces it joined.
+class ChamferFeature final : public EdgeFeature {
+public:
+    /// Makes a Chamfer step with a new id.
+    /// @param name Its name, like "Chamfer1".
+    /// @param body The step whose body it bevels.
+    /// @param edges The edges to bevel; at least one.
+    /// @param distance How far back from each edge the bevel starts (mm), more than 0.
+    ChamferFeature(std::string name, FeatureId body, std::vector<GeometryRef> edges, double distance)
+        : ChamferFeature(FeatureId::generate(), std::move(name), body, std::move(edges), distance) {}
+
+    /// Makes a Chamfer step with a known id, as when a design is opened.
+    /// @param id Its id.
+    /// @param name Its name.
+    /// @param body The step whose body it bevels.
+    /// @param edges The edges to bevel.
+    /// @param distance How far back from each edge the bevel starts (mm).
+    ChamferFeature(FeatureId id, std::string name, FeatureId body, std::vector<GeometryRef> edges,
+                   double distance)
+        : EdgeFeature(id, std::move(name), body, std::move(edges), distance) {}
+
+    FeatureType type() const override { return FeatureType::Chamfer; }
+    std::unique_ptr<Feature> clone() const override { return std::make_unique<ChamferFeature>(*this); }
+
+protected:
+    const char* sizeKey() const override { return "distance"; }
+    const char* role() const override { return "bevel"; }
+    kernel::OpResult apply(kernel::IKernel& kernel, const kernel::ShapeHandle& shape,
+                           const std::vector<int>& edges) const override {
+        return kernel.chamfer(shape, edges, size());
+    }
 };
 
 }  // namespace sb::model

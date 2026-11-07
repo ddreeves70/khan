@@ -19,13 +19,14 @@ works in either.
 | Boxes, cylinders, union, cut, intersect | Revolve; pulling a face of a solid |
 | Sketches with constraints and dimensions, drawn in the app or with `sketchbillet_cli` | |
 | Extrude a sketch into a solid | |
+| Fillet and chamfer edges, which stay on the same edges when earlier steps change | Picking edges in the 3D view |
 | Name, rename and delete steps; undo and redo | |
 | Move and turn bodies; copy, paste and duplicate steps; turn steps off; folders | |
 | The desktop app: 3D viewer with 1, 2 or 4 panes, feature tree, Properties, layouts | |
 | Materials: mass, weight, material cost and color | |
 | Parameters: named values like `wall = 3 mm`, with formulas and units, used by sketch dimensions and steps' numbers, with a Parameters panel in the app | Formulas typed straight into Properties and the Sketch panel |
 | Save and open `.sb` designs | |
-| Export STL (3D printing) and STEP (other CAD programs), from the app's File menu or `sketchbillet_cli` | Fillets, chamfers, holes, patterns |
+| Export STL (3D printing) and STEP (other CAD programs), from the app's File menu or `sketchbillet_cli` | Holes, shells, patterns |
 | Add plugins | Import STEP, STL and 3MF |
 
 ## Contents
@@ -39,11 +40,12 @@ works in either.
 7. [Moving bodies](moving.md): slide and turn a body.
 8. [Sketches](sketches.md): flat drawings with constraints and dimensions.
 9. [Extrude](extrude.md): turn a sketch into a solid.
-10. [Materials](materials.md): what a body is made of, its mass, weight and cost.
-11. [Parameters](parameters.md): named values like `wall = 3 mm`, and formulas that use them.
-12. [Files](files.md): saving, opening, and exporting for 3D printing.
-13. [Plugins](plugins.md): adding features to SketchBillet.
-14. [When something goes wrong](troubleshooting.md): what SketchBillet's messages mean.
+10. [Fillet and chamfer](fillet-chamfer.md): round or bevel edges.
+11. [Materials](materials.md): what a body is made of, its mass, weight and cost.
+12. [Parameters](parameters.md): named values like `wall = 3 mm`, and formulas that use them.
+13. [Files](files.md): saving, opening, and exporting for 3D printing.
+14. [Plugins](plugins.md): adding features to SketchBillet.
+15. [When something goes wrong](troubleshooting.md): what SketchBillet's messages mean.
 
 ## Other guides
 

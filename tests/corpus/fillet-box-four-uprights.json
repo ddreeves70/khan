@@ -1,0 +1,64 @@
+{
+  "name": "fillet-box-four-uprights",
+  "description": "A 40 x 30 x 10 mm box with its four upright edges rounded by 5 mm, so the four rounds meet the top and bottom. Checked by hand: volume 12000 - 4 x (25 - 25 pi/4) x 10; area: top and bottom 2 x (1200 - 4 x (25 - 25 pi/4)), sides 2 x 30 x 10 + 2 x 20 x 10 (each 10 mm shorter), rounds 4 x (pi x 5/2) x 10; 10 faces, 24 edges, 16 vertices.",
+  "steps": [
+    {
+      "id": "box",
+      "op": "box",
+      "size": [
+        40,
+        30,
+        10
+      ]
+    },
+    {
+      "id": "round",
+      "op": "fillet",
+      "body": "box",
+      "edges": [
+        [
+          0,
+          0,
+          5
+        ],
+        [
+          40,
+          0,
+          5
+        ],
+        [
+          0,
+          30,
+          5
+        ],
+        [
+          40,
+          30,
+          5
+        ]
+      ],
+      "radius": 5
+    }
+  ],
+  "expect": {
+    "valid": true,
+    "volume": 11785.398163,
+    "area": 3671.238898,
+    "bounds": [
+      [
+        -0.0,
+        -0.0,
+        0.0
+      ],
+      [
+        40.0,
+        30.0,
+        10.0
+      ]
+    ],
+    "solids": 1,
+    "faces": 10,
+    "edges": 24,
+    "vertices": 16
+  }
+}

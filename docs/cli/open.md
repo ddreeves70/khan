@@ -2,12 +2,14 @@
 
 Opens a saved design, rebuilds it, and prints every step with its volume, and
 each finished body's mass and material. It can
-also export the finished shape for 3D printing or another CAD program, or list a
-sketch as the solver left it.
+also export the finished shape for 3D printing or another CAD program, list a
+sketch as the solver left it, or list a body's edges and faces.
 
 ```text
 sketchbillet_cli open <file.sb> [--export <out.stl|out.step> [--step <name>]]
 sketchbillet_cli open <file.sb> --sketch <name>
+sketchbillet_cli open <file.sb> --edges <name>
+sketchbillet_cli open <file.sb> --faces <name>
 ```
 
 | Option | Meaning |
@@ -17,6 +19,8 @@ sketchbillet_cli open <file.sb> --sketch <name>
 | `--export <out.step>` | Write the finished shape as a STEP file, for other CAD programs (`.stp` works too) |
 | `--step <name>` | Export the shape of this step instead, even if later steps use it |
 | `--sketch <name>` | Also list this sketch: each line, circle, arc, spline and point where the solver put it (in the design's unit, angles in degrees; a spline lists its degree and control points), each constraint (a dimension with a formula shows it after its number, like `40.00 mm = wall * 10`), then its closed shapes (with their areas) and any ends that aren't joined |
+| `--edges <name>` | Also list the edges of this step's body, numbered, as [fillet and chamfer](commands.md#featureadd_fillet) take them (see below) |
+| `--faces <name>` | Also list the faces of this step's body, numbered |
 
 Each step shows one of these:
 
@@ -132,6 +136,60 @@ tell which closed shape those belong to.
 
 A sketch whose constraints conflict is listed as drawn, with `(conflicts)` after
 the constraints that fight.
+
+## A body's edges and faces
+
+`--edges` lists the edges of a step's body, and `--faces` its faces, each
+numbered. A [fillet](commands.md#featureadd_fillet) or
+[chamfer](commands.md#featureadd_chamfer) takes edges by these numbers. They're
+listed bottom to top, then front to back, then left to right (by where each
+middle is), each with what it is (a straight `line`, a `circle`; a `flat` face, a
+`cylinder`), its length or area, where its middle is, and where it came from:
+
+<!-- cli-example -->
+```console
+$ sketchbillet_cli open tag.sb --faces Tag
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+faces of Tag: 7
+   1  flat       1780.37 mm^2  at 30.23,15.00,0.00  bottom of Plate
+   2  flat        240.00 mm^2  at 30.00,0.00,2.00  front side of Plate
+   3  flat        120.00 mm^2  at 0.00,15.00,2.00  left side of Plate
+   4  cylinder     62.83 mm^2  at 9.00,15.00,2.00  side of Hole
+   5  flat        120.00 mm^2  at 60.00,15.00,2.00  right side of Plate
+   6  flat        240.00 mm^2  at 30.00,30.00,2.00  back side of Plate
+   7  flat       1780.37 mm^2  at 30.23,15.00,4.00  top of Plate
+```
+
+An edge is named for the two faces it runs between:
+
+<!-- cli-example -->
+```console
+$ sketchbillet_cli open tag.sb --edges Hole
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+edges of Hole: 3
+   1  circle         15.71 mm  at 9.00,15.00,-1.00  between bottom of Hole and side of Hole
+   2  line            6.00 mm  at 11.50,15.00,2.00  seam of side of Hole
+   3  circle         15.71 mm  at 9.00,15.00,5.00  between side of Hole and top of Hole
+```
+
+The hole's side has a **seam**: an edge down its length where the round face meets
+itself. A step with no body to list says so:
+
+<!-- cli-example exit=1 -->
+```console
+$ sketchbillet_cli open tag.sb --edges Missing
+Demo tag: 3 steps
+  Plate        ok  volume 7200.00 mm^3
+  Hole         ok  volume 117.81 mm^3
+  Tag          ok  volume 7121.46 mm^3  mass 8.83 g (PLA)
+error: this design has no step called Missing.
+```
 
 ## Files that can't be opened
 

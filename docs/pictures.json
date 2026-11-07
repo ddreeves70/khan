@@ -91,6 +91,11 @@
       "run --open rounded.sb --save rounded.sb sketch.constrain sketch=Sketch1 kind=length on=Line2 value=20",
       "run --open rounded.sb --save rounded.sb sketch.constrain sketch=Sketch1 kind=fix on=Line1.start",
       "run --open rounded.sb --save rounded.sb sketch.round_corner sketch=Sketch1 at=Line2.end radius=6"
+    ],
+    "block": [
+      "run --save block.sb feature.add_sketch",
+      "run --open block.sb --save block.sb sketch.add_rectangle sketch=Sketch1 from=0,0 to=40,20",
+      "run --open block.sb --save block.sb feature.add_extrude sketch=Sketch1 distance=10"
     ]
   },
   "pictures": [
@@ -1237,6 +1242,36 @@
         250,
         370,
         250
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/fillet-block.png",
+      "size": "560x340",
+      "script": "block",
+      "commands": [
+        "run --open block.sb --save block.sb feature.add_fillet body=Extrude1 edges=9,12 radius=3"
+      ],
+      "show": [
+        {
+          "file": "block.sb",
+          "step": "Fillet1",
+          "color": "blue"
+        }
+      ]
+    },
+    {
+      "out": "docs/user-guide/images/chamfer-block.png",
+      "size": "560x340",
+      "script": "block",
+      "commands": [
+        "run --open block.sb --save block.sb feature.add_chamfer body=Extrude1 edges=5,6,7,8 distance=2"
+      ],
+      "show": [
+        {
+          "file": "block.sb",
+          "step": "Chamfer1",
+          "color": "blue"
+        }
       ]
     }
   ]

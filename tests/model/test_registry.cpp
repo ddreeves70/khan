@@ -33,18 +33,20 @@ TEST_CASE("The built-in registry lists its commands sorted by name", "[model][re
     const auto cmds = reg().commands();
     std::vector<std::string> names;
     for (const auto* c : cmds) names.push_back(c->name);
-    REQUIRE(names ==
-            std::vector<std::string>{
-                "document.set_units",   "feature.add_boolean", "feature.add_box",      "feature.add_cylinder",
-                "feature.add_extrude",  "feature.add_move",    "feature.add_sketch",   "feature.delete",
-                "feature.duplicate",    "feature.rename",      "feature.set_material", "feature.set_value",
-                "feature.slide",        "feature.suppress",    "folder.add",           "folder.delete",
-                "folder.rename",        "material.define",     "material.delete",      "parameter.delete",
-                "parameter.rename",     "parameter.set",       "sketch.add_arc",       "sketch.add_circle",
-                "sketch.add_line",      "sketch.add_point",    "sketch.add_pole",      "sketch.add_rectangle",
-                "sketch.add_spline",    "sketch.constrain",    "sketch.delete",        "sketch.import_spline",
-                "sketch.reload_spline", "sketch.remove_pole",  "sketch.round_corner",  "sketch.set_spline",
-                "sketch.set_value",     "sketch.set_weight",   "sketch.trim"});
+    REQUIRE(
+        names ==
+        std::vector<std::string>{
+            "document.set_units",   "feature.add_boolean",  "feature.add_box",      "feature.add_chamfer",
+            "feature.add_cylinder", "feature.add_extrude",  "feature.add_fillet",   "feature.add_move",
+            "feature.add_sketch",   "feature.delete",       "feature.duplicate",    "feature.rename",
+            "feature.set_edges",    "feature.set_material", "feature.set_value",    "feature.slide",
+            "feature.suppress",     "folder.add",           "folder.delete",        "folder.rename",
+            "material.define",      "material.delete",      "parameter.delete",     "parameter.rename",
+            "parameter.set",        "sketch.add_arc",       "sketch.add_circle",    "sketch.add_line",
+            "sketch.add_point",     "sketch.add_pole",      "sketch.add_rectangle", "sketch.add_spline",
+            "sketch.constrain",     "sketch.delete",        "sketch.import_spline", "sketch.reload_spline",
+            "sketch.remove_pole",   "sketch.round_corner",  "sketch.set_spline",    "sketch.set_value",
+            "sketch.set_weight",    "sketch.trim"});
     for (const auto* c : cmds) {
         REQUIRE_FALSE(c->label.empty());
         REQUIRE_FALSE(c->description.empty());

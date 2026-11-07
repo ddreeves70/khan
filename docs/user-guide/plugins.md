@@ -14,13 +14,16 @@ loaded   sb.modeling 0.1.0  Modeling (built in)
            command document.set_units
            command feature.add_boolean
            command feature.add_box
+           command feature.add_chamfer
            command feature.add_cylinder
            command feature.add_extrude
+           command feature.add_fillet
            command feature.add_move
            command feature.add_sketch
            command feature.delete
            command feature.duplicate
            command feature.rename
+           command feature.set_edges
            command feature.set_material
            command feature.set_value
            command feature.slide
