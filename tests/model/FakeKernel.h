@@ -80,6 +80,20 @@ public:
         return make(volumeOf(face) * d);
     }
 
+    // No faces or edges: naming tests use the real kernel.
+    kernel::Elements elements(const kernel::ShapeHandle&) const override { return {}; }
+    // Rounding or beveling takes a little off: 1 mm^3 per edge.
+    kernel::OpResult fillet(const kernel::ShapeHandle& s, const std::vector<int>& edges, double r) override {
+        ++calls;
+        if (edges.empty() || r <= 0) return fail();
+        return make(volumeOf(s) - static_cast<double>(edges.size()));
+    }
+    kernel::OpResult chamfer(const kernel::ShapeHandle& s, const std::vector<int>& edges, double d) override {
+        ++calls;
+        if (edges.empty() || d <= 0) return fail();
+        return make(volumeOf(s) - static_cast<double>(edges.size()));
+    }
+
     kernel::Box3 bounds(const kernel::ShapeHandle&) const override { return {}; }
     kernel::MassProps massProps(const kernel::ShapeHandle& s) const override {
         kernel::MassProps m;
@@ -103,7 +117,7 @@ public:
 
 private:
     static kernel::OpResult make(double v) {
-        return {kernel::ShapeHandle(std::make_shared<const Shape>(v)), {}};
+        return {kernel::ShapeHandle(std::make_shared<const Shape>(v)), {}, {}};
     }
     static kernel::OpResult fail() {
         kernel::OpResult r;

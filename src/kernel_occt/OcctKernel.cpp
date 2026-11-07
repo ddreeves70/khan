@@ -1,6 +1,7 @@
 #include "sb/kernel_occt/OcctKernel.h"
 #include "sb/kernel_occt/OcctShape.h"
 
+#include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
@@ -8,11 +9,14 @@
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeShape.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_NurbsConvert.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepCheck_Analyzer.hxx>
+#include <BRepFilletAPI_MakeChamfer.hxx>
+#include <BRepFilletAPI_MakeFillet.hxx>
 #include <BRepGProp.hxx>
 #include <BRepGProp_Face.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
@@ -40,7 +44,9 @@
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
+#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
+#include <TopTools_ListOfShape.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
@@ -50,8 +56,13 @@
 #include <gp_Ax2.hxx>
 #include <gp_Ax3.hxx>
 #include <gp_Circ.hxx>
+#include <gp_Cone.hxx>
+#include <gp_Cylinder.hxx>
+#include <gp_Lin.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
+#include <gp_Sphere.hxx>
+#include <gp_Torus.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
 
@@ -59,6 +70,7 @@
 #include <cmath>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <variant>
@@ -119,7 +131,9 @@ public:
     WireMaker(const Plane& plane, const gp_Ax3& axes) : plane_(plane), axes_(axes) {}
 
     // The wire, or why it can't be made (a plain sentence).
-    std::optional<TopoDS_Wire> make(const Loop2& loop, std::string& why) const {
+    // Each edge made is added to `made`, in the loop's order (one per Edge2).
+    std::optional<TopoDS_Wire> make(const Loop2& loop, std::string& why,
+                                    std::vector<TopoDS_Edge>& made) const {
         if (loop.empty()) {
             why = "An outline has no lines, arcs or circles in it.";
             return std::nullopt;
@@ -130,6 +144,7 @@ public:
             if (!curve) return std::nullopt;
             TopoDS_Edge e = BRepBuilderAPI_MakeEdge(curve).Edge();
             if (loop[0].reversed) e.Reverse();
+            made.push_back(e);
             return BRepBuilderAPI_MakeWire(e).Wire();
         }
         // One circle on its own is a closed loop already.
@@ -141,6 +156,7 @@ public:
             }
             TopoDS_Edge e = BRepBuilderAPI_MakeEdge(circle(c.center, c.radius)).Edge();
             if (loop[0].reversed) e.Reverse();
+            made.push_back(e);
             return BRepBuilderAPI_MakeWire(e).Wire();
         }
         // Where each edge starts and ends along the loop, and the shared vertices.
@@ -207,6 +223,7 @@ public:
                 why = "The pieces of the outline don't join end to end.";
                 return std::nullopt;
             }
+            made.push_back(wire.Edge());  // as the wire keeps it
         }
         if (!wire.Wire().Closed()) {
             why = "The outline isn't closed.";
@@ -379,6 +396,201 @@ TopoDS_Shape finelySplit(const TopoDS_Face& face) {
     return copy;
 }
 
+// ---------------------------------------------------------------------------
+// Faces, edges and vertices
+// ---------------------------------------------------------------------------
+
+// A shape's faces, edges and vertices, numbered as Elements numbers them (OCCT
+// counts from 1, Elements from 0).
+struct Maps {
+    TopTools_IndexedMapOfShape faces, edges, vertices;
+
+    explicit Maps(const TopoDS_Shape& s) {
+        TopExp::MapShapes(s, TopAbs_FACE, faces);
+        TopExp::MapShapes(s, TopAbs_EDGE, edges);
+        TopExp::MapShapes(s, TopAbs_VERTEX, vertices);
+    }
+
+    const TopTools_IndexedMapOfShape& of(TopAbs_ShapeEnum type) const {
+        return type == TopAbs_FACE ? faces : type == TopAbs_EDGE ? edges : vertices;
+    }
+};
+
+Vec3 vec(const gp_Dir& d) {
+    return {d.X(), d.Y(), d.Z()};
+}
+
+Point3 point(const gp_Pnt& p) {
+    return {p.X(), p.Y(), p.Z()};
+}
+
+ElementInfo faceInfo(const TopoDS_Face& face) {
+    ElementInfo info;
+    GProp_GProps props;
+    BRepGProp::SurfaceProperties(face, props);
+    info.size = props.Mass();
+    info.center = point(props.CentreOfMass());
+    const BRepAdaptor_Surface surface(face, Standard_False);
+    switch (surface.GetType()) {
+        case GeomAbs_Plane: {
+            info.geom = GeomKind::Plane;
+            gp_Dir n = surface.Plane().Axis().Direction();
+            if (face.Orientation() == TopAbs_REVERSED) n.Reverse();  // outward
+            info.direction = vec(n);
+            break;
+        }
+        case GeomAbs_Cylinder:
+            info.geom = GeomKind::Cylinder;
+            info.direction = vec(surface.Cylinder().Axis().Direction());
+            info.radius = surface.Cylinder().Radius();
+            break;
+        case GeomAbs_Cone:
+            info.geom = GeomKind::Cone;
+            info.direction = vec(surface.Cone().Axis().Direction());
+            break;
+        case GeomAbs_Sphere:
+            info.geom = GeomKind::Sphere;
+            info.radius = surface.Sphere().Radius();
+            break;
+        case GeomAbs_Torus:
+            info.geom = GeomKind::Torus;
+            info.direction = vec(surface.Torus().Axis().Direction());
+            info.radius = surface.Torus().MinorRadius();  // a rounded edge's radius
+            break;
+        case GeomAbs_BSplineSurface:
+        case GeomAbs_BezierSurface:
+            info.geom = GeomKind::Spline;
+            break;
+        default:
+            info.geom = GeomKind::Other;
+            break;
+    }
+    return info;
+}
+
+ElementInfo edgeInfo(const TopoDS_Edge& edge) {
+    ElementInfo info;
+    if (BRep_Tool::Degenerated(edge)) return info;  // a point, like a cone's tip
+    GProp_GProps props;
+    BRepGProp::LinearProperties(edge, props);
+    info.size = props.Mass();
+    info.center = point(props.CentreOfMass());
+    const BRepAdaptor_Curve curve(edge);
+    switch (curve.GetType()) {
+        case GeomAbs_Line:
+            info.geom = GeomKind::Line;
+            info.direction = vec(curve.Line().Direction());
+            break;
+        case GeomAbs_Circle:
+            info.geom = GeomKind::Circle;
+            info.direction = vec(curve.Circle().Axis().Direction());
+            info.radius = curve.Circle().Radius();
+            break;
+        case GeomAbs_Ellipse:
+            info.geom = GeomKind::Ellipse;
+            info.direction = vec(curve.Ellipse().Axis().Direction());
+            break;
+        case GeomAbs_BSplineCurve:
+        case GeomAbs_BezierCurve:
+            info.geom = GeomKind::Spline;
+            break;
+        default:
+            info.geom = GeomKind::Other;
+            break;
+    }
+    return info;
+}
+
+// Numbers (from 0) of the shapes in `list` that are in `map`, each once, smallest first.
+std::vector<int> numbersIn(const TopTools_ListOfShape& list, const TopTools_IndexedMapOfShape& map) {
+    std::set<int> out;
+    for (const auto& s : list) {
+        const int i = map.FindIndex(s);
+        if (i > 0) out.insert(i - 1);
+    }
+    return {out.begin(), out.end()};
+}
+
+// Fills in where each face of `result` came from in `input` (input number
+// `which`), from an OCCT operation's own record: faces it kept, changed or made
+// from an edge or a vertex.
+void traceFaces(BRepBuilderAPI_MakeShape& mk, const TopoDS_Shape& input, int which, const Maps& result,
+                History& history) {
+    history.faces.resize(static_cast<std::size_t>(result.faces.Extent()));
+    auto add = [&](const TopoDS_Shape& made, OriginKind kind, int index) {
+        if (made.ShapeType() != TopAbs_FACE) return;
+        const int at = result.faces.FindIndex(made);
+        if (at == 0) return;
+        auto& origins = history.faces[static_cast<std::size_t>(at - 1)];
+        const Origin o{which, kind, index};
+        const bool seen = std::any_of(origins.begin(), origins.end(), [&](const Origin& x) {
+            return x.input == o.input && x.kind == o.kind && x.index == o.index;
+        });
+        if (!seen) origins.push_back(o);
+    };
+    const Maps in(input);
+    for (int i = 1; i <= in.faces.Extent(); ++i) {
+        const TopoDS_Shape& f = in.faces(i);
+        if (mk.IsDeleted(f)) continue;
+        const TopTools_ListOfShape& changed = mk.Modified(f);
+        if (changed.IsEmpty()) {
+            add(f, OriginKind::Face, i - 1);  // kept as it was
+        } else {
+            for (const auto& m : changed) add(m, OriginKind::Face, i - 1);
+        }
+    }
+    for (const auto& [type, kind] :
+         {std::pair{TopAbs_EDGE, OriginKind::Edge}, std::pair{TopAbs_VERTEX, OriginKind::Vertex}}) {
+        const auto& map = in.of(type);
+        for (int i = 1; i <= map.Extent(); ++i) {
+            for (const auto& g : mk.Generated(map(i))) add(g, kind, i - 1);
+        }
+    }
+}
+
+// A copy of `shape` with each of `edges` (numbers from 0) rounded or beveled.
+template <typename Maker>
+OpResult blend(const TopoDS_Shape* s, const std::vector<int>& edges, double size, const char* what,
+               const std::string& code) {
+    const std::string name(what);
+    if (!s) return failed(code + ".input", name + " needs a valid body.");
+    if (edges.empty())
+        return failed(code + ".edges", name + " needs at least one edge. Pick the edges to change.");
+    if (!(size > 0)) {
+        return failed(code + ".size", name == "Fillet"
+                                          ? "A fillet needs a radius greater than 0 mm, like 2."
+                                          : "A chamfer needs a distance greater than 0 mm, like 1.");
+    }
+    try {
+        const Maps in(*s);
+        Maker mk(*s);
+        for (const int e : edges) {
+            if (e < 0 || e >= in.edges.Extent()) {
+                return failed(code + ".edge",
+                              name + " uses an edge that isn't on the body. Pick the edges again.");
+            }
+            mk.Add(size, TopoDS::Edge(in.edges(e + 1)));
+        }
+        mk.Build();
+        if (!mk.IsDone() || mk.Shape().IsNull()) {
+            return failed(code + ".failed",
+                          name == "Fillet"
+                              ? "The edges couldn't be rounded. The radius may be too big for the faces "
+                                "next to them: try a smaller one."
+                              : "The edges couldn't be beveled. The distance may be too big for the faces "
+                                "next to them: try a smaller one.");
+        }
+        OpResult out{wrap(mk.Shape()), {}, {}};
+        traceFaces(mk, *s, 0, Maps(mk.Shape()), out.history);
+        return out;
+    } catch (const Standard_Failure& e) {
+        return failed(code + ".failed",
+                      name == "Fillet" ? "The edges couldn't be rounded. Try a smaller radius."
+                                       : "The edges couldn't be beveled. Try a smaller distance.",
+                      describe(e));
+    }
+}
+
 class OcctKernel final : public IKernel {
 public:
     OcctKernel() { silenceOcctConsole(); }
@@ -389,7 +601,7 @@ public:
         }
         try {
             BRepPrimAPI_MakeBox mk(gp_Pnt(c.x, c.y, c.z), dx, dy, dz);
-            return {wrap(mk.Shape()), {}};
+            return {wrap(mk.Shape()), {}, {}};
         } catch (const Standard_Failure& e) {
             return failed("kernel.box.failed", "The box could not be created.", describe(e));
         }
@@ -407,7 +619,7 @@ public:
         try {
             gp_Ax2 ax(gp_Pnt(base.x, base.y, base.z), gp_Dir(axis.x, axis.y, axis.z));
             BRepPrimAPI_MakeCylinder mk(ax, radius, height);
-            return {wrap(mk.Shape()), {}};
+            return {wrap(mk.Shape()), {}, {}};
         } catch (const Standard_Failure& e) {
             return failed("kernel.cylinder.failed", "The cylinder could not be created.", describe(e));
         }
@@ -435,7 +647,9 @@ public:
             // Copy the geometry, so the result has no hidden placement (cleaner meshes and files).
             BRepBuilderAPI_Transform mk(*s, slide * turn, Standard_True);
             if (!mk.IsDone()) return failed("kernel.move.failed", "The body could not be moved.");
-            return {wrap(mk.Shape()), {}};
+            OpResult out{wrap(mk.Shape()), {}, {}};
+            traceFaces(mk, *s, 0, Maps(mk.Shape()), out.history);
+            return out;
         } catch (const Standard_Failure& e) {
             return failed("kernel.move.failed", "The body could not be moved.", describe(e));
         }
@@ -456,12 +670,13 @@ public:
             const gp_Ax3 axes(gp_Pnt(plane.origin.x, plane.origin.y, plane.origin.z), dx.Crossed(dy), dx);
             const WireMaker wires(plane, axes);
             std::string why;
-            const auto outer = wires.make(profile.outer, why);
+            std::vector<TopoDS_Edge> made;  // one per curve: the outline's, then each hole's
+            const auto outer = wires.make(profile.outer, why, made);
             if (!outer) return failed("kernel.face.outline", why + " (the outside of the shape)");
             BRepBuilderAPI_MakeFace mk(gp_Pln(axes), *outer, Standard_True);
             if (!mk.IsDone()) return failed("kernel.face.failed", "The shape's face couldn't be made.");
             for (const auto& hole : profile.holes) {
-                const auto w = wires.make(hole, why);
+                const auto w = wires.make(hole, why, made);
                 if (!w) return failed("kernel.face.outline", why + " (a hole in the shape)");
                 mk.Add(*w);
             }
@@ -472,7 +687,19 @@ public:
                     "The shape's face isn't valid: its outline may cross itself, or a hole may poke "
                     "outside it. Check the sketch.");
             }
-            return {wrap(face), {}};
+            // Each edge of the face is one of the curves it was made from.
+            OpResult out{wrap(face), {}, {}};
+            const Maps result(face);
+            out.history.faces.resize(1);
+            out.history.edges.resize(static_cast<std::size_t>(result.edges.Extent()));
+            for (std::size_t k = 0; k < made.size(); ++k) {
+                const int at = result.edges.FindIndex(made[k]);
+                if (at > 0) {
+                    out.history.edges[static_cast<std::size_t>(at - 1)].push_back(
+                        {0, OriginKind::Curve, static_cast<int>(k)});
+                }
+            }
+            return out;
         } catch (const Standard_Failure& e) {
             return failed("kernel.face.failed", "The shape's face couldn't be made.", describe(e));
         }
@@ -503,7 +730,15 @@ public:
             }
             BRepPrimAPI_MakePrism mk(*s, gp_Vec(v.x, v.y, v.z), Standard_True);
             if (!mk.IsDone()) return failed("kernel.extrude.failed", "The shape couldn't be extruded.");
-            return {wrap(mk.Shape()), {}};
+            OpResult out{wrap(mk.Shape()), {}, {}};
+            const Maps result(mk.Shape());
+            traceFaces(mk, *s, 0, result, out.history);  // the sides, from the face's edges
+            for (const auto& [end, kind] : {std::pair{mk.FirstShape(), OriginKind::Start},
+                                            std::pair{mk.LastShape(), OriginKind::End}}) {
+                const int at = end.IsNull() ? 0 : result.faces.FindIndex(end);
+                if (at > 0) out.history.faces[static_cast<std::size_t>(at - 1)] = {{0, kind, -1}};
+            }
+            return out;
         } catch (const Standard_Failure& e) {
             return failed("kernel.extrude.failed", "The shape couldn't be extruded.", describe(e));
         }
@@ -516,34 +751,33 @@ public:
             return failed("kernel.boolean.input", "A Boolean needs two valid bodies.");
         }
         try {
-            TopoDS_Shape result;
-            bool done = false;
+            auto run = [&](BRepAlgoAPI_BooleanOperation& alg) -> OpResult {
+                if (!alg.IsDone() || alg.Shape().IsNull()) {
+                    return failed(
+                        "kernel.boolean.failed",
+                        "These bodies could not be combined. Check that they overlap and are closed solids.");
+                }
+                OpResult out{wrap(alg.Shape()), {}, {}};
+                const Maps result(alg.Shape());
+                traceFaces(alg, *sa, 0, result, out.history);
+                traceFaces(alg, *sb, 1, result, out.history);
+                return out;
+            };
             switch (op) {
                 case BoolOp::Union: {
                     BRepAlgoAPI_Fuse alg(*sa, *sb);
-                    done = alg.IsDone();
-                    if (done) result = alg.Shape();
-                    break;
+                    return run(alg);
                 }
                 case BoolOp::Cut: {
                     BRepAlgoAPI_Cut alg(*sa, *sb);
-                    done = alg.IsDone();
-                    if (done) result = alg.Shape();
-                    break;
+                    return run(alg);
                 }
                 case BoolOp::Intersect: {
                     BRepAlgoAPI_Common alg(*sa, *sb);
-                    done = alg.IsDone();
-                    if (done) result = alg.Shape();
-                    break;
+                    return run(alg);
                 }
             }
-            if (!done || result.IsNull()) {
-                return failed(
-                    "kernel.boolean.failed",
-                    "These bodies could not be combined. Check that they overlap and are closed solids.");
-            }
-            return {wrap(result), {}};
+            return failed("kernel.boolean.failed", "These bodies could not be combined.");
         } catch (const Standard_Failure& e) {
             return failed("kernel.boolean.failed", "These bodies could not be combined.", describe(e));
         }
@@ -702,6 +936,48 @@ public:
             return {error("export.failed", "The file could not be exported.", describe(e))};
         }
         return {error("export.format", "That file type is not supported.")};
+    }
+
+    Elements elements(const ShapeHandle& h) const override {
+        Elements out;
+        const TopoDS_Shape* s = unwrap(h);
+        if (!s) return out;
+        try {
+            const Maps maps(*s);
+            for (int i = 1; i <= maps.faces.Extent(); ++i)
+                out.faces.push_back(faceInfo(TopoDS::Face(maps.faces(i))));
+            TopTools_IndexedDataMapOfShapeListOfShape edgeToFaces;
+            TopExp::MapShapesAndAncestors(*s, TopAbs_EDGE, TopAbs_FACE, edgeToFaces);
+            for (int i = 1; i <= maps.edges.Extent(); ++i) {
+                const TopoDS_Edge& e = TopoDS::Edge(maps.edges(i));
+                out.edges.push_back(edgeInfo(e));
+                const int at = edgeToFaces.FindIndex(e);
+                out.edgeFaces.push_back(at > 0 ? numbersIn(edgeToFaces(at), maps.faces) : std::vector<int>{});
+                TopTools_ListOfShape ends;
+                TopoDS_Vertex v0, v1;
+                TopExp::Vertices(e, v0, v1);
+                if (!v0.IsNull()) ends.Append(v0);
+                if (!v1.IsNull()) ends.Append(v1);
+                out.edgeVertices.push_back(numbersIn(ends, maps.vertices));
+            }
+            for (int i = 1; i <= maps.vertices.Extent(); ++i) {
+                ElementInfo v;
+                v.geom = GeomKind::Point;
+                v.center = point(BRep_Tool::Pnt(TopoDS::Vertex(maps.vertices(i))));
+                out.vertices.push_back(v);
+            }
+        } catch (const Standard_Failure&) {
+            return {};  // a shape OCCT can't measure has no elements to offer
+        }
+        return out;
+    }
+
+    OpResult fillet(const ShapeHandle& h, const std::vector<int>& edges, double radius) override {
+        return blend<BRepFilletAPI_MakeFillet>(unwrap(h), edges, radius, "Fillet", "kernel.fillet");
+    }
+
+    OpResult chamfer(const ShapeHandle& h, const std::vector<int>& edges, double distance) override {
+        return blend<BRepFilletAPI_MakeChamfer>(unwrap(h), edges, distance, "Chamfer", "kernel.chamfer");
     }
 };
 
